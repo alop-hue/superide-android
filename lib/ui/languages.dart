@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:highlight/highlight.dart';
 import 'package:highlight/languages/arduino.dart';
 import 'package:highlight/languages/armasm.dart';
@@ -38,13 +40,14 @@ import 'package:highlight/languages/yaml.dart';
 class Language {
   final String name, extension, details, helloWorld;
   final Mode language;
-  Language({
-    required this.name,
-    required this.extension,
-    required this.details,
-    required this.language,
-    required this.helloWorld,
-  });
+  final dynamic icon;
+  Language(
+      {required this.name,
+      required this.extension,
+      required this.details,
+      required this.language,
+      required this.helloWorld,
+      this.icon});
 }
 
 List<Language> languages = [
@@ -93,7 +96,8 @@ List<Language> languages = [
     extension: 'html',
     details: 'The standard markup language for creating web pages.',
     language: xml,
-    helloWorld: '<!DOCTYPE html>\n\n<html>\n <head>\n  <h1>Hello World</h1>\n </head>\n</html>',
+    helloWorld:
+        '<!DOCTYPE html>\n\n<html>\n <head>\n  <h1>Hello World</h1>\n </head>\n</html>',
   ),
   Language(
     name: 'CSS',
@@ -278,14 +282,21 @@ List<Language> languages = [
     helloWorld: '(println "Hello, World!")',
   ),
   Language(
-    name: 'Arduino',
-    extension: 'ino',
-    details:
-        'Used to program Arduino microcontrollers for interactive devices.',
-    language: arduino,
-    helloWorld:
-        'void setup(){\n  Serial.begin(9600);\n} \n\nvoid loop(){\n  Serial.println("Hello, World!");\n  delay(1000);\n}',
-  ),
+      name: 'Arduino',
+      extension: 'ino',
+      details:
+          'Used to program Arduino microcontrollers for interactive devices.',
+      language: arduino,
+      helloWorld:
+          'void setup(){\n  Serial.begin(9600);\n} \n\nvoid loop(){\n  Serial.println("Hello, World!");\n  delay(1000);\n}',
+      icon: Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: SvgPicture.asset(
+          'assets/icons/file-type-arduino.svg',
+          height: 32.5,
+          width: 32.5,
+        ),
+      )),
   Language(
     name: 'x86 assembly',
     extension: 'asm',

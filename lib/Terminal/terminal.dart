@@ -29,7 +29,7 @@ class SetupTerminal extends StatelessWidget {
   Future<void> setupTerminal() async {
     final appPath = await NativeLibraryLoader.loadLibrary("libbash.so");
     final workDir = Directory(projectDir);
-    if (!workDir.existsSync()) {
+    if (!workDir.existsSync()){
       await workDir.create(recursive: true);
     }
     final enVars = <String, String>{

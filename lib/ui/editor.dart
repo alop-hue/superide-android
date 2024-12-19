@@ -1,14 +1,14 @@
 import 'package:code_text_field/code_text_field.dart';
 import 'package:flutter/material.dart';
-import 'package:highlight/highlight.dart';
+import 'package:vsdroid/ui/languages.dart';
 
 class CodeEditor extends StatelessWidget {
-  final Mode language;
+  final Language language;
   final Map<String, TextStyle> theme;
-  final String helloWorld;
-  late final CodeController _codeController;
-  CodeEditor({super.key, required this.language, required this.theme,required this.helloWorld}) {
-    _codeController = CodeController(language: language, text: helloWorld);
+  late final CodeController codeController;
+  CodeEditor({super.key, required this.language, required this.theme}) {
+    codeController =
+        CodeController(language: language.language, text: language.helloWorld);
   }
 
   @override
@@ -21,11 +21,15 @@ class CodeEditor extends StatelessWidget {
         textSelectionTheme: const TextSelectionThemeData(
             cursorColor: Color(0xff23a9f2),
             selectionColor: Color.fromARGB(112, 30, 134, 245)),
-        controller: _codeController,
+        controller: codeController,
         expands: true,
         maxLines: null,
         minLines: null,
       ),
     );
+  }
+
+  String code() {
+    return codeController.text;
   }
 }

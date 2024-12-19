@@ -34,7 +34,7 @@ class MenuScreen extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                   child: Card(
                     child: ListTile(
-                      leading:
+                      leading: languages[index].icon ??
                           FileIcon(".${languages[index].extension}", size: 45),
                       title: Padding(
                         padding: const EdgeInsets.only(left: 5),
@@ -44,8 +44,8 @@ class MenuScreen extends StatelessWidget {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => HomeScreen(
-                              language: languages[index].language,
-                              helloWorld: languages[index].helloWorld),
+                            language: languages[index],
+                          ),
                         ),
                       ),
                     ),
