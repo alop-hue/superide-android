@@ -3,6 +3,7 @@
 /windows
 /web
 /linux
+/test
 
 # Miscellaneous
 *.class
