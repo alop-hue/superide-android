@@ -76,9 +76,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
         environment: enVars,
         rows: terminal.viewHeight,
         columns: terminal.viewWidth);
-    pty.output.cast<List<int>>().transform(const Utf8Decoder()).listen((data) {
-      terminal.write(data);
-    });
+    pty.output
+        .cast<List<int>>()
+        .transform(const Utf8Decoder())
+        .listen(terminal.write);
     pty.exitCode.then((code) {
       terminal.write("[Program finished with exit code $code]");
     });
@@ -87,7 +88,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     };
   }
 
-/*   Future<bool> requestStorage() async {
+  Future<bool> requestStorage() async {
     final plugin = DeviceInfoPlugin();
     final android = await plugin.androidInfo;
     final status = await Permission.manageExternalStorage.status;
@@ -102,11 +103,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
 
     return status.isGranted;
-  } */
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<void>(
+    /* return FutureBuilder<void>(
       future: setupTerminal(),
       builder: (context, snapshot2) {
         if (snapshot2.connectionState == ConnectionState.waiting) {
@@ -117,8 +118,9 @@ class _SetupTerminalState extends State<SetupTerminal> {
         }
         return SizedBox(child: TerminalView(terminal));
       },
-    );
-/*     return FutureBuilder<bool>(
+    ); */
+
+    return FutureBuilder<bool>(
       future: requestStorage(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -141,7 +143,13 @@ class _SetupTerminalState extends State<SetupTerminal> {
             if (snapshot2.hasError) {
               print(snapshot2.error);
             }
-            return SizedBox(child: TerminalView(terminal));
+            return SizedBox(
+                child: TerminalView(
+              terminal,
+              controller: terminalController,
+              autofocus: true,
+              keyboardType: TextInputType.multiline,
+            ));
           },
         );
 
@@ -156,6 +164,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
         }
         return const Center(child: CircularProgressIndicator()); */
       },
-    ); */
+    );
   }
 }
