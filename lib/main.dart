@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:vsdroid/ui/menu_screen.dart';
-import 'package:vsdroid/ui/themes.dart';
+import 'package:vsdroid/ui/start_screen.dart';
+import 'package:vsdroid/utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +18,6 @@ class MainApp extends StatelessWidget {
             appBarTheme: appBarDark,
             listTileTheme: tileTheme,
             cardTheme: cardTheme),
-        home: const MenuScreen());
+        home: const StartScreen());
   }
 }

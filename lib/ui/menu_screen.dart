@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vsdroid/ui/home.dart';
-import 'package:vsdroid/ui/languages.dart';
+import 'package:vsdroid/utils/languages.dart';
 import 'package:file_icon/file_icon.dart';
 
 class MenuScreen extends StatelessWidget {

@@ -1,48 +1,34 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:vsdroid/utils/functions.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 
-class NativeLibraryLoader {
-  static const MethodChannel _channel = MethodChannel('com.vsdroid');
-
-  static Future<String> loadLibrary(String libName) async {
-    try {
-      final String result =
-          await _channel.invokeMethod('loadLibrary', {"libName": libName});
-      return result;
-    } on PlatformException catch (e) {
-      return "Failed to load library: ${e.message}";
-    }
-  }
-}
-
 class SetupTerminal extends StatelessWidget {
   final String projectDir;
-  SetupTerminal({super.key,this.projectDir="/data/data/com.vsdroid/files/home"});
+  SetupTerminal({super.key, required this.projectDir});
 
   final terminal = Terminal();
   final terminalController = TerminalController();
-
   Future<void> setupTerminal() async {
-    final appPath = await NativeLibraryLoader.loadLibrary("libbash.so");
+    final appPath = await NativeChannel.loadLibrary("libbash.so");
     final workDir = Directory(projectDir);
-    if (!workDir.existsSync()){
+    if (!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
     final enVars = <String, String>{
       'HOME': workDir.path,
-      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin'
+      'PS1': " \x1b[32m~ \x1b[0m\$ ",
+      'PATH':'/bin:/usr/bin:/sbin:/usr/sbin'
     };
 
-    _startPty(appPath, workDir.path, enVars);
+    _startPty(appPath, enVars);
   }
 
-  void _startPty(String execPath, String workDir, Map<String, String> enVars) {
+  void _startPty(String execPath, Map<String, String> enVars) {
     final pty = Pty.start(execPath,
-        workingDirectory: workDir,
+        workingDirectory: enVars['HOME'],
         environment: enVars,
         rows: terminal.viewHeight,
         columns: terminal.viewWidth);

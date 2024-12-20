@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vsdroid/Terminal/terminal.dart';
 import 'package:vsdroid/ui/editor.dart';
-import 'package:vsdroid/ui/languages.dart';
-import 'package:vsdroid/ui/themes.dart';
+import 'package:vsdroid/utils/languages.dart';
+import 'package:vsdroid/utils/themes.dart';
 import 'package:vsdroid/utils/functions.dart';
 
 class HomeScreen extends StatelessWidget {
   final Language language;
   const HomeScreen({super.key, required this.language});
+  static const platform = MethodChannel("com.vsdroid");
 
   @override
   Widget build(BuildContext context) {
+    final codeEditor =
+        CodeEditor(language: language, theme: highlightThemes['atom-one-dark']);
     return FutureBuilder(
       future: setTempFile(language.extension),
       builder: (context, snapshot) {
@@ -19,7 +23,6 @@ class HomeScreen extends StatelessWidget {
           const Center(child: CircularProgressIndicator());
         }
         final target = snapshot.data;
-        final codeEditor = CodeEditor(language: language, theme: highlightThemes['atom-one-dark']);
         return Scaffold(
           drawer: Drawer(
             backgroundColor: const Color(0xff181818),
@@ -62,16 +65,20 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             actions: [
               IconButton(
+                onPressed: () async {
+                  await target!.writeAsString(codeEditor.code());
+                  if (context.mounted) {
+                    await NativeChannel.runOnTermux(language, target.path, context);
+                  }
+                },
+                icon: const Icon(Icons.play_arrow)
+              ),
+              IconButton(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => SetupTerminal()));
+                        builder: (context) => SetupTerminal(projectDir: "/storage/emulated/0/VSdroid/Temps")));
                   },
-                  icon: const Icon(Icons.terminal, color: Color(0xff717171))),
-              IconButton(
-                  onPressed: () async {
-                    await target!.writeAsString(codeEditor.code());
-                  },
-                  icon: const Icon(Icons.play_arrow))
+                  icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
           ),
           body: codeEditor,
