@@ -113,10 +113,9 @@ final Map<String, dynamic> highlightThemes = {
 
 const appBarDark = AppBarTheme(
     backgroundColor: Color(0xff181818),
-    iconTheme: IconThemeData(color: Color(0xff6d6d6d)));
+    iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));
 
 const tileTheme = ListTileThemeData(
-    // dense: true,
     titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
     subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d)));
 

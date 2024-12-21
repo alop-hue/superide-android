@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vsdroid/ui/menu_screen.dart';
+import 'package:vsdroid/ui/select.dart';
 import 'package:vsdroid/utils/functions.dart';
 
 class StartScreen extends StatelessWidget {
@@ -15,14 +15,9 @@ class StartScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const MenuScreen()));
+            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SelectType()));
           });
-          return AlertDialog(
-            title: const Text('Permission required',style: TextStyle(color: Colors.white)),
-            icon: const Icon(Icons.warning_amber),
-            iconColor: Colors.red[600],
-            backgroundColor: const Color(0xff181818),
-          );
+          return const Center(child: CircularProgressIndicator());
         },
       ),
     );

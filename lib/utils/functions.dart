@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -32,22 +33,69 @@ Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
   if (dir.existsSync()) {
-    final target = File('/storage/emulated/0/Temps/tempCode.$extension');
+    final target =
+        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
     }
   }
-  return File('/storage/emulated/0/Temps/tempCode.$extension');
+  return File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
 }
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
     {Color color = const Color(0xff6d6d6d)}) {
   if (icon.runtimeType == IconData) {
-    return IconButton(
-        onPressed: onPressed, icon: Icon(icon, color: color, size: 38));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 15),
+      child: IconButton(
+          onPressed: onPressed, icon: Icon(icon, color: color, size: 38)),
+    );
   }
-  return IconButton(onPressed: onPressed, icon: icon);
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 15),
+    child: IconButton(onPressed: onPressed, icon: icon),
+  );
+}
+
+Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,
+    {double val = 0}) {
+  return Padding(
+    padding: const EdgeInsets.only(left: 15),
+    child: ListTile(
+      onTap: onPressed,
+      title: Text(text,
+          style: const TextStyle(
+              color: Color.fromARGB(255, 118, 180, 234),
+              fontWeight: FontWeight.w300)),
+      leading: Padding(
+        child: icon,
+        padding: EdgeInsets.only(left: val),
+      ),
+      iconColor: const Color(0xff5090c8),
+    ),
+  );
+}
+
+Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
+  return ListTile(onTap: onPressed, title: Text(title), leading: icon);
+}
+
+Future<File?> pickFiles() async {
+  FilePickerResult? result = await FilePicker.platform.pickFiles();
+  if (result != null) {
+    File file = File(result.files.single.path!);
+    return file;
+  }
+  return null;
+}
+
+Future<String?> pickDir() async {
+  String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+  if (selectedDirectory != null) {
+    return selectedDirectory;
+  }
+  return null;
 }
 
 class NativeChannel {
@@ -63,15 +111,17 @@ class NativeChannel {
     }
   }
 
-  static Future<void> runOnTermux(
+  static Future<void> sendCommand(
       Language language, String filePath, BuildContext context) async {
     if (language.command == null) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xff181818),
-          title: const Text("Not executable"),
-          content: const Text("This language is not executable on termux"),
+          title: const Text("Not executable",
+              style: TextStyle(color: Colors.white)),
+          content: const Text("This language is not executable on termux",
+              style: TextStyle(color: Colors.white)),
           icon: const Icon(Icons.warning_amber_outlined),
           iconColor: Colors.orange[300],
         ),
@@ -80,6 +130,14 @@ class NativeChannel {
     await _channel.invokeMethod('sendCommand', {
       "fileName": filePath,
       "languageCommand": language.command,
+    });
+  }
+
+  static Future<void> sendOperations(
+      String operation, List<String> args) async {
+    await _channel.invokeMethod("sendOperations", {
+      "operation": operation,
+      "arguments": args,
     });
   }
 }

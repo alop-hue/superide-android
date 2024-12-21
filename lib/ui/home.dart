@@ -29,8 +29,8 @@ class HomeScreen extends StatelessWidget {
             child: Row(
               children: [
                 Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
+                    const SizedBox(height: 25),
                     drawerButtons(() {}, Icons.file_copy_outlined),
                     drawerButtons(() {}, Icons.search),
                     drawerButtons(
@@ -65,18 +65,18 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             actions: [
               IconButton(
-                onPressed: () async {
-                  await target!.writeAsString(codeEditor.code());
-                  if (context.mounted) {
-                    await NativeChannel.runOnTermux(language, target.path, context);
-                  }
-                },
-                icon: const Icon(Icons.play_arrow)
-              ),
+                  onPressed: () async {
+                    await target!.writeAsString(codeEditor.code());
+                    if (context.mounted) {
+                      await NativeChannel.sendCommand(language, target.path, context);
+                    }
+                  },
+                  icon: const Icon(Icons.play_arrow)),
               IconButton(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => SetupTerminal(projectDir: "/storage/emulated/0/VSdroid/Temps")));
+                        builder: (context) => SetupTerminal(
+                            projectDir: "/storage/emulated/0/VSdroid/Temps")));
                   },
                   icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
