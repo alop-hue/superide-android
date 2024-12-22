@@ -27,6 +27,7 @@ Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
   return Column(
     children: [
       ListTile(
+        dense: true,
         onTap: onPressed,
         leading: icon,
         title: Text(title,

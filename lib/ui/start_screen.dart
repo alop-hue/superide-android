@@ -15,7 +15,7 @@ class StartScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => SelectType()));
+            Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const SelectType()));
           });
           return const Center(child: CircularProgressIndicator());
         },

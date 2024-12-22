@@ -5,12 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:vsdroid/utils/languages.dart';
 
-Future<bool> getPermission() async {
+Future<void> getPermission() async {
   final externalStatus = await Permission.manageExternalStorage.status;
   if (!externalStatus.isGranted) {
     await Permission.manageExternalStorage.request();
   }
-  return await Permission.manageExternalStorage.status.isGranted;
 }
 
 Future<Directory> setupProjectDir() async {
@@ -94,6 +93,37 @@ Future<String?> pickDir() async {
   String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
   if (selectedDirectory != null) {
     return selectedDirectory;
+  }
+  return null;
+}
+
+Future<File?> createFile(String filename, BuildContext context) async {
+  await getPermission();
+  final fileDir = Directory("/sdcard/VSdroid/files");
+  if (!fileDir.existsSync()) {
+    await fileDir.create(recursive: true);
+  }
+  final file = File("/sdcard/VSdroid/files/$filename");
+  if (!file.existsSync()) {
+    try {
+      await file.create(recursive: true);
+      return file;
+    } catch (e) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            content: Text(e.toString()),
+            title: const Text("Failed to open file",
+                style:
+                    TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+            backgroundColor: const Color(0xff2b2b2b),
+            icon: const Icon(Icons.error_outline),
+            iconColor: Colors.red[600],
+          ),
+        );
+      }
+    }
   }
   return null;
 }

@@ -1,20 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:highlight/highlight.dart';
+import 'package:highlight/languages/abnf.dart';
+import 'package:highlight/languages/accesslog.dart';
+import 'package:highlight/languages/ada.dart';
+import 'package:highlight/languages/angelscript.dart';
 import 'package:highlight/languages/arduino.dart';
 import 'package:highlight/languages/armasm.dart';
 import 'package:highlight/languages/avrasm.dart';
+import 'package:highlight/languages/awk.dart';
 import 'package:highlight/languages/bash.dart';
+import 'package:highlight/languages/brainfuck.dart';
+import 'package:highlight/languages/cmake.dart';
 import 'package:highlight/languages/cs.dart';
 import 'package:highlight/languages/clojure.dart';
 import 'package:highlight/languages/coffeescript.dart';
 import 'package:highlight/languages/cpp.dart';
 import 'package:highlight/languages/css.dart';
+import 'package:highlight/languages/d.dart';
 import 'package:highlight/languages/dart.dart';
 import 'package:highlight/languages/elixir.dart';
+import 'package:highlight/languages/erlang.dart';
+import 'package:highlight/languages/fortran.dart';
 import 'package:highlight/languages/fsharp.dart';
 import 'package:highlight/languages/go.dart';
+import 'package:highlight/languages/gradle.dart';
+import 'package:highlight/languages/groovy.dart';
 import 'package:highlight/languages/haskell.dart';
+import 'package:highlight/languages/julia.dart';
+import 'package:highlight/languages/lisp.dart';
 import 'package:highlight/languages/xml.dart';
 import 'package:highlight/languages/java.dart';
 import 'package:highlight/languages/javascript.dart';
@@ -37,71 +51,76 @@ import 'package:highlight/languages/typescript.dart';
 import 'package:highlight/languages/x86asm.dart';
 import 'package:highlight/languages/yaml.dart';
 
+final txt = Mode();
+
 class Language {
   final String name, extension, details, helloWorld;
-  final Mode language;
+  final Mode? language;
   final dynamic icon;
-  final String? command,type;
-  Language({
-      required this.name,
+  final String? command, type;
+  Language(
+      {required this.name,
       required this.extension,
       required this.details,
       required this.language,
       required this.helloWorld,
       this.icon,
       this.command,
-      this.type
-      });
+      this.type});
 }
 
 List<Language> languages = [
   Language(
-    name: 'Python',
-    extension: 'py',
-    details: 'A popular language known for simplicity and versatility.',
-    language: python,
-    helloWorld: 'print("Hello, World!")',
-    command: 'python',
-    type: 'interpreted'
-  ),
+      name: 'Text File',
+      extension: 'txt',
+      details: 'A normal text file.',
+      language: txt,
+      helloWorld: 'Hello World',),
   Language(
-    name: 'Javascript',
-    extension: 'js',
-    details: 'A versatile scripting language for dynamic web development.',
-    language: javascript,
-    helloWorld: 'console.log("Hello, World!");',
-    command: 'node',
-    type: 'interpreted'
-  ),
+      name: 'Python',
+      extension: 'py',
+      details: 'A popular language known for simplicity and versatility.',
+      language: python,
+      helloWorld: 'print("Hello, World!")',
+      command: 'python',
+      type: 'interpreted'),
   Language(
-    name: 'Java',
-    extension: 'java',
-    details: 'A platform-independent language for enterprise and web apps.',
-    language: java,
-    helloWorld:'public class HelloWorld{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
-    command: 'javac',
-    type: 'compiled'
-  ),
+      name: 'Javascript',
+      extension: 'js',
+      details: 'A versatile scripting language for dynamic web development.',
+      language: javascript,
+      helloWorld: 'console.log("Hello, World!");',
+      command: 'node',
+      type: 'interpreted'),
   Language(
-    name: 'C',
-    extension: 'c',
-    details:'A powerful, low-level language widely used in system programming.',
-    language: cpp,
-    helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
-    command: 'gcc',
-    type: 'compiled'
-  ),
+      name: 'Java',
+      extension: 'java',
+      details: 'A platform-independent language for enterprise and web apps.',
+      language: java,
+      helloWorld:
+          'public class HelloWorld{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
+      command: 'javac',
+      type: 'compiled'),
   Language(
-    name: 'C++',
-    extension: 'cpp',
-    details:
-        'A high-performance language used for system programming and games.',
-    language: cpp,
-    helloWorld:
-        '#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
-    command: 'g++',
-    type: 'compiled'
-  ),
+      name: 'C',
+      extension: 'c',
+      details:
+          'A powerful, low-level language widely used in system programming.',
+      language: cpp,
+      helloWorld:
+          '#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
+      command: 'gcc',
+      type: 'compiled'),
+  Language(
+      name: 'C++',
+      extension: 'cpp',
+      details:
+          'A high-performance language used for system programming and games.',
+      language: cpp,
+      helloWorld:
+          '#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
+      command: 'g++',
+      type: 'compiled'),
   Language(
     name: 'HTML',
     extension: 'html',
@@ -117,22 +136,20 @@ List<Language> languages = [
     helloWorld: '/* Hello, World! */',
   ),
   Language(
-    name: 'Typescript',
-    extension: 'ts',
-    details: 'A statically typed superset of JavaScript.',
-    language: typescript,
-    helloWorld: 'console.log("Hello, World!");',
-    command: 'ts-node',
-    type: 'interpreted'
-  ),
+      name: 'Typescript',
+      extension: 'ts',
+      details: 'A statically typed superset of JavaScript.',
+      language: typescript,
+      helloWorld: 'console.log("Hello, World!");',
+      command: 'ts-node',
+      type: 'interpreted'),
   Language(
-    name: 'PHP',
-    extension: 'php',
-    details: 'A server-side language for dynamic web development.',
-    language: php,
-    helloWorld: '<?php echo "Hello, World!"; ?>',
-    command: 'php'
-  ),
+      name: 'PHP',
+      extension: 'php',
+      details: 'A server-side language for dynamic web development.',
+      language: php,
+      helloWorld: '<?php echo "Hello, World!"; ?>',
+      command: 'php'),
   Language(
     name: 'SQL',
     extension: 'sql',
@@ -143,73 +160,68 @@ List<Language> languages = [
   Language(
     name: 'XML',
     extension: 'xml',
-    details: 'Markup language primarily used to store and transport structured data.',
+    details:
+        'Markup language primarily used to store and transport structured data.',
     language: xml,
-    helloWorld: '<catalog>\n <book id="1">\n  <title>Learning XML</title>\n  <author>John Doe</author>\n  <price>29.99</price>\n </book>\n</catalog>',
+    helloWorld:
+        '<catalog>\n <book id="1">\n  <title>Learning XML</title>\n  <author>John Doe</author>\n  <price>29.99</price>\n </book>\n</catalog>',
   ),
   Language(
-    name: 'Swift',
-    extension: 'swift',
-    details: 'Apple\'s language for iOS and macOS apps.',
-    language: swift,
-    helloWorld: 'print("Hello, World!")',
-    command: 'swift',
-    type: 'compiled'
-  ),
+      name: 'Swift',
+      extension: 'swift',
+      details: 'Apple\'s language for iOS and macOS apps.',
+      language: swift,
+      helloWorld: 'print("Hello, World!")',
+      command: 'swift',
+      type: 'compiled'),
   Language(
-    name: 'Kotlin',
-    extension: 'kt',
-    details: 'Modern JVM language, popular for Android development.',
-    language: kotlin,
-    helloWorld: 'fun main(){\n println("Hello, World!")\n}',
-    command: 'kotlinc',
-    type: 'compiled'
-  ),
+      name: 'Kotlin',
+      extension: 'kt',
+      details: 'Modern JVM language, popular for Android development.',
+      language: kotlin,
+      helloWorld: 'fun main(){\n println("Hello, World!")\n}',
+      command: 'kotlinc',
+      type: 'compiled'),
   Language(
-    name: 'C#',
-    extension: 'cs',
-    details: 'A modern, object-oriented language for Windows apps and games.',
-    language: cs,
-    helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
-    command: 'csc',
-    type: 'compiled'
-  ),
+      name: 'C#',
+      extension: 'cs',
+      details: 'A modern, object-oriented language for Windows apps and games.',
+      language: cs,
+      helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
+      command: 'csc',
+      type: 'compiled'),
   Language(
-    name: 'Rust',
-    extension: 'rs',
-    details: 'Focused on performance, safety, and concurrency.',
-    language: rust,
-    helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
-    command: 'rustc',
-    type: 'compiled'
-  ),
+      name: 'Rust',
+      extension: 'rs',
+      details: 'Focused on performance, safety, and concurrency.',
+      language: rust,
+      helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
+      command: 'rustc',
+      type: 'compiled'),
   Language(
-    name: 'Go',
-    extension: 'go',
-    details:'Known for simplicity and performance, ideal for concurrent programming.',
-    language: go,
-    helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
-    command: 'go run',
-    type: 'compiled'
-  ),
+      name: 'Go',
+      extension: 'go',
+      details:'Known for simplicity and performance, ideal for concurrent programming.',
+      language: go,
+      helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
+      command: 'go run',
+      type: 'compiled'),
   Language(
-    name: 'Ruby',
-    extension: 'rb',
-    details: 'Dynamic language, often used with the Rails framework.',
-    language: ruby,
-    helloWorld: 'puts "Hello, World!"',
-    command: 'ruby',
-    type: 'compiled'
-  ),
+      name: 'Ruby',
+      extension: 'rb',
+      details: 'Dynamic language, often used with the Rails framework.',
+      language: ruby,
+      helloWorld: 'puts "Hello, World!"',
+      command: 'ruby',
+      type: 'compiled'),
   Language(
-    name: 'Dart',
-    extension: 'dart',
-    details:'Optimized for building fast, multi-platform apps, often with Flutter.',
-    language: dart,
-    helloWorld: 'void main(){\n print("Hello, World!");\n}',
-    command: 'dart',
-    type: 'compiled'
-  ),
+      name: 'Dart',
+      extension: 'dart',
+      details:'Optimized for building fast, multi-platform apps, often with Flutter.',
+      language: dart,
+      helloWorld: 'void main(){\n print("Hello, World!");\n}',
+      command: 'dart',
+      type: 'compiled'),
   Language(
     name: 'Json',
     extension: 'json',
@@ -232,37 +244,36 @@ List<Language> languages = [
     helloWorld: '# Hello, World!',
   ),
   Language(
-    name: 'R',
-    extension: 'r',
-    details: 'Used for statistical computing and data visualization.',
-    language: r,
-    helloWorld: 'cat("Hello, World!")',
-    type: 'interpreted'
-  ),
+      name: 'R',
+      extension: 'r',
+      details: 'Used for statistical computing and data visualization.',
+      language: r,
+      helloWorld: 'cat("Hello, World!")',
+      type: 'interpreted'),
   Language(
     name: 'Scala',
     extension: 'scala',
     details: 'Combines functional and object-oriented programming.',
     language: scala,
-    helloWorld:'object Hello{\n def main(args: Array[String]) = { println("Hello, World!") } \n}',
+    helloWorld:
+        'object Hello{\n def main(args: Array[String]) = { println("Hello, World!") } \n}',
   ),
   Language(
-    name: 'Lua',
-    extension: 'lua',
-    details: 'A lightweight scripting language often used in game development.',
-    language: lua,
-    helloWorld: 'print("Hello, World!")',
-    type: 'compiled'
-  ),
+      name: 'Lua',
+      extension: 'lua',
+      details:
+          'A lightweight scripting language often used in game development.',
+      language: lua,
+      helloWorld: 'print("Hello, World!")',
+      type: 'compiled'),
   Language(
-    name: 'Bash',
-    extension: 'sh',
-    details: 'A shell scripting language for automating Unix-based tasks.',
-    language: bash,
-    helloWorld: 'echo "Hello, World!"',
-    command: 'bash',
-    type: 'interpreted'
-  ),
+      name: 'Bash',
+      extension: 'sh',
+      details: 'A shell scripting language for automating Unix-based tasks.',
+      language: bash,
+      helloWorld: 'echo "Hello, World!"',
+      command: 'bash',
+      type: 'interpreted'),
   Language(
     name: 'Haskell',
     extension: 'hs',
@@ -271,38 +282,35 @@ List<Language> languages = [
     helloWorld: 'main = putStrLn "Hello, World!"',
   ),
   Language(
-    name: 'Elixir',
-    extension: 'ex',
-    details: 'A functional language for building scalable applications.',
-    language: elixir,
-    helloWorld: 'IO.puts "Hello, World!"',
-    command: 'elixir'
-  ),
+      name: 'Elixir',
+      extension: 'ex',
+      details: 'A functional language for building scalable applications.',
+      language: elixir,
+      helloWorld: 'IO.puts "Hello, World!"',
+      command: 'elixir'),
   Language(
-    name: 'Objective C',
-    extension: 'm',
-    details: 'Used for macOS and iOS development.',
-    language: objectivec,
-    helloWorld:'#import <Foundation/Foundation.h> \nint main() {\n NSLog(@"Hello, World!");\n return 0;\n}',
-    command: 'gcc',
-    type: 'compiled'
-  ),
+      name: 'Objective C',
+      extension: 'm',
+      details: 'Used for macOS and iOS development.',
+      language: objectivec,
+      helloWorld:
+          '#import <Foundation/Foundation.h> \nint main() {\n NSLog(@"Hello, World!");\n return 0;\n}',
+      command: 'gcc',
+      type: 'compiled'),
   Language(
-    name: 'Fsharp',
-    extension: 'fs',
-    details: 'A functional-first language for .NET applications.',
-    language: fsharp,
-    helloWorld: 'printfn "Hello, World!"',
-    command: 'mono'
-  ),
+      name: 'Fsharp',
+      extension: 'fs',
+      details: 'A functional-first language for .NET applications.',
+      language: fsharp,
+      helloWorld: 'printfn "Hello, World!"',
+      command: 'mono'),
   Language(
-    name: 'Perl',
-    extension: 'pl',
-    details: 'Known for text processing and system scripting.',
-    language: perl,
-    helloWorld: 'print "Hello, World!";',
-    command:'perl'
-  ),
+      name: 'Perl',
+      extension: 'pl',
+      details: 'Known for text processing and system scripting.',
+      language: perl,
+      helloWorld: 'print "Hello, World!";',
+      command: 'perl'),
   Language(
     name: 'SCSS',
     extension: 'scss',
@@ -311,14 +319,13 @@ List<Language> languages = [
     helloWorld: '/* Hello, World! */',
   ),
   Language(
-    name: 'Clojure',
-    extension: 'clj',
-    details:
-        'A functional language running on the JVM, known for immutability.',
-    language: clojure,
-    helloWorld: '(println "Hello, World!")',
-    command: 'lein run'
-  ),
+      name: 'Clojure',
+      extension: 'clj',
+      details:
+          'A functional language running on the JVM, known for immutability.',
+      language: clojure,
+      helloWorld: '(println "Hello, World!")',
+      command: 'lein run'),
   Language(
       name: 'Arduino',
       extension: 'ino',
@@ -361,12 +368,110 @@ List<Language> languages = [
         '.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldi r16, low(msg) \nout 0x20, r16 \nldi r16, high(msg) \nout 0x21, r16',
   ),
   Language(
-    name: 'Coffeescript',
-    extension: 'coffee',
-    details: 'Compiles to JavaScript, offering a cleaner syntax.',
-    language: coffeescript,
-    helloWorld: 'console.log "Hello, World!"',
-    command: 'coffee',
-    type: 'interpreted'
+      name: 'Coffeescript',
+      extension: 'coffee',
+      details: 'Compiles to JavaScript, offering a cleaner syntax.',
+      language: coffeescript,
+      helloWorld: 'console.log "Hello, World!"',
+      command: 'coffee',
+      type: 'interpreted'),
+  Language(
+    name: 'ABNF',
+    extension: 'abnf',
+    details: 'Augmented Backus-Naur Form, a metalanguage for describing syntax.',
+    language: abnf,
+    helloWorld: '; Hello World in ABNF',
   ),
+  Language(
+    name: 'Access Log',
+    extension: 'log',
+    details: 'Common format for logging web server requests.',
+    language: accesslog,
+    helloWorld: '# Placeholder for Hello, World!',
+  ),
+  Language(
+    name: 'Ada',
+    extension: 'ada',
+    details: 'A structured, statically typed, high-level language.',
+    language: ada,
+    helloWorld: 'with Ada.Text_IO; use Ada.Text_IO;\nbegin\n  Put_Line("Hello, World!");\nend;',
+  ),
+  Language(
+    name: 'AngelScript',
+    extension: 'as',
+    details: 'A scripting language designed for game development.',
+    language: angelscript,
+    helloWorld: 'Print("Hello, World!");',
+  ),
+  Language(
+    name: 'AWK',
+    extension: 'awk',
+    details: 'A programming language for pattern scanning and processing.',
+    language: awk,
+    helloWorld: 'BEGIN { print "Hello, World!" }',
+  ),
+  Language(
+    name: 'Brainfuck',
+    extension: 'bf',
+    details: 'A minimalist, esoteric programming language.',
+    language: brainfuck,
+    helloWorld: '++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+<<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.',
+  ),
+  Language(
+    name: 'CMake',
+    extension: 'cmake',
+    details: 'Cross-platform build system.',
+    language: cmake,
+    helloWorld: '# Placeholder for Hello, World!',
+  ),
+  Language(
+    name: 'D',
+    extension: 'd',
+    details: 'A system programming language with C-like syntax and features.',
+    language: d,
+    helloWorld: 'import std.stdio; void main() { writeln("Hello, World!"); }',
+  ),
+    Language(
+    name: 'Erlang',
+    extension: 'erl',
+    details: 'A language for building scalable, fault-tolerant systems.',
+    language: erlang,
+    helloWorld: 'io:format("Hello, World!~n").',
+  ),
+  Language(
+    name: 'Fortran',
+    extension: 'f90',
+    details: 'A language for numerical and scientific computing.',
+    language: fortran,
+    helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
+  ),
+  Language(
+    name: 'Gradle',
+    extension: 'gradle',
+    details: 'Configuration file used for Android development.',
+    language: gradle,
+    helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
+  ),
+  Language(
+    name: 'Groovy',
+    extension: 'groovy',
+    details: 'A language for the JVM with dynamic and static features.',
+    language: groovy,
+    helloWorld: 'println "Hello, World!"',
+  ),
+  Language(
+    name: 'Julia',
+    extension: 'jl',
+    details: 'A high-performance language for technical computing.',
+    language: julia,
+    helloWorld: 'println("Hello, World!")',
+  ),
+    Language(
+    name: 'Lisp',
+    extension: 'lisp',
+    details: 'A family of functional, symbolic programming languages.',
+    language: lisp,
+    helloWorld: '(print "Hello, World!")',
+  ),
+
 ];

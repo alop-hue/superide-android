@@ -15,15 +15,16 @@ class MenuScreen extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: TextField(
-                cursorColor: Color(0xff6d6d6d),
-                decoration: InputDecoration(
-                    hintText: "Search language",
-                    prefixIcon: Icon(Icons.search),
-                    focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xff0178b9)),
-                        borderRadius: BorderRadius.all(Radius.circular(35))),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(35))))),
+              style: TextStyle(color: Colors.grey),
+              cursorColor: Color(0xff6d6d6d),
+              decoration: InputDecoration(
+                  hintText: "Search language",
+                  prefixIcon: Icon(Icons.search),
+                  focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xff0178b9)),
+                      borderRadius: BorderRadius.all(Radius.circular(35))),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(35))))),
           ),
           Expanded(
             child: ListView.builder(
@@ -44,7 +45,7 @@ class MenuScreen extends StatelessWidget {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => HomeScreen(
-                            language: languages[index],
+                            languageDetails: languages[index],
                           ),
                         ),
                       ),

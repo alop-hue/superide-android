@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,16 +9,20 @@ import 'package:vsdroid/utils/themes.dart';
 import 'package:vsdroid/utils/functions.dart';
 
 class HomeScreen extends StatelessWidget {
-  final Language language;
-  const HomeScreen({super.key, required this.language});
+  final Language languageDetails;
+  final File? filePath;
+  const HomeScreen({super.key, required this.languageDetails, this.filePath});
   static const platform = MethodChannel("com.vsdroid");
 
   @override
   Widget build(BuildContext context) {
-    final codeEditor =
-        CodeEditor(language: language, theme: highlightThemes['atom-one-dark']);
+    final codeEditor = CodeEditor(
+        language: languageDetails,
+        theme: highlightThemes['atom-one-dark'],
+        isTemplate: filePath == null,
+        filePath: filePath);
     return FutureBuilder(
-      future: setTempFile(language.extension),
+      future: setTempFile(languageDetails.extension),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           const Center(child: CircularProgressIndicator());
@@ -63,12 +68,16 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           appBar: AppBar(
+            title: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Text(filePath == null? "tempCode.${languageDetails.extension}": filePath!.path,style: const TextStyle(color: Colors.white))),
             actions: [
               IconButton(
                   onPressed: () async {
                     await target!.writeAsString(codeEditor.code());
                     if (context.mounted) {
-                      await NativeChannel.sendCommand(language, target.path, context);
+                      await NativeChannel.sendCommand(
+                          languageDetails, target.path, context);
                     }
                   },
                   icon: const Icon(Icons.play_arrow)),
@@ -81,7 +90,10 @@ class HomeScreen extends StatelessWidget {
                   icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
           ),
-          body: codeEditor,
+          body: InteractiveViewer(
+            minScale: 0.1,
+            child: codeEditor,
+          ),
         );
       },
     );

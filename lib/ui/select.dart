@@ -1,21 +1,44 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/ui/home.dart';
 import 'package:vsdroid/ui/menu_screen.dart';
 import 'package:vsdroid/ui/settings.dart';
 import 'package:vsdroid/utils/functions.dart';
+import 'package:vsdroid/utils/languages.dart';
+import 'package:path/path.dart' as path;
 
-class SelectType extends StatelessWidget {
-  SelectType({super.key});
+class SelectType extends StatefulWidget {
+  const SelectType({super.key});
 
+  @override
+  State<SelectType> createState() => _SelectTypeState();
+}
+
+class _SelectTypeState extends State<SelectType> {
   final createFileController = TextEditingController();
+  final _createFileKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    createFileController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       drawer: Drawer(
         backgroundColor: const Color.fromARGB(255, 34, 34, 34),
         child: ListView(
           children: [
+            drawerTile(
+                () {},
+                "Setup Termux",
+                SvgPicture.asset('assets/icons/Termux.svg',
+                    height: 28, width: 28)),
             drawerTile(() {
               Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const Settings()));
@@ -51,7 +74,14 @@ class SelectType extends StatelessWidget {
           ],
         ),
       ),
-      appBar: AppBar(backgroundColor: Colors.transparent),
+      appBar: AppBar(backgroundColor: Colors.transparent, actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: IconButton(
+              onPressed: () {},
+              icon: const Icon(FontAwesomeIcons.github, color: Colors.grey)),
+        )
+      ]),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -66,37 +96,101 @@ class SelectType extends StatelessWidget {
           fileTiles(() {
             showDialog(
                 context: context,
-                builder: (context) => Dialog(
-                      child: Card(
-                        child: Column(
-                          children: [
-                            const Text("Create New File"),
-                            const Icon(FontAwesomeIcons.fileCirclePlus),
-                            TextField(
-                              controller:createFileController,
-                              decoration: const InputDecoration(
-                              hintText: "Filename.extension",
+                builder: (context) => AlertDialog(
+                      icon: const Icon(FontAwesomeIcons.fileCirclePlus),
+                      iconColor: Colors.grey,
+                      backgroundColor: const Color(0xff2b2b2b),
+                      title: const Text("Create a new file",
+                          style: TextStyle(color: Colors.grey)),
+                      content: Form(
+                        key: _createFileKey,
+                        child: TextFormField(
+                          style: const TextStyle(color: Colors.grey),
+                          cursorColor: Colors.grey,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Please enter a valid filename";
+                            }
+                            return null;
+                          },
+                          controller: createFileController,
+                          decoration: const InputDecoration(
+                              hintStyle: TextStyle(color: Colors.grey),
+                              hintText: " filename.ext",
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(25)),
+                                  borderSide:
+                                      BorderSide(color: Color(0xff5090c8))),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(25))
-                          )
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(25)))),
                         ),
                       ),
-                            Row(
-                              children: [
-                                ElevatedButton(onPressed: ()async{
-
-                                }, child: const Text("OK"))
-                              ],
-                            )
-                          ],
-                        ),
-                      ),
+                      actions: [
+                        ElevatedButton(
+                            onPressed: () async {
+                              _createFileKey.currentState!.validate();
+                              if (createFileController.text.isNotEmpty) {
+                                final file = await createFile(
+                                    createFileController.text, context);
+                                if (context.mounted && file != null) {
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                      builder: (context) => HomeScreen(
+                                            languageDetails: languages
+                                                .firstWhere((language) =>
+                                                    language.extension ==
+                                                    path
+                                                        .extension(file.path)
+                                                        .replaceFirst(".", "")),
+                                            filePath: file,
+                                          )));
+                                }
+                              }
+                            },
+                            child: const Text("OK"))
+                      ],
                     ));
           }, "New File...", const Icon(FontAwesomeIcons.fileCirclePlus)),
-          fileTiles(
-              () {}, "Open File...", const Icon(FontAwesomeIcons.fileImport)),
-          fileTiles(
-              () {}, "Open Folder...", const Icon(FontAwesomeIcons.folderOpen)),
+          fileTiles(() async {
+            await getPermission();
+            final file = await pickFiles();
+            if (context.mounted) {
+              if (file != null) {
+                final language = languages.firstWhere(
+                    (language) =>language.extension ==path.extension(file.path).replaceFirst(".", ""),
+                    orElse: () => languages[0]);
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => HomeScreen(
+                          languageDetails: language, filePath: file)));
+              } else {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Failed to open file",
+                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                    backgroundColor: const Color(0xff2b2b2b),
+                    icon: const Icon(Icons.error_outline),
+                    iconColor: Colors.red[600],
+                    actionsAlignment: MainAxisAlignment.center,
+                      actions: [
+                        ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text("OK"))
+                      ],
+                  ),
+                );
+              }
+            }
+          }, "Open File...", const Icon(FontAwesomeIcons.fileImport)),
+          fileTiles(() async {
+            final dir = await pickDir();
+            if (dir != null) {
+              if (Directory(dir).existsSync()) {}
+            }
+          }, "Open Folder...", const Icon(FontAwesomeIcons.folderOpen)),
           fileTiles(
               () {},
               val: 4,
@@ -105,8 +199,7 @@ class SelectType extends StatelessWidget {
                 'assets/icons/code-branch-solid.svg',
                 height: 28,
                 width: 28,
-                colorFilter:
-                    const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
+                colorFilter:const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
               )),
           const SizedBox(height: 30),
           Align(
@@ -129,9 +222,7 @@ class SelectType extends StatelessWidget {
                                 color: Color.fromARGB(255, 193, 193, 193)),
                             SizedBox(width: 12.5),
                             Text("New Project",
-                                style: TextStyle(
-                                    fontSize: 16.5,
-                                    color: Color.fromARGB(255, 193, 193, 193))),
+                                style: TextStyle(fontSize: 16.5,color: Color.fromARGB(255, 193, 193, 193))),
                           ],
                         ),
                       ),
