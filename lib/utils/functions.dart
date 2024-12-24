@@ -32,8 +32,7 @@ Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
   if (dir.existsSync()) {
-    final target =
-        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    final target =File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
@@ -43,12 +42,15 @@ Future<File> setTempFile(String extension) async {
 }
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-    {Color color = const Color(0xff6d6d6d)}) {
+    {Color color = const Color(0xff6d6d6d),Color bgColor = Colors.transparent}) {
   if (icon.runtimeType == IconData) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 15),
-      child: IconButton(
-          onPressed: onPressed, icon: Icon(icon, color: color, size: 38)),
+      child: Container(
+        color:bgColor,
+        child: IconButton(
+            onPressed: onPressed, icon: Icon(icon, color: color, size: 38)),
+      ),
     );
   }
   return Padding(
@@ -133,8 +135,7 @@ class NativeChannel {
 
   static Future<String> loadLibrary(String libName) async {
     try {
-      final String result =
-          await _channel.invokeMethod('loadLibrary', {"libName": libName});
+      final String result =await _channel.invokeMethod('loadLibrary', {"libName": libName});
       return result;
     } on PlatformException catch (e) {
       return "Failed to load library: ${e.message}";
@@ -148,10 +149,8 @@ class NativeChannel {
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xff181818),
-          title: const Text("Not executable",
-              style: TextStyle(color: Colors.white)),
-          content: const Text("This language is not executable on termux",
-              style: TextStyle(color: Colors.white)),
+          title: const Text("Not executable",style: TextStyle(color: Colors.white)),
+          content: const Text("This language is not executable on termux",style: TextStyle(color: Colors.white)),
           icon: const Icon(Icons.warning_amber_outlined),
           iconColor: Colors.orange[300],
         ),
@@ -165,9 +164,6 @@ class NativeChannel {
 
   static Future<void> sendOperations(
       String operation, List<String> args) async {
-    await _channel.invokeMethod("sendOperations", {
-      "operation": operation,
-      "arguments": args,
-    });
+    await _channel.invokeMethod("sendOperations", {"operation": operation,"arguments": args,});
   }
 }

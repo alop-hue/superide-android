@@ -158,7 +158,7 @@ class _SelectTypeState extends State<SelectType> {
             if (context.mounted) {
               if (file != null) {
                 final language = languages.firstWhere(
-                    (language) =>language.extension ==path.extension(file.path).replaceFirst(".", ""),
+                    (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
                     orElse: () => languages[0]);
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => HomeScreen(

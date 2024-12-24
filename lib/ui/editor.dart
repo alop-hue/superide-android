@@ -21,8 +21,7 @@ class CodeEditor extends StatelessWidget {
   }
 
   Future<String?> checkTempFile() async {
-    final tempFile =
-        File("/sdcard/VSdroid/Temps/tempCode.${language.extension}");
+    final tempFile = File("/sdcard/VSdroid/Temps/tempCode.${language.extension}");
     if (tempFile.existsSync()) {
       String source = await tempFile.readAsString();
       if (source.isNotEmpty) {
@@ -43,17 +42,13 @@ class CodeEditor extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              codeController = CodeController(
-                  language: language.language,
-                  text: snapshot.data ?? language.helloWorld);
+              codeController = CodeController(language: language.language,text: snapshot.data ?? language.helloWorld);
               return CodeTheme(
                 data: CodeThemeData(styles: theme),
                 child: CodeField(
-                  textStyle: const TextStyle(fontFamily: 'monospace'),
+                  textStyle: const TextStyle(fontFamily: 'monospace',fontSize: 10),
                   smartQuotesType: SmartQuotesType.enabled,
-                  textSelectionTheme: const TextSelectionThemeData(
-                      cursorColor: Color(0xff23a9f2),
-                      selectionColor: Color.fromARGB(112, 30, 134, 245)),
+                  textSelectionTheme: const TextSelectionThemeData(cursorColor: Color(0xff23a9f2),selectionColor: Color.fromARGB(112, 30, 134, 245)),
                   controller: codeController,
                   expands: true,
                   maxLines: null,
@@ -61,25 +56,20 @@ class CodeEditor extends StatelessWidget {
                 ),
               );
             })
-        : FutureBuilder(future: (() async {
+        : FutureBuilder(
+          future: (() async {
             return filePath!.readAsString();
           })(), builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            codeController = CodeController(
-                language: language.language,
-                text: snapshot.hasData
-                    ? snapshot.data
-                    : "Can't read file content");
+            codeController = CodeController(language: language.language,text: snapshot.hasData? snapshot.data: "Can't read file content");
             return CodeTheme(
               data: CodeThemeData(styles: theme),
               child: CodeField(
-                textStyle: const TextStyle(fontFamily: 'monospace'),
+                textStyle: const TextStyle(fontFamily: 'monospace',fontSize: 10),
                 smartQuotesType: SmartQuotesType.enabled,
-                textSelectionTheme: const TextSelectionThemeData(
-                    cursorColor: Color(0xff23a9f2),
-                    selectionColor: Color.fromARGB(112, 30, 134, 245)),
+                textSelectionTheme: const TextSelectionThemeData(cursorColor: Color(0xff23a9f2),selectionColor: Color.fromARGB(112, 30, 134, 245)),
                 controller: codeController,
                 expands: true,
                 maxLines: null,
