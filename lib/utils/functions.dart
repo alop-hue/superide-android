@@ -1,15 +1,18 @@
 import 'dart:io';
+import 'package:file_icon/src/data.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:vsdroid/utils/languages.dart';
 
-Future<void> getPermission() async {
+Future<bool> getPermission() async {
   final externalStatus = await Permission.manageExternalStorage.status;
   if (!externalStatus.isGranted) {
     await Permission.manageExternalStorage.request();
   }
+  return await Permission.manageExternalStorage.status.isGranted;
 }
 
 Future<Directory> setupProjectDir() async {
@@ -32,7 +35,8 @@ Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
   if (dir.existsSync()) {
-    final target =File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    final target =
+        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
@@ -42,12 +46,13 @@ Future<File> setTempFile(String extension) async {
 }
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-    {Color color = const Color(0xff6d6d6d),Color bgColor = Colors.transparent}) {
+    {Color color = const Color(0xff6d6d6d),
+    Color bgColor = Colors.transparent}) {
   if (icon.runtimeType == IconData) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 15),
       child: Container(
-        color:bgColor,
+        color: bgColor,
         child: IconButton(
             onPressed: onPressed, icon: Icon(icon, color: color, size: 38)),
       ),
@@ -82,10 +87,50 @@ Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
 
-Future<File?> pickFiles() async {
-  FilePickerResult? result = await FilePicker.platform.pickFiles();
-  if (result != null) {
-    File file = File(result.files.single.path!);
+Future<File?> pickFiles(BuildContext context) async {
+  final result = await FilesystemPicker.open(
+      requestPermission: () => getPermission(),
+      permissionText: "Permission denied",
+      fsType: FilesystemType.file,
+      fileTileSelectMode: FileTileSelectMode.wholeTile,
+      title: "Select a file",
+      folderIconColor: Colors.grey,
+      showGoUp: true,
+      context: context,
+      rootDirectory: Directory('/storage/emulated/0'),
+      rootName: "Storage",
+      theme: FilesystemPickerTheme(
+          fileList: FilesystemPickerFileListThemeData(
+              fileTypes: FilesystemPickerFileListFileTypesTheme(
+                  List.generate(languages.length, ((index) {
+                String? key;
+                final fileName = 'file.${languages[index].extension}';
+                if (iconSetMap.containsKey(fileName)) {
+                  key = fileName;
+                } else {
+                  var chunks = fileName.split('.').sublist(1);
+                  while (chunks.isNotEmpty) {
+                    var k = '.${chunks.join()}';
+                    if (iconSetMap.containsKey(k)) {
+                      key = k;
+                      break;
+                    }
+                    chunks = chunks.sublist(1);
+                  }
+                }
+                key ??= '.txt';
+                return FilesystemPickerFileListFileTypesThemeItem(
+                    extensions: [languages[index].extension],
+                    icon: IconData(iconSetMap[key]!.codePoint,
+                        fontFamily: 'Seti', fontPackage: 'file_icon'));
+              }))),
+              fileIconColor: Colors.grey),
+          topBar: FilesystemPickerTopBarThemeData(
+              foregroundColor: Colors.grey[300],
+              backgroundColor: const Color(0xff4b5365)),
+          backgroundColor: const Color(0xff282c35)));
+  if (result != null && File(result).existsSync()) {
+    final file = File(result);
     return file;
   }
   return null;
@@ -135,7 +180,8 @@ class NativeChannel {
 
   static Future<String> loadLibrary(String libName) async {
     try {
-      final String result =await _channel.invokeMethod('loadLibrary', {"libName": libName});
+      final String result =
+          await _channel.invokeMethod('loadLibrary', {"libName": libName});
       return result;
     } on PlatformException catch (e) {
       return "Failed to load library: ${e.message}";
@@ -149,8 +195,10 @@ class NativeChannel {
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xff181818),
-          title: const Text("Not executable",style: TextStyle(color: Colors.white)),
-          content: const Text("This language is not executable on termux",style: TextStyle(color: Colors.white)),
+          title: const Text("Not executable",
+              style: TextStyle(color: Colors.white)),
+          content: const Text("This language is not executable on termux",
+              style: TextStyle(color: Colors.white)),
           icon: const Icon(Icons.warning_amber_outlined),
           iconColor: Colors.orange[300],
         ),
@@ -164,6 +212,9 @@ class NativeChannel {
 
   static Future<void> sendOperations(
       String operation, List<String> args) async {
-    await _channel.invokeMethod("sendOperations", {"operation": operation,"arguments": args,});
+    await _channel.invokeMethod("sendOperations", {
+      "operation": operation,
+      "arguments": args,
+    });
   }
 }

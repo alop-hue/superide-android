@@ -153,18 +153,20 @@ class _SelectTypeState extends State<SelectType> {
                     ));
           }, "New File...", const Icon(FontAwesomeIcons.fileCirclePlus)),
           fileTiles(() async {
-            await getPermission();
-            final file = await pickFiles();
             if (context.mounted) {
+              final file = await pickFiles(context);
               if (file != null) {
                 final language = languages.firstWhere(
                     (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
                     orElse: () => languages[0]);
-                  Navigator.of(context).push(MaterialPageRoute(
+                    if(context.mounted) {
+                      Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => HomeScreen(
                           languageDetails: language, filePath: file)));
+                    }
               } else {
-                showDialog(
+                if(context.mounted) {
+                  showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text("Failed to open file",
@@ -182,6 +184,7 @@ class _SelectTypeState extends State<SelectType> {
                       ],
                   ),
                 );
+                }
               }
             }
           }, "Open File...", const Icon(FontAwesomeIcons.fileImport)),
