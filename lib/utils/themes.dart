@@ -120,3 +120,6 @@ const tileTheme = ListTileThemeData(
     subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d)));
 
 const cardTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
+const popupBtnTheme = PopupMenuThemeData(
+    color: Color.fromARGB(255, 61, 61, 61),
+    );

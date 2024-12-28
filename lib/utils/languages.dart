@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:highlight/highlight.dart';
-import 'package:highlight/languages/abnf.dart';
 import 'package:highlight/languages/accesslog.dart';
 import 'package:highlight/languages/ada.dart';
 import 'package:highlight/languages/angelscript.dart';
 import 'package:highlight/languages/arduino.dart';
 import 'package:highlight/languages/armasm.dart';
 import 'package:highlight/languages/avrasm.dart';
-import 'package:highlight/languages/awk.dart';
 import 'package:highlight/languages/bash.dart';
 import 'package:highlight/languages/brainfuck.dart';
 import 'package:highlight/languages/cmake.dart';
@@ -28,6 +26,7 @@ import 'package:highlight/languages/gradle.dart';
 import 'package:highlight/languages/groovy.dart';
 import 'package:highlight/languages/haskell.dart';
 import 'package:highlight/languages/julia.dart';
+import 'package:highlight/languages/less.dart';
 import 'package:highlight/languages/lisp.dart';
 import 'package:highlight/languages/xml.dart';
 import 'package:highlight/languages/java.dart';
@@ -48,6 +47,7 @@ import 'package:highlight/languages/scss.dart';
 import 'package:highlight/languages/sql.dart';
 import 'package:highlight/languages/swift.dart';
 import 'package:highlight/languages/typescript.dart';
+import 'package:highlight/languages/verilog.dart';
 import 'package:highlight/languages/x86asm.dart';
 import 'package:highlight/languages/yaml.dart';
 
@@ -56,7 +56,7 @@ final txt = Mode();
 class Language {
   final String name, extension, details, helloWorld;
   final Mode? language;
-  final dynamic icon;
+  late final dynamic icon;
   final String? command, type;
   Language(
       {required this.name,
@@ -75,7 +75,9 @@ List<Language> languages = [
       extension: 'txt',
       details: 'A normal text file.',
       language: txt,
-      helloWorld: 'Hello World',),
+      helloWorld: 'Hello World',
+      icon: SvgPicture.asset('assets/material_icons/document.svg',height: 35,width: 35)
+      ),
   Language(
       name: 'Python',
       extension: 'py',
@@ -83,6 +85,7 @@ List<Language> languages = [
       language: python,
       helloWorld: 'print("Hello, World!")',
       command: 'python',
+      icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
       type: 'interpreted'),
   Language(
       name: 'Javascript',
@@ -91,128 +94,34 @@ List<Language> languages = [
       language: javascript,
       helloWorld: 'console.log("Hello, World!");',
       command: 'node',
+      icon: SvgPicture.asset('assets/material_icons/javascript.svg',height: 35,width: 35),
       type: 'interpreted'),
   Language(
       name: 'Java',
       extension: 'java',
       details: 'A platform-independent language for enterprise and web apps.',
       language: java,
-      helloWorld:
-          'public class HelloWorld{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
+      helloWorld:'public class HelloWorld{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
+      icon: SvgPicture.asset('assets/material_icons/java.svg',height: 35,width: 35),
       command: 'javac',
       type: 'compiled'),
   Language(
       name: 'C',
       extension: 'c',
-      details:
-          'A powerful, low-level language widely used in system programming.',
+      details:'A powerful, low-level language widely used in system programming.',
       language: cpp,
-      helloWorld:
-          '#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
+      helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
       command: 'gcc',
+      icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
       type: 'compiled'),
   Language(
       name: 'C++',
       extension: 'cpp',
-      details:
-          'A high-performance language used for system programming and games.',
+      details:'A high-performance language used for system programming and games.',
       language: cpp,
-      helloWorld:
-          '#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
+      helloWorld:'#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
       command: 'g++',
-      type: 'compiled'),
-  Language(
-    name: 'HTML',
-    extension: 'html',
-    details: 'The standard markup language for creating web pages.',
-    language: xml,
-    helloWorld:'<!DOCTYPE html>\n\n<html>\n <head>\n  <h1>Hello World</h1>\n </head>\n</html>',
-  ),
-  Language(
-    name: 'CSS',
-    extension: 'css',
-    details: 'Used to style and format web pages.',
-    language: css,
-    helloWorld: '/* Hello, World! */',
-  ),
-  Language(
-      name: 'Typescript',
-      extension: 'ts',
-      details: 'A statically typed superset of JavaScript.',
-      language: typescript,
-      helloWorld: 'console.log("Hello, World!");',
-      command: 'ts-node',
-      type: 'interpreted'),
-  Language(
-      name: 'PHP',
-      extension: 'php',
-      details: 'A server-side language for dynamic web development.',
-      language: php,
-      helloWorld: '<?php echo "Hello, World!"; ?>',
-      command: 'php'),
-  Language(
-    name: 'SQL',
-    extension: 'sql',
-    details: 'Used for querying and managing relational databases.',
-    language: sql,
-    helloWorld: '-- Hello, World!',
-  ),
-  Language(
-    name: 'XML',
-    extension: 'xml',
-    details:
-        'Markup language primarily used to store and transport structured data.',
-    language: xml,
-    helloWorld:
-        '<catalog>\n <book id="1">\n  <title>Learning XML</title>\n  <author>John Doe</author>\n  <price>29.99</price>\n </book>\n</catalog>',
-  ),
-  Language(
-      name: 'Swift',
-      extension: 'swift',
-      details: 'Apple\'s language for iOS and macOS apps.',
-      language: swift,
-      helloWorld: 'print("Hello, World!")',
-      command: 'swift',
-      type: 'compiled'),
-  Language(
-      name: 'Kotlin',
-      extension: 'kt',
-      details: 'Modern JVM language, popular for Android development.',
-      language: kotlin,
-      helloWorld: 'fun main(){\n println("Hello, World!")\n}',
-      command: 'kotlinc',
-      type: 'compiled'),
-  Language(
-      name: 'C#',
-      extension: 'cs',
-      details: 'A modern, object-oriented language for Windows apps and games.',
-      language: cs,
-      helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
-      command: 'csc',
-      type: 'compiled'),
-  Language(
-      name: 'Rust',
-      extension: 'rs',
-      details: 'Focused on performance, safety, and concurrency.',
-      language: rust,
-      helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
-      command: 'rustc',
-      type: 'compiled'),
-  Language(
-      name: 'Go',
-      extension: 'go',
-      details:'Known for simplicity and performance, ideal for concurrent programming.',
-      language: go,
-      helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
-      command: 'go run',
-      type: 'compiled'),
-  Language(
-      name: 'Ruby',
-      extension: 'rb',
-      details: 'Dynamic language, often used with the Rails framework.',
-      language: ruby,
-      helloWorld: 'puts "Hello, World!"',
-      command: 'ruby',
+      icon: SvgPicture.asset('assets/material_icons/cpp.svg',height: 35,width: 35),
       type: 'compiled'),
   Language(
       name: 'Dart',
@@ -221,12 +130,133 @@ List<Language> languages = [
       language: dart,
       helloWorld: 'void main(){\n print("Hello, World!");\n}',
       command: 'dart',
+      icon: SvgPicture.asset('assets/material_icons/dart.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+    name: 'HTML',
+    extension: 'html',
+    details: 'The standard markup language for creating web pages.',
+    language: xml,
+    helloWorld:'<!DOCTYPE html>\n\n<html>\n <head>\n  <h1>Hello World</h1>\n </head>\n</html>',
+    icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
+  ),
+  Language(
+    name: 'CSS',
+    extension: 'css',
+    details: 'Used to style and format web pages.',
+    language: css,
+    helloWorld: '/* Hello, World! */',
+    icon: SvgPicture.asset('assets/material_icons/css.svg',height: 35,width: 35),
+  ),
+  Language(
+    name: 'SCSS',
+    extension: 'scss',
+    details: 'Enhances CSS with features like variables and nesting.',
+    language: scss,
+    helloWorld: '/* Hello, World! */',
+    icon: SvgPicture.asset('assets/material_icons/sass.svg',height:35,width:35),
+  ),
+  Language(
+    name: 'Less',
+    extension: 'less',
+    details: 'A CSS pre-processor with a more dynamic syntax.',
+    language: less,
+    helloWorld: '/* Hello, World! */',
+    icon: SvgPicture.asset('assets/material_icons/less.svg',height: 35,width: 35),
+  ),
+  Language(
+      name: 'Typescript',
+      extension: 'ts',
+      details: 'A statically typed superset of JavaScript.',
+      language: typescript,
+      helloWorld: 'console.log("Hello, World!");',
+      command: 'ts-node',
+      icon: SvgPicture.asset('assets/material_icons/typescript.svg',height: 35,width: 35),
+      type: 'interpreted'),
+  Language(
+      name: 'PHP',
+      extension: 'php',
+      details: 'A server-side language for dynamic web development.',
+      language: php,
+      helloWorld: '<?php echo "Hello, World!"; ?>',
+      icon: SvgPicture.asset('assets/material_icons/php.svg',height: 35,width: 35),
+      command: 'php'),
+  Language(
+    name: 'SQL',
+    extension: 'sql',
+    details: 'Used for querying and managing relational databases.',
+    language: sql,
+    icon: SvgPicture.asset('assets/material_icons/database.svg',height: 35,width: 35),
+    helloWorld: '-- Hello, World!',
+  ),
+  Language(
+    name: 'XML',
+    extension: 'xml',
+    details:'Markup language primarily used to store and transport structured data.',
+    language: xml,
+    icon: SvgPicture.asset('assets/material_icons/xml.svg',height: 35,width: 35),
+    helloWorld:'<catalog>\n <book id="1">\n  <title>Learning XML</title>\n  <author>John Doe</author>\n  <price>29.99</price>\n </book>\n</catalog>',
+  ),
+  Language(
+      name: 'Swift',
+      extension: 'swift',
+      details: 'Apple\'s language for iOS and macOS apps.',
+      language: swift,
+      helloWorld: 'print("Hello, World!")',
+      command: 'swift',
+      icon: SvgPicture.asset('assets/material_icons/swift.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+      name: 'Kotlin',
+      extension: 'kt',
+      details: 'Modern JVM language, popular for Android development.',
+      language: kotlin,
+      helloWorld: 'fun main(){\n println("Hello, World!")\n}',
+      command: 'kotlinc',
+      icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+      name: 'C#',
+      extension: 'cs',
+      details: 'A modern, object-oriented language for Windows apps and games.',
+      language: cs,
+      helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
+      command: 'csc',
+      icon: SvgPicture.asset('assets/material_icons/csharp.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+      name: 'Rust',
+      extension: 'rs',
+      details: 'Focused on performance, safety, and concurrency.',
+      language: rust,
+      helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
+      command: 'rustc',
+      icon: SvgPicture.asset('assets/material_icons/rust.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+      name: 'Go',
+      extension: 'go',
+      details:'Known for simplicity and performance, ideal for concurrent programming.',
+      language: go,
+      helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
+      command: 'go run',
+      icon: SvgPicture.asset('assets/material_icons/go_gopher.svg',height: 35,width: 35),
+      type: 'compiled'),
+  Language(
+      name: 'Ruby',
+      extension: 'rb',
+      details: 'Dynamic language, often used with the Rails framework.',
+      language: ruby,
+      helloWorld: 'puts "Hello, World!"',
+      command: 'ruby',
+      icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35),
       type: 'compiled'),
   Language(
     name: 'Json',
     extension: 'json',
     details: 'A lightweight format for data interchange.',
     language: json,
+    icon: SvgPicture.asset('assets/material_icons/json.svg',height: 35,width: 35),
     helloWorld: '{ "hello": "world" }',
   ),
   Language(
@@ -234,6 +264,7 @@ List<Language> languages = [
     extension: 'md',
     details: 'A markup language for formatting plain text.',
     language: markdown,
+    icon: SvgPicture.asset('assets/material_icons/markdown.svg',height: 35,width: 35),
     helloWorld: '# Hello, World!',
   ),
   Language(
@@ -241,6 +272,7 @@ List<Language> languages = [
     extension: 'yml',
     details: 'A readable data serialization format.',
     language: yaml,
+    icon: SvgPicture.asset('assets/material_icons/yaml.svg',height: 35,width: 35),
     helloWorld: '# Hello, World!',
   ),
   Language(
@@ -248,6 +280,7 @@ List<Language> languages = [
       extension: 'r',
       details: 'Used for statistical computing and data visualization.',
       language: r,
+      icon: SvgPicture.asset('assets/material_icons/r.svg',height: 35,width: 35),
       helloWorld: 'cat("Hello, World!")',
       type: 'interpreted'),
   Language(
@@ -255,15 +288,15 @@ List<Language> languages = [
     extension: 'scala',
     details: 'Combines functional and object-oriented programming.',
     language: scala,
-    helloWorld:
-        'object Hello{\n def main(args: Array[String]) = { println("Hello, World!") } \n}',
+    icon: SvgPicture.asset('assets/material_icons/scala.svg',height: 35,width: 35),
+    helloWorld:'object Hello{\n def main(args: Array[String]) = { println("Hello, World!") } \n}',
   ),
   Language(
       name: 'Lua',
       extension: 'lua',
-      details:
-          'A lightweight scripting language often used in game development.',
+      details:'A lightweight scripting language often used in game development.',
       language: lua,
+      icon: SvgPicture.asset('assets/material_icons/lua.svg',height: 35,width: 35),
       helloWorld: 'print("Hello, World!")',
       type: 'compiled'),
   Language(
@@ -273,6 +306,7 @@ List<Language> languages = [
       language: bash,
       helloWorld: 'echo "Hello, World!"',
       command: 'bash',
+      icon: SvgPicture.asset('assets/material_icons/console.svg',height: 35,width: 35),
       type: 'interpreted'),
   Language(
     name: 'Haskell',
@@ -280,6 +314,7 @@ List<Language> languages = [
     details: 'A purely functional language with strong static typing.',
     language: haskell,
     helloWorld: 'main = putStrLn "Hello, World!"',
+    icon: SvgPicture.asset('assets/material_icons/haskell.svg',height: 35,width: 35),
   ),
   Language(
       name: 'Elixir',
@@ -287,15 +322,17 @@ List<Language> languages = [
       details: 'A functional language for building scalable applications.',
       language: elixir,
       helloWorld: 'IO.puts "Hello, World!"',
-      command: 'elixir'),
+      command: 'elixir',
+      icon: SvgPicture.asset('assets/material_icons/elixir.svg',height: 35,width: 35),
+      ),
   Language(
       name: 'Objective C',
       extension: 'm',
       details: 'Used for macOS and iOS development.',
       language: objectivec,
-      helloWorld:
-          '#import <Foundation/Foundation.h> \nint main() {\n NSLog(@"Hello, World!");\n return 0;\n}',
+      helloWorld:'#import <Foundation/Foundation.h> \nint main() {\n NSLog(@"Hello, World!");\n return 0;\n}',
       command: 'gcc',
+      icon: SvgPicture.asset('assets/material_icons/objective-c.svg',height: 35,width: 35),
       type: 'compiled'),
   Language(
       name: 'Fsharp',
@@ -303,29 +340,27 @@ List<Language> languages = [
       details: 'A functional-first language for .NET applications.',
       language: fsharp,
       helloWorld: 'printfn "Hello, World!"',
-      command: 'mono'),
+      command: 'mono',
+      icon: SvgPicture.asset('assets/material_icons/fsharp.svg',height: 35,width: 35),
+      ),
   Language(
       name: 'Perl',
       extension: 'pl',
       details: 'Known for text processing and system scripting.',
       language: perl,
       helloWorld: 'print "Hello, World!";',
-      command: 'perl'),
-  Language(
-    name: 'SCSS',
-    extension: 'scss',
-    details: 'Enhances CSS with features like variables and nesting.',
-    language: scss,
-    helloWorld: '/* Hello, World! */',
-  ),
+      command: 'perl',
+      icon: SvgPicture.asset('assets/material_icons/perl.svg',height: 35,width: 35),
+      ), 
   Language(
       name: 'Clojure',
       extension: 'clj',
-      details:
-          'A functional language running on the JVM, known for immutability.',
+      details:'A functional language running on the JVM, known for immutability.',
       language: clojure,
       helloWorld: '(println "Hello, World!")',
-      command: 'lein run'),
+      command: 'lein run',
+      icon: SvgPicture.asset('assets/material_icons/clojure.svg',height: 35,width: 35),
+      ),
   Language(
       name: 'Arduino',
       extension: 'ino',
@@ -334,38 +369,34 @@ List<Language> languages = [
       language: arduino,
       helloWorld:
           'void setup(){\n  Serial.begin(9600);\n} \n\nvoid loop(){\n  Serial.println("Hello, World!");\n  delay(1000);\n}',
-      icon: Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: SvgPicture.asset(
-          'assets/icons/file-type-arduino.svg',
-          height: 32.5,
-          width: 32.5,
-        ),
+      icon: SvgPicture.asset(
+        'assets/icons/file-type-arduino.svg',
+        height: 35,
+        width: 35,
       )),
   Language(
     name: 'x86 assembly',
     extension: 'asm',
     details: 'Low-level language for x86 processors.',
     language: x86Asm,
-    helloWorld:
-        'mov eax, 0 \nmov ebx, 4 \nmov ecx, msg \nmov edx, 13 \nint 0x80 \nret \nmsg db "Hello, World!", 0',
+    helloWorld:'mov eax, 0 \nmov ebx, 4 \nmov ecx, msg \nmov edx, 13 \nint 0x80 \nret \nmsg db "Hello, World!", 0',
+    icon: SvgPicture.asset('assets/material_icons/assembly.svg',height: 35,width: 35),
   ),
   Language(
     name: 'ARM assembly',
     extension: 's',
-    details:
-        'Low-level language for ARM processors, common in embedded systems.',
+    details:'Low-level language for ARM processors, common in embedded systems.',
     language: armasm,
-    helloWorld:
-        '.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldr r0, =msg \nmov r7, #4 \nsvc #0',
+    helloWorld:'.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldr r0, =msg \nmov r7, #4 \nsvc #0',
+    icon: SvgPicture.asset('assets/material_icons/assembly.svg',height: 35,width: 35),
   ),
   Language(
     name: 'AVR assembly',
     extension: 'asm',
     details: 'Assembly language for AVR microcontrollers in embedded systems.',
     language: avrasm,
-    helloWorld:
-        '.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldi r16, low(msg) \nout 0x20, r16 \nldi r16, high(msg) \nout 0x21, r16',
+    helloWorld:'.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldi r16, low(msg) \nout 0x20, r16 \nldi r16, high(msg) \nout 0x21, r16',
+    icon: SvgPicture.asset('assets/material_icons/assembly.svg',height: 35,width: 35),
   ),
   Language(
       name: 'Coffeescript',
@@ -376,18 +407,12 @@ List<Language> languages = [
       command: 'coffee',
       type: 'interpreted'),
   Language(
-    name: 'ABNF',
-    extension: 'abnf',
-    details: 'Augmented Backus-Naur Form, a metalanguage for describing syntax.',
-    language: abnf,
-    helloWorld: '; Hello World in ABNF',
-  ),
-  Language(
     name: 'Access Log',
     extension: 'log',
     details: 'Common format for logging web server requests.',
     language: accesslog,
     helloWorld: '# Placeholder for Hello, World!',
+    icon: SvgPicture.asset('assets/material_icons/log.svg',height: 35,width: 35),
   ),
   Language(
     name: 'Ada',
@@ -395,20 +420,19 @@ List<Language> languages = [
     details: 'A structured, statically typed, high-level language.',
     language: ada,
     helloWorld: 'with Ada.Text_IO; use Ada.Text_IO;\nbegin\n  Put_Line("Hello, World!");\nend;',
+    icon: SvgPicture.asset('assets/material_icons/ada.svg',height: 35,width: 35),
   ),
   Language(
     name: 'AngelScript',
     extension: 'as',
     details: 'A scripting language designed for game development.',
     language: angelscript,
-    helloWorld: 'Print("Hello, World!");',
-  ),
-  Language(
-    name: 'AWK',
-    extension: 'awk',
-    details: 'A programming language for pattern scanning and processing.',
-    language: awk,
-    helloWorld: 'BEGIN { print "Hello, World!" }',
+    helloWorld: 'void main() {\n print("Hello, World!");\n}',
+    icon: SvgPicture.asset(
+        'assets/material_icons/angelscript.svg',
+        height: 40,
+        width: 40,
+        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)),
   ),
   Language(
     name: 'Brainfuck',
@@ -416,6 +440,7 @@ List<Language> languages = [
     details: 'A minimalist, esoteric programming language.',
     language: brainfuck,
     helloWorld: '++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+<<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.',
+    icon: SvgPicture.asset('assets/material_icons/brainfuck.svg',height: 35,width: 35),
   ),
   Language(
     name: 'CMake',
@@ -423,6 +448,7 @@ List<Language> languages = [
     details: 'Cross-platform build system.',
     language: cmake,
     helloWorld: '# Placeholder for Hello, World!',
+    icon: SvgPicture.asset('assets/material_icons/cmake.svg',height: 35,width: 35),
   ),
   Language(
     name: 'D',
@@ -430,6 +456,7 @@ List<Language> languages = [
     details: 'A system programming language with C-like syntax and features.',
     language: d,
     helloWorld: 'import std.stdio; void main() { writeln("Hello, World!"); }',
+    icon: SvgPicture.asset('assets/material_icons/d.svg',height: 35,width: 35),
   ),
     Language(
     name: 'Erlang',
@@ -437,6 +464,7 @@ List<Language> languages = [
     details: 'A language for building scalable, fault-tolerant systems.',
     language: erlang,
     helloWorld: 'io:format("Hello, World!~n").',
+    icon: SvgPicture.asset('assets/material_icons/erlang.svg',height: 35,width: 35),
   ),
   Language(
     name: 'Fortran',
@@ -444,6 +472,7 @@ List<Language> languages = [
     details: 'A language for numerical and scientific computing.',
     language: fortran,
     helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
+    icon: SvgPicture.asset('assets/material_icons/fortran.svg',height: 35,width: 35),
   ),
   Language(
     name: 'Gradle',
@@ -451,6 +480,7 @@ List<Language> languages = [
     details: 'Configuration file used for Android development.',
     language: gradle,
     helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
+    icon: SvgPicture.asset('assets/material_icons/gradle.svg',height: 35,width: 35),
   ),
   Language(
     name: 'Groovy',
@@ -458,6 +488,7 @@ List<Language> languages = [
     details: 'A language for the JVM with dynamic and static features.',
     language: groovy,
     helloWorld: 'println "Hello, World!"',
+    icon: SvgPicture.asset('assets/material_icons/groovy.svg',height: 35,width: 35),
   ),
   Language(
     name: 'Julia',
@@ -465,13 +496,22 @@ List<Language> languages = [
     details: 'A high-performance language for technical computing.',
     language: julia,
     helloWorld: 'println("Hello, World!")',
+    icon: SvgPicture.asset('assets/material_icons/julia.svg',height: 35,width: 35),
   ),
-    Language(
+  Language(
     name: 'Lisp',
     extension: 'lisp',
     details: 'A family of functional, symbolic programming languages.',
     language: lisp,
     helloWorld: '(print "Hello, World!")',
+    icon: SvgPicture.asset('assets/material_icons/lisp.svg',height: 35,width: 35),
   ),
-
+  Language(
+    name: 'Verilog',
+    extension: 'v',
+    details: 'A hardware description language used in digital design.',
+    language: verilog,
+    helloWorld: 'module hello;\ninitial begin\n  \$display("Hello, World!");\nend\nendmodule',
+    icon: SvgPicture.asset('assets/material_icons/verilog.svg',height: 35,width: 35),
+  ),
 ];

@@ -95,62 +95,54 @@ class _SelectTypeState extends State<SelectType> {
           ),
           fileTiles(() {
             showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                      icon: const Icon(FontAwesomeIcons.fileCirclePlus),
-                      iconColor: Colors.grey,
-                      backgroundColor: const Color(0xff2b2b2b),
-                      title: const Text("Create a new file",
-                          style: TextStyle(color: Colors.grey)),
-                      content: Form(
-                        key: _createFileKey,
-                        child: TextFormField(
-                          style: const TextStyle(color: Colors.grey),
-                          cursorColor: Colors.grey,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "Please enter a valid filename";
-                            }
-                            return null;
-                          },
-                          controller: createFileController,
-                          decoration: const InputDecoration(
-                              hintStyle: TextStyle(color: Colors.grey),
-                              hintText: " filename.ext",
-                              focusedBorder: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(25)),
-                                  borderSide:
-                                      BorderSide(color: Color(0xff5090c8))),
-                              border: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(25)))),
-                        ),
+              context: context,
+              builder: (context) => AlertDialog(
+                icon: const Icon(FontAwesomeIcons.fileCirclePlus),
+                iconColor: Colors.grey,
+                backgroundColor: const Color(0xff2b2b2b),
+                title: const Text("Create a new file",
+                    style: TextStyle(color: Colors.grey)),
+                content: Form(
+                  key: _createFileKey,
+                  child: TextFormField(
+                    style: const TextStyle(color: Colors.grey),
+                    cursorColor: Colors.grey,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return "Please enter a valid filename";
+                      }
+                      return null;
+                    },
+                    controller: createFileController,
+                    decoration: const InputDecoration(
+                        hintStyle: TextStyle(color: Colors.grey),
+                        hintText: " filename.ext",
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(25)),
+                            borderSide:
+                                BorderSide(color: Color(0xff5090c8))),
+                        border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(25)))),
                       ),
-                      actions: [
-                        ElevatedButton(
-                            onPressed: () async {
-                              _createFileKey.currentState!.validate();
-                              if (createFileController.text.isNotEmpty) {
-                                final file = await createFile(
-                                    createFileController.text, context);
-                                if (context.mounted && file != null) {
-                                  Navigator.of(context).push(MaterialPageRoute(
-                                      builder: (context) => HomeScreen(
-                                            languageDetails: languages
-                                                .firstWhere((language) =>
-                                                    language.extension ==
-                                                    path
-                                                        .extension(file.path)
-                                                        .replaceFirst(".", "")),
-                                            filePath: file,
-                                          )));
-                                }
-                              }
-                            },
-                            child: const Text("OK"))
-                      ],
-                    ));
+                    ),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () async {
+                          _createFileKey.currentState!.validate();
+                          if (createFileController.text.isNotEmpty) {
+                            final file = await createFile(createFileController.text, context);
+                            if (context.mounted && file != null) {
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (context) => HomeScreen(filePath: file,languageDetails: languages
+                                  .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", "")))));
+                            }
+                          }
+                        },
+                        child: const Text("OK"))
+                    ],
+                  ));
           }, "New File...", const Icon(FontAwesomeIcons.fileCirclePlus)),
           fileTiles(() async {
             if (context.mounted) {
@@ -221,11 +213,9 @@ class _SelectTypeState extends State<SelectType> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(FontAwesomeIcons.folderTree,
-                                color: Color.fromARGB(255, 193, 193, 193)),
+                            Icon(FontAwesomeIcons.folderTree,color: Color.fromARGB(255, 193, 193, 193)),
                             SizedBox(width: 12.5),
-                            Text("New Project",
-                                style: TextStyle(fontSize: 16.5,color: Color.fromARGB(255, 193, 193, 193))),
+                            Text("New Project",style: TextStyle(fontSize: 16.5,color: Color.fromARGB(255, 193, 193, 193))),
                           ],
                         ),
                       ),
@@ -235,8 +225,7 @@ class _SelectTypeState extends State<SelectType> {
                 const SizedBox(height: 5),
                 InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => const MenuScreen()));
+                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MenuScreen()));
                   },
                   child: const SizedBox(
                     height: 60,
@@ -248,14 +237,11 @@ class _SelectTypeState extends State<SelectType> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(FontAwesomeIcons.fileCode,
-                                color: Color.fromARGB(255, 193, 193, 193)),
+                            Icon(FontAwesomeIcons.fileCode,color: Color.fromARGB(255, 193, 193, 193)),
                             SizedBox(width: 5),
                             Text(
                               "Open Template",
-                              style: TextStyle(
-                                  color: Color.fromARGB(255, 193, 193, 193),
-                                  fontSize: 16.5),
+                              style: TextStyle(color: Color.fromARGB(255, 193, 193, 193),fontSize: 16.5),
                             ),
                           ],
                         ),

@@ -14,10 +14,11 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
         theme: ThemeData(
-            scaffoldBackgroundColor: const Color(0xff181818),
-            appBarTheme: appBarDark,
-            listTileTheme: tileTheme,
-            cardTheme: cardTheme),
+          popupMenuTheme: popupBtnTheme,
+          scaffoldBackgroundColor: const Color(0xff181818),
+          appBarTheme: appBarDark,
+          listTileTheme: tileTheme,
+          cardTheme: cardTheme),
         home: const StartScreen());
   }
 }
