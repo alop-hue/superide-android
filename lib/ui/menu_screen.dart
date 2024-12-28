@@ -43,7 +43,7 @@ class MenuScreen extends StatelessWidget {
                   padding:const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                   child: Card(
                     child: ListTile(
-                      leading: languages[index].icon ??FileIcon(".${languages[index].extension}", size: 35),
+                      leading: languages[index].icon ??FileIcon(".${languages[index].extension}", size: 45),
                       title: Padding(
                         padding: const EdgeInsets.only(left: 5),
                         child: Text(languages[index].name),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/ui/start_screen.dart';
 import 'package:vsdroid/utils/themes.dart';
 
@@ -12,13 +14,16 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        theme: ThemeData(
-          popupMenuTheme: popupBtnTheme,
-          scaffoldBackgroundColor: const Color(0xff181818),
-          appBarTheme: appBarDark,
-          listTileTheme: tileTheme,
-          cardTheme: cardTheme),
-        home: const StartScreen());
+    return BlocProvider(
+      create: (context) => UiBloc(),
+      child: MaterialApp(
+          theme: ThemeData(
+              popupMenuTheme: popupBtnTheme,
+              scaffoldBackgroundColor: const Color(0xff181818),
+              appBarTheme: appBarDark,
+              listTileTheme: tileTheme,
+              cardTheme: cardTheme),
+          home: const StartScreen()),
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/ui/folder_page.dart';
 import 'package:vsdroid/ui/home.dart';
 import 'package:vsdroid/ui/menu_screen.dart';
 import 'package:vsdroid/ui/settings.dart';
@@ -100,8 +101,7 @@ class _SelectTypeState extends State<SelectType> {
                 icon: const Icon(FontAwesomeIcons.fileCirclePlus),
                 iconColor: Colors.grey,
                 backgroundColor: const Color(0xff2b2b2b),
-                title: const Text("Create a new file",
-                    style: TextStyle(color: Colors.grey)),
+                title: const Text("Create a new file",style: TextStyle(color: Colors.grey)),
                 content: Form(
                   key: _createFileKey,
                   child: TextFormField(
@@ -161,18 +161,17 @@ class _SelectTypeState extends State<SelectType> {
                   showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text("Failed to open file",
-                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                    title:  Text("Failed to open file",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
                     backgroundColor: const Color(0xff2b2b2b),
-                    icon: const Icon(Icons.error_outline),
+                    icon: const Icon(Icons.error_outline,size: 35),
                     iconColor: Colors.red[600],
                     actionsAlignment: MainAxisAlignment.center,
                       actions: [
                         ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text("OK"))
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text("OK"))
                       ],
                   ),
                 );
@@ -181,9 +180,35 @@ class _SelectTypeState extends State<SelectType> {
             }
           }, "Open File...", const Icon(FontAwesomeIcons.fileImport)),
           fileTiles(() async {
-            final dir = await pickDir();
-            if (dir != null) {
-              if (Directory(dir).existsSync()) {}
+            final dirPath = await pickDir();
+            if (dirPath != null) {
+              final dir = Directory(dirPath);
+              if (dir.existsSync()) {
+                if(context.mounted){
+                  Navigator.of(context).push(MaterialPageRoute(builder: (context)=> FolderPage(dir: dir)));
+                }
+              }
+            }
+            else{
+              if(context.mounted) {
+                  showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title:  Text("Failed to open folder",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                    backgroundColor: const Color(0xff2b2b2b),
+                    icon: const Icon(Icons.error_outline,size: 35),
+                    iconColor: Colors.red[600],
+                    actionsAlignment: MainAxisAlignment.center,
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text("OK"))
+                      ],
+                  ),
+                );
+                }
             }
           }, "Open Folder...", const Icon(FontAwesomeIcons.folderOpen)),
           fileTiles(

@@ -35,8 +35,7 @@ Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
   if (dir.existsSync()) {
-    final target =
-        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    final target = File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
