@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:file_tree_view/file_tree_view.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -18,7 +17,6 @@ class HomeScreen extends StatelessWidget {
   final Language languageDetails;
   final File? filePath;
   HomeScreen({super.key, required this.languageDetails, this.filePath});
-  static const platform = MethodChannel("com.vsdroid");
   final _createFileKey = GlobalKey<FormState>();
   final createFileController = TextEditingController();
 
@@ -424,15 +422,38 @@ class HomeScreen extends StatelessWidget {
                 IconButton(
                     onPressed: () async {
                       await target!.writeAsString(codeEditor.code());
-                      if (context.mounted) {
+                      final server = await startServer();
+                      if(server!=null) {
+                        final terminal = SetupTerminal(projectDir:filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path,server: server);
+                        if (context.mounted) {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
                         await NativeChannel.sendCommand(languageDetails, target.path, context);
+                      }
+                      }
+                      else{
+                        if(context.mounted) {
+                          showDialog(context: context, builder: (context)=>AlertDialog(
+                            title: const Text("Failed to connect with Termux",style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                            backgroundColor: const Color(0xff2b2b2b),
+                            icon: const Icon(Icons.error_outline),
+                            iconColor: Colors.red[600],
+                            actionsAlignment: MainAxisAlignment.center,
+                              actions: [
+                                ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text("OK"))
+                              ],
+                            ));
+                        }
                       }
                     },
                     icon: const Icon(Icons.play_arrow)),
                 IconButton(
                     onPressed: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => SetupTerminal(projectDir: "/storage/emulated/0/VSdroid/Temps")));
+                          builder: (context) => SetupTerminal(projectDir: filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path)));
                     },
                     icon: const Icon(Icons.terminal, color: Color(0xff717171)))
               ],

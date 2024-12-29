@@ -35,7 +35,8 @@ Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
   if (dir.existsSync()) {
-    final target = File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    final target =
+        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
@@ -120,7 +121,8 @@ Future<File?> pickFiles(BuildContext context) async {
                 key ??= '.txt';
                 return FilesystemPickerFileListFileTypesThemeItem(
                     extensions: [languages[index].extension],
-                    icon: IconData(iconSetMap[key]!.codePoint,fontFamily: 'Seti', fontPackage: 'file_icon'));
+                    icon: IconData(iconSetMap[key]!.codePoint,
+                        fontFamily: 'Seti', fontPackage: 'file_icon'));
               }))),
               fileIconColor: Colors.grey),
           topBar: FilesystemPickerTopBarThemeData(
@@ -159,7 +161,9 @@ Future<File?> createFile(String filename, BuildContext context) async {
           context: context,
           builder: (context) => AlertDialog(
             content: Text(e.toString()),
-            title: const Text("Failed to open file",style:TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+            title: const Text("Failed to open file",
+                style:
+                    TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
             backgroundColor: const Color(0xff2b2b2b),
             icon: const Icon(Icons.error_outline),
             iconColor: Colors.red[600],
@@ -169,6 +173,15 @@ Future<File?> createFile(String filename, BuildContext context) async {
     }
   }
   return null;
+}
+
+Future<HttpServer?> startServer() async {
+  try {
+    final server = await HttpServer.bind('127.0.0.1', 49258);
+    return server;
+  } catch (e) {
+    return null;
+  }
 }
 
 class NativeChannel {
@@ -206,11 +219,13 @@ class NativeChannel {
     });
   }
 
-  static Future<void> sendOperations(
-      String operation, List<String> args) async {
-    await _channel.invokeMethod("sendOperations", {
-      "operation": operation,
-      "arguments": args,
+  static Future<void> installOnTermux(String packageName) async {
+    await _channel.invokeMethod("installOnTermux", {
+      "packageName": packageName,
     });
+  }
+
+  static Future<void> killService() async {
+    await _channel.invokeMethod("killService");
   }
 }
