@@ -5,6 +5,7 @@ import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
 
 Future<bool> getPermission() async {
@@ -184,6 +185,19 @@ Future<HttpServer?> startServer() async {
   }
 }
 
+Future<String> getSavedTheme() async {
+  final prefs = await SharedPreferences.getInstance();
+  final savedThemeName = prefs.getString('selectedTheme');
+  return savedThemeName??'atom-one-dark';
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${substring(1)}';
+  }
+}
+
 class NativeChannel {
   static const MethodChannel _channel = MethodChannel('com.vsdroid');
 
@@ -223,9 +237,5 @@ class NativeChannel {
     await _channel.invokeMethod("installOnTermux", {
       "packageName": packageName,
     });
-  }
-
-  static Future<void> killService() async {
-    await _channel.invokeMethod("killService");
   }
 }

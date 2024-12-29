@@ -37,17 +37,11 @@ class MainActivity: FlutterActivity() {
                     val packageName = call.argument<String>("packageName")
                     installOnTermux(packageName)
                 }
-                "killService" -> {
-                    killService(intent)
-                }
                 else -> result.notImplemented()
             }
         }
     }
 
-    private fun killService(intent: Intent?) {
-        stopService(intent)
-    }
 
     private fun sendCommand(fileName: String?, languageCommand: String?): Intent {
         val intent = Intent().apply {
@@ -70,7 +64,7 @@ class MainActivity: FlutterActivity() {
             putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
             putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/pkg install $packageName | /data/data/com.termux/files/usr/bin/websocat ws://127.0.0.1:49258"))
             putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-            putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
+            putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
         }
         startService(intent)

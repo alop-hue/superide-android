@@ -27,7 +27,10 @@ class FolderPage extends StatelessWidget {
               return SizedBox(
                 height: 25,
                 width: 25,
-                child:languages.firstWhere((language)=>language.extension == ext.replaceFirst(".", "")).icon??FileIcon(ext));
+                child:languages.firstWhere(
+                  (language)=>language.extension == ext.replaceFirst(".", ""),
+                  orElse: () => languages[0],
+                ).icon??FileIcon(ext));
             },
             folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 25,width: 25),
             folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 25,width: 25),
@@ -36,7 +39,7 @@ class FolderPage extends StatelessWidget {
             onFileTap: (f) {
               Navigator.of(context).pushReplacement(MaterialPageRoute(
                 builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere((language) =>
-                  language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))())));
+                  language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))(),filePath: f)));
             },
             ),
         ),

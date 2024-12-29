@@ -26,6 +26,7 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.5
   permission_handler: ^11.3.1
+  shared_preferences: ^2.3.4
   xterm: ^4.0.0
 
 dev_dependencies:

@@ -128,6 +128,12 @@ class _SelectTypeState extends State<SelectType> {
                       ),
                     ),
                     actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 7),
+                        child: ElevatedButton(onPressed: (){
+                          Navigator.of(context).pop();
+                        }, child: const Text("Cancel")),
+                      ),
                       ElevatedButton(
                         onPressed: () async {
                           _createFileKey.currentState!.validate();

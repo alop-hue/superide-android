@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/terminal/terminal.dart';
 import 'package:vsdroid/ui/editor.dart';
 import 'package:vsdroid/utils/languages.dart';
-import 'package:vsdroid/utils/themes.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:path/path.dart' as path;
 
@@ -26,7 +25,7 @@ class HomeScreen extends StatelessWidget {
     trasnformationController.value = Matrix4.identity()..scale(1.4);
     final codeEditor = CodeEditor(
         language: languageDetails,
-        theme: highlightThemes['atom-one-dark'],
+
         isTemplate: filePath == null,
         filePath: filePath);
     return FutureBuilder(
@@ -104,7 +103,11 @@ class HomeScreen extends StatelessWidget {
                                       return SizedBox(
                                         height: 25,
                                         width: 25,
-                                        child:languages.firstWhere((language)=>language.extension == ext.replaceFirst(".", "")).icon??FileIcon(ext));
+                                        child:languages.firstWhere(
+                                          (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                                          orElse: () => languages[0],
+                                          ).icon??FileIcon(ext)
+                                          );
                                     },
                                     folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 25,width: 25),
                                     folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 25,width: 25),
@@ -113,7 +116,7 @@ class HomeScreen extends StatelessWidget {
                                     onFileTap: (f) {
                                       Navigator.of(context).pushReplacement(MaterialPageRoute(
                                         builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere((language) =>
-                                          language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))())));
+                                          language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))(),filePath: f)));
                                     },
                                   ),
                                 ),

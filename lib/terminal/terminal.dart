@@ -74,9 +74,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
   }
 
-  Future<void> killService() async {
-    await NativeChannel.killService();
-  }
 
   @override
   void didChangeDependencies() {
@@ -88,7 +85,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
   void dispose() {
     terminalController.dispose();
     widget.server!.close();
-    killService();
     super.dispose();
   }
 
