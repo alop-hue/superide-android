@@ -17,16 +17,18 @@ import 'package:vsdroid/utils/themes.dart';
 class HomeScreen extends StatelessWidget {
   final Language languageDetails;
   final File? filePath;
-  HomeScreen({super.key, required this.languageDetails, this.filePath});
-  final _createFileKey = GlobalKey<FormState>();
-  final createFileController = TextEditingController();
+  const HomeScreen({super.key, required this.languageDetails, this.filePath});
+  
 
   @override
   Widget build(BuildContext context) {
     final trasnformationController = TransformationController();
-    trasnformationController.value = Matrix4.identity()..scale(1.4);
+    trasnformationController.value = Matrix4.identity()..scale(1.45);
     final codeEditor = CodeEditor(language: languageDetails,isTemplate: filePath == null,filePath: filePath);
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
+    final createFileKey = GlobalKey<FormState>();
+    final createFileController = TextEditingController();
+    final findWordController = TextEditingController();
 
     return FutureBuilder(
         future: filePath == null? setTempFile(languageDetails.extension):(()async{
@@ -39,7 +41,7 @@ class HomeScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             const Center(child: CircularProgressIndicator());
           }
-          final target = snapshot.data; //Todo: Create a text file shows error if snapshot returns null
+          final target = snapshot.data;
           return PopScope(
             canPop: true,
             onPopInvokedWithResult:(didPop, result) async{
@@ -59,54 +61,65 @@ class HomeScreen extends StatelessWidget {
               }
             },
             child: Scaffold(
-              drawer: Drawer(
-                backgroundColor: const Color(0xff2a2a2a),
-                child: Row(
-                  children: [
-                    Container(
-                      color: const Color(0xff181818),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 25),
-                          drawerButtons(() {
-                            context.read<StackBloc>().add(StackIndexChange(stackValue: 0));
-                          }, Icons.file_copy_outlined,
-                              color: const Color(0xff6d6d6d)),
-                          drawerButtons(() {
-                            context.read<StackBloc>().add(StackIndexChange(stackValue: 1));
-                          }, Icons.search),
-                          drawerButtons(
-                            () {
-                              context.read<StackBloc>().add(StackIndexChange(stackValue: 2));
-                            },
-                            SvgPicture.asset(
-                              'assets/icons/code-branch-solid.svg',
-                              height: 38,
-                              width: 38,
-                              colorFilter: const ColorFilter.mode(Color(0xff6d6d6d), BlendMode.srcIn),
-                            ),
+              drawer: BlocBuilder<StackBloc, StackState>(
+                buildWhen: (previous, current) => current != previous,
+                builder: (context, state) {
+                  return Drawer(
+                    backgroundColor: const Color(0xff2a2a2a),
+                    child: Row(
+                      children: [
+                        Container(
+                          color: const Color(0xff181818),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 25),
+                              drawerButtons(() {
+                                context.read<StackBloc>().add(StackIndexChange(stackValue: 0));
+                              }, Icons.file_copy_outlined,
+                                  color: state.stackIndex == 0 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                                  bgColor: state.stackIndex == 0 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                                  ),
+                              drawerButtons(() {
+                                context.read<StackBloc>().add(StackIndexChange(stackValue: 1));
+                              },
+                                Icons.search,
+                                color: state.stackIndex == 1 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                                bgColor: state.stackIndex == 1 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                              )
+                              ,
+                              drawerButtons(
+                                () {
+                                  context.read<StackBloc>().add(StackIndexChange(stackValue: 2));
+                                },
+                                FontAwesomeIcons.codeBranch,
+                                color: state.stackIndex == 2 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                                bgColor: state.stackIndex == 2 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                              ),
+                              drawerButtons(
+                                () {
+                                  context.read<StackBloc>().add(StackIndexChange(stackValue: 3));
+                                },
+                                SvgPicture.asset(
+                                  'assets/icons/rest-api-icon.svg',
+                                  height: 34,
+                                  width: 34,
+                                  colorFilter: ColorFilter.mode(
+                                    state.stackIndex == 3 ?Colors.grey[400]!:const Color(0xff6d6d6d), BlendMode.srcIn),
+                                ),
+                                bgColor: state.stackIndex == 3 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                              ),
+                              drawerButtons(() {
+                                context.read<StackBloc>().add(StackIndexChange(stackValue: 4));
+                              },
+                              Icons.settings,
+                              color: state.stackIndex == 4 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                              bgColor: state.stackIndex == 4 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                              ),
+                            ],
                           ),
-                          drawerButtons(
-                            () {
-                              context.read<StackBloc>().add(StackIndexChange(stackValue: 3));
-                            },
-                            SvgPicture.asset(
-                              'assets/icons/rest-api-icon.svg',
-                              height: 34,
-                              width: 34,
-                              colorFilter: const ColorFilter.mode(Color(0xff6d6d6d), BlendMode.srcIn),
-                            ),
-                          ),
-                          drawerButtons(() {
-                            context.read<StackBloc>().add(StackIndexChange(stackValue: 4));
-                          }, Icons.settings),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: BlocBuilder<StackBloc, StackState>(
-                        builder: (context, state) {
-                          return IndexedStack(
+                        ),
+                        Expanded(
+                          child:  IndexedStack(
                             index: state.stackIndex,
                             children: [
                               SingleChildScrollView(
@@ -146,25 +159,33 @@ class HomeScreen extends StatelessWidget {
                                   child: Column(
                                     children: [
                                       ListTile(
-                                        trailing: Container(
-                                          height: 45,
-                                          width: 45,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xff0e639c),
-                                            borderRadius: BorderRadius.all(Radius.circular(25))
-                                          ),
-                                          child: const Icon(Icons.search,color: Colors.white)),
-                                        title: const TextField(
-                                          style: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                          decoration: InputDecoration(
-                                            hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                            hintText: "Search",
-                                            border: OutlineInputBorder(
-                                            )
+                                        title: SizedBox(
+                                          height: 47,
+                                          child: BlocListener<FindWordBloc, FindWordState>(
+                                            listener: (context, state) {
+                                              if (findWordController.text != state.word) {
+                                                findWordController.text = state.word;
+                                                findWordController.selection = TextSelection.collapsed(offset: state.word.length);
+                                              }
+                                            },
+                                            child: TextField(
+                                              controller: findWordController,
+                                              onChanged: (word) {
+                                                context.read<FindWordBloc>().add(FindWord(word: word));
+                                              },
+                                              cursorColor: Colors.grey,
+                                              style: const TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                              decoration: const InputDecoration(
+                                                hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                                hintText: "Find word",
+                                                border: OutlineInputBorder(),
+                                                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 13.5),
+                                      const SizedBox(height: 1),
                                       ListTile(
                                         trailing: Container(
                                           decoration: const BoxDecoration(
@@ -174,13 +195,17 @@ class HomeScreen extends StatelessWidget {
                                           height: 45,
                                           width: 45,
                                           child: const Icon(Icons.find_replace_sharp,color: Colors.white)),
-                                        title: const TextField(
-                                          style: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                          decoration: InputDecoration(
-                                            hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                            hintText: "Replace",
-                                            border: OutlineInputBorder(
-                                            )
+                                        title:  const SizedBox(
+                                          height: 47,
+                                          child: TextField(
+                                            cursorColor: Colors.grey,
+                                            style: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                            decoration: InputDecoration(
+                                              hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                              hintText: "Replace",
+                                              border: OutlineInputBorder(),
+                                              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -282,7 +307,7 @@ class HomeScreen extends StatelessWidget {
                                       ),
                                       ElevatedButton(
                                         onPressed: (){}, 
-                                         style: const ButtonStyle(
+                                          style: const ButtonStyle(
                                           shape: WidgetStatePropertyAll(BeveledRectangleBorder()),
                                           backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
                                           foregroundColor: WidgetStatePropertyAll(Colors.white),
@@ -352,7 +377,7 @@ class HomeScreen extends StatelessWidget {
                                       );
                                     }, 'Editor themes',
                                       const Icon(Icons.color_lens, size: 24, color: Colors.grey)),
-                                   settingsTile((){
+                                    settingsTile((){
                                     showDialog(context: context, builder: (context)=>
                                     BlocProvider<ThemeBloc>.value(
                                       value: uiBloc,
@@ -407,12 +432,12 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               )
                             ],
-                          );
-                        },
-                      ),
-                    )
-                  ],
-                ),
+                          )
+                        )
+                      ],
+                    ),
+                  );
+                },
               ),
               appBar: AppBar(
                 title: SingleChildScrollView(
@@ -446,7 +471,7 @@ class HomeScreen extends StatelessWidget {
                               title: const Text("Create a new file",
                                   style: TextStyle(color: Colors.grey)),
                               content: Form(
-                                key: _createFileKey,
+                                key: createFileKey,
                                 child: TextFormField(
                                   style: const TextStyle(color: Colors.grey),
                                   cursorColor: Colors.grey,
@@ -470,7 +495,7 @@ class HomeScreen extends StatelessWidget {
                                   actions: [
                                     ElevatedButton(
                                       onPressed: () async {
-                                        _createFileKey.currentState!.validate();
+                                        createFileKey.currentState!.validate();
                                         if (createFileController.text.isNotEmpty) {
                                           final file = await createFile(createFileController.text, context);
                                           if (context.mounted && file != null) {
@@ -552,50 +577,38 @@ class HomeScreen extends StatelessWidget {
                       onPressed: () async {
                         await target!.writeAsString(codeEditor.code());
                         final server = await startServer();
-                        if(server!=null) {
-                          final terminal = SetupTerminal(projectDir:filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path,server: server);
+                        try {
                           if (context.mounted) {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
                           await NativeChannel.sendCommand(languageDetails, target.path, context);
                         }
                         }
-                        else{
-                          if(context.mounted) {
-                            showDialog(context: context, builder: (context)=>AlertDialog(
-                              title: const Text("Failed to connect with Termux",style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                              backgroundColor: const Color(0xff2b2b2b),
-                              icon: const Icon(Icons.error_outline),
-                              iconColor: Colors.red[600],
-                              actionsAlignment: MainAxisAlignment.center,
-                                actions: [
-                                  ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      child: const Text("OK"))
-                                ],
-                              ));
-                          }
+                        catch(e){
+                         await startTermuxActivity();
+                         if(context.mounted) {
+                           await NativeChannel.sendCommand(languageDetails, target.path, context);
+                         }
+                        }
+                        final terminal = SetupTerminal(projectDir:filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path,server: server);
+                        if(context.mounted){
+                          Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
                         }
                       },
                       icon: const Icon(Icons.play_arrow)),
                   IconButton(
-                      onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => SetupTerminal(projectDir: filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path)));
-                      },
-                      icon: const Icon(Icons.terminal, color: Color(0xff717171)))
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => SetupTerminal(projectDir: filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path)));
+                    },
+                    icon: const Icon(Icons.terminal, color: Color(0xff717171)))
                 ],
               ),
               body: InteractiveViewer(
-              transformationController: trasnformationController,
-              minScale: 0.1,
-              child: codeEditor,
-                            )
-              
-            ),
-          );
-        },
-      );
+                transformationController: trasnformationController,
+                minScale: 0.1,
+              child: codeEditor)
+          ),
+        );
+      },
+     );
   }
 }

@@ -18,3 +18,8 @@ class MenuSearchState {
   final List<Card> searchedLangs;
   const MenuSearchState({required this.searchedLangs});
 }
+
+class FindWordState {
+  final String word;
+  const FindWordState({required this.word});
+}

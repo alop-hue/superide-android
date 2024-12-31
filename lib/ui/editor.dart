@@ -9,7 +9,7 @@ import 'package:vsdroid/utils/themes.dart';
 class CodeEditor extends StatelessWidget {
   final Language language;
   final Map<String, TextStyle>? theme;
-  late final CodeController codeController;
+  late CodeController codeController;
   final bool isTemplate;
   final String? file;
   final File? filePath;
@@ -19,9 +19,7 @@ class CodeEditor extends StatelessWidget {
       this.theme,
       required this.isTemplate,
       this.file,
-      this.filePath}) {
-    //
-  }
+      this.filePath}) {/**/}
 
   Future<String?> checkTempFile() async {
     final tempFile = File("/sdcard/VSdroid/Temps/tempCode.${language.extension}");
@@ -39,55 +37,77 @@ class CodeEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return isTemplate
-        ? FutureBuilder(
-            future: checkTempFile(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              codeController = CodeController(language: language.language,text: snapshot.data ?? language.helloWorld);
-              return BlocBuilder<ThemeBloc, ThemeState>(
-                builder: (context, state) {
-                  return CodeTheme(
-                    data: CodeThemeData(styles: highlightThemes[state.theme]),
-                    child: CodeField(
-                      textStyle: TextStyle(fontFamily: state.fontFamily,fontSize: 10),
-                      smartQuotesType: SmartQuotesType.enabled,
-                      textSelectionTheme: const TextSelectionThemeData(cursorColor: Color(0xff23a9f2),selectionColor: Color.fromARGB(112, 30, 134, 245)),
-                      controller: codeController,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                    ),
-                  );
-                },
-              );
-            })
-        : FutureBuilder(
-          future: (() async {
-            return filePath!.readAsString();
-          })(), builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            codeController = CodeController(language: language.language,text: snapshot.hasData? snapshot.data: "Can't read file content");
-            return BlocBuilder<ThemeBloc, ThemeState>(
-              builder: (context, state) {
-                return CodeTheme(
-                  data: CodeThemeData(styles: highlightThemes[state.theme]),
-                  child: CodeField(
-                    textStyle: TextStyle(fontFamily: state.fontFamily,fontSize: 10),
-                    smartQuotesType: SmartQuotesType.enabled,
-                    textSelectionTheme: const TextSelectionThemeData(cursorColor: Color(0xff23a9f2),selectionColor: Color.fromARGB(112, 30, 134, 245)),
-                    controller: codeController,
-                    expands: true,
-                    maxLines: null,
-                    minLines: null,
-                  ),
+        ? BlocBuilder<FindWordBloc, FindWordState>(
+            builder: (context, wordState) {
+              return FutureBuilder(
+                  future: checkTempFile(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    codeController = CodeController(
+                      language: language.language,
+                      text: snapshot.data ?? language.helloWorld,
+                      patternMap: {
+                        if (wordState.word.isNotEmpty) RegExp.escape(wordState.word): TextStyle(backgroundColor: Colors.yellow[600]!)
+                      });
+                    return BlocBuilder<ThemeBloc, ThemeState>(
+                      builder: (context, state) {
+                        return CodeTheme(
+                          data: CodeThemeData(styles: highlightThemes[state.theme]),
+                          child: CodeField(
+                            textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: 10),
+                            smartQuotesType: SmartQuotesType.enabled,
+                            textSelectionTheme: const TextSelectionThemeData(
+                            cursorColor: Color(0xff23a9f2),
+                            selectionColor:Color.fromARGB(112, 30, 134, 245)),
+                            controller: codeController,
+                            expands: true,
+                            maxLines: null,
+                            minLines: null,
+                          ),
+                        );
+                      },
+                    );
+                  });
+            },
+          )
+        : BlocBuilder<FindWordBloc, FindWordState>(
+            builder: (context, wordState) {
+              return FutureBuilder(future: (() async {
+                return filePath!.readAsString();
+              })(), builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                codeController = CodeController(
+                  language: language.language,
+                  text: snapshot.hasData? snapshot.data: "Can't read file content",
+                  patternMap: {
+                    if (wordState.word.isNotEmpty) RegExp.escape(wordState.word): TextStyle(backgroundColor: Colors.yellow[600]!)
+                  }
                 );
-              },
-            );
-          });
+                return BlocBuilder<ThemeBloc, ThemeState>(
+                  builder: (context, state) {
+                    return CodeTheme(
+                      data: CodeThemeData(styles: highlightThemes[state.theme]),
+                      child: CodeField(
+                        textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: 10),
+                        smartQuotesType: SmartQuotesType.enabled,
+                        textSelectionTheme: const TextSelectionThemeData(
+                          cursorColor: Color(0xff23a9f2),
+                          selectionColor: Color.fromARGB(112, 30, 134, 245)),
+                        controller: codeController,
+                        expands: true,
+                        maxLines: null,
+                        minLines: null,
+                      ),
+                    );
+                  },
+                );
+              });
+            },
+          );
   }
 
   String code() {

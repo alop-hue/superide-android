@@ -24,3 +24,9 @@ class MenuSearchBloc extends Bloc<UiEvent, MenuSearchState>{
     on<Search>((event, emit)=>emit(MenuSearchState(searchedLangs: event.searchedLangs)));
   }
 }
+
+class FindWordBloc extends Bloc<UiEvent, FindWordState>{
+  FindWordBloc():super(const FindWordState(word: '')){
+    on<FindWord>((event, emit)=>emit(FindWordState(word: event.word)));
+  }
+}

@@ -8,16 +8,14 @@ import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 import kotlin.arrayOf
-import java.util.Timer
-import java.util.TimerTask
 
 class MainActivity: FlutterActivity() {
 
     private val CHANNEL = "com.vsdroid"
 
     override fun configureFlutterEngine(@NonNull flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
-        var intent: Intent? = null
         super.configureFlutterEngine(flutterEngine)
+        
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "loadLibrary" -> {
@@ -30,7 +28,7 @@ class MainActivity: FlutterActivity() {
                     val fileName = call.argument<String>("fileName")
                     val languageCommand = call.argument<String>("languageCommand")
                     val projectType = call.argument<String>("projectType")
-                    intent = sendCommand(fileName, languageCommand)
+                    sendCommand(fileName, languageCommand)
                     result.success(null)
                 }
                 "installOnTermux" -> {

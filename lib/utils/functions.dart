@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:file_icon/src/data.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
@@ -14,6 +16,20 @@ Future<bool> getPermission() async {
     await Permission.manageExternalStorage.request();
   }
   return await Permission.manageExternalStorage.status.isGranted;
+}
+
+Future<void> startTermuxActivity() async{
+  const intent = AndroidIntent(
+    componentName: 'com.termux.app.TermuxActivity',
+    package: 'com.termux',
+  );
+  const intent2 = AndroidIntent(
+    componentName: 'com.vsdroid.MainActivity',
+    package: 'com.vsdroid',
+  );
+  await intent.launch();
+  await Future.delayed(const Duration(milliseconds: 50));
+  await intent2.launch();
 }
 
 Future<Directory> setupProjectDir() async {
@@ -47,26 +63,24 @@ Future<File> setTempFile(String extension) async {
 }
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-    {Color color = const Color(0xff6d6d6d),
-    Color bgColor = Colors.transparent}) {
-  if (icon.runtimeType == IconData) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 15),
-      child: Container(
-        color: bgColor,
-        child: IconButton(
-            onPressed: onPressed, icon: Icon(icon, color: color, size: 38)),
-      ),
-    );
-  }
+  {Color color = const Color(0xff6d6d6d),Color bgColor = Colors.transparent}) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 15),
-    child: IconButton(onPressed: onPressed, icon: icon),
+    child: Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.all(Radius.circular(15))
+      ),
+      padding:  EdgeInsets.symmetric(horizontal: 5,vertical:![IconData,IconDataSolid].contains(icon.runtimeType)? 8:5),
+      child: IconButton(
+        onPressed: onPressed, icon: ![IconData,IconDataSolid].contains(icon.runtimeType) ?
+         icon:
+         Icon(icon, color: color, size: icon.runtimeType == IconDataSolid? 35:38)),
+    ),
   );
 }
 
-Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,
-    {double val = 0}) {
+Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,{double val = 0}) {
   return Padding(
     padding: const EdgeInsets.only(left: 15),
     child: ListTile(

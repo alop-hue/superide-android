@@ -7,6 +7,7 @@ import 'package:vsdroid/utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  startTermuxActivity();
   final savedTheme = await getSavedTheme();
   final savedFont = await getSavedFont();
   runApp(MainApp(savedTheme: savedTheme,savedFont: savedFont));
@@ -23,6 +24,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (context) => StackBloc()),
         BlocProvider(create: (context) => ThemeBloc(initialTheme: savedTheme,fontFamily: savedFont)),
         BlocProvider(create: (context) => MenuSearchBloc()),
+        BlocProvider(create: (context) => FindWordBloc())
       ],
       child: MaterialApp(
           theme: ThemeData(

@@ -1,6 +1,7 @@
 part of 'ui_bloc.dart';
 
-class UiEvent {}
+@immutable
+sealed class UiEvent {}
 
 class StackIndexChange extends UiEvent {
   final int stackValue;
@@ -20,4 +21,9 @@ class Search extends UiEvent {
 class SetFont extends UiEvent {
   final String font;
   SetFont({required this.font});
+}
+
+class FindWord extends UiEvent {
+  final String word;
+  FindWord({required this.word});
 }

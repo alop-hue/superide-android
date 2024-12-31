@@ -26,7 +26,7 @@ class MenuScreen extends StatelessWidget {
       ))).toList();
     return PopScope(
       canPop: true,
-      onPopInvokedWithResult:(didPop, result) => context.read<MenuSearchBloc>().add(Search(searchedLangs: [])),
+      onPopInvokedWithResult:(didPop, result) => context.read<MenuSearchBloc>().add(Search(searchedLangs: const [])),
       child: Scaffold(
         body: CustomScrollView(
           slivers: [
@@ -38,7 +38,7 @@ class MenuScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.only(left: 55,right: 20),
                     child: TextField(
-                      onEditingComplete: () => context.read<MenuSearchBloc>().add(Search(searchedLangs: [])),
+                      onEditingComplete: () => context.read<MenuSearchBloc>().add(Search(searchedLangs: const [])),
                       onChanged: (data){
                         List<Language> searched = languages.where((language)=>language.name.toLowerCase().contains(data.toLowerCase())).toList()
                         ..sort((a, b) {
