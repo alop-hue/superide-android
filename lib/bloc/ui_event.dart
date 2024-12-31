@@ -11,3 +11,13 @@ class SetTheme extends UiEvent {
   final String theme;
   SetTheme({required this.theme});
 }
+
+class Search extends UiEvent {
+  final List<Card> searchedLangs;
+  Search({required this.searchedLangs});
+}
+
+class SetFont extends UiEvent {
+  final String font;
+  SetFont({required this.font});
+}

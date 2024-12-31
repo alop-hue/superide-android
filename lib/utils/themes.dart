@@ -111,6 +111,18 @@ final Map<String, dynamic> highlightThemes = {
   'zenburn': zenburnTheme,
 };
 
+final fonts = [
+  'monospace',
+  'firaCode',
+  'cascadia',
+  'hack',
+  'dejaVuSansMono',
+  'inconsolata',
+  'jetBrainsMono',
+  'proggy',
+  'sourceCodePro'
+  ];
+
 const appBarDark = AppBarTheme(
     backgroundColor: Color(0xff181818),
     iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));

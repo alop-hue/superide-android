@@ -39,3 +39,28 @@ flutter:
   assets:
     - assets/icons/
     - assets/material_icons/
+  fonts:
+    - family: firaCode
+      fonts:
+        - asset: assets/fonts/FiraCode-Medium.ttf
+    - family: cascadia
+      fonts:
+        - asset: assets/fonts/CascadiaCodePL-Regular.ttf
+    - family: hack
+      fonts:
+        - asset: assets/fonts/Hack-Regular.ttf
+    - family: dejaVuSansMono
+      fonts:
+        - asset: assets/fonts/DejaVuSansMono.ttf
+    - family: inconsolata
+      fonts:
+        - asset: assets/fonts/Inconsolata-Regular.ttf
+    - family: jetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
+    - family: proggy
+      fonts:
+        - asset: assets/fonts/ProggyVector-Regular.ttf
+    - family: sourceCodePro
+      fonts:
+        - asset: assets/fonts/SourceCodePro-Medium.ttf

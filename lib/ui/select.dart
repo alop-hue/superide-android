@@ -233,6 +233,8 @@ class _SelectTypeState extends State<SelectType> {
             child: Column(
               children: [
                 InkWell(
+                  borderRadius: const BorderRadius.all(Radius.circular(15)),
+                  radius: 5,
                   onTap: () {},
                   child: const SizedBox(
                     height: 60,
@@ -255,6 +257,8 @@ class _SelectTypeState extends State<SelectType> {
                 ),
                 const SizedBox(height: 5),
                 InkWell(
+                  borderRadius: const BorderRadius.all(Radius.circular(15)),
+                  radius: 5,
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MenuScreen()));
                   },

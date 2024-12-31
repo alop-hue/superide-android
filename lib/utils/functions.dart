@@ -84,6 +84,24 @@ Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,
   );
 }
 
+Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
+  return Column(
+    children: [
+      ListTile(
+        dense: true,
+        onTap: onPressed,
+        leading: icon,
+        title: Text(title,
+            style: TextStyle(
+              fontSize: 18.5,
+              fontWeight: FontWeight.w400,
+              color:Colors.grey[400],
+              fontFamily:'roboto')),
+      ),
+    ],
+  );
+}
+
 Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
@@ -188,7 +206,13 @@ Future<HttpServer?> startServer() async {
 Future<String> getSavedTheme() async {
   final prefs = await SharedPreferences.getInstance();
   final savedThemeName = prefs.getString('selectedTheme');
-  return savedThemeName??'atom-one-dark';
+  return savedThemeName ?? 'atom-one-dark';
+}
+
+Future<String> getSavedFont() async {
+  final prefs = await SharedPreferences.getInstance();
+  final savedThemeName = prefs.getString('selectedFont');
+  return savedThemeName ?? 'monospace';
 }
 
 extension StringExtension on String {
