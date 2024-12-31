@@ -73,32 +73,27 @@ class HomeScreen extends StatelessWidget {
                           child: Column(
                             children: [
                               const SizedBox(height: 25),
-                              drawerButtons(() {
-                                context.read<StackBloc>().add(StackIndexChange(stackValue: 0));
-                              }, Icons.file_copy_outlined,
-                                  color: state.stackIndex == 0 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                                  bgColor: state.stackIndex == 0 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
-                                  ),
-                              drawerButtons(() {
-                                context.read<StackBloc>().add(StackIndexChange(stackValue: 1));
-                              },
+                              drawerButtons(
+                                () => context.read<StackBloc>().add(StackIndexChange(stackValue: 0)), 
+                                Icons.file_copy_outlined,
+                                color: state.stackIndex == 0 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                                bgColor: state.stackIndex == 0 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                                ),
+                              drawerButtons(
+                                () => context.read<StackBloc>().add(StackIndexChange(stackValue: 1)),
                                 Icons.search,
                                 color: state.stackIndex == 1 ?Colors.grey[400]!:const Color(0xff6d6d6d),
                                 bgColor: state.stackIndex == 1 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
                               )
                               ,
                               drawerButtons(
-                                () {
-                                  context.read<StackBloc>().add(StackIndexChange(stackValue: 2));
-                                },
+                                () => context.read<StackBloc>().add(StackIndexChange(stackValue: 2)),
                                 FontAwesomeIcons.codeBranch,
                                 color: state.stackIndex == 2 ?Colors.grey[400]!:const Color(0xff6d6d6d),
                                 bgColor: state.stackIndex == 2 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
                               ),
                               drawerButtons(
-                                () {
-                                  context.read<StackBloc>().add(StackIndexChange(stackValue: 3));
-                                },
+                                () => context.read<StackBloc>().add(StackIndexChange(stackValue: 3)),
                                 SvgPicture.asset(
                                   'assets/icons/rest-api-icon.svg',
                                   height: 34,
@@ -108,12 +103,11 @@ class HomeScreen extends StatelessWidget {
                                 ),
                                 bgColor: state.stackIndex == 3 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
                               ),
-                              drawerButtons(() {
-                                context.read<StackBloc>().add(StackIndexChange(stackValue: 4));
-                              },
-                              Icons.settings,
-                              color: state.stackIndex == 4 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                              bgColor: state.stackIndex == 4 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                              drawerButtons(
+                                () => context.read<StackBloc>().add(StackIndexChange(stackValue: 4)),
+                                Icons.settings,
+                                color: state.stackIndex == 4 ?Colors.grey[400]!:const Color(0xff6d6d6d),
+                                bgColor: state.stackIndex == 4 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
                               ),
                             ],
                           ),
@@ -157,7 +151,13 @@ class HomeScreen extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(vertical: 35,horizontal: 5),
                                 child: SizedBox(
                                   child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 17),
+                                        child: Text("SEARCH",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
+                                      ),
+                                      const SizedBox(height: 15),
                                       ListTile(
                                         title: SizedBox(
                                           height: 47,
@@ -233,7 +233,10 @@ class HomeScreen extends StatelessWidget {
                                       ElevatedButton(
                                         onPressed: (){},
                                         style: const ButtonStyle(
-                                          shape: WidgetStatePropertyAll(BeveledRectangleBorder()),
+                                          shape: WidgetStatePropertyAll(
+                                            RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.all(Radius.circular(5))
+                                            )),
                                           backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
                                           foregroundColor: WidgetStatePropertyAll(Colors.white),
                                           textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
@@ -251,7 +254,10 @@ class HomeScreen extends StatelessWidget {
                                         child: ElevatedButton(
                                           onPressed: (){},
                                           style: const ButtonStyle(
-                                            shape: WidgetStatePropertyAll(BeveledRectangleBorder()),
+                                            shape: WidgetStatePropertyAll(
+                                              RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.all(Radius.circular(5))
+                                              )),
                                             backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
                                             foregroundColor: WidgetStatePropertyAll(Colors.white),
                                             textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
@@ -269,58 +275,80 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 30,horizontal: 15),
-                                child: SizedBox(
-                                  child: Column(
-                                    children: [
-                                      Card(
-                                        child: Row(
-                                          children: [
-                                            DropdownButton(
-                                              value: "post",
-                                              dropdownColor: const Color(0xff2b2b2b),
-                                              items: const [
-                                                DropdownMenuItem(
-                                                  value: "post",
-                                                  child: Text("POST",style: TextStyle(color: Color(0xffe0790b)))),
-                                                DropdownMenuItem(
-                                                  value: "get",
-                                                  child: Text("GET",style: TextStyle(color: Color(0xff26cda3)))),
-                                                DropdownMenuItem(
-                                                  value: "put",
-                                                  child: Text("PUT",style: TextStyle(color: Color(0xff097bed)))),
-                                                DropdownMenuItem(
-                                                  value: "delete",
-                                                  child: Text("DELETE",style: TextStyle(color: Color(0xfff22814))))
-                                              ],
-                                              onChanged: (value){}),
-                                            const Expanded(
-                                              child: TextField(
-                                                decoration: InputDecoration(
-                                                  hintText: "Enter Url",
-                                                  border: OutlineInputBorder()
-                                                ),
-                                              ),
-                                            )
-                                          ],
+                                padding: const EdgeInsets.symmetric(vertical: 28,horizontal: 15),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 15),
+                                    const Text(
+                                      "API TESTING",
+                                      style: TextStyle(color: Colors.white,fontWeight: FontWeight.w300)
+                                    ),
+                                    const SizedBox(height: 15),
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton(
+                                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                        value: "post",
+                                        dropdownColor: const Color(0xff2b2b2b),
+                                        items: const [  
+                                          DropdownMenuItem(
+                                            value: "post",
+                                            child: Text("POST",style: TextStyle(color: Color(0xffe0790b)))),
+                                          DropdownMenuItem(
+                                            value: "get",
+                                            child: Text("GET",style: TextStyle(color: Color(0xff26cda3)))),
+                                          DropdownMenuItem(
+                                            value: "put",
+                                            child: Text("PUT",style: TextStyle(color: Color(0xff097bed)))),
+                                          DropdownMenuItem(
+                                            value: "delete",
+                                            child: Text("DELETE",style: TextStyle(color: Color(0xfff22814))))
+                                        ],
+                                        onChanged: (value){}),
+                                    ),
+                                    const SizedBox(
+                                      height: 50,
+                                      width: 250,
+                                      child: TextField(
+                                        keyboardType: TextInputType.url,
+                                        style: TextStyle(color: Colors.grey),
+                                        cursorColor: Colors.grey,
+                                        decoration: InputDecoration(
+                                          hintText: "Enter Url",
+                                          border: OutlineInputBorder(),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(color: Color(0xff0e639c))
+                                          )
                                         ),
                                       ),
-                                      ElevatedButton(
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: 100,
+                                      child: ElevatedButton(
                                         onPressed: (){}, 
                                           style: const ButtonStyle(
-                                          shape: WidgetStatePropertyAll(BeveledRectangleBorder()),
+                                          shape: WidgetStatePropertyAll(
+                                            RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.all(Radius.circular(8)))),
                                           backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
                                           foregroundColor: WidgetStatePropertyAll(Colors.white),
                                           textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
-                                        child: const Text("Send Request"))
-                                    ],
-                                  ),
+                                        child: const Text("Send")),
+                                    )
+                                  ],
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.only(top: 55),
+                                padding: const EdgeInsets.only(top: 45),
                                 child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 20),
+                                      child: Text("SETTINGS",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
+                                    ),
+                                    const SizedBox(height: 15),
                                     settingsTile(() {
                                       showDialog(context: context, builder: (context)=>
                                       BlocProvider<ThemeBloc>.value(
@@ -375,7 +403,7 @@ class HomeScreen extends StatelessWidget {
                                         ),
                                       )
                                       );
-                                    }, 'Editor themes',
+                                    }, 'Themes',
                                       const Icon(Icons.color_lens, size: 24, color: Colors.grey)),
                                     settingsTile((){
                                     showDialog(context: context, builder: (context)=>
@@ -427,7 +455,7 @@ class HomeScreen extends StatelessWidget {
                                           )));
                                       }),
                                     ));
-                                  }, "Font style", const Icon(FontAwesomeIcons.font,color: Colors.grey,size: 21))
+                                  }, "Font", const Icon(FontAwesomeIcons.font,color: Colors.grey,size: 21))
                                 ],
                                 ),
                               )
@@ -508,7 +536,6 @@ class HomeScreen extends StatelessWidget {
                                       child: const Text("OK"))
                                   ],
                                 ));
-                                  Navigator.of(context).pop();
                                 }, child:  const Row(
                                   children: [
                                     Padding(

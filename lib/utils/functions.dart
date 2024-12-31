@@ -69,9 +69,11 @@ Widget drawerButtons(VoidCallback onPressed, dynamic icon,
     child: Container(
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: const BorderRadius.all(Radius.circular(15))
+        borderRadius: const BorderRadius.all(Radius.circular(10))
       ),
-      padding:  EdgeInsets.symmetric(horizontal: 5,vertical:![IconData,IconDataSolid].contains(icon.runtimeType)? 8:5),
+      padding:  EdgeInsets.symmetric(
+        horizontal: ![IconData,IconDataSolid].contains(icon.runtimeType)? 2.5:icon.runtimeType==IconDataSolid?5:4,
+        vertical:![IconData,IconDataSolid].contains(icon.runtimeType)? 8:5),
       child: IconButton(
         onPressed: onPressed, icon: ![IconData,IconDataSolid].contains(icon.runtimeType) ?
          icon:
@@ -99,20 +101,18 @@ Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,{double val =
 }
 
 Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
-  return Column(
-    children: [
-      ListTile(
-        dense: true,
-        onTap: onPressed,
-        leading: icon,
-        title: Text(title,
-            style: TextStyle(
-              fontSize: 18.5,
-              fontWeight: FontWeight.w400,
-              color:Colors.grey[400],
-              fontFamily:'roboto')),
+  return ListTile(
+    dense: true,
+    onTap: onPressed,
+    leading: icon,
+    title: Text(
+      title,
+      style: TextStyle(
+        fontSize: 18.5,
+        fontWeight: FontWeight.w400,
+        color:Colors.grey[400],
       ),
-    ],
+    ),
   );
 }
 

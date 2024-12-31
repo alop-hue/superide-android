@@ -6,6 +6,7 @@ import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:vsdroid/utils/themes.dart';
 
+// ignore: must_be_immutable
 class CodeEditor extends StatelessWidget {
   final Language language;
   final Map<String, TextStyle>? theme;
