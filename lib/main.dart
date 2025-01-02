@@ -7,7 +7,6 @@ import 'package:vsdroid/utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  startTermuxActivity();
   final savedTheme = await getSavedTheme();
   final savedFont = await getSavedFont();
   runApp(MainApp(savedTheme: savedTheme,savedFont: savedFont));

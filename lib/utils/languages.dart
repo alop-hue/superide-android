@@ -137,7 +137,7 @@ List<Language> languages = [
     extension: 'html',
     details: 'The standard markup language for creating web pages.',
     language: xml,
-    helloWorld:'<!DOCTYPE html>\n\n<html>\n <head>\n  <h1>Hello World</h1>\n </head>\n</html>',
+    helloWorld:'<!DOCTYPE html>\n\n<html>\n <body>\n  <h1>Hello World</h1>\n </body>\n</html>',
     icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
   ),
   Language(

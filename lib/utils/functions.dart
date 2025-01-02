@@ -28,7 +28,7 @@ Future<void> startTermuxActivity() async{
     package: 'com.vsdroid',
   );
   await intent.launch();
-  await Future.delayed(const Duration(milliseconds: 50));
+  await Future.delayed(const Duration(milliseconds: 200));
   await intent2.launch();
 }
 
@@ -51,15 +51,32 @@ Future<Directory> setupTempDir() async {
 Future<File> setTempFile(String extension) async {
   await getPermission();
   final dir = await setupTempDir();
+  File target;
   if (dir.existsSync()) {
-    final target =
-        File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    if(extension == 'html'){
+      target = File('/storage/emulated/0/VSdroid/Temps/index.html');  
+    }
+    else if(extension == 'css'){
+      target = File('/storage/emulated/0/VSdroid/Temps/style.css');  
+    }
+    else if(extension == 'js'){
+      target = File('/storage/emulated/0/VSdroid/Temps/script.js');  
+    }
+    else{
+      target = File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+    }
     if (!target.existsSync()) {
       await target.create(recursive: true);
       return target;
     }
   }
-  return File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+  return extension=='html' 
+      ?File('/storage/emulated/0/VSdroid/Temps/index.html')
+      :extension == 'css'
+        ?File('/storage/emulated/0/VSdroid/Temps/style.css')
+        :extension == 'js'
+          ?File('/storage/emulated/0/VSdroid/Temps/script.js')
+          :File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
 }
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,

@@ -9,33 +9,53 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/terminal/terminal.dart';
 import 'package:vsdroid/ui/editor.dart';
+import 'package:vsdroid/ui/webview.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/utils/themes.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final Language languageDetails;
   final File? filePath;
   const HomeScreen({super.key, required this.languageDetails, this.filePath});
-  
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+
+  @override 
+  void initState(){
+    setTempFile(widget.languageDetails.extension);
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
     final trasnformationController = TransformationController();
     trasnformationController.value = Matrix4.identity()..scale(1.45);
-    final codeEditor = CodeEditor(language: languageDetails,isTemplate: filePath == null,filePath: filePath);
+    final codeEditor = CodeEditor(
+      isTemplate: widget.filePath == null,
+      language: widget.languageDetails,
+      filePath: widget.filePath ?? (widget.languageDetails.extension == 'html'
+                ?File("/sdcard/VSdroid/Temps/index.html"):widget.languageDetails.extension == 'css'
+                  ?File("/sdcard/VSdroid/Temps/style.css"):widget.languageDetails.extension == 'js'
+                    ?File("/sdcard/VSdroid/Temps/script.js")
+                      :File("/sdcard/VSdroid/Temps/tempCode.${widget.languageDetails.extension}"))
+      );
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
     final createFileKey = GlobalKey<FormState>();
     final createFileController = TextEditingController();
     final findWordController = TextEditingController();
 
     return FutureBuilder(
-        future: filePath == null? setTempFile(languageDetails.extension):(()async{
-          if(!filePath!.existsSync()){
-            await filePath!.create(recursive: true);
+        future: widget.filePath == null? setTempFile(widget.languageDetails.extension):(()async{
+          if(!widget.filePath!.existsSync()){
+            await widget.filePath!.create(recursive: true);
           }
-          return filePath;
+          return widget.filePath;
         })(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -46,14 +66,14 @@ class HomeScreen extends StatelessWidget {
             canPop: true,
             onPopInvokedWithResult:(didPop, result) async{
               late final File loc;
-              if(filePath == null){
-                loc = await setTempFile(languageDetails.extension);
+              if(widget.filePath == null){
+                loc = await setTempFile(widget.languageDetails.extension);
               }
               else{
-                if(!filePath!.existsSync()){
-                  await filePath!.create(recursive: true);
+                if(!widget.filePath!.existsSync()){
+                  await widget.filePath!.create(recursive: true);
                 }
-              loc = filePath!;
+              loc = widget.filePath!;
               }
               loc.writeAsString(codeEditor.code());
               if(context.mounted){
@@ -123,7 +143,7 @@ class HomeScreen extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 58, left: 20),
                                     child: DirectoryTreeViewer(
-                                      rootPath: filePath == null? '/sdcard/VSdroid/Temps': filePath!.parent.path,
+                                      rootPath: widget.filePath == null? '/sdcard/VSdroid/Temps': widget.filePath!.parent.path,
                                       fileIconBuilder: (ext) {
                                         return SizedBox(
                                           height: 25,
@@ -471,7 +491,15 @@ class HomeScreen extends StatelessWidget {
                 title: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Text(
-                        filePath == null? "tempCode.${languageDetails.extension}": path.basename(filePath!.path),
+                        widget.filePath == null
+                          ? (widget.languageDetails.extension=='html'
+                              ? "index.html"
+                              :widget.languageDetails.extension=='css'
+                                ?'style.css'
+                                :widget.languageDetails.extension=='js'
+                                  ?'script.js'
+                                  :"tempCode.${widget.languageDetails.extension}")
+                          : path.basename(widget.filePath!.path),
                         style: const TextStyle(color: Colors.white))),
                 actions: [
                   PopupMenuButton(
@@ -603,28 +631,38 @@ class HomeScreen extends StatelessWidget {
                   IconButton(
                       onPressed: () async {
                         await target!.writeAsString(codeEditor.code());
-                        final server = await startServer();
-                        try {
-                          if (context.mounted) {
-                          await NativeChannel.sendCommand(languageDetails, target.path, context);
+                        if(path.extension(target.path)=='.html'){
+                          if(context.mounted) {
+                            Navigator.of(context).push(MaterialPageRoute(
+                            builder: (context)=>WebView(
+                              dirPath: widget.filePath==null?Directory('/sdcard/VSdroid/Temps/'):widget.filePath!.parent)));
+                          }
                         }
+                        else{
+                          final server = await startServer();
+                          try {
+                            if (context.mounted) {
+                            await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                            }
+                          }
+                          catch(e){
+                            await startTermuxActivity();
+                            if(context.mounted) {
+                              await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                            }
+                          }
+                          final terminal = SetupTerminal(projectDir:widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path,server: server);
+                          if(context.mounted){
+                            Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
+                          }
                         }
-                        catch(e){
-                         await startTermuxActivity();
-                         if(context.mounted) {
-                           await NativeChannel.sendCommand(languageDetails, target.path, context);
-                         }
-                        }
-                        final terminal = SetupTerminal(projectDir:filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path,server: server);
-                        if(context.mounted){
-                          Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
-                        }
+
                       },
                       icon: const Icon(Icons.play_arrow)),
                   IconButton(
                     onPressed: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => SetupTerminal(projectDir: filePath==null?"/storage/emulated/0/VSdroid/Temps":filePath!.parent.path)));
+                        builder: (context) => SetupTerminal(projectDir: widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path)));
                     },
                     icon: const Icon(Icons.terminal, color: Color(0xff717171)))
                 ],
