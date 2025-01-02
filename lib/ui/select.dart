@@ -38,11 +38,9 @@ class _SelectTypeState extends State<SelectType> {
             drawerTile(
                 () {},
                 "Setup Termux",
-                SvgPicture.asset('assets/icons/Termux.svg',
-                    height: 28, width: 28)),
+                SvgPicture.asset('assets/icons/Termux.svg',height: 28, width: 28)),
             drawerTile(() {
-              Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const Settings()));
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => const Settings()));
             }, "Settings",
                 const Icon(Icons.settings, color: Colors.blueGrey, size: 28)),
             Padding(
@@ -140,6 +138,7 @@ class _SelectTypeState extends State<SelectType> {
                           if (createFileController.text.isNotEmpty) {
                             final file = await createFile(createFileController.text, context);
                             if (context.mounted && file != null) {
+                              Navigator.of(context).pop();
                               Navigator.of(context).push(MaterialPageRoute(
                                 builder: (context) => HomeScreen(filePath: file,languageDetails: languages
                                   .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", "")))));

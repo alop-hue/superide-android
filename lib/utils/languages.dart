@@ -137,7 +137,18 @@ List<Language> languages = [
     extension: 'html',
     details: 'The standard markup language for creating web pages.',
     language: xml,
-    helloWorld:'<!DOCTYPE html>\n\n<html>\n <head>\n  <link rel = "stylesheet" href = "style.css">\n </head>\n <body>\n  <h1>Hello World</h1>\n </body>\n</html>',
+    helloWorld:'''
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8"> 
+              <meta name="viewport" content="width=device-width initial-scale=1.0">
+              <meta http-equiv="X-UA-Compatible" content="ie=edge">
+            </head>
+            <body>
+              <h1>Hello World</h1>
+            </body>
+            </html>''',
     icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
   ),
   Language(

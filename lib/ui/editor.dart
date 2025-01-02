@@ -32,7 +32,7 @@ class CodeEditor extends StatelessWidget {
         if(isTemplate) {
           return language.helloWorld;
         }else{
-          return 'Your canvas is ready. Write something amazing!';
+          return 'Your canvas is ready.\nWrite something amazing!';
         }
       }
     }
