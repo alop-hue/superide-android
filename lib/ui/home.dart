@@ -640,20 +640,36 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                         else{
                           final server = await startServer();
-                          try {
-                            if (context.mounted) {
-                            await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                          bool stats = false;
+                          if (server != null) {
+                            try {
+                              if (context.mounted) {
+                                stats = await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                              }
+                            }
+                            catch(e){
+                              await startTermuxActivity();
+                              if(context.mounted) {
+                                stats = await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                              }
+                            }
+                            final terminal = SetupTerminal(projectDir:widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path,server: server);
+                            if(context.mounted && stats){
+                              Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
                             }
                           }
-                          catch(e){
-                            await startTermuxActivity();
+                          else{
                             if(context.mounted) {
-                              await NativeChannel.sendCommand(widget.languageDetails, target.path, context);
+                              showDialog(context: context,builder: (context) => AlertDialog(
+                                backgroundColor: const Color.fromARGB(255, 49, 49, 49),
+                                title: const Text("Failed to Connect",style: TextStyle(color: Colors.white)),
+                                content: const Text("Failed to connect with Termux",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.white)),
+                                icon: const Icon(Icons.error_outline_sharp),
+                                iconColor: Colors.red[700],
+                              ));
                             }
-                          }
-                          final terminal = SetupTerminal(projectDir:widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path,server: server);
-                          if(context.mounted){
-                            Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
                           }
                         }
 

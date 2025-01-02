@@ -266,26 +266,29 @@ class NativeChannel {
     }
   }
 
-  static Future<void> sendCommand(
+  static Future<bool> sendCommand(
       Language language, String filePath, BuildContext context) async {
     if (language.command == null) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xff181818),
+          backgroundColor: const Color.fromARGB(255, 49, 49, 49),
           title: const Text("Not executable",
               style: TextStyle(color: Colors.white)),
-          content: const Text("This language is not executable on termux",
+          content: const Text("Unable to execute this language on termux",
+              textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white)),
           icon: const Icon(Icons.warning_amber_outlined),
           iconColor: Colors.orange[300],
         ),
       );
+      return false;
     }
     await _channel.invokeMethod('sendCommand', {
       "fileName": filePath,
       "languageCommand": language.command,
     });
+    return true;
   }
 
   static Future<void> installOnTermux(String packageName) async {

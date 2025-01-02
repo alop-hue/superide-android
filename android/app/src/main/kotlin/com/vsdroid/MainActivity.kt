@@ -9,6 +9,16 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 import kotlin.arrayOf
 
+fun String.replaceLast(oldValue: String, newValue: String): String {
+    val lastIndex = this.lastIndexOf(oldValue)
+    return if (lastIndex != -1) {
+        this.substring(0, lastIndex) + newValue + this.substring(lastIndex + oldValue.length)
+    } else {
+        this
+    }
+}
+
+
 class MainActivity: FlutterActivity() {
 
     private val CHANNEL = "com.vsdroid"
@@ -27,7 +37,6 @@ class MainActivity: FlutterActivity() {
                 "sendCommand" -> {
                     val fileName = call.argument<String>("fileName")
                     val languageCommand = call.argument<String>("languageCommand")
-                    val projectType = call.argument<String>("projectType")
                     sendCommand(fileName, languageCommand)
                     result.success(null)
                 }
@@ -42,11 +51,36 @@ class MainActivity: FlutterActivity() {
 
 
     private fun sendCommand(fileName: String?, languageCommand: String?): Intent {
+        var optionalArgs = ""
+        var extraCommand = ""
+        if(languageCommand == "javac"){
+            var compiledFileName = fileName!!.replaceLast(".java","")
+            compiledFileName = compiledFileName!!.replaceLast("/"," ")
+            extraCommand = "&& /data/data/com.termux/files/usr/bin/java -cp $compiledFileName"
+        }
+        if(languageCommand == "tsc"){
+            optionalArgs = "/data/data/com.termux/files/usr/bin/node"
+            val compiledFileName = fileName!!.replaceLast(".ts",".js")
+            extraCommand = "&& /data/data/com.termux/files/usr/bin/node $compiledFileName"
+        }
+        if(languageCommand == "gcc" || languageCommand == "g++"){
+            extraCommand = "&& ./a.out"
+        }
+        if(languageCommand == "rustc"){
+            val executable = fileName!!.substring(fileName.lastIndexOf("/") + 1).replaceLast(".rs", "")
+            extraCommand = "&& ./$executable"
+        }
+        if(languageCommand == "kotlinc"){
+            val executable = fileName!!.substring(fileName.lastIndexOf("/") + 1).replaceLast(".kt", "").replaceFirstChar { it.uppercaseChar() } + "Kt"
+            var path = "/data/data/com.termux/files/home/$executable"
+            path = path.replaceLast("/"," ")
+            extraCommand = "&& /data/data/com.termux/files/usr/bin/java -cp $path"
+        }
         val intent = Intent().apply {
             setClassName("com.termux", "com.termux.app.RunCommandService")
             action = "com.termux.RUN_COMMAND"
             putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
-            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer /data/data/com.termux/files/usr/bin/$languageCommand $fileName | /data/data/com.termux/files/usr/bin/websocat ws://127.0.0.1:49258"))
+            putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer $optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName $extraCommand | /data/data/com.termux/files/usr/bin/websocat ws://127.0.0.1:49258"))
             putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
             putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
