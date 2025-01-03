@@ -30,3 +30,10 @@ class FindWordBloc extends Bloc<UiEvent, FindWordState>{
     on<FindWord>((event, emit)=>emit(FindWordState(word: event.word)));
   }
 }
+
+class WebViewBloc extends Bloc<UiEvent, WebViewState>{
+  WebViewBloc():super(const WebViewState(isMobile: true,isConsole: true)){
+    on<SetViewPort>((event, emit)=>emit(state.copyWith(isMobile: event.isMobile)));
+    on<EnableConsole>((event, emit)=>emit(state.copyWith(isConsole: event.isConsole)));
+  }
+}

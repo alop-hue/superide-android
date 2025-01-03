@@ -27,3 +27,13 @@ class FindWord extends UiEvent {
   final String word;
   FindWord({required this.word});
 }
+
+class SetViewPort extends UiEvent{
+  final bool isMobile;
+  SetViewPort({required this.isMobile});
+}
+
+class EnableConsole extends UiEvent{
+  final bool isConsole;
+  EnableConsole({required this.isConsole});
+}

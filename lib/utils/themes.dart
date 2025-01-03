@@ -123,15 +123,11 @@ final fonts = [
   'sourceCodePro'
   ];
 
-const appBarDark = AppBarTheme(
-    backgroundColor: Color(0xff181818),
-    iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));
-
+const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818),iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));
 const tileTheme = ListTileThemeData(
-    titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
-    subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d)));
-
+  titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
+  subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d))
+);
 const cardTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
-const popupBtnTheme = PopupMenuThemeData(
-    color: Color.fromARGB(255, 61, 61, 61),
-    );
+const popupBtnTheme = PopupMenuThemeData(color: Color.fromARGB(255, 61, 61, 61),);
+const progressTheme = ProgressIndicatorThemeData(color: Color(0xff0e639c));

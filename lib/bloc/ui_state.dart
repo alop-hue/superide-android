@@ -23,3 +23,12 @@ class FindWordState {
   final String word;
   const FindWordState({required this.word});
 }
+
+class WebViewState{
+  final bool isMobile;
+  final bool isConsole;
+  const WebViewState({required this.isMobile,required this.isConsole});
+  WebViewState copyWith({bool? isMobile,bool? isConsole}){
+    return WebViewState(isMobile: isMobile ?? this.isMobile, isConsole: isConsole ?? this.isConsole);
+  } 
+}

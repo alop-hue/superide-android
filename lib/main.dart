@@ -23,15 +23,17 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (context) => StackBloc()),
         BlocProvider(create: (context) => ThemeBloc(initialTheme: savedTheme,fontFamily: savedFont)),
         BlocProvider(create: (context) => MenuSearchBloc()),
-        BlocProvider(create: (context) => FindWordBloc())
+        BlocProvider(create: (context) => FindWordBloc()),
+        BlocProvider(create: (context) => WebViewBloc())
       ],
       child: MaterialApp(
           theme: ThemeData(
-              popupMenuTheme: popupBtnTheme,
-              scaffoldBackgroundColor: const Color(0xff181818),
-              appBarTheme: appBarDark,
-              listTileTheme: tileTheme,
-              cardTheme: cardTheme),
+            progressIndicatorTheme: progressTheme,
+            popupMenuTheme: popupBtnTheme,
+            scaffoldBackgroundColor: const Color(0xff181818),
+            appBarTheme: appBarDark,
+            listTileTheme: tileTheme,
+            cardTheme: cardTheme),
           home: const StartScreen()),
     );
   }
