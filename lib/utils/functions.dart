@@ -9,6 +9,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
+import 'package:http/http.dart' as http;
 
 Future<bool> getPermission() async {
   final externalStatus = await Permission.manageExternalStorage.status;
@@ -250,6 +251,46 @@ extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;
     return '${this[0].toUpperCase()}${substring(1)}';
+  }
+}
+
+Future<Map<String, dynamic>> sendRequest({
+  required String url,
+  required String method,
+  Map<String, String>? headers,
+  Map<String, String>? params,
+  String? body,
+}) async {
+  final uri = Uri.parse(url);
+  http.Response response;
+
+  try {
+    switch (method.toUpperCase()) {
+      case 'GET':
+        response = await http.get(uri, headers: headers);
+        break;
+      case 'POST':
+        response = await http.post(uri, headers: headers, body: body);
+        break;
+      case 'PUT':
+        response = await http.put(uri, headers: headers, body: body);
+        break;
+      case 'DELETE':
+        response = await http.delete(uri, headers: headers);
+        break;
+      default:
+        throw Exception('Unsupported HTTP method: $method');
+    }
+
+    return {
+      'statusCode': response.statusCode,
+      'headers': response.headers,
+      'body': response.body,
+    };
+  } catch (e) {
+    return {
+      'error': e.toString(),
+    };
   }
 }
 

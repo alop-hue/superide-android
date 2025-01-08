@@ -3,6 +3,8 @@ import 'package:file_icon/file_icon.dart';
 import 'package:file_tree_view/file_tree_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,12 +26,26 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
+  final apiUrlController = TextEditingController();
+  late TabController apiTabController, paramTabController;
+  Map<String,String> params = {}, headers = {}, body = {};
+  Map<TextEditingController,TextEditingController> paramControllers = {}, headersControllers = {}, bodyControllers = {};
 
   @override 
   void initState(){
+    apiTabController =  TabController(length: 3, vsync: this);
+    paramTabController = TabController(length: 3, vsync: this);
     setTempFile(widget.languageDetails.extension);
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    apiUrlController.dispose();
+    apiTabController.dispose();
+    paramTabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -85,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 buildWhen: (previous, current) => current != previous,
                 builder: (context, state) {
                   return Drawer(
+                    width: 350,
                     backgroundColor: const Color(0xff2a2a2a),
                     child: Row(
                       children: [
@@ -296,67 +313,151 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 28,horizontal: 15),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 15),
-                                    const Text(
-                                      "API TESTING",
-                                      style: TextStyle(color: Colors.white,fontWeight: FontWeight.w300)
-                                    ),
-                                    const SizedBox(height: 15),
-                                    DropdownButtonHideUnderline(
-                                      child: DropdownButton(
-                                        borderRadius: const BorderRadius.all(Radius.circular(8)),
-                                        value: "post",
-                                        dropdownColor: const Color(0xff2b2b2b),
-                                        items: const [  
-                                          DropdownMenuItem(
-                                            value: "post",
-                                            child: Text("POST",style: TextStyle(color: Color(0xffe0790b)))),
-                                          DropdownMenuItem(
-                                            value: "get",
-                                            child: Text("GET",style: TextStyle(color: Color(0xff26cda3)))),
-                                          DropdownMenuItem(
-                                            value: "put",
-                                            child: Text("PUT",style: TextStyle(color: Color(0xff097bed)))),
-                                          DropdownMenuItem(
-                                            value: "delete",
-                                            child: Text("DELETE",style: TextStyle(color: Color(0xfff22814))))
-                                        ],
-                                        onChanged: (value){}),
-                                    ),
-                                    const SizedBox(
-                                      height: 50,
-                                      width: 250,
-                                      child: TextField(
-                                        keyboardType: TextInputType.url,
-                                        style: TextStyle(color: Colors.grey),
-                                        cursorColor: Colors.grey,
-                                        decoration: InputDecoration(
-                                          hintText: "Enter Url",
-                                          border: OutlineInputBorder(),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(color: Color(0xff0e639c))
-                                          )
+                                child: BlocBuilder<ApiBloc, ApiState>(
+                                  builder: (context, webState) {
+                                    apiUrlController.text = webState.url ?? "Enter URL";
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 15),
+                                        const Text(
+                                          "API TESTING",
+                                          style: TextStyle(color: Colors.white,fontWeight: FontWeight.w300)
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: 100,
-                                      child: ElevatedButton(
-                                        onPressed: (){}, 
-                                          style: const ButtonStyle(
-                                          shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(8)))),
-                                          backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
-                                          foregroundColor: WidgetStatePropertyAll(Colors.white),
-                                          textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
-                                        child: const Text("Send")),
-                                    )
-                                  ],
+                                        const SizedBox(height: 15),
+                                        DropdownButtonHideUnderline(
+                                          child: DropdownButton(
+                                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                            value: webState.method,
+                                            dropdownColor: const Color(0xff2b2b2b),
+                                            items: const [  
+                                              DropdownMenuItem(
+                                                value: "POST",
+                                                child: Text("POST",style: TextStyle(color: Color(0xffe0790b)))),
+                                              DropdownMenuItem(
+                                                value: "GET",
+                                                child: Text("GET",style: TextStyle(color: Color(0xff26cda3)))),
+                                              DropdownMenuItem(
+                                                value: "PUT",
+                                                child: Text("PUT",style: TextStyle(color: Color(0xff097bed)))),
+                                              DropdownMenuItem(
+                                                value: "DELETE",
+                                                child: Text("DELETE",style: TextStyle(color: Color(0xfff22814))))
+                                            ],
+                                            onChanged: (value) async{
+                                              context.read<ApiBloc>().add(ApiEvent(method: value!));
+                                            }),
+                                        ),
+                                        SizedBox(
+                                          height: 50,
+                                          width: 250,
+                                          child: TextField(
+                                            controller: apiUrlController,
+                                            keyboardType: TextInputType.url,
+                                            style: const TextStyle(color: Colors.grey),
+                                            cursorColor: Colors.grey,
+                                            decoration: const InputDecoration(
+                                              hintText: "Enter Url",
+                                              border: OutlineInputBorder(),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderSide: BorderSide(color: Color(0xff0e639c))
+                                              )
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        TabBar(
+                                          labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                                          controller: paramTabController,
+                                          dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                                          dividerHeight: 1.5,
+                                          unselectedLabelColor: Colors.grey,
+                                          labelColor: const Color.fromARGB(255, 62, 142, 195),
+                                          indicatorColor: const Color(0xff0e639c),
+                                          indicatorWeight: 2.5,
+                                          tabs: const[
+                                          Tab(text: "Params"),
+                                          Tab(text: "Headers"),
+                                          Tab(text: "Body")
+                                        ]),
+                                        SizedBox(
+                                          height: 76 * (webState.params.isEmpty ? webState.params.length + 1.0 :1),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: TabBarView(
+                                                  controller: paramTabController,
+                                                  children:  const [
+                                                    SizedBox(),
+                                                    SizedBox(),
+                                                    SizedBox()
+                                                  ]
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 25),
+                                        SizedBox(
+                                          width: 100,
+                                          child: ElevatedButton(
+                                            onPressed: () async{
+                                              Map<String,dynamic> data = await sendRequest(url: apiUrlController.text, method: webState.method);
+                                              if(context.mounted) {
+                                                context.read<ApiBloc>().add(GotApiData(data: data,url: apiUrlController.text));
+                                              }
+                                            }, 
+                                              style: const ButtonStyle(
+                                              shape: WidgetStatePropertyAll(
+                                                RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8)))),
+                                              backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+                                              foregroundColor: WidgetStatePropertyAll(Colors.white),
+                                              textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
+                                            child: const Text("Send")),
+                                        ),
+                                        webState.data == null 
+                                          ? const SizedBox.shrink()
+                                          : Align(
+                                            alignment: Alignment.bottomCenter,
+                                            child: TabBar(
+                                              controller: apiTabController,
+                                              dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                                              dividerHeight: 1.5,
+                                              unselectedLabelColor: Colors.grey,
+                                              labelColor: const Color.fromARGB(255, 62, 142, 195),
+                                              indicatorColor: const Color(0xff0e639c),
+                                              indicatorWeight: 2.5,
+                                              tabs: const [
+                                                Tab(child: Text("{ }",style: TextStyle(fontSize: 22))), 
+                                                Tab(icon: Icon(FontAwesomeIcons.html5)),
+                                                Tab(icon: Icon(Icons.raw_on_sharp,size: 35))
+                                              ]),
+                                          ),
+                                        const SizedBox(height: 20),
+                                        webState.data == null 
+                                          ? const SizedBox.shrink()
+                                          : Expanded(
+                                            child: TabBarView(
+                                              controller: apiTabController,
+                                              children: [
+                                                JsonWidget(
+                                                  expandIcon: const Icon(Icons.keyboard_arrow_down_sharp, color: Colors.grey),
+                                                  collapseIcon: const Icon(Icons.keyboard_arrow_right_sharp, color: Colors.grey),
+                                                  json: webState.data!
+                                                ),
+                                                InAppWebView(
+                                                  onWebViewCreated: (InAppWebViewController webViewController) {
+                                                    webViewController.loadData(data: webState.data!['body']);
+                                                  },
+                                                ),
+                                                SingleChildScrollView(child: 
+                                                  Text(webState.data!.toString(),style: const TextStyle(color: Colors.grey)))
+                                              ]
+                                            ),
+                                          ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ),
                               Padding(

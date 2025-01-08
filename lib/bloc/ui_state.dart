@@ -32,3 +32,28 @@ class WebViewState{
     return WebViewState(isMobile: isMobile ?? this.isMobile, isConsole: isConsole ?? this.isConsole);
   } 
 }
+
+class ApiState{
+  final String method;
+  final String? url;
+  final Map<String,dynamic>? data;
+  final Map<String,String> params, headers, body;
+  const ApiState({required this.method, this.data, this.url, required this.params, required this.headers, required this.body});
+  ApiState copyWith({
+    String? method,
+    String? url,
+    Map<String,dynamic>? data,
+    Map<String,String>? params,
+    Map<String,String>? headers,
+    Map<String,String>? body
+  }){
+    return ApiState(
+      method: method ?? this.method,
+      url: url ?? this.url,
+      data: data ?? this.data,
+      params: params ?? this.params,
+      headers: headers ?? this.headers,
+      body: body ?? this.body
+    );
+  }
+}

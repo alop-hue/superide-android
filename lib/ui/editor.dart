@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:code_text_field/code_text_field.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
@@ -10,7 +10,7 @@ import 'package:vsdroid/utils/themes.dart';
 class CodeEditor extends StatelessWidget {
   final Language language;
   final Map<String, TextStyle>? theme;
-  late CodeController codeController;
+  late  CodeController codeController;
   final String? file;
   final File filePath;
   final bool isTemplate;
@@ -60,8 +60,12 @@ class CodeEditor extends StatelessWidget {
                 return CodeTheme(
                   data: CodeThemeData(styles: highlightThemes[state.theme]),
                   child: CodeField(
-                    textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: 10),
-                    smartQuotesType: SmartQuotesType.enabled,
+                    gutterStyle: const GutterStyle(
+                      textStyle: TextStyle(height: 1.549),
+                      margin: 0,
+                      width: 47
+                    ),
+                    textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: 10,height: 1.5),
                     textSelectionTheme: const TextSelectionThemeData(
                     cursorColor: Color(0xff23a9f2),
                     selectionColor:Color.fromARGB(112, 30, 134, 245)),

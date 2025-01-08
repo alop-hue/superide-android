@@ -37,3 +37,29 @@ class EnableConsole extends UiEvent{
   final bool isConsole;
   EnableConsole({required this.isConsole});
 }
+
+class ApiEvent extends UiEvent{
+  final String method;
+  ApiEvent({required this.method});
+}
+
+class GetParams extends UiEvent{
+  final Map<String,String> params;
+  GetParams({required this.params});
+}
+
+class GetHeaders extends UiEvent{
+  final Map<String,String> headers;
+  GetHeaders({required this.headers});
+}
+
+class GetBody extends UiEvent{
+  final Map<String,String> body;
+  GetBody({required this.body});
+}
+
+class GotApiData extends UiEvent{
+  final Map<String,dynamic> data;
+  final String url;
+  GotApiData({required this.data, required this.url});
+}
