@@ -258,8 +258,7 @@ Future<Map<String, dynamic>> sendRequest({
   required String url,
   required String method,
   Map<String, String>? headers,
-  Map<String, String>? params,
-  String? body,
+  Object? body,
 }) async {
   final uri = Uri.parse(url);
   http.Response response;

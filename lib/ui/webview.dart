@@ -4,8 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 
-InAppLocalhostServer? localServer;
-
 class WebView extends StatefulWidget {
   final Directory dirPath;
   const WebView({super.key, required this.dirPath});

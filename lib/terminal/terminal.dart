@@ -84,7 +84,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
   @override
   void dispose() {
     terminalController.dispose();
-    widget.server!.close();
+    widget.server?.close();
     super.dispose();
   }
 
