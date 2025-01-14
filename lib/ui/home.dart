@@ -402,144 +402,147 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                           Tab(text: "Body")
                                         ]),
                                         const SizedBox(height: 15),
-                                        Expanded(
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: TabBarView(
-                                                  controller: paramTabController,
-                                                  children:  [
-                                                    Column(
-                                                      children: List.generate(
-                                                        webState.params.length + 1,
-                                                        (index) {
-                                                          return Padding(
-                                                            padding: const EdgeInsets.only(bottom: 5),
-                                                            child: Row(children: [
-                                                            Expanded(
-                                                              flex: 3,
-                                                              child: TextField(
-                                                                cursorColor: Colors.grey,
-                                                                style: const TextStyle(color: Colors.grey),
-                                                                controller: paramControllers.keys.toList()[index],
-                                                                textAlignVertical: TextAlignVertical.top,
-                                                                decoration: const InputDecoration(
-                                                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderSide: BorderSide(color: Color(0xff0e639c))
-                                                                  ),
-                                                                  border: OutlineInputBorder()
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 5),
-                                                            Expanded(
-                                                              flex: 5,
-                                                              child: TextField(
-                                                                cursorColor: Colors.grey,
-                                                                style: const TextStyle(color: Colors.grey),
-                                                                controller: paramControllers.values.toList()[index],
-                                                                textAlignVertical: TextAlignVertical.top,
-                                                                decoration: const InputDecoration(
-                                                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderSide: BorderSide(color: Color(0xff0e639c))
-                                                                  ),
-                                                                  border: OutlineInputBorder()
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            IconButton(onPressed: (){
-                                                              if(index == webState.params.length){
-                                                                if(paramControllers.keys.toList()[index].text.isNotEmpty && paramControllers.values.toList()[index].text.isNotEmpty) {
-                                                                  params.addEntries({paramControllers.keys.toList()[index].text:paramControllers.values.toList()[index].text}.entries);
-                                                                }
-                                                              }
-                                                              else{
-                                                                params.remove(paramControllers.keys.toList()[index].text);
-                                                              }
-                                                              context.read<ApiBloc>().add(GetParams(params: params));
-                                                            }, icon: Icon(index == webState.params.length? Icons.add : Icons.remove,color: Colors.grey))
-                                                                                                                    ]),
-                                                          );
-                                                        })),
-                                                    Column(
-                                                      children: List.generate(
-                                                        webState.headers.length + 1,
-                                                        (index) {
-                                                          return Padding(
-                                                            padding: const EdgeInsets.only(bottom: 5),
-                                                            child: Row(children: [
-                                                            Expanded(
-                                                              flex: 3,
-                                                              child: TextField(
-                                                                cursorColor: Colors.grey,
-                                                                style: const TextStyle(color: Colors.grey),
-                                                                controller: headerControllers.keys.toList()[index],
-                                                                textAlignVertical: TextAlignVertical.top,
-                                                                decoration: const InputDecoration(
-                                                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderSide: BorderSide(color: Color(0xff0e639c))
-                                                                  ),
-                                                                  border: OutlineInputBorder()
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 5),
-                                                            Expanded(
-                                                              flex: 5,
-                                                              child: TextField(
-                                                                cursorColor: Colors.grey,
-                                                                style: const TextStyle(color: Colors.grey),
-                                                                controller: headerControllers.values.toList()[index],
-                                                                textAlignVertical: TextAlignVertical.top,
-                                                                decoration: const InputDecoration(
-                                                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderSide: BorderSide(color: Color(0xff0e639c))
-                                                                  ),
-                                                                  border: OutlineInputBorder()
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            IconButton(onPressed: (){
-                                                              if(index == webState.headers.length){
-                                                                if(headerControllers.keys.toList()[index].text.isNotEmpty && headerControllers.values.toList()[index].text.isNotEmpty) {
-                                                                  headers.addEntries({headerControllers.keys.toList()[index].text:headerControllers.values.toList()[index].text}.entries);
-                                                                }
-                                                              }
-                                                              else{
-                                                                headers.remove(headerControllers.keys.toList()[index].text);
-                                                              }
-                                                              context.read<ApiBloc>().add(GetHeaders(headers: headers));
-                                                            }, icon: Icon(index == webState.headers.length? Icons.add : Icons.remove,color: Colors.grey))
-                                                            ]),
-                                                          );
-                                                        })),
-                                                    const SizedBox(
-                                                      child: Padding(
-                                                        padding: EdgeInsets.only(bottom: 7),
+                                        SizedBox(
+                                          height: 60 * (((){
+                                              if(webState.params.isEmpty && webState.headers.isEmpty){
+                                                return 1.0;
+                                              }
+                                              if(webState.params.length > webState.headers.length){
+                                                return webState.params.length.toDouble() + 1.0;
+                                              }
+                                              return webState.headers.length.toDouble() + 1.0;
+                                            })()),
+                                          child: TabBarView(
+                                            controller: paramTabController,
+                                            children:  [
+                                              Column(
+                                                children: List.generate(
+                                                  webState.params.length + 1,
+                                                  (index) {
+                                                    return Padding(
+                                                      padding: const EdgeInsets.only(bottom: 5),
+                                                      child: Row(children: [
+                                                      Expanded(
+                                                        flex: 3,
                                                         child: TextField(
-                                                          textAlignVertical: TextAlignVertical.top,
                                                           cursorColor: Colors.grey,
-                                                          style: TextStyle(color: Colors.grey),
-                                                          maxLines: null,
-                                                          minLines: null,
-                                                          decoration: InputDecoration(
+                                                          style: const TextStyle(color: Colors.grey),
+                                                          controller: paramControllers.keys.toList()[index],
+                                                          textAlignVertical: TextAlignVertical.top,
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
                                                             focusedBorder: OutlineInputBorder(
                                                               borderSide: BorderSide(color: Color(0xff0e639c))
                                                             ),
                                                             border: OutlineInputBorder()
                                                           ),
-                                                          expands: true,
                                                         ),
                                                       ),
-                                                    )
-                                                  ]
+                                                      const SizedBox(width: 5),
+                                                      Expanded(
+                                                        flex: 5,
+                                                        child: TextField(
+                                                          cursorColor: Colors.grey,
+                                                          style: const TextStyle(color: Colors.grey),
+                                                          controller: paramControllers.values.toList()[index],
+                                                          textAlignVertical: TextAlignVertical.top,
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                                            focusedBorder: OutlineInputBorder(
+                                                              borderSide: BorderSide(color: Color(0xff0e639c))
+                                                            ),
+                                                            border: OutlineInputBorder()
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      IconButton(onPressed: (){
+                                                        if(index == webState.params.length){
+                                                          if(paramControllers.keys.toList()[index].text.isNotEmpty && paramControllers.values.toList()[index].text.isNotEmpty) {
+                                                            params.addEntries({paramControllers.keys.toList()[index].text:paramControllers.values.toList()[index].text}.entries);
+                                                          }
+                                                        }
+                                                        else{
+                                                          params.remove(paramControllers.keys.toList()[index].text);
+                                                        }
+                                                        context.read<ApiBloc>().add(GetParams(params: params));
+                                                      }, icon: Icon(index == webState.params.length? Icons.add : Icons.remove,color: Colors.grey))
+                                                                                                              ]),
+                                                    );
+                                                  })),
+                                              Column(
+                                                children: List.generate(
+                                                  webState.headers.length + 1,
+                                                  (index) {
+                                                    return Padding(
+                                                      padding: const EdgeInsets.only(bottom: 5),
+                                                      child: Row(children: [
+                                                      Expanded(
+                                                        flex: 3,
+                                                        child: TextField(
+                                                          cursorColor: Colors.grey,
+                                                          style: const TextStyle(color: Colors.grey),
+                                                          controller: headerControllers.keys.toList()[index],
+                                                          textAlignVertical: TextAlignVertical.top,
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                                            focusedBorder: OutlineInputBorder(
+                                                              borderSide: BorderSide(color: Color(0xff0e639c))
+                                                            ),
+                                                            border: OutlineInputBorder()
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 5),
+                                                      Expanded(
+                                                        flex: 5,
+                                                        child: TextField(
+                                                          cursorColor: Colors.grey,
+                                                          style: const TextStyle(color: Colors.grey),
+                                                          controller: headerControllers.values.toList()[index],
+                                                          textAlignVertical: TextAlignVertical.top,
+                                                          decoration: const InputDecoration(
+                                                            contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                                            focusedBorder: OutlineInputBorder(
+                                                              borderSide: BorderSide(color: Color(0xff0e639c))
+                                                            ),
+                                                            border: OutlineInputBorder()
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      IconButton(onPressed: (){
+                                                        if(index == webState.headers.length){
+                                                          if(headerControllers.keys.toList()[index].text.isNotEmpty && headerControllers.values.toList()[index].text.isNotEmpty) {
+                                                            headers.addEntries({headerControllers.keys.toList()[index].text:headerControllers.values.toList()[index].text}.entries);
+                                                          }
+                                                        }
+                                                        else{
+                                                          headers.remove(headerControllers.keys.toList()[index].text);
+                                                        }
+                                                        context.read<ApiBloc>().add(GetHeaders(headers: headers));
+                                                      }, icon: Icon(index == webState.headers.length? Icons.add : Icons.remove,color: Colors.grey))
+                                                      ]),
+                                                    );
+                                                  })),
+                                              const Expanded(
+                                                child: Padding(
+                                                  padding: EdgeInsets.only(bottom: 7),
+                                                  child: TextField(
+                                                    textAlignVertical: TextAlignVertical.top,
+                                                    cursorColor: Colors.grey,
+                                                    style: TextStyle(color: Colors.grey),
+                                                    maxLines: null,
+                                                    minLines: null,
+                                                    decoration: InputDecoration(
+                                                      focusedBorder: OutlineInputBorder(
+                                                        borderSide: BorderSide(color: Color(0xff0e639c))
+                                                      ),
+                                                      border: OutlineInputBorder()
+                                                    ),
+                                                    expands: true,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              )
+                                            ]
                                           ),
                                         ),
                                         SizedBox(
@@ -565,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                             child: const Text("Send")),
                                         ),
                                         webState.data == null 
-                                          ? const Expanded(child: SizedBox.shrink())
+                                          ? const SizedBox.shrink()
                                           : Align(
                                             alignment: Alignment.bottomCenter,
                                             child: TabBar(
@@ -584,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                           ),
                                         const SizedBox(height: 20),
                                         webState.data == null 
-                                          ? const Expanded(child: SizedBox.shrink())
+                                          ? const SizedBox.shrink()
                                           : Expanded(
                                             child: TabBarView(
                                               controller: apiTabController,
