@@ -60,6 +60,9 @@ class CodeEditor extends StatelessWidget {
                 return CodeTheme(
                   data: CodeThemeData(styles: highlightThemes[state.theme]),
                   child: CodeField(
+                    onChanged: (word) async{
+                      await filePath.writeAsString(word);
+                    },
                     gutterStyle: const GutterStyle(
                       textStyle: TextStyle(height: 1.549),
                       margin: 0,

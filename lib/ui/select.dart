@@ -259,7 +259,17 @@ class _SelectTypeState extends State<SelectType> {
                   borderRadius: const BorderRadius.all(Radius.circular(15)),
                   radius: 5,
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MenuScreen()));
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context ,animation, secondaryAnimation) => const MenuScreen(),
+                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        }
+                      )
+                    );
                   },
                   child: const SizedBox(
                     height: 60,

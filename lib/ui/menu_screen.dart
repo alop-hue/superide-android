@@ -21,7 +21,15 @@ class MenuScreen extends StatelessWidget {
         ),
         subtitle: Text(e.details),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => HomeScreen(languageDetails: e)),
+          PageRouteBuilder(
+            pageBuilder: (context ,animation, secondaryAnimation) => HomeScreen(languageDetails: e),
+            transitionsBuilder: (context ,animation, secondaryAnimation, child){
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            }
+          )
         ),                            
       ))).toList();
     return PopScope(
@@ -40,8 +48,8 @@ class MenuScreen extends StatelessWidget {
                     child: TextField(
                       onEditingComplete: () => context.read<MenuSearchBloc>().add(Search(searchedLangs: const [])),
                       onChanged: (data){
-                        List<Language> searched = languages.where((language)=>language.name.toLowerCase().contains(data.toLowerCase())).toList()
-                        ..sort((a, b) {
+                        List<Language> searched = languages.where((language)=>language.name.toLowerCase().contains(data.toLowerCase()))
+                        .toList()..sort((a, b) {
                             String query = data.toLowerCase();
                             String nameA = a.name.toLowerCase();
                             String nameB = b.name.toLowerCase();
