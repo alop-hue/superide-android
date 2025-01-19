@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:xterm/xterm.dart';
@@ -16,7 +17,6 @@ class SetupTerminal extends StatefulWidget {
 
 class _SetupTerminalState extends State<SetupTerminal> {
   final terminal = Terminal();
-
   final terminalController = TerminalController();
 
   Future<void> setupTerminal() async {
@@ -30,7 +30,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PS1': " \x1b[32m~ \x1b[0m\$ ",
       'PATH': '/bin:/usr/bin:/sbin:/usr/sbin'
     };
-
     _startPty(appPath, enVars);
   }
 
@@ -53,17 +52,33 @@ class _SetupTerminalState extends State<SetupTerminal> {
   }
 
   Future<void> listenServer() async {
+    String info = "";
     if (widget.server != null) {
       await for (HttpRequest request in widget.server!) {
         if (WebSocketTransformer.isUpgradeRequest(request)) {
           WebSocket websocket = await WebSocketTransformer.upgrade(request);
-          terminal.write("CONNECTED TO TERMUX\r\n\n");
           websocket.listen((message) {
-            terminal.write(message.toString().replaceAll("\n", "\r\n"));
-            websocket.add('Echo: $message');
+            terminal.write(utf8.decode(message).toString().replaceAll("\n", "\r\n"));
           }, onDone: () {
             terminal.write('\r\n\nDISCONNECTED FROM TERMUX');
           });
+          terminal.onOutput = (data) async{
+            if(data.contains(utf8.decode([127]))){
+              terminal.buffer.backspace();
+              terminal.write("\x1B[1P");
+              data = data.replaceAll(utf8.decode([127]), "");
+              if(info.isNotEmpty){
+                info = info.substring(0,info.length - 1);
+              }
+            }
+            data = data.replaceAll("\r", "\r\n");
+            info += data;
+            terminal.write(data);
+            if(data.contains("\r") || data.contains("\n")){
+              await websocket.addStream(Stream<Uint8List>.value(const Utf8Encoder().convert(info)));
+              info = "";
+            }
+          };
         } else {
           request.response
             ..statusCode = HttpStatus.forbidden
@@ -90,8 +105,13 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) async {
+        await widget.server?.close();
+        await NativeChannel.closeTermux();
+      },
+      child: Scaffold(
+        body: FutureBuilder(
           future: setupTerminal(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -102,8 +122,36 @@ class _SetupTerminalState extends State<SetupTerminal> {
               controller: terminalController,
               autofocus: true,
               keyboardType: TextInputType.multiline,
+              theme: const TerminalTheme(
+                cursor: Colors.grey,
+                selection: Color.fromARGB(134, 170, 191, 211),
+                foreground: Colors.white,
+                background: Color.fromARGB(255, 13, 44, 60),
+                black: Color(0xff000000),
+                white: Color(0xffffffff),
+                red: Color(0xffff0000),
+                green: Color(0xff00ff00),
+                yellow: Color(0xffffff00),
+                blue: Color(0xff0000ff),
+                magenta: Color(0xffff00ff),
+                cyan: Color(0xff00ffff),
+                brightBlack: Color(0xff808080),
+                brightRed: Color(0xffff5f5f),
+                brightGreen: Color(0xff5fff5f),
+                brightYellow: Color(0xffffff87),
+                brightBlue: Color(0xff5f5fff),
+                brightMagenta: Color(0xffff5fff),
+                brightCyan: Color(0xff5fffff),
+                brightWhite: Color(0xffffffff),
+                searchHitBackground: Color(0xff444444),
+                searchHitBackgroundCurrent: Color(0xff555555),
+                searchHitForeground: Color(0xffffffff),
+              ),
+
             );
-          }),
+          },
+        ),
+      ),
     );
   }
 }

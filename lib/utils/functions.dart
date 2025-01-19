@@ -307,7 +307,7 @@ class NativeChannel {
   }
 
   static Future<bool> sendCommand(
-      Language language, String filePath, BuildContext context) async {
+      Language language, String filePath, BuildContext context, {bool containInput = false}) async {
     if (language.command == null) {
       showDialog(
         context: context,
@@ -327,8 +327,13 @@ class NativeChannel {
     await _channel.invokeMethod('sendCommand', {
       "fileName": filePath,
       "languageCommand": language.command,
+      "type": language.type,
     });
     return true;
+  }
+
+  static Future<void> closeTermux() async{
+    await _channel.invokeMethod("closeTermux");
   }
 
   static Future<void> installOnTermux(String packageName) async {

@@ -130,6 +130,7 @@ List<Language> languages = [
       language: dart,
       helloWorld: 'void main(){\n print("Hello, World!");\n}',
       command: 'dart',
+      type: 'compiled(no binary)',
       icon: SvgPicture.asset('assets/material_icons/dart.svg',height: 35,width: 35),
       ),
   Language(
@@ -252,7 +253,7 @@ List<Language> languages = [
       helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
       command: 'go run',
       icon: SvgPicture.asset('assets/material_icons/go_gopher.svg',height: 35,width: 35),
-      type: 'compiled'),
+      type: 'compiled(no binary)'),
   Language(
       name: 'Ruby',
       extension: 'rb',
@@ -261,7 +262,7 @@ List<Language> languages = [
       helloWorld: 'puts "Hello, World!"',
       command: 'ruby',
       icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35),
-      type: 'compiled'),
+      type: 'compiled(no binary)'),
   Language(
     name: 'Json',
     extension: 'json',
@@ -302,6 +303,7 @@ List<Language> languages = [
       command: 'scalac',
       icon: SvgPicture.asset('assets/material_icons/scala.svg',height: 35,width: 35),
       helloWorld:'object Hello{\n def main(args: Array[String]) = {\n  println("Hello, World!")  \n} \n}',
+      type: 'compiled'
   ),
   Language(
       name: 'Lua',
@@ -311,7 +313,7 @@ List<Language> languages = [
       command: 'lua',
       icon: SvgPicture.asset('assets/material_icons/lua.svg',height: 35,width: 35),
       helloWorld: 'print("Hello, World!")',
-      type: 'compiled'),
+      type: 'compiled(no binary)'),
   Language(
       name: 'Bash',
       extension: 'sh',
@@ -336,6 +338,7 @@ List<Language> languages = [
       language: elixir,
       helloWorld: 'IO.puts "Hello, World!"',
       command: 'elixir',
+      type: 'compiled(no binary)',
       icon: SvgPicture.asset('assets/material_icons/elixir.svg',height: 35,width: 35),
       ),
   Language(
@@ -349,11 +352,12 @@ List<Language> languages = [
       type: 'compiled'),
   Language(
       name: 'Fsharp',
-      extension: 'fs',
+      extension: 'fsx',
       details: 'A functional-first language for .NET applications.',
       language: fsharp,
       helloWorld: 'printfn "Hello, World!"',
       command: 'mono',
+      type: 'compiled',
       icon: SvgPicture.asset('assets/material_icons/fsharp.svg',height: 35,width: 35),
       ),
   Language(
@@ -363,6 +367,7 @@ List<Language> languages = [
       language: perl,
       helloWorld: 'print "Hello, World!";',
       command: 'perl',
+      type: 'interpreted',
       icon: SvgPicture.asset('assets/material_icons/perl.svg',height: 35,width: 35),
       ), 
   Language(

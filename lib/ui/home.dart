@@ -190,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                           child: TextField(
                                             controller: findWordController,
                                             onChanged: (word) {
-                                              context.read<FindWordBloc>().add(FindWord(word: word.trim()));
+                                              context.read<FindWordBloc>().add(FindWord(word: word));
                                             },
                                             cursorColor: Colors.grey,
                                             style: const TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                             await codeEditor.filePath.writeAsString(codeEditor.code().replaceAll(
                                               currentState.word, replaceWordController.text));
                                             if(context.mounted) {
-                                              context.read<FindWordBloc>().add(FindWord(word: replaceWordController.text));
+                                              context.read<FindWordBloc>().add(FindWord(word: ""));
                                             }
                                           }
                                         },
@@ -877,8 +877,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                         ]),
                 IconButton(
                     onPressed: () async {
-                      await target!.writeAsString(codeEditor.code());
-                      if(path.extension(target.path)=='.html'){
+                      if(path.extension(target!.path)=='.html'){
                         if(context.mounted) {
                           Navigator.of(context).push(MaterialPageRoute(
                           builder: (context)=>WebView(
@@ -925,7 +924,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                 IconButton(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => SetupTerminal(projectDir: widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path)));
+                      builder: (context) => SetupTerminal(
+                        projectDir: widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path
+                      )));
                   },
                   icon: const Icon(Icons.terminal, color: Color(0xff717171)))
               ],
