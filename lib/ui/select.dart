@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vsdroid/ui/folder_page.dart';
 import 'package:vsdroid/ui/home.dart';
 import 'package:vsdroid/ui/menu_screen.dart';
+import 'package:vsdroid/ui/project_screen.dart';
 import 'package:vsdroid/ui/settings.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
@@ -62,14 +63,15 @@ class _SelectTypeState extends State<SelectType> {
                       height: 25, width: 25)),
             ),
             drawerTile(
-                () {},
-                "Buy me a coffee",
-                SvgPicture.asset(
-                    width: 28,
-                    height: 28,
-                    'assets/icons/buy-me-a-coffee.svg',
-                    colorFilter: const ColorFilter.mode(
-                        Color(0xff4783b7), BlendMode.srcIn))),
+              () {},
+              "Buy me a coffee",
+              SvgPicture.asset(
+                width: 28,
+                height: 28,
+                'assets/icons/buy-me-a-coffee.svg',
+                colorFilter: const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn)
+              )
+            ),
           ],
         ),
       ),
@@ -77,8 +79,8 @@ class _SelectTypeState extends State<SelectType> {
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: IconButton(
-              onPressed: () {},
-              icon: const Icon(FontAwesomeIcons.github, color: Colors.grey)),
+            onPressed: () {},
+            icon: const Icon(FontAwesomeIcons.github, color: Colors.grey)),
         )
       ]),
       body: Column(
@@ -87,11 +89,12 @@ class _SelectTypeState extends State<SelectType> {
           const Padding(
             padding: EdgeInsets.only(left: 30, top: 18),
             child: Text("Start",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 35,
-                    fontWeight: FontWeight.w300)),
-          ),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 35,
+                fontWeight: FontWeight.w300)
+              ),
+            ),
           fileTiles(() {
             showDialog(
               context: context,
@@ -116,13 +119,9 @@ class _SelectTypeState extends State<SelectType> {
                         hintStyle: TextStyle(color: Colors.grey),
                         hintText: " filename.ext",
                         focusedBorder: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(25)),
-                            borderSide:
-                                BorderSide(color: Color(0xff5090c8))),
-                        border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(25)))),
+                          borderRadius:BorderRadius.all(Radius.circular(25)),
+                          borderSide:BorderSide(color: Color(0xff5090c8))),
+                        border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))),
                       ),
                     ),
                     actions: [
@@ -139,9 +138,15 @@ class _SelectTypeState extends State<SelectType> {
                             final file = await createFile(createFileController.text, context);
                             if (context.mounted && file != null) {
                               Navigator.of(context).pop();
-                              Navigator.of(context).push(MaterialPageRoute(
-                                builder: (context) => HomeScreen(filePath: file,languageDetails: languages
-                                  .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", "")))));
+                              Navigator.of(context).push(
+                                PageRouteBuilder(
+                                  pageBuilder: (context ,animation, secondaryAnimation) => HomeScreen(filePath: file,languageDetails: languages
+                                  .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", ""))),
+                                  transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                    return SizeTransition(sizeFactor: animation,child: child);
+                                  }
+                                )
+                              );
                             }
                           }
                         },
@@ -157,10 +162,15 @@ class _SelectTypeState extends State<SelectType> {
                     (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
                     orElse: () => languages[0]);
                     if(context.mounted) {
-                      Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => HomeScreen(
-                          languageDetails: language, filePath: file)));
-                    }
+                      Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context ,animation, secondaryAnimation) => HomeScreen(languageDetails: language,filePath: file),
+                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                          return SizeTransition(sizeFactor: animation,child: child);
+                        }
+                      )
+                    );
+                  }
               } else {
                 if(context.mounted) {
                   showDialog(
@@ -190,7 +200,14 @@ class _SelectTypeState extends State<SelectType> {
               final dir = Directory(dirPath);
               if (dir.existsSync()) {
                 if(context.mounted){
-                  Navigator.of(context).push(MaterialPageRoute(builder: (context)=> FolderPage(dir: dir)));
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: dir),
+                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                        return SizeTransition(sizeFactor: animation,child: child);
+                      }
+                    )
+                    );
                 }
               }
             }
@@ -217,15 +234,16 @@ class _SelectTypeState extends State<SelectType> {
             }
           }, "Open Folder...", const Icon(FontAwesomeIcons.folderOpen)),
           fileTiles(
-              () {},
-              val: 4,
-              "Open Repository...",
-              SvgPicture.asset(
-                'assets/icons/code-branch-solid.svg',
-                height: 28,
-                width: 28,
-                colorFilter:const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
-              )),
+            () {},
+            val: 4,
+            "Open Repository...",
+            SvgPicture.asset(
+              'assets/icons/code-branch-solid.svg',
+              height: 28,
+              width: 28,
+              colorFilter:const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
+            )
+          ),
           const SizedBox(height: 30),
           Align(
             alignment: Alignment.center,
@@ -234,7 +252,16 @@ class _SelectTypeState extends State<SelectType> {
                 InkWell(
                   borderRadius: const BorderRadius.all(Radius.circular(15)),
                   radius: 5,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context ,animation, secondaryAnimation) => const ProjectScreen(),
+                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                          return SizeTransition(sizeFactor: animation,child: child);
+                        }
+                      )
+                    );
+                  },
                   child: const SizedBox(
                     height: 60,
                     width: 320,
@@ -263,10 +290,7 @@ class _SelectTypeState extends State<SelectType> {
                       PageRouteBuilder(
                         pageBuilder: (context ,animation, secondaryAnimation) => const MenuScreen(),
                         transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
+                          return SizeTransition(sizeFactor: animation,child: child);
                         }
                       )
                     );
@@ -303,16 +327,18 @@ class _SelectTypeState extends State<SelectType> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Recent",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w300,
-                        fontSize: 35)),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w300,
+                    fontSize: 35)),
                 SizedBox(height: 12),
                 Text("You don't have any recent projects",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w300,
-                        fontSize: 18)),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w300,
+                    fontSize: 18
+                  )
+                ),
               ],
             ),
           ),

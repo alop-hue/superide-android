@@ -19,8 +19,9 @@ import 'package:vsdroid/utils/themes.dart';
 
 class HomeScreen extends StatefulWidget {
   final Language languageDetails;
+  final String? rootDir;
   final File? filePath;
-  const HomeScreen({super.key, required this.languageDetails, this.filePath});
+  const HomeScreen({super.key, required this.languageDetails, this.filePath, this.rootDir});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -142,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 58, left: 20),
                                   child: DirectoryTreeViewer(
-                                    rootPath: widget.filePath == null? '/sdcard/VSdroid/Temps': widget.filePath!.parent.path,
+                                    rootPath: widget.filePath == null? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
                                     fileIconBuilder: (ext) {
                                       return SizedBox(
                                         height: 25,
@@ -153,14 +154,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                           ).icon??FileIcon(ext)
                                           );
                                     },
-                                    folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 25,width: 25),
-                                    folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 25,width: 25),
-                                    folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 17),
-                                    fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 17,height: 2),
+                                    folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
+                                    folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
+                                    folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
+                                    fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
                                     onFileTap: (f) {
                                       Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                        builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere((language) =>
-                                          language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))(),filePath: f)));
+                                        builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
+                                          (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                                          orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
                                     },
                                   ),
                                 ),

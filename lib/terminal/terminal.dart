@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:vsdroid/utils/functions.dart';
+import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 
@@ -122,32 +123,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
               controller: terminalController,
               autofocus: true,
               keyboardType: TextInputType.multiline,
-              theme: const TerminalTheme(
-                cursor: Colors.grey,
-                selection: Color.fromARGB(134, 170, 191, 211),
-                foreground: Colors.white,
-                background: Color.fromARGB(255, 13, 44, 60),
-                black: Color(0xff000000),
-                white: Color(0xffffffff),
-                red: Color(0xffff0000),
-                green: Color(0xff00ff00),
-                yellow: Color(0xffffff00),
-                blue: Color(0xff0000ff),
-                magenta: Color(0xffff00ff),
-                cyan: Color(0xff00ffff),
-                brightBlack: Color(0xff808080),
-                brightRed: Color(0xffff5f5f),
-                brightGreen: Color(0xff5fff5f),
-                brightYellow: Color(0xffffff87),
-                brightBlue: Color(0xff5f5fff),
-                brightMagenta: Color(0xffff5fff),
-                brightCyan: Color(0xff5fffff),
-                brightWhite: Color(0xffffffff),
-                searchHitBackground: Color(0xff444444),
-                searchHitBackgroundCurrent: Color(0xff555555),
-                searchHitForeground: Color(0xffffffff),
-              ),
-
+              theme: terminalTheme,
             );
           },
         ),

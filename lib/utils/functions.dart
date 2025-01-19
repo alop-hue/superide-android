@@ -138,48 +138,64 @@ Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
 
+Widget projectTile(String projectName, String projectDetails, icon, VoidCallback onTap){
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 13,vertical: 3),
+    child: Card(
+      color: const Color.fromARGB(255, 51, 50, 50),
+      child: ListTile(
+        onTap: onTap,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+        leading: icon,
+        title: Text(projectName),
+        subtitle: Text(projectDetails,style: const TextStyle(color: Colors.grey),),
+      ),
+    ),
+  );
+}
+
 Future<File?> pickFiles(BuildContext context) async {
   final result = await FilesystemPicker.open(
-      requestPermission: () => getPermission(),
-      permissionText: "Permission denied",
-      fsType: FilesystemType.file,
-      fileTileSelectMode: FileTileSelectMode.wholeTile,
-      title: "Select a file",
-      folderIconColor: Colors.grey,
-      showGoUp: true,
-      context: context,
-      rootDirectory: Directory('/storage/emulated/0'),
-      rootName: "Storage",
-      theme: FilesystemPickerTheme(
-          fileList: FilesystemPickerFileListThemeData(
-              fileTypes: FilesystemPickerFileListFileTypesTheme(
-                  List.generate(languages.length, ((index) {
-                String? key;
-                final fileName = 'file.${languages[index].extension}';
-                if (iconSetMap.containsKey(fileName)) {
-                  key = fileName;
-                } else {
-                  var chunks = fileName.split('.').sublist(1);
-                  while (chunks.isNotEmpty) {
-                    var k = '.${chunks.join()}';
-                    if (iconSetMap.containsKey(k)) {
-                      key = k;
-                      break;
-                    }
-                    chunks = chunks.sublist(1);
-                  }
-                }
-                key ??= '.txt';
-                return FilesystemPickerFileListFileTypesThemeItem(
-                    extensions: [languages[index].extension],
-                    icon: IconData(iconSetMap[key]!.codePoint,
-                        fontFamily: 'Seti', fontPackage: 'file_icon'));
-              }))),
-              fileIconColor: Colors.grey),
-          topBar: FilesystemPickerTopBarThemeData(
-              foregroundColor: Colors.grey[300],
-              backgroundColor: const Color(0xff4b5365)),
-          backgroundColor: const Color(0xff282c35)));
+    requestPermission: () => getPermission(),
+    permissionText: "Permission denied",
+    fsType: FilesystemType.file,
+    fileTileSelectMode: FileTileSelectMode.wholeTile,
+    title: "Select a file",
+    folderIconColor: Colors.grey,
+    showGoUp: true,
+    context: context,
+    rootDirectory: Directory('/storage/emulated/0'),
+    rootName: "Storage",
+    theme: FilesystemPickerTheme(
+      fileList: FilesystemPickerFileListThemeData(
+        fileTypes: FilesystemPickerFileListFileTypesTheme(
+            List.generate(languages.length, ((index) {
+          String? key;
+          final fileName = 'file.${languages[index].extension}';
+          if (iconSetMap.containsKey(fileName)) {
+            key = fileName;
+          } else {
+            var chunks = fileName.split('.').sublist(1);
+            while (chunks.isNotEmpty) {
+              var k = '.${chunks.join()}';
+              if (iconSetMap.containsKey(k)) {
+                key = k;
+                break;
+              }
+              chunks = chunks.sublist(1);
+            }
+          }
+          key ??= '.txt';
+          return FilesystemPickerFileListFileTypesThemeItem(
+              extensions: [languages[index].extension],
+              icon: IconData(iconSetMap[key]!.codePoint,
+                  fontFamily: 'Seti', fontPackage: 'file_icon'));
+        }))),
+        fileIconColor: Colors.grey),
+    topBar: FilesystemPickerTopBarThemeData(
+        foregroundColor: Colors.grey[300],
+        backgroundColor: const Color(0xff4b5365)),
+    backgroundColor: const Color(0xff282c35)));
   if (result != null && File(result).existsSync()) {
     final file = File(result);
     return file;

@@ -53,6 +53,7 @@ import 'package:flutter_highlight/themes/vs2015.dart';
 import 'package:flutter_highlight/themes/xcode.dart';
 import 'package:flutter_highlight/themes/xt256.dart';
 import 'package:flutter_highlight/themes/zenburn.dart';
+import 'package:xterm/xterm.dart';
 
 final Map<String, dynamic> highlightThemes = {
   'a11y-dark': a11yDarkTheme,
@@ -123,6 +124,31 @@ final fonts = [
   'sourceCodePro'
   ];
 
+  const terminalTheme = TerminalTheme(
+                cursor: Colors.grey,
+                selection: Color.fromARGB(134, 170, 191, 211),
+                foreground: Colors.white,
+                background: Color.fromARGB(255, 13, 44, 60),
+                black: Color(0xff000000),
+                white: Color(0xffffffff),
+                red: Color(0xffff0000),
+                green: Color(0xff00ff00),
+                yellow: Color(0xffffff00),
+                blue: Color(0xff0000ff),
+                magenta: Color(0xffff00ff),
+                cyan: Color(0xff00ffff),
+                brightBlack: Color(0xff808080),
+                brightRed: Color(0xffff5f5f),
+                brightGreen: Color(0xff5fff5f),
+                brightYellow: Color(0xffffff87),
+                brightBlue: Color(0xff5f5fff),
+                brightMagenta: Color(0xffff5fff),
+                brightCyan: Color(0xff5fffff),
+                brightWhite: Color(0xffffffff),
+                searchHitBackground: Color(0xff444444),
+                searchHitBackgroundCurrent: Color(0xff555555),
+                searchHitForeground: Color(0xffffffff),
+            );
 const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818),iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));
 const tileTheme = ListTileThemeData(
   titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
