@@ -80,6 +80,9 @@ class MainActivity: FlutterActivity() {
         if(type == "compiled"){
             intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "$optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName && /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p $compiledFile | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
+        else if(type == "compiled(no binary)"){
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/$languageCommand $fileName | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
+        }
         else{
             intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/$languageCommand $fileName | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
