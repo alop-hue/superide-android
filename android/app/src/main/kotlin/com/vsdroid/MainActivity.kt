@@ -78,13 +78,13 @@ class MainActivity: FlutterActivity() {
         intent.action = "com.termux.RUN_COMMAND"
         intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
         if(type == "compiled"){
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "$optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName && /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p $compiledFile | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/rm -rf /data/data/com.termux/files/home/a.out && $optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 && /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p $compiledFile 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
         else if(type == "compiled(no binary)"){
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/$languageCommand $fileName | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
         else{
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/$languageCommand $fileName | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
         intent.putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
         intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
@@ -98,7 +98,7 @@ class MainActivity: FlutterActivity() {
 
         when (languageCommand) {
             "javac" -> {
-                val compiledFileName = fileName!!.replaceLast(".java", "")
+                val compiledFileName = fileName!!.replaceLast(".java", "").replaceLast("/"," ")
                 compiledFile = "/data/data/com.termux/files/usr/bin/java -cp $compiledFileName"
             }
             "tsc" -> {
@@ -117,7 +117,7 @@ class MainActivity: FlutterActivity() {
                 val executable = fileName!!.substring(fileName!!.lastIndexOf("/") + 1).replaceLast(".kt", "").replaceFirstChar { it.uppercaseChar() } + "Kt"
                 var path = "/data/data/com.termux/files/home/$executable"
                 path = path.replaceLast("/", " ")
-                compiledFile = "/data/data/com.termux/files/usr/bin/java -cp $path"
+                compiledFile = "/data/data/com.termux/files/usr/bin/kotlin -cp $path"
             }
         }
         return Pair(optionalArgs, compiledFile)
