@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
@@ -78,80 +77,6 @@ Future<File> setTempFile(String extension) async {
         :extension == 'js'
           ?File('/storage/emulated/0/VSdroid/Temps/script.js')
           :File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
-}
-
-Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-  {Color color = const Color(0xff6d6d6d),Color bgColor = Colors.transparent}) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 15),
-    child: Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: const BorderRadius.all(Radius.circular(10))
-      ),
-      padding:  EdgeInsets.symmetric(
-        horizontal: ![IconData,IconDataSolid].contains(icon.runtimeType)? 2.5:icon.runtimeType==IconDataSolid?5:4,
-        vertical:![IconData,IconDataSolid].contains(icon.runtimeType)? 8:5),
-      child: IconButton(
-        onPressed: onPressed, icon: ![IconData,IconDataSolid].contains(icon.runtimeType) ?
-         icon:
-         Icon(icon, color: color, size: icon.runtimeType == IconDataSolid? 35:38)),
-    ),
-  );
-}
-
-Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,{double val = 0}) {
-  return Padding(
-    padding: const EdgeInsets.only(left: 15),
-    child: ListTile(
-      onTap: onPressed,
-      title: Text(text,
-          style: const TextStyle(
-              color: Color.fromARGB(255, 118, 180, 234),
-              fontWeight: FontWeight.w300)),
-      leading: Padding(
-        child: icon,
-        padding: EdgeInsets.only(left: val),
-      ),
-      iconColor: const Color(0xff5090c8),
-    ),
-  );
-}
-
-Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
-  return ListTile(
-    dense: true,
-    onTap: onPressed,
-    leading: icon,
-    title: Text(
-      title,
-      style: TextStyle(
-        fontSize: 18.5,
-        fontWeight: FontWeight.w400,
-        color:Colors.grey[400],
-      ),
-    ),
-  );
-}
-
-Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
-  return ListTile(onTap: onPressed, title: Text(title), leading: icon);
-}
-
-Widget projectTile(String projectName, String projectDetails, icon, VoidCallback onTap){
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 13,vertical: 3),
-    child: Card(
-      color: const Color.fromARGB(255, 51, 50, 50),
-      child: ListTile(
-        onTap: onTap,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-        leading: icon,
-        title: Text(projectName),
-        subtitle: Text(projectDetails,style: const TextStyle(color: Colors.grey),),
-      ),
-    ),
-  );
 }
 
 Future<File?> pickFiles(BuildContext context) async {
@@ -340,11 +265,21 @@ class NativeChannel {
       );
       return false;
     }
-    await _channel.invokeMethod('sendCommand', {
-      "fileName": filePath,
-      "languageCommand": language.command,
-      "type": language.type,
-    });
+    try {
+      if (language.name == "Java") {
+        File(filePath).parent.listSync().forEach((FileSystemEntity item){
+          if(item is File && item.path.contains(".class")){
+            item.deleteSync(recursive: true);
+          }
+        });
+      } 
+    } finally {
+        await _channel.invokeMethod('sendCommand', {
+          "fileName": filePath,
+          "languageCommand": language.command,
+          "type": language.type,
+         });
+      }
     return true;
   }
 

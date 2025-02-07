@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:file_icon/file_icon.dart';
-import 'package:file_tree_view/file_tree_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -16,6 +15,7 @@ import 'package:vsdroid/utils/languages.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/utils/themes.dart';
+import 'package:vsdroid/utils/widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   final Language languageDetails;
@@ -32,11 +32,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
   final createFileController = TextEditingController();
   final findWordController = TextEditingController(),replaceWordController = TextEditingController();
   final apiUrlController = TextEditingController();
+  final trasnformationController = TransformationController();
   late TabController apiTabController, paramTabController;
   Map<String,String> params = {}, headers = {};
 
   @override 
   void initState(){
+    trasnformationController.value = Matrix4.identity()..scale(1.45);
     apiTabController =  TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
     setTempFile(widget.languageDetails.extension);
@@ -49,13 +51,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
     apiTabController.dispose();
     paramTabController.dispose();
     findWordController.dispose();
+    trasnformationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final trasnformationController = TransformationController();
-    trasnformationController.value = Matrix4.identity()..scale(1.45);
     final codeEditor = CodeEditor(
       isTemplate: widget.filePath == null,
       language: widget.languageDetails,
@@ -133,38 +134,71 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                         ),
                       ),
                       Expanded(
-                        child:  IndexedStack(
+                        child: IndexedStack(
                           index: state.stackIndex,
                           children: [
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 58, left: 20),
-                                  child: DirectoryTreeViewer(
-                                    rootPath: widget.filePath == null? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
-                                    fileIconBuilder: (ext) {
-                                      return SizedBox(
-                                        height: 25,
-                                        width: 25,
-                                        child:languages.firstWhere(
-                                          (lang)=>lang.extension == ext.replaceFirst(".", ""),
-                                          orElse: () => languages[0],
-                                          ).icon??FileIcon(ext)
-                                          );
-                                    },
+                            Align(
+                              alignment: Alignment.topCenter,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 58, left: 20),
+                                child: DirectoryTreeViewerCustom(
+                                  isUnfoldedFirst: false,
+                                  rootPath: widget.filePath == null ? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
+                                  enableCreateFileOption: true,
+                                  enableCreateFolderOption: true,
+                                  editingFieldStyle: EditingFieldStyle(
+                                    textFieldWidth: MediaQuery.of(context).size.width,
+                                    textStyle: const TextStyle(
+                                      color: Colors.grey,
+                                    ),
+                                    cursorColor: Colors.grey,
+                                    cursorHeight: 19,
+                                    verticalTextAlign: TextAlignVertical.top,
+                                    textfieldDecoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.all(Radius.circular(2)),
+                                        borderSide: BorderSide(color: Colors.grey)
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.all(Radius.circular(2)),
+                                        borderSide: BorderSide(color: Colors.grey)
+                                      ),
+                                    ),
+                                    folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
+                                    fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
+                                    doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
+                                    cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
+                                  ),
+                                  fileIconBuilder: (ext) {
+                                    return SizedBox(
+                                      height: 25,
+                                      width: 25,
+                                      child:languages.firstWhere(
+                                        (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                                        orElse: () => languages[0],
+                                      ).icon??FileIcon(ext)
+                                    );
+                                  },
+                                  folderStyle: FolderStyle(
+                                    iconForCreateFolder: const Icon(Icons.create_new_folder,color: Colors.grey),
+                                    iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
+                                    rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
+                                    rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
                                     folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
                                     folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
                                     folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
-                                    fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
-                                    onFileTap: (f) {
-                                      Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                        builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
-                                          (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                          orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
-                                    },
                                   ),
+                                  fileStyle: FileStyle(
+                                    fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                                  ),
+                                  onFileTap: (f) {
+                                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                                      builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
+                                        (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                                        orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
+                                  },
                                 ),
                               ),
                             ),
@@ -623,8 +657,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                     BlocProvider<ThemeBloc>.value(
                                       value: uiBloc,
                                       child: BlocBuilder<ThemeBloc, ThemeState>(
-                                        builder: (context, state) {
-                                          final String currentTheme = state.theme;
+                                        builder: (context, themeState) {
+                                          final String currentTheme = themeState.theme;
                                           return AlertDialog(
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                             insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -936,9 +970,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
             body: InteractiveViewer(
               transformationController: trasnformationController,
               minScale: 0.1,
-            child: codeEditor)
-                    );
-      },
+              child: codeEditor
+            )
+          );
+        },
      );
   }
 }

@@ -60,7 +60,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
           WebSocket websocket = await WebSocketTransformer.upgrade(request);
           websocket.listen((message) {
             terminal.write(utf8.decode(message).toString().replaceAll("\n", "\r\n"));
-          });
+          },onDone: () async => await NativeChannel.closeTermux()
+          );
           terminal.onOutput = (data) async{
             if(data.contains(utf8.decode([127]))){
               terminal.buffer.backspace();

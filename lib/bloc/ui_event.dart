@@ -63,3 +63,8 @@ class GotApiData extends UiEvent{
   final String url;
   GotApiData({required this.data, required this.url});
 }
+
+class FileTreeEvent extends UiEvent{
+  final Map<String, bool> folderStates;
+  FileTreeEvent({required this.folderStates});
+}

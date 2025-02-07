@@ -72,13 +72,13 @@ class MainActivity: FlutterActivity() {
     } */
     
     private fun sendCommand(fileName: String?, languageCommand: String?, type: String?) {
-        val (optionalArgs, compiledFile) = constructCommand(fileName, languageCommand)
+        val (optionalArgs, compiledFile, executable) = constructCommand(fileName, languageCommand)
         val intent = Intent()
         intent.setClassName("com.termux", "com.termux.app.RunCommandService")
         intent.action = "com.termux.RUN_COMMAND"
         intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
         if(type == "compiled"){
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/rm -rf /data/data/com.termux/files/home/a.out && $optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 && /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p $compiledFile 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
+            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/rm -rf /data/data/com.termux/files/home/$executable && $optionalArgs /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 && /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p $compiledFile 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
         }
         else if(type == "compiled(no binary)"){
             intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", "/data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258 | /data/data/com.termux/files/usr/bin/unbuffer -p /data/data/com.termux/files/usr/bin/$languageCommand $fileName 2>&1 | /data/data/com.termux/files/usr/bin/websocat -b ws://127.0.0.1:49258"))
@@ -92,35 +92,40 @@ class MainActivity: FlutterActivity() {
         startService(intent)
     }
 
-    private fun constructCommand(fileName: String?, languageCommand: String?): Pair<String?, String?> {
+    private fun constructCommand(fileName: String?, languageCommand: String?): Triple<String?, String?, String?> {
         var optionalArgs = ""
         var compiledFile = ""
+        var executable = ""
 
         when (languageCommand) {
             "javac" -> {
+                executable = fileName!!.replaceLast(".java", ".class")
                 val compiledFileName = fileName!!.replaceLast(".java", "").replaceLast("/"," ")
                 compiledFile = "/data/data/com.termux/files/usr/bin/java -cp $compiledFileName"
             }
             "tsc" -> {
                 optionalArgs = "/data/data/com.termux/files/usr/bin/node"
                 val compiledFileName = fileName!!.replaceLast(".ts", ".js")
+                executable = compiledFileName
                 compiledFile = "/data/data/com.termux/files/usr/bin/node $compiledFileName"
             }
             "gcc", "g++" -> {
                 compiledFile = "./a.out"
+                executable = "a.out"
             }
             "rustc" -> {
-                val executable = fileName!!.substring(fileName!!.lastIndexOf("/") + 1).replaceLast(".rs", "")
+                executable = fileName!!.substring(fileName!!.lastIndexOf("/") + 1).replaceLast(".rs", "")
                 compiledFile = "./$executable"
             }
             "kotlinc" -> {
-                val executable = fileName!!.substring(fileName!!.lastIndexOf("/") + 1).replaceLast(".kt", "").replaceFirstChar { it.uppercaseChar() } + "Kt"
-                var path = "/data/data/com.termux/files/home/$executable"
+                val exec = fileName!!.substring(fileName!!.lastIndexOf("/") + 1).replaceLast(".kt", "").replaceFirstChar { it.uppercaseChar() } + "Kt"
+                executable = exec + ".class"
+                var path = "/data/data/com.termux/files/home/$exec"
                 path = path.replaceLast("/", " ")
                 compiledFile = "/data/data/com.termux/files/usr/bin/kotlin -cp $path"
             }
         }
-        return Pair(optionalArgs, compiledFile)
+        return Triple(optionalArgs, compiledFile, executable)
     }
 
     private fun closeTermux(){

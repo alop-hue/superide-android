@@ -47,3 +47,9 @@ class ApiBloc extends Bloc<UiEvent, ApiState>{
     on<GotApiData>((event, emit)=>emit(state.copyWith(data: event.data, url:event.url)));
   }
 }
+
+class FileTreeBloc extends Bloc<UiEvent, FileTreeState>{
+  FileTreeBloc():super(const FileTreeState(folderStates: {})){
+    on<FileTreeEvent>((event, emit) => emit(FileTreeState(folderStates: event.folderStates)));
+  }
+}

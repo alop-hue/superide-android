@@ -5,6 +5,7 @@ import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vsdroid/utils/widgets.dart';
 
 class Settings extends StatelessWidget {
   const Settings({super.key});

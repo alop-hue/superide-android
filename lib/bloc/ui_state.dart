@@ -57,3 +57,8 @@ class ApiState{
     );
   }
 }
+
+class FileTreeState {
+  final Map<String, bool> folderStates;
+  const FileTreeState({required this.folderStates});
+}

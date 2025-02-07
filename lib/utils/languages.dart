@@ -84,7 +84,7 @@ List<Language> languages = [
       details: 'A popular language known for simplicity and versatility.',
       language: python,
       helloWorld: 'print("Hello, World!")',
-      command: 'python',
+      command: 'python -u',
       icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
       type: 'interpreted'),
   Language(

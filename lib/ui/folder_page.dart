@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:file_tree_view/file_tree_view.dart';
+import 'package:file_tree_view/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:vsdroid/ui/home.dart';
@@ -29,24 +30,57 @@ class FolderPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 15),
               child: DirectoryTreeViewer(
+                isUnfoldedFirst: false,
                 rootPath: dir.path,
+                enableCreateFileOption: true,
+                enableCreateFolderOption: true,
+                editingFieldStyle: EditingFieldStyle(
+                  textStyle: const TextStyle(
+                    color: Colors.grey,
+                  ),
+                  cursorColor: Colors.grey,
+                  cursorHeight: 18,
+                  verticalTextAlign: TextAlignVertical.top,
+                  textfieldDecoration: const InputDecoration(
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(2)),
+                      borderSide: BorderSide(color: Colors.grey)
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(2)),
+                      borderSide: BorderSide(color: Colors.grey)
+                    ),
+                  ),
+                  folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 25),
+                  fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 25),
+                  doneIcon: const Icon(Icons.check, color: Colors.grey,size: 25),
+                  cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 25),
+                ),
                 fileIconBuilder: (ext) {
                   return SizedBox(
                     height: 25,
                     width: 25,
                     child:languages.firstWhere(
-                      (language)=>language.extension == ext.replaceFirst(".", ""),
+                      (lang)=>lang.extension == ext.replaceFirst(".", ""),
                       orElse: () => languages[0],
-                    ).icon??FileIcon(ext));
+                    ).icon??FileIcon(ext)
+                  );
                 },
-                folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
-                folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
-                folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
-                fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                folderStyle: FolderStyle(
+                  folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
+                  folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
+                  rootFolderClosedIcon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
+                  rootFolderOpenedIcon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
+                  folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
+                ),
+                fileStyle: FileStyle(
+                  fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                ),
                 onFileTap: (f) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
-                    builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere((language) =>
-                      language.extension == path.extension(f.path).replaceFirst(".", ""),orElse: () =>languages[0]))(),filePath: f,rootDir: dir.path)));
+                    builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
+                      (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                      orElse: () =>languages[0]))(),filePath: f,rootDir: dir.path)));
                 },
               ),
             ),

@@ -54,6 +54,7 @@ import 'package:flutter_highlight/themes/xcode.dart';
 import 'package:flutter_highlight/themes/xt256.dart';
 import 'package:flutter_highlight/themes/zenburn.dart';
 import 'package:xterm/xterm.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 final Map<String, dynamic> highlightThemes = {
   'a11y-dark': a11yDarkTheme,
@@ -157,3 +158,67 @@ const tileTheme = ListTileThemeData(
 const cardTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
 const popupBtnTheme = PopupMenuThemeData(color: Color.fromARGB(255, 61, 61, 61),);
 const progressTheme = ProgressIndicatorThemeData(color: Color(0xff0e639c));
+
+class FolderStyle {
+  final dynamic folderClosedicon;
+  final dynamic folderOpenedicon;
+  final TextStyle? folderNameStyle;
+  final dynamic iconForCreateFolder;
+  final dynamic iconForCreateFile;
+  final dynamic iconForDeleteFolder;
+  final dynamic rootFolderClosedIcon;
+  final dynamic rootFolderOpenedIcon;
+  final double itemGap;
+  FolderStyle({
+    this.itemGap = 15,
+    this.rootFolderClosedIcon = const Icon(Icons.chevron_right_sharp),
+    this.rootFolderOpenedIcon = const Icon(Icons.keyboard_arrow_down_sharp),
+    this.folderNameStyle = const TextStyle(),
+    this.iconForCreateFolder = const Icon(Icons.create_new_folder),
+    this.iconForCreateFile =
+        const Icon(FontAwesomeIcons.fileCirclePlus, size: 20),
+    this.iconForDeleteFolder = const Icon(Icons.delete),
+    this.folderClosedicon = const Icon(Icons.folder),
+    this.folderOpenedicon = const Icon(Icons.folder_open),
+  });
+}
+class FileStyle {
+  final dynamic fileIcon;
+  final TextStyle? fileNameStyle;
+  final dynamic iconForDeleteFile;
+  FileStyle({
+    this.fileNameStyle = const TextStyle(),
+    this.fileIcon = const Icon(Icons.insert_drive_file),
+    this.iconForDeleteFile = const Icon(Icons.delete),
+  });
+}
+
+class EditingFieldStyle {
+  final dynamic folderIcon;
+  final dynamic fileIcon;
+  final InputDecoration textfieldDecoration;
+  final dynamic doneIcon;
+  final dynamic cancelIcon;
+  final double textFieldHeight;
+  final double textFieldWidth;
+  final Color? cursorColor;
+  final double cursorHeight;
+  final double cursorWidth;
+  final Radius? cursorRadius;
+  final TextAlignVertical? verticalTextAlign;
+  final TextStyle? textStyle;
+  EditingFieldStyle(
+      {this.textFieldHeight = 30,
+      this.textFieldWidth = double.infinity,
+      this.cursorHeight = 20,
+      this.cursorWidth = 2.0,
+      this.cursorRadius,
+      this.cursorColor,
+      this.verticalTextAlign,
+      this.textStyle,
+      this.textfieldDecoration = const InputDecoration(),
+      this.folderIcon = const Icon(Icons.folder),
+      this.fileIcon = const Icon(Icons.edit_document),
+      this.doneIcon = const Icon(Icons.check),
+      this.cancelIcon = const Icon(Icons.close)});
+}

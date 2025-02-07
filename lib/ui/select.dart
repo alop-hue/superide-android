@@ -10,6 +10,7 @@ import 'package:vsdroid/ui/settings.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/utils/widgets.dart';
 
 class SelectType extends StatefulWidget {
   const SelectType({super.key});
