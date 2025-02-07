@@ -48,8 +48,12 @@ class ApiBloc extends Bloc<UiEvent, ApiState>{
   }
 }
 
-class FileTreeBloc extends Bloc<UiEvent, FileTreeState>{
-  FileTreeBloc():super(const FileTreeState(folderStates: {})){
-    on<FileTreeEvent>((event, emit) => emit(FileTreeState(folderStates: event.folderStates)));
+class FolderBloc extends Cubit<FolderState> {
+  FolderBloc() : super(FolderState({}));
+
+  void toggleFolder(String dirPath) {
+    final currentState = state.folderStates;
+    final isUnfolded = currentState[dirPath] ?? false;
+    emit(state.copyWith(folderStates: {...currentState, dirPath: !isUnfolded}));
   }
 }

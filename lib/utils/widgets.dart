@@ -1,31 +1,33 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/themes.dart';
 
-
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-  {Color color = const Color(0xff6d6d6d),Color bgColor = Colors.transparent}) {
+    {Color color = const Color(0xff6d6d6d),
+    Color bgColor = Colors.transparent}) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 15),
     child: Container(
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: const BorderRadius.all(Radius.circular(10))
-      ),
-      padding:  EdgeInsets.symmetric(
-        horizontal: ![IconData,IconDataSolid].contains(icon.runtimeType)? 2.5:icon.runtimeType==IconDataSolid?5:4,
-        vertical:![IconData,IconDataSolid].contains(icon.runtimeType)? 8:5),
+          color: bgColor,
+          borderRadius: const BorderRadius.all(Radius.circular(10))),
+      padding: EdgeInsets.symmetric(
+          horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType) ? 2.5 : icon.runtimeType == IconDataSolid ? 5 : 4,
+          vertical:![IconData, IconDataSolid].contains(icon.runtimeType) ? 8 : 5),
       child: IconButton(
-        onPressed: onPressed, icon: ![IconData,IconDataSolid].contains(icon.runtimeType) ?
-         icon:
-         Icon(icon, color: color, size: icon.runtimeType == IconDataSolid? 35:38)),
+          onPressed: onPressed,
+          icon: ![IconData, IconDataSolid].contains(icon.runtimeType)
+            ? icon : Icon(icon,color: color,size: icon.runtimeType == IconDataSolid ? 35 : 38)),
     ),
   );
 }
 
-Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,{double val = 0}) {
+Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,
+    {double val = 0}) {
   return Padding(
     padding: const EdgeInsets.only(left: 15),
     child: ListTile(
@@ -53,7 +55,7 @@ Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
       style: TextStyle(
         fontSize: 18.5,
         fontWeight: FontWeight.w400,
-        color:Colors.grey[400],
+        color: Colors.grey[400],
       ),
     ),
   );
@@ -63,17 +65,22 @@ Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
 
-Widget projectTile(String projectName, String projectDetails, icon, VoidCallback onTap){
+Widget projectTile(
+    String projectName, String projectDetails, icon, VoidCallback onTap) {
   return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 13,vertical: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
     child: Card(
-      color: const Color.fromARGB(255, 51, 50, 50),
+      color: const Color(0xff2b2b2b),
       child: ListTile(
         onTap: onTap,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10))),
         leading: icon,
         title: Text(projectName),
-        subtitle: Text(projectDetails,style: const TextStyle(color: Colors.grey),),
+        subtitle: Text(
+          projectDetails,
+          style: const TextStyle(color: Colors.grey),
+        ),
       ),
     ),
   );
@@ -95,7 +102,7 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
   final List<Widget>? folderActions;
   final List<Widget>? fileActions;
   final Widget Function(String fileExtension)? fileIconBuilder;
-  
+
   const DirectoryTreeViewerCustom({
     super.key,
     required this.rootPath,
@@ -119,19 +126,9 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
 
 class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   String? currentDir;
-  late bool isParentOpen;
-  late Map<String, bool> _folderStates;
   String? newEntryPath;
   bool isFolderCreation = false;
   final TextEditingController _controller = TextEditingController();
-
-  @override
-  void initState() {
-    isParentOpen = widget.isUnfoldedFirst;
-    _folderStates = {};
-    _folderStates[widget.rootPath] = isParentOpen;
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -139,13 +136,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     super.dispose();
   }
 
-  bool isUnfolded(String dirPath) => _folderStates[dirPath] ?? false;
-
-  void toggleFolder(String dirPath) {
-    setState(() {
-      _folderStates[dirPath] = !isUnfolded(dirPath);
-    });
-  }
+  bool isUnfolded(String dirPath) =>
+      context.read<FolderBloc>().state.folderStates[dirPath] ?? false;
+  void toggleFolder(String dirPath) =>
+      context.read<FolderBloc>().toggleFolder(dirPath);
 
   void startCreating(String parentPath, bool isFolder) {
     setState(() {
@@ -193,26 +187,35 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           child: Row(
             children: [
               isUnfolded(directory.path)
-                ? widget.folderStyle?.folderOpenedicon ?? FolderStyle().folderOpenedicon
-                : widget.folderStyle?.folderClosedicon ?? FolderStyle().folderClosedicon,
+                  ? widget.folderStyle?.folderOpenedicon ??
+                      FolderStyle().folderOpenedicon
+                  : widget.folderStyle?.folderClosedicon ??
+                      FolderStyle().folderClosedicon,
               const SizedBox(width: 8),
-              Text(path.basename(directory.path),style: widget.folderStyle?.folderNameStyle ?? FolderStyle().folderNameStyle),
-              SizedBox(width: widget.folderStyle?.itemGap ?? FolderStyle().itemGap),
-              if (widget.enableCreateFileOption && isUnfolded(directory.path) && currentDir == directory.path)
+              Text(path.basename(directory.path),
+                  style: widget.folderStyle?.folderNameStyle ??
+                      FolderStyle().folderNameStyle),
+              SizedBox(
+                  width: widget.folderStyle?.itemGap ?? FolderStyle().itemGap),
+              if (widget.enableCreateFileOption &&
+                  isUnfolded(directory.path) &&
+                  currentDir == directory.path)
                 IconButton(
                   onPressed: () => startCreating(directory.path, false),
                   icon: widget.folderStyle?.iconForCreateFile ??
                       FolderStyle().iconForCreateFile,
                 ),
-
-              if (widget.enableCreateFolderOption && isUnfolded(directory.path) && currentDir == directory.path)
+              if (widget.enableCreateFolderOption &&
+                  isUnfolded(directory.path) &&
+                  currentDir == directory.path)
                 IconButton(
                   onPressed: () => startCreating(directory.path, true),
                   icon: widget.folderStyle?.iconForCreateFolder ??
-                    FolderStyle().iconForCreateFolder,
-                ), 
-
-              if (widget.enableDeleteFolderOption && isUnfolded(directory.path) && currentDir == directory.path)
+                      FolderStyle().iconForCreateFolder,
+                ),
+              if (widget.enableDeleteFolderOption &&
+                  isUnfolded(directory.path) &&
+                  currentDir == directory.path)
                 IconButton(
                   onPressed: () {
                     Directory(directory.path).delete(recursive: true);
@@ -229,9 +232,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             padding: const EdgeInsets.only(left: 16.0),
             child: Column(
               children: [
-                ...entries.map((entry) =>
-                    entry is Directory ? _buildDirectoryTree(entry) : _buildFileItem(entry as File)),
-                if (newEntryPath == directory.path) _buildNewEntryField(directory),
+                ...entries.map((entry) => entry is Directory
+                    ? _buildDirectoryTree(entry)
+                    : _buildFileItem(entry as File)),
+                if (newEntryPath == directory.path)
+                  _buildNewEntryField(directory),
               ],
             ),
           ),
@@ -243,8 +248,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return Row(
       children: [
         isFolderCreation
-          ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
-          : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
+            ? widget.editingFieldStyle?.folderIcon ??
+                EditingFieldStyle().folderIcon
+            : widget.editingFieldStyle?.fileIcon ??
+                EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -258,14 +265,21 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration: widget.editingFieldStyle?.textfieldDecoration ?? EditingFieldStyle().textfieldDecoration,
+              decoration: widget.editingFieldStyle?.textfieldDecoration ??
+                  EditingFieldStyle().textfieldDecoration,
               controller: _controller,
               onSubmitted: (_) => createEntry(parent),
             ),
           ),
         ),
-        IconButton(icon: widget.editingFieldStyle?.doneIcon ?? EditingFieldStyle().doneIcon, onPressed: () => createEntry(parent)),
-        IconButton(icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon, onPressed: stopCreating),
+        IconButton(
+            icon: widget.editingFieldStyle?.doneIcon ??
+                EditingFieldStyle().doneIcon,
+            onPressed: () => createEntry(parent)),
+        IconButton(
+            icon: widget.editingFieldStyle?.cancelIcon ??
+                EditingFieldStyle().cancelIcon,
+            onPressed: stopCreating),
       ],
     );
   }
@@ -275,19 +289,22 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       onTap: () => widget.onFileTap?.call(file),
       child: Row(
         children: [
-          widget.fileIconBuilder?.call(path.extension(file.path).toLowerCase()) ??
+          widget.fileIconBuilder
+                  ?.call(path.extension(file.path).toLowerCase()) ??
               widget.fileStyle?.fileIcon ??
               FileStyle().fileIcon,
           const SizedBox(width: 8),
           Text(path.basename(file.path),
-              style: widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle),
+              style:
+                  widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle),
           if (widget.enableDeleteFileOption)
             IconButton(
               onPressed: () {
                 file.deleteSync();
                 setState(() {});
               },
-              icon: widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+              icon: widget.fileStyle?.iconForDeleteFile ??
+                  FileStyle().iconForDeleteFile,
             ),
           ...widget.fileActions ?? [],
         ],
@@ -301,6 +318,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     if (!rootDirectory.existsSync()) {
       return const Center(child: Text('Directory does not exist'));
     }
-    return SingleChildScrollView(child: _buildDirectoryTree(rootDirectory));
+    return BlocBuilder<FolderBloc, FolderState>(
+      builder: (context, state) {
+        return SingleChildScrollView(child: _buildDirectoryTree(rootDirectory));
+      },
+    );
   }
 }

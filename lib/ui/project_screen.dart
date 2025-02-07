@@ -12,7 +12,6 @@ class ProjectScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final projectNameController = TextEditingController();
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 34, 34, 34),
       body: FutureBuilder(
         future: setupProjectDir(),
         builder: (context,snapshot) {
@@ -100,7 +99,6 @@ class ProjectScreen extends StatelessWidget {
                 }
               ),
               const SizedBox(height: 20),
-              const Divider(thickness: 0.5,color: Colors.grey),
               const Padding(
                 padding: EdgeInsets.only(left: 15),
                 child: Align(

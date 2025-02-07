@@ -58,7 +58,12 @@ class ApiState{
   }
 }
 
-class FileTreeState {
+class FolderState {
   final Map<String, bool> folderStates;
-  const FileTreeState({required this.folderStates});
+
+  FolderState(this.folderStates);
+
+  FolderState copyWith({Map<String, bool>? folderStates}) {
+    return FolderState(folderStates ?? this.folderStates);
+  }
 }

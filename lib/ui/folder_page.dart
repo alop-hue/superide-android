@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:file_icon/file_icon.dart';
-import 'package:file_tree_view/file_tree_view.dart';
-import 'package:file_tree_view/style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vsdroid/ui/home.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/utils/themes.dart';
+import 'package:vsdroid/utils/widgets.dart';
 
 class FolderPage extends StatelessWidget {
   final Directory dir;
@@ -29,7 +30,7 @@ class FolderPage extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(left: 15),
-              child: DirectoryTreeViewer(
+              child: DirectoryTreeViewerCustom(
                 isUnfoldedFirst: false,
                 rootPath: dir.path,
                 enableCreateFileOption: true,
@@ -69,6 +70,8 @@ class FolderPage extends StatelessWidget {
                 folderStyle: FolderStyle(
                   folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
                   folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
+                  iconForCreateFolder: const Icon(Icons.create_new_folder,color: Colors.grey),
+                  iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
                   rootFolderClosedIcon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
                   rootFolderOpenedIcon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
                   folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),

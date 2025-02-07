@@ -25,7 +25,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => FindWordBloc()),
         BlocProvider(create: (_) => WebViewBloc()),
-        BlocProvider(create: (_) => FileTreeBloc()),
+        BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => ApiBloc())
       ],
       child: MaterialApp(
