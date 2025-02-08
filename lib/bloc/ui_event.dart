@@ -58,10 +58,14 @@ class GetBody extends UiEvent{
   GetBody({required this.body});
 }
 
+class GetUrl extends UiEvent{
+  final String url;
+  GetUrl({required this.url});
+}
+
 class GotApiData extends UiEvent{
   final Map<String,dynamic> data;
-  final String url;
-  GotApiData({required this.data, required this.url});
+  GotApiData({required this.data});
 }
 
 class FileTreeEvent extends UiEvent{

@@ -140,65 +140,76 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                             Align(
                               alignment: Alignment.topCenter,
                               child: Padding(
-                                padding: const EdgeInsets.only(top: 58, left: 20),
-                                child: DirectoryTreeViewerCustom(
-                                  isUnfoldedFirst: false,
-                                  rootPath: widget.filePath == null ? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
-                                  enableCreateFileOption: true,
-                                  enableCreateFolderOption: true,
-                                  editingFieldStyle: EditingFieldStyle(
-                                    textFieldWidth: MediaQuery.of(context).size.width,
-                                    textStyle: const TextStyle(
-                                      color: Colors.grey,
-                                    ),
-                                    cursorColor: Colors.grey,
-                                    cursorHeight: 19,
-                                    verticalTextAlign: TextAlignVertical.top,
-                                    textfieldDecoration: const InputDecoration(
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.all(Radius.circular(2)),
-                                        borderSide: BorderSide(color: Colors.grey)
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.all(Radius.circular(2)),
-                                        borderSide: BorderSide(color: Colors.grey)
+                                padding: const EdgeInsets.only(left: 20),
+                                child: ListView(
+                                  children: [
+                                    const Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(bottom: 15),
+                                        child: Text("EXPLORER",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
                                       ),
                                     ),
-                                    folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
-                                    fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
-                                    doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
-                                    cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
-                                  ),
-                                  fileIconBuilder: (ext) {
-                                    return SizedBox(
-                                      height: 25,
-                                      width: 25,
-                                      child:languages.firstWhere(
-                                        (lang)=>lang.extension == ext.replaceFirst(".", ""),
-                                        orElse: () => languages[0],
-                                      ).icon??FileIcon(ext)
-                                    );
-                                  },
-                                  folderStyle: FolderStyle(
-                                    iconForCreateFolder: const Icon(Icons.create_new_folder,color: Colors.grey),
-                                    iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
-                                    rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
-                                    rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
-                                    folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
-                                    folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
-                                    folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
-                                  ),
-                                  fileStyle: FileStyle(
-                                    fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
-                                  ),
-                                  onFileTap: (f) {
-                                    Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                      builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
-                                        (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                        orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
-                                  },
+                                    DirectoryTreeViewerCustom(
+                                      isUnfoldedFirst: false,
+                                      rootPath: widget.filePath == null ? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
+                                      enableCreateFileOption: true,
+                                      enableCreateFolderOption: true,
+                                      editingFieldStyle: EditingFieldStyle(
+                                        textFieldWidth: MediaQuery.of(context).size.width,
+                                        textStyle: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                        cursorColor: Colors.grey,
+                                        cursorHeight: 19,
+                                        verticalTextAlign: TextAlignVertical.top,
+                                        textfieldDecoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(Radius.circular(2)),
+                                            borderSide: BorderSide(color: Colors.grey)
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(Radius.circular(2)),
+                                            borderSide: BorderSide(color: Colors.grey)
+                                          ),
+                                        ),
+                                        folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
+                                        fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
+                                        doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
+                                        cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
+                                      ),
+                                      fileIconBuilder: (ext) {
+                                        return SizedBox(
+                                          height: 25,
+                                          width: 25,
+                                          child:languages.firstWhere(
+                                            (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                                            orElse: () => languages[0],
+                                          ).icon??FileIcon(ext)
+                                        );
+                                      },
+                                      folderStyle: FolderStyle(
+                                        iconForCreateFolder: const Icon(Icons.create_new_folder,color: Colors.grey),
+                                        iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
+                                        rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
+                                        rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
+                                        folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
+                                        folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
+                                        folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
+                                      ),
+                                      fileStyle: FileStyle(
+                                        fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                                      ),
+                                      onFileTap: (f) {
+                                        Navigator.of(context).pushReplacement(MaterialPageRoute(
+                                          builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
+                                            (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                                            orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -409,6 +420,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                           keyboardType: TextInputType.url,
                                           style: const TextStyle(color: Colors.grey),
                                           cursorColor: Colors.grey,
+                                          onChanged: (val){
+                                            context.read<ApiBloc>().add(GetUrl(url: val));
+                                          },
                                           decoration: const InputDecoration(
                                             hintText: "Enter Url",
                                             border: OutlineInputBorder(),
@@ -487,17 +501,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                                         ),
                                                       ),
                                                     ),
-                                                    IconButton(onPressed: (){
-                                                      if(index == webState.params.length){
-                                                        if(paramControllers.keys.toList()[index].text.isNotEmpty && paramControllers.values.toList()[index].text.isNotEmpty) {
-                                                          params.addEntries({paramControllers.keys.toList()[index].text:paramControllers.values.toList()[index].text}.entries);
+                                                    IconButton(
+                                                      onPressed: () {
+                                                        if (index == webState.params.length) {
+                                                          if (paramControllers.keys.toList()[index].text.isNotEmpty &&
+                                                              paramControllers.values.toList()[index].text.isNotEmpty) {
+                                                            params.addEntries({
+                                                              paramControllers.keys.toList()[index].text:
+                                                                  paramControllers.values.toList()[index].text
+                                                            }.entries);
+                                                          }
+                                                        } else {
+                                                          params.remove(paramControllers.keys.toList()[index].text);
                                                         }
-                                                      }
-                                                      else{
-                                                        params.remove(paramControllers.keys.toList()[index].text);
-                                                      }
-                                                      context.read<ApiBloc>().add(GetParams(params: params));
-                                                    }, icon: Icon(index == webState.params.length? Icons.add : Icons.remove,color: Colors.grey))
+                                                        context.read<ApiBloc>().add(GetParams(params: params));
+                                                        String baseUrl = apiUrlController.text.split('?')[0];
+                                                        String queryString = '';
+                                                        if (params.isNotEmpty) {
+                                                          queryString = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+                                                        }
+                                                        String newUrl = queryString.isNotEmpty ? '$baseUrl?$queryString' : baseUrl;
+                                                        apiUrlController.value = apiUrlController.value.copyWith(
+                                                          text: newUrl,
+                                                          selection: TextSelection.collapsed(offset: newUrl.length),
+                                                        );
+                                                        context.read<ApiBloc>().add(GetUrl(url: newUrl));
+                                                      },
+                                                      icon: Icon(
+                                                        index == webState.params.length ? Icons.add : Icons.remove,
+                                                        color: Colors.grey,
+                                                      ),
+                                                    ),
                                                     ]),
                                                   );
                                                 })),
@@ -586,7 +620,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                                 headers: webState.headers
                                               );
                                             if(context.mounted) {
-                                              context.read<ApiBloc>().add(GotApiData(data: data,url: apiUrlController.text));
+                                              context.read<ApiBloc>().add(GotApiData(data: data));
                                             }
                                           }, 
                                             style: const ButtonStyle(

@@ -44,7 +44,8 @@ class ApiBloc extends Bloc<UiEvent, ApiState>{
     on<GetParams>((event, emit)=>emit(state.copyWith(params: event.params)));
     on<GetHeaders>((event, emit)=>emit(state.copyWith(headers: event.headers)));
     on<GetBody>((event, emit)=>emit(state.copyWith(body: event.body)));
-    on<GotApiData>((event, emit)=>emit(state.copyWith(data: event.data, url:event.url)));
+    on<GetUrl>((event, emit)=>emit(state.copyWith(url: event.url)));
+    on<GotApiData>((event, emit)=>emit(state.copyWith(data: event.data)));
   }
 }
 
