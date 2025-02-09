@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -342,7 +341,7 @@ class _SelectTypeState extends State<SelectType> {
                 const SizedBox(height: 12),
                 BlocBuilder<RecentBloc, RecentState>(
                   builder: (context, recentState) {
-                    final Map<String, dynamic> recentData = recentState.recent.isEmpty ? {} : jsonDecode(recentState.recent);
+                    final List<dynamic> recentData = recentState.recent;
                     return recentState.recent.isEmpty ? const Text(
                       "You don't have any recent activity",
                       style: TextStyle(
@@ -355,19 +354,42 @@ class _SelectTypeState extends State<SelectType> {
                       width: 350,
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: Card(
-                          child: ListTile(
-                            title:
-                                ((){
-                                  if(File(recentData.keys.toList()[0]).existsSync()){
-                                    return Text(path.basename(recentData.keys.toList()[0]));
-                                  }
-                                  return Text("${path.basename(recentData.keys.toList()[0])} - File not found");
-                                })(), 
-                            leading: languages.where((lang)=>
-                              lang.extension == path.extension(recentData.keys.toList()[0]).toLowerCase().replaceFirst(".", "")
-                            ).toList()[0].icon,
-                          ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: recentData.length,
+                          itemBuilder: (context,index) {
+                            return Card(
+                              child: ListTile(
+                                onTap: (){
+                                  Navigator.of(context).push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context ,animation, secondaryAnimation) => 
+                                      HomeScreen(
+                                        filePath: File(recentData[index].keys.toList()[0]),
+                                        rootDir: recentData[index][recentData[index].keys.toList()[0]],
+                                        languageDetails: languages.where((lang)=>
+                                            lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")
+                                          ).toList()[0]
+                                      ),
+                                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                        return SizeTransition(sizeFactor: animation,child: child);
+                                      }
+                                    )
+                                  );
+                                },
+                                title:
+                                    ((){
+                                      if(File(recentData[index].keys.toList()[0]).existsSync()){
+                                        return Text(path.basename(recentData[index].keys.toList()[0]));
+                                      }
+                                      return Text("${path.basename(recentData[index].keys.toList()[0])} - File not found");
+                                    })(), 
+                                leading: languages.where((lang)=>
+                                  lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")
+                                ).toList()[0].icon,
+                              ),
+                            );
+                          }
                         ),
                       ),
                     );

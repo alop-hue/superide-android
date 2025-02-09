@@ -1,16 +1,14 @@
 import 'dart:io';
-import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:code_text_field/code_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:vsdroid/utils/themes.dart';
 
-// ignore: must_be_immutable
-class CodeEditor extends StatelessWidget {
+class CodeEditor extends StatefulWidget {
   final Language language;
   final Map<String, TextStyle>? theme;
-  late  CodeController codeController;
   final String? file;
   final File filePath;
   final bool isTemplate;
@@ -23,20 +21,29 @@ class CodeEditor extends StatelessWidget {
     this.isTemplate = false
     }) {/**/}
 
+  @override
+  State<CodeEditor> createState() => _CodeEditorState();
+}
+
+class _CodeEditorState extends State<CodeEditor> {
+  late  CodeController codeController;
+  double _initialFontSize = 10.0;
+  double _currentScale = 1.0;
+
   Future<String?> getData() async {
-    if (filePath.existsSync()) {
-      String source = await filePath.readAsString();
+    if (widget.filePath.existsSync()) {
+      String source = await widget.filePath.readAsString();
       if (source.isNotEmpty) {
         return source;
       } else {
-        if(isTemplate) {
-          return language.helloWorld;
+        if(widget.isTemplate) {
+          return widget.language.helloWorld;
         }else{
           return 'Your canvas is ready.\nWrite something amazing!';
         }
       }
     }
-    return language.helloWorld;
+    return widget.language.helloWorld;
   }
 
   @override
@@ -50,8 +57,8 @@ class CodeEditor extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             codeController = CodeController(
-              language: language.language,
-              text: snapshot.hasData? (snapshot.data??language.helloWorld) : "Can't read filecontent",
+              language: widget.language.language,
+              text: snapshot.hasData? (snapshot.data??widget.language.helloWorld) : "Can't read filecontent",
               patternMap: {
                 if (wordState.word.isNotEmpty) RegExp.escape(wordState.word): TextStyle(backgroundColor: Colors.yellow[600]!)
               });
@@ -59,23 +66,33 @@ class CodeEditor extends StatelessWidget {
               builder: (context, state) {
                 return CodeTheme(
                   data: CodeThemeData(styles: highlightThemes[state.theme]),
-                  child: CodeField(
-                    onChanged: (word) async{
-                      await filePath.writeAsString(word);
+                  child: GestureDetector(
+                    onScaleStart: (details) {
+                      if(details.pointerCount == 2){
+                        _initialFontSize = state.fontSize;
+                      }
                     },
-                    gutterStyle: const GutterStyle(
-                      textStyle: TextStyle(height: 1.549),
-                      margin: 0,
-                      width: 47
+                    onScaleUpdate: (details) {
+                      if (details.pointerCount == 2) {
+                        _currentScale = details.scale;
+                        double newFontSize = _initialFontSize * _currentScale;
+                        newFontSize = newFontSize.clamp(8.0, 48.0);
+                        context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
+                      }
+                    },
+                    child: CodeField(
+                      onChanged: (word) async{
+                        await widget.filePath.writeAsString(word);
+                      },
+                      textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
+                      textSelectionTheme: const TextSelectionThemeData(
+                      cursorColor: Color(0xff23a9f2),
+                      selectionColor:Color.fromARGB(112, 30, 134, 245)),
+                      controller: codeController,
+                      expands: true,
+                      maxLines: null,
+                      minLines: null,
                     ),
-                    textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: 10,height: 1.5),
-                    textSelectionTheme: const TextSelectionThemeData(
-                    cursorColor: Color(0xff23a9f2),
-                    selectionColor:Color.fromARGB(112, 30, 134, 245)),
-                    controller: codeController,
-                    expands: true,
-                    maxLines: null,
-                    minLines: null,
                   ),
                 );
               },
@@ -84,9 +101,5 @@ class CodeEditor extends StatelessWidget {
         );
       },
     );
-  }
-
-  String code() {
-    return codeController.text;
   }
 }

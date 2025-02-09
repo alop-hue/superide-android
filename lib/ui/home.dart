@@ -77,15 +77,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
         }
         return widget.filePath;
       })(),
-      (()async{
+      (() async {
         final prefs = await SharedPreferences.getInstance();
+        List<dynamic> storedData = jsonDecode(await getRecent());
         final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension);
-        final recentData = {file.path : widget.rootDir ?? file.parent.path};
-        final finalData = jsonEncode(recentData);
-        if(context.mounted){
-          context.read<RecentBloc>().add(RecentEvent(recent: finalData));
+        final dataToInsert = {file.path: widget.rootDir ?? file.parent.path};
+        final Set<String> uniquePaths = {};
+        storedData.insert(0, dataToInsert);
+        final List<dynamic> uniqueData = [];
+        for (final data in storedData) {
+          final path = data.keys.toList()[0];
+          if (!uniquePaths.contains(path)) {
+            uniquePaths.add(path);
+            uniqueData.add(data);
+          }
         }
-        prefs.setString('recent', finalData);
+        if (uniqueData.length > 3) {
+          uniqueData.removeRange(3, uniqueData.length);
+        }
+        if (context.mounted) {
+          context.read<RecentBloc>().add(RecentEvent(recent: uniqueData));
+        }
+        prefs.setString('recent', jsonEncode(uniqueData));
       })()
       ]),
       builder: (context, snapshot) {
@@ -270,7 +283,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                       onTap: () async{
                                         if (findWordController.text.isNotEmpty) {
                                           final currentState = context.read<FindWordBloc>().state;
-                                          await codeEditor.filePath.writeAsString(codeEditor.code().replaceAll(
+                                          final data = await codeEditor.filePath.readAsString();
+                                          await codeEditor.filePath.writeAsString(data.replaceAll(
                                             currentState.word, replaceWordController.text));
                                           if(context.mounted) {
                                             context.read<FindWordBloc>().add(FindWord(word: ""));
@@ -835,18 +849,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
               PopupMenuButton(
                 itemBuilder: (context) => [
                   PopupMenuItem(
-                    child: TextButton(onPressed: () async{
-                      await target!.writeAsString(codeEditor.code());
-                      if(context.mounted) {
-                        Navigator.of(context).pop();
-                      }
-                      }, child: const Row(
-                          children: [
-                            Icon(Icons.save,color: Colors.grey,size: 25),
-                              SizedBox(width: 7),
-                              Text("Save",style: TextStyle(color: Colors.grey,fontSize: 17)),
-                              ],))),
-                  PopupMenuItem(
                     child: TextButton(onPressed: () {
                       showDialog(
                         context: context,
@@ -886,8 +888,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                                       final file = await createFile(createFileController.text, context);
                                       if (context.mounted && file != null) {
                                         Navigator.of(context).push(MaterialPageRoute(
-                                          builder: (context) => HomeScreen(filePath: file,languageDetails: languages
-                                            .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", "")))));
+                                          builder: (context) => HomeScreen(
+                                            rootDir: widget.rootDir ?? file.parent.path,
+                                            filePath: file,languageDetails: languages
+                                            .firstWhere((language) => 
+                                              language.extension == path.extension(file.path).replaceFirst(".", ""))
+                                            )
+                                          )
+                                        );
                                       }
                                     }
                                   },
@@ -948,8 +956,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                             ))),
                         PopupMenuItem(
                             child: TextButton(onPressed: () {
-                              codeEditor.codeController.clear();
-                              Navigator.of(context).pop();
+                              showDialog(context: context, builder: (context)=>AlertDialog(
+                                title:  Text("Are you sure ?",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                content: const Text("       The code will be cleared",style: TextStyle(color: Colors.grey)),
+                                backgroundColor: const Color(0xff2b2b2b),
+                                icon: const Icon(Icons.error_outline,size: 35),
+                                iconColor: Colors.red[600],
+                                actionsAlignment: MainAxisAlignment.center,
+                                  actions: [
+                                    ElevatedButton(
+                                      style: ButtonStyle(
+                                        backgroundColor: WidgetStatePropertyAll(Colors.red[600])
+                                      ),
+                                      onPressed: (){
+                                        Navigator.of(context).pop();
+                                      }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        codeEditor.filePath.writeAsString('');
+                                        Navigator.of(context).pop();
+                                        setState(() {});
+                                      },
+                                      child: const Text("OK"))
+                                  ],
+                              ));
                             }, child: const Row(
                               children: [
                                 Icon(Icons.clear_sharp,color: Colors.grey,size: 25),
@@ -1014,11 +1044,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                 icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
           ),
-          body: InteractiveViewer(
-            transformationController: trasnformationController,
-            minScale: 0.1,
-            child: codeEditor
-          )
+          body: codeEditor
         );
       },
     );

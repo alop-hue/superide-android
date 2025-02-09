@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
@@ -34,7 +36,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => ApiBloc()),
-        BlocProvider(create: (_) => RecentBloc(recent: recent))
+        BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent)))
       ],
       child: MaterialApp(
           theme: ThemeData(

@@ -12,10 +12,11 @@ class StackBloc extends Bloc<StackIndexChange, StackState> {
 
 class ThemeBloc extends Bloc<UiEvent, ThemeState>{
   final String initialTheme,fontFamily;
-  ThemeBloc({required this.initialTheme,required this.fontFamily}):super(ThemeState(theme: initialTheme,fontFamily: fontFamily)){
+  ThemeBloc({required this.initialTheme, required this.fontFamily})
+    :super(ThemeState(theme: initialTheme,fontFamily: fontFamily, fontSize: 15)){
     on<SetTheme>((event, emit)=>emit(state.copyWith(theme: event.theme)));
     on<SetFont>((event, emit)=>emit(state.copyWith(fontFamily: event.font)));
-
+    on<SetFontSize>((event, emit)=>emit(state.copyWith(fontSize: event.fontSize)));
   }
 }
 
@@ -60,7 +61,7 @@ class FolderBloc extends Cubit<FolderState> {
 }
 
 class RecentBloc extends Bloc<RecentEvent, RecentState>{
-  final String recent;
+  final List<dynamic> recent;
   RecentBloc({required this.recent}) : super(RecentState(recent: recent)){
     on<RecentEvent>((event, emit) => emit(RecentState(recent: event.recent)));
   }

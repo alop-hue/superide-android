@@ -191,7 +191,7 @@ Future<String> getSavedFont() async {
 Future<String> getRecent() async{
   final prefs = await SharedPreferences.getInstance();
   final recent = prefs.getString('recent');
-  return recent ?? '';
+  return recent ?? '[]';
 }
 
 extension StringExtension on String {

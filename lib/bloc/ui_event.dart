@@ -13,14 +13,19 @@ class SetTheme extends UiEvent {
   SetTheme({required this.theme});
 }
 
-class Search extends UiEvent {
-  final List<Card> searchedLangs;
-  Search({required this.searchedLangs});
-}
-
 class SetFont extends UiEvent {
   final String font;
   SetFont({required this.font});
+}
+
+class SetFontSize extends UiEvent{
+  final double fontSize;
+  SetFontSize({required this.fontSize});
+}
+
+class Search extends UiEvent {
+  final List<Card> searchedLangs;
+  Search({required this.searchedLangs});
 }
 
 class FindWord extends UiEvent {
@@ -74,6 +79,6 @@ class FileTreeEvent extends UiEvent{
 }
 
 class RecentEvent extends UiEvent{
-  final String recent;
+  final List<dynamic> recent;
   RecentEvent({required this.recent});
 }

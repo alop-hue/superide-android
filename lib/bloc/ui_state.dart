@@ -6,11 +6,15 @@ class StackState {
 }
 
 class ThemeState {
-  final String theme;
-  final String fontFamily;
-  const ThemeState({required this.theme,required this.fontFamily});
-  ThemeState copyWith({String? theme, String? fontFamily}){
-    return ThemeState(theme: theme ?? this.theme, fontFamily: fontFamily ?? this.fontFamily);
+  final String theme, fontFamily;
+  final double fontSize;
+  const ThemeState({required this.theme,required this.fontFamily, required this.fontSize});
+  ThemeState copyWith({String? theme, String? fontFamily, double? fontSize}){
+    return ThemeState(
+      theme: theme ?? this.theme,
+      fontFamily: fontFamily ?? this.fontFamily,
+      fontSize: fontSize ?? this.fontSize
+    );
   }
 }
 
@@ -69,6 +73,6 @@ class FolderState {
 }
 
 class RecentState{
-  final String recent;
+  final List<dynamic> recent;
   RecentState({required this.recent});
 }
