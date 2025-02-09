@@ -360,6 +360,7 @@ class _SelectTypeState extends State<SelectType> {
                           itemBuilder: (context,index) {
                             return Card(
                               child: ListTile(
+                                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
                                 onTap: (){
                                   Navigator.of(context).push(
                                     PageRouteBuilder(
@@ -380,10 +381,15 @@ class _SelectTypeState extends State<SelectType> {
                                 title:
                                     ((){
                                       if(File(recentData[index].keys.toList()[0]).existsSync()){
-                                        return Text(path.basename(recentData[index].keys.toList()[0]));
+                                        return Text(
+                                          path.basename(recentData[index].keys.toList()[0]),
+                                          style: const TextStyle(fontSize: 17));
                                       }
                                       return Text("${path.basename(recentData[index].keys.toList()[0])} - File not found");
-                                    })(), 
+                                    })(),
+                                subtitle: Text(
+                                  recentData[index][recentData[index].keys.toList()[0]],
+                                  style: const TextStyle(color: Colors.grey,fontSize: 12)), 
                                 leading: languages.where((lang)=>
                                   lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")
                                 ).toList()[0].icon,
