@@ -72,3 +72,8 @@ class FileTreeEvent extends UiEvent{
   final Map<String, bool> folderStates;
   FileTreeEvent({required this.folderStates});
 }
+
+class RecentEvent extends UiEvent{
+  final String recent;
+  RecentEvent({required this.recent});
+}

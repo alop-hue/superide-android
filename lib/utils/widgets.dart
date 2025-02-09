@@ -289,10 +289,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       onTap: () => widget.onFileTap?.call(file),
       child: Row(
         children: [
-          widget.fileIconBuilder
-                  ?.call(path.extension(file.path).toLowerCase()) ??
-              widget.fileStyle?.fileIcon ??
-              FileStyle().fileIcon,
+          widget.fileIconBuilder ?.call(path.extension(file.path).toLowerCase()) ??
+              widget.fileStyle?.fileIcon ?? FileStyle().fileIcon,
           const SizedBox(width: 8),
           Text(path.basename(file.path),
               style:
@@ -303,8 +301,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                 file.deleteSync();
                 setState(() {});
               },
-              icon: widget.fileStyle?.iconForDeleteFile ??
-                  FileStyle().iconForDeleteFile,
+              icon: widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
             ),
           ...widget.fileActions ?? [],
         ],

@@ -188,6 +188,12 @@ Future<String> getSavedFont() async {
   return savedThemeName ?? 'monospace';
 }
 
+Future<String> getRecent() async{
+  final prefs = await SharedPreferences.getInstance();
+  final recent = prefs.getString('recent');
+  return recent ?? '';
+}
+
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;

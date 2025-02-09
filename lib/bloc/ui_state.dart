@@ -67,3 +67,8 @@ class FolderState {
     return FolderState(folderStates ?? this.folderStates);
   }
 }
+
+class RecentState{
+  final String recent;
+  RecentState({required this.recent});
+}

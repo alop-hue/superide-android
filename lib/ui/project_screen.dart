@@ -115,13 +115,13 @@ class ProjectScreen extends StatelessWidget {
               projectTile(
                 "Android",
                 "An android project with neccessary files",
-                SvgPicture.asset("assets/material_icons/folder-android-open.svg",width: 30,height: 30),
+                SvgPicture.asset("assets/material_icons/folder-android.svg",width: 30,height: 30),
                 (){}
               ),
               projectTile(
                 "React",
                 "Create a react app",
-                SvgPicture.asset("assets/material_icons/folder-react-components-open.svg",width: 30,height: 30),
+                SvgPicture.asset("assets/material_icons/folder-react-components.svg",width: 30,height: 30),
                 (){}
               ),
             ],

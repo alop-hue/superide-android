@@ -9,12 +9,19 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final savedTheme = await getSavedTheme();
   final savedFont = await getSavedFont();
-  runApp(MainApp(savedTheme: savedTheme,savedFont: savedFont));
+  final recent = await getRecent();
+  runApp(
+    MainApp(
+      savedTheme: savedTheme,
+      savedFont: savedFont,
+      recent: recent
+    )
+  );
 }
 
 class MainApp extends StatelessWidget {
-  final String savedTheme,savedFont;
-  const MainApp({super.key, required this.savedTheme,required this.savedFont});
+  final String savedTheme,savedFont,recent;
+  const MainApp({super.key, required this.savedTheme,required this.savedFont, required this.recent});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +33,8 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => FindWordBloc()),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => FolderBloc()),
-        BlocProvider(create: (_) => ApiBloc())
+        BlocProvider(create: (_) => ApiBloc()),
+        BlocProvider(create: (_) => RecentBloc(recent: recent))
       ],
       child: MaterialApp(
           theme: ThemeData(

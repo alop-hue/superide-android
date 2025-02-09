@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 part 'ui_event.dart';
 part 'ui_state.dart';
 
-class StackBloc extends Bloc<UiEvent, StackState> {
+class StackBloc extends Bloc<StackIndexChange, StackState> {
   StackBloc() : super(const StackState(stackIndex: 0)) {
     on<StackIndexChange>((event, emit)=>emit(StackState(stackIndex: event.stackValue)));
   }
@@ -19,13 +19,13 @@ class ThemeBloc extends Bloc<UiEvent, ThemeState>{
   }
 }
 
-class MenuSearchBloc extends Bloc<UiEvent, MenuSearchState>{
+class MenuSearchBloc extends Bloc<Search, MenuSearchState>{
   MenuSearchBloc():super(const MenuSearchState(searchedLangs: <Card>[])){
     on<Search>((event, emit)=>emit(MenuSearchState(searchedLangs: event.searchedLangs)));
   }
 }
 
-class FindWordBloc extends Bloc<UiEvent, FindWordState>{
+class FindWordBloc extends Bloc<FindWord, FindWordState>{
   FindWordBloc():super(const FindWordState(word: '')){
     on<FindWord>((event, emit)=>emit(FindWordState(word: event.word)));
   }
@@ -56,5 +56,12 @@ class FolderBloc extends Cubit<FolderState> {
     final currentState = state.folderStates;
     final isUnfolded = currentState[dirPath] ?? false;
     emit(state.copyWith(folderStates: {...currentState, dirPath: !isUnfolded}));
+  }
+}
+
+class RecentBloc extends Bloc<RecentEvent, RecentState>{
+  final String recent;
+  RecentBloc({required this.recent}) : super(RecentState(recent: recent)){
+    on<RecentEvent>((event, emit) => emit(RecentState(recent: event.recent)));
   }
 }
