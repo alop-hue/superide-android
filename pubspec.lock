@@ -154,10 +154,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_bloc
-      sha256: "153856bdaac302bbdc58a1d1403d50c40557254aa05eaeed40515d88a25a526b"
+      sha256: "1046d719fbdf230330d3443187cc33cc11963d15c9089f6cc56faa42a4c5f0cc"
       url: "https://pub.dev"
     source: hosted
-    version: "9.0.0"
+    version: "9.1.0"
   flutter_highlight:
     dependency: "direct main"
     description:
@@ -717,14 +717,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.6"
-  zoom_view:
-    dependency: "direct main"
-    description:
-      name: zoom_view
-      sha256: "983f20692beb2519ff8f3d7782e116f4cbe91ac57742b02aa39d4f6ef13bb7df"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.17"
 sdks:
   dart: ">=3.5.4 <4.0.0"
   flutter: ">=3.24.0"

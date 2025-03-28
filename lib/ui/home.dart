@@ -988,13 +988,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
                               ],
                             )))
                       ]),
-              IconButton(
+                IconButton(
                   onPressed: () async {
                     if(path.extension(target!.path)=='.html'){
                       if(context.mounted) {
-                        Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context)=>WebView(
-                          dirPath: widget.filePath==null?Directory('/sdcard/VSdroid/Temps/'):widget.filePath!.parent)));
+                        Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+                          WebViewScreen(htmlFile: widget.filePath ?? File('/storage/emulated/0/Temps/index.html')),
+                          transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                            return SizeTransition(sizeFactor: animation,child: child);
+                          }
+                        ));
                       }
                     }
                     else{
@@ -1034,14 +1037,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin{
         
                   },
                   icon: const Icon(Icons.play_arrow)),
-              IconButton(
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => SetupTerminal(
-                      projectDir: widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path
-                    )));
-                },
-                icon: const Icon(Icons.terminal, color: Color(0xff717171)))
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => SetupTerminal(
+                        projectDir: widget.filePath==null?"/storage/emulated/0/VSdroid/Temps":widget.filePath!.parent.path
+                      )));
+                  },
+                  icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
           ),
           body: codeEditor
