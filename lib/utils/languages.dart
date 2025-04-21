@@ -52,6 +52,7 @@ import 'package:highlight/languages/x86asm.dart';
 import 'package:highlight/languages/yaml.dart';
 
 final txt = Mode();
+final unknown = Mode();
 
 class Language {
   final String name, extension, details, helloWorld;

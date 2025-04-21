@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/home.dart';
+import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:file_icon/file_icon.dart';
 
@@ -22,7 +22,7 @@ class MenuScreen extends StatelessWidget {
         subtitle: Text(e.details),
         onTap: () => Navigator.of(context).push(
           PageRouteBuilder(
-            pageBuilder: (context ,animation, secondaryAnimation) => HomeScreen(languageDetails: e, rootDir: '/sdcard/VSdroid/Temps'),
+            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(languageDetails: e, rootDir: '/sdcard/VSdroid/Temps'),
             transitionsBuilder: (context ,animation, secondaryAnimation, child){
               return FadeTransition(
                 opacity: animation,
@@ -71,7 +71,7 @@ class MenuScreen extends StatelessWidget {
                               ),
                               subtitle: Text(e.details),
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (context) => HomeScreen(languageDetails: e)),
+                                MaterialPageRoute(builder: (context) => EditorPage(languageDetails: e)),
                               ),                            
                             ))
                           ).toList();

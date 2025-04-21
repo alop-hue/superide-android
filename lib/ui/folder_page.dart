@@ -3,7 +3,7 @@ import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:vsdroid/ui/home.dart';
+import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/utils/themes.dart';
@@ -81,7 +81,7 @@ class FolderPage extends StatelessWidget {
                 ),
                 onFileTap: (f) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
-                    builder: (context) => HomeScreen(languageDetails: (() =>languages.firstWhere(
+                    builder: (context) => EditorPage(languageDetails: (() =>languages.firstWhere(
                       (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
                       orElse: () =>languages[0]))(),filePath: f,rootDir: dir.path)));
                 },
