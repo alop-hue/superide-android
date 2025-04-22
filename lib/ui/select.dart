@@ -188,7 +188,7 @@ class _SelectTypeState extends State<SelectType> {
                 ),
                 fileTiles(() async {
                   if (context.mounted) {
-                    final file = await pickFiles(context);
+                    final file = await pickFiles(context, appTheme.isDark);
                     if (file != null) {
                       final language = languages.firstWhere(
                           (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),

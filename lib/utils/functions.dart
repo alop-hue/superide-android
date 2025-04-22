@@ -79,7 +79,7 @@ Future<File> setTempFile(String extension) async {
           :File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
 }
 
-Future<File?> pickFiles(BuildContext context) async {
+Future<File?> pickFiles(BuildContext context, bool isDark) async {
   final result = await FilesystemPicker.open(
     requestPermission: () => getPermission(),
     permissionText: "Permission denied",
@@ -94,33 +94,32 @@ Future<File?> pickFiles(BuildContext context) async {
     theme: FilesystemPickerTheme(
       fileList: FilesystemPickerFileListThemeData(
         fileTypes: FilesystemPickerFileListFileTypesTheme(
-            List.generate(languages.length, ((index) {
-          String? key;
-          final fileName = 'file.${languages[index].extension}';
-          if (iconSetMap.containsKey(fileName)) {
-            key = fileName;
-          } else {
-            var chunks = fileName.split('.').sublist(1);
-            while (chunks.isNotEmpty) {
-              var k = '.${chunks.join()}';
-              if (iconSetMap.containsKey(k)) {
-                key = k;
-                break;
+          List.generate(languages.length, ((index) {
+            String? key;
+            final fileName = 'file.${languages[index].extension}';
+            if (iconSetMap.containsKey(fileName)) {
+              key = fileName;
+            } else {
+              var chunks = fileName.split('.').sublist(1);
+              while (chunks.isNotEmpty) {
+                var k = '.${chunks.join()}';
+                if (iconSetMap.containsKey(k)) {
+                  key = k;
+                  break;
+                }
+                chunks = chunks.sublist(1);
               }
-              chunks = chunks.sublist(1);
             }
-          }
-          key ??= '.txt';
-          return FilesystemPickerFileListFileTypesThemeItem(
+            key ??= '.txt';
+            return FilesystemPickerFileListFileTypesThemeItem(
               extensions: [languages[index].extension],
-              icon: IconData(iconSetMap[key]!.codePoint,
-                  fontFamily: 'Seti', fontPackage: 'file_icon'));
+              icon: IconData(iconSetMap[key]!.codePoint,fontFamily: 'Seti', fontPackage: 'file_icon'));
         }))),
         fileIconColor: Colors.grey),
     topBar: FilesystemPickerTopBarThemeData(
-        foregroundColor: Colors.grey[300],
-        backgroundColor: const Color(0xff4b5365)),
-    backgroundColor: const Color(0xff282c35)));
+        foregroundColor: Colors.grey[isDark ? 300 : 800],
+        backgroundColor: Color(isDark ? 0xff4b5365 : 0xffd3d3d3)),
+    backgroundColor: Color(isDark ? 0xff282c35 : 0xffffffff)));
   if (result != null && File(result).existsSync()) {
     final file = File(result);
     return file;

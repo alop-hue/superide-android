@@ -72,7 +72,7 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
     child: Card(
-      color: cardBg,//const Color(0xff2b2b2b),
+      color: cardBg,
       child: ListTile(
         onTap: onTap,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
@@ -86,6 +86,18 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
     ),
   );
 }
+
+Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
+  return IconButton(
+    onPressed: onPressed,
+    icon: Icon(
+      iconData,
+      color: !isDark ? const Color.fromARGB(255, 40, 40, 40): const Color.fromARGB(255, 194, 194, 194),
+      size: 28,
+    ),
+  );
+}
+
 //-----------------------Editor---------------------------------------
 
 class CodeEditor extends StatefulWidget {

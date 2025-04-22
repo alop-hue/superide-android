@@ -900,7 +900,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       )));
                                   }),
                                 ));
-                              }, "Font", Icon(
+                              }, "Fonts", Icon(
                                 FontAwesomeIcons.font,
                                 color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100),
                                 size: 21
@@ -1004,7 +1004,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                         PopupMenuItem(
                           child: TextButton(onPressed: () async{
                             if (context.mounted) {
-                              final file = await pickFiles(context);
+                              final file = await pickFiles(context, appTheme.isDark);
                               if (file != null) {
                                 final language = languages.firstWhere(
                                 (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
@@ -1168,7 +1168,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                         }
                       }
                     }
-        
                   },
                   icon: const Icon(Icons.play_arrow)),
                 IconButton(
@@ -1181,7 +1180,37 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                   icon: const Icon(Icons.terminal, color: Color(0xff717171)))
             ],
           ),
-          body: codeEditor
+          body: Column(
+            children: [
+              Expanded(child: codeEditor),
+              Container(
+                color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(onPressed: (){}, icon: SvgPicture.asset(
+                        "assets/icons/tab.svg",
+                        colorFilter: ColorFilter.mode(
+                            appTheme.isDark ? 
+                              const Color.fromARGB(255, 194, 194, 194) : 
+                              const Color.fromARGB(255, 40, 40, 40)
+                          , BlendMode.srcIn),
+                        width: 28.5,
+                        height: 28.5
+                      ),
+                    ),
+                    bottomTool(appTheme.isDark, Icons.undo, (){}),
+                    bottomTool(appTheme.isDark, Icons.redo, (){}),
+                    IconButton(onPressed: (){}, icon: SvgPicture.asset("assets/icons/ai.svg",width: 28, height: 28)),
+                    bottomTool(appTheme.isDark, Icons.arrow_upward, (){}),
+                    bottomTool(appTheme.isDark, Icons.arrow_downward, (){}),
+                    bottomTool(appTheme.isDark, Icons.arrow_back, (){}),
+                    bottomTool(appTheme.isDark, Icons.arrow_forward, (){}),
+                  ],
+                ),
+              )
+            ],
+          )
         );
       },
     );

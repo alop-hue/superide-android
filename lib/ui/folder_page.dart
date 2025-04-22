@@ -26,10 +26,10 @@ class FolderPage extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 10),
-            const Text("Open a file to Edit",style: TextStyle(color: Colors.grey,fontSize: 20)),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 15),
-              child: Text("No version control (.git) found on this folder/project",style: TextStyle(color: Colors.grey)),
+            Text("Open a file to Edit",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20)),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Text("No version control (.git) found on this folder/project",style: TextStyle(color: Colors.grey[appTheme.isDark ? 500 : 600])),
             ),
             Padding(
               padding: const EdgeInsets.only(left: 15),
@@ -77,10 +77,10 @@ class FolderPage extends StatelessWidget {
                   iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
                   rootFolderClosedIcon: SvgPicture.asset('assets/icons/folder.svg',height: 34,width: 34),
                   rootFolderOpenedIcon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 34,width: 34),
-                  folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
+                  folderNameStyle: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20),
                 ),
                 fileStyle: FileStyle(
-                  fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                  fileNameStyle: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20,height: 2),
                 ),
                 onFileTap: (f) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
