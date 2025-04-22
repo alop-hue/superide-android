@@ -82,3 +82,8 @@ class RecentEvent extends UiEvent{
   final List<dynamic> recent;
   RecentEvent({required this.recent});
 }
+
+class AppThemeEvent extends UiEvent{
+  final AppTheme appTheme;
+  AppThemeEvent({required this.appTheme});
+}

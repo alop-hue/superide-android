@@ -29,26 +29,26 @@ Widget drawerButtons(VoidCallback onPressed, dynamic icon,
   );
 }
 
-Widget fileTiles(VoidCallback onPressed, String text, dynamic icon,
+Widget fileTiles(VoidCallback onPressed, String text, dynamic icon, bool isDark,
     {double val = 0}) {
   return Padding(
     padding: const EdgeInsets.only(left: 15),
     child: ListTile(
       onTap: onPressed,
       title: Text(text,
-          style: const TextStyle(
-              color: Color.fromARGB(255, 118, 180, 234),
-              fontWeight: FontWeight.w300)),
+          style: TextStyle(
+              color: isDark ? const Color.fromARGB(255, 118, 180, 234) : const Color.fromARGB(255, 20, 107, 183),
+              fontWeight: isDark? FontWeight.w300 : FontWeight.w400)),
       leading: Padding(
         child: icon,
         padding: EdgeInsets.only(left: val),
       ),
-      iconColor: const Color(0xff5090c8),
+      iconColor: const Color.fromARGB(255, 29, 107, 176),
     ),
   );
 }
 
-Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
+Widget settingsTile(VoidCallback onPressed, String title, dynamic icon, bool isDark) {
   return ListTile(
     dense: true,
     onTap: onPressed,
@@ -57,8 +57,8 @@ Widget settingsTile(VoidCallback onPressed, String title, dynamic icon) {
       title,
       style: TextStyle(
         fontSize: 18.5,
-        fontWeight: FontWeight.w400,
-        color: Colors.grey[400],
+        fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
+        color: isDark ? Colors.grey[400] : const Color.fromARGB(255, 93, 93, 93),
       ),
     ),
   );
@@ -68,16 +68,14 @@ Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
 
-Widget projectTile(
-    String projectName, String projectDetails, icon, VoidCallback onTap) {
+Widget projectTile(String projectName, String projectDetails, icon, Color cardBg, VoidCallback onTap, ) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
     child: Card(
-      color: const Color(0xff2b2b2b),
+      color: cardBg,//const Color(0xff2b2b2b),
       child: ListTile(
         onTap: onTap,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10))),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
         leading: icon,
         title: Text(projectName),
         subtitle: Text(

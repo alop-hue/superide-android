@@ -150,13 +150,21 @@ final fonts = [
                 searchHitBackgroundCurrent: Color(0xff555555),
                 searchHitForeground: Color(0xffffffff),
             );
-const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818),iconTheme: IconThemeData(color: Color(0xff6d6d6d), size: 32));
-const tileTheme = ListTileThemeData(
+const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818),iconTheme: IconThemeData(color: Colors.grey, size: 32));
+const appBarLight = AppBarTheme(backgroundColor: Color.fromARGB(255, 243, 242, 242),iconTheme: IconThemeData(color: Color.fromARGB(255, 25, 25, 25), size: 32));
+const darkTileTheme = ListTileThemeData(
   titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
   subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d))
 );
-const cardTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
-const popupBtnTheme = PopupMenuThemeData(color: Color.fromARGB(255, 61, 61, 61),);
+const lightTileTheme = ListTileThemeData(
+  titleTextStyle: TextStyle(color: Color.fromARGB(255, 36, 36, 36), fontSize: 18),
+  subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d))
+);
+
+const cardDarkTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
+const cardLightTheme = CardTheme(color: Color.fromARGB(255, 241, 241, 241));
+const popupBtnDarkTheme = PopupMenuThemeData(color: Color.fromARGB(255, 61, 61, 61));
+const popupBtnLightTheme = PopupMenuThemeData(color: Color.fromARGB(255, 235, 235, 235));
 const progressTheme = ProgressIndicatorThemeData(color: Color(0xff0e639c));
 
 class FolderStyle {
@@ -222,3 +230,90 @@ class EditingFieldStyle {
       this.doneIcon = const Icon(Icons.check),
       this.cancelIcon = const Icon(Icons.close)});
 }
+
+abstract class AppTheme{
+  bool get isDark;
+  Color get scaffoldBg;
+  Color get selectScreenCardsBg;
+  Color get selectScreenCardTextColor;
+  Color get selectScreenDrawerBg;
+  Color get editorPageToolSelectedColor;
+  Color get editorPageToolSelectedBgColor;
+  Color get editorPageToolbarBg;
+  Color get editorPageToolColor;
+  Color get editorPageDrawerBg;
+  AppBarTheme get appBarTheme;
+  CardTheme get cardTheme;
+  PopupMenuThemeData get popupBtnTheme;
+  ListTileThemeData get tileTheme;
+  Icon get appThemeIcon;
+}
+
+
+class DarkTheme extends AppTheme{
+  @override
+  bool get isDark => true;
+  @override
+  Color get scaffoldBg => const Color(0xff181818);
+  @override
+  Color get selectScreenCardTextColor => const Color.fromARGB(255, 193, 193, 193);
+  @override
+  Color get selectScreenCardsBg => const Color(0xff2b2b2b);
+  @override
+  Color get selectScreenDrawerBg => const Color.fromARGB(255, 34, 34, 34);
+  @override
+  Color get editorPageToolSelectedColor => Colors.grey[400]!;
+  @override
+  Color get editorPageToolSelectedBgColor => const Color.fromARGB(255, 61, 61, 61);
+  @override
+  Color get editorPageDrawerBg => const Color(0xff2a2a2a);
+  @override
+  Color get editorPageToolColor => const Color(0xff6d6d6d);
+  @override
+  Color get editorPageToolbarBg => const Color(0xff181818);
+  @override
+  AppBarTheme get appBarTheme => appBarDark;
+  @override
+  CardTheme get cardTheme => cardDarkTheme;
+  @override
+  PopupMenuThemeData get popupBtnTheme => popupBtnDarkTheme;
+  @override
+  ListTileThemeData get tileTheme => darkTileTheme;
+  @override
+  Icon get appThemeIcon => const Icon(Icons.light_mode, color: Colors.grey,);
+}
+
+class LightTheme extends AppTheme{
+  @override
+  bool get isDark => false;
+  @override
+  Color get scaffoldBg => Colors.white;
+  @override
+  Color get selectScreenCardTextColor => const Color.fromARGB(255, 47, 47, 47);
+  @override
+  Color get selectScreenCardsBg => const Color.fromARGB(255, 232, 232, 232);
+  @override
+  Color get selectScreenDrawerBg => const Color.fromARGB(255, 255, 255, 255);
+  @override
+  Color get editorPageToolSelectedColor => const Color.fromARGB(255, 37, 37, 37);
+  @override
+  Color get editorPageToolSelectedBgColor => const Color.fromARGB(255, 186, 186, 186);
+  @override
+  Color get editorPageDrawerBg => const Color.fromARGB(255, 230, 230, 230);
+  @override
+  Color get editorPageToolColor => const Color.fromARGB(255, 151, 151, 151);
+  @override
+  Color get editorPageToolbarBg => Colors.white;
+  @override
+  AppBarTheme get appBarTheme => appBarLight;
+  @override
+  CardTheme get cardTheme => cardLightTheme;
+  @override
+  PopupMenuThemeData get popupBtnTheme => popupBtnLightTheme;
+  @override
+  ListTileThemeData get tileTheme => lightTileTheme;
+  @override
+  Icon get appThemeIcon => const Icon(Icons.dark_mode, color: Color.fromARGB(255, 36, 36, 36),);
+}
+
+final Map<String, AppTheme> themeMap = {"dark": DarkTheme(), "light": LightTheme()};

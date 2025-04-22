@@ -12,41 +12,52 @@ void main() async {
   final savedTheme = await getSavedTheme();
   final savedFont = await getSavedFont();
   final recent = await getRecent();
-  runApp(
-    MainApp(
-      savedTheme: savedTheme,
-      savedFont: savedFont,
-      recent: recent
-    )
-  );
+  final appTheme = await getAppTheme();
+  runApp(MainApp(
+    savedTheme: savedTheme,
+    savedFont: savedFont,
+    recent: recent,
+    appTheme: appTheme,
+  ));
 }
 
 class MainApp extends StatelessWidget {
-  final String savedTheme,savedFont,recent;
-  const MainApp({super.key, required this.savedTheme,required this.savedFont, required this.recent});
+  final String savedTheme, savedFont, recent, appTheme;
+  const MainApp(
+      {super.key,
+      required this.savedTheme,
+      required this.savedFont,
+      required this.recent,
+      required this.appTheme});
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => StackBloc()),
-        BlocProvider(create: (_) => ThemeBloc(initialTheme: savedTheme,fontFamily: savedFont)),
+        BlocProvider(create: (_) =>ThemeBloc(initialTheme: savedTheme, fontFamily: savedFont)),
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => FindWordBloc()),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => ApiBloc()),
-        BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent)))
+        BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
+        BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
       ],
-      child: MaterialApp(
-          theme: ThemeData(
-            progressIndicatorTheme: progressTheme,
-            popupMenuTheme: popupBtnTheme,
-            scaffoldBackgroundColor: const Color(0xff181818),
-            appBarTheme: appBarDark,
-            listTileTheme: tileTheme,
-            cardTheme: cardTheme),
-          home: const StartScreen()),
+      child: BlocBuilder<AppThemeBloc, AppThemeState>(
+        builder: (context, appThemeState) {
+          return MaterialApp(
+              theme: ThemeData(
+                  progressIndicatorTheme: progressTheme,
+                  popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
+                  scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
+                  appBarTheme: appThemeState.appTheme.appBarTheme,
+                  listTileTheme: appThemeState.appTheme.tileTheme,
+                  cardTheme: appThemeState.appTheme.cardTheme
+                ),
+              home: const StartScreen());
+        },
+      ),
     );
   }
 }

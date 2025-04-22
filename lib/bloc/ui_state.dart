@@ -76,3 +76,8 @@ class RecentState{
   final List<dynamic> recent;
   RecentState({required this.recent});
 }
+
+class AppThemeState{
+  final AppTheme appTheme;
+  const AppThemeState({required this.appTheme});
+}

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:vsdroid/utils/themes.dart';
 
 part 'ui_event.dart';
 part 'ui_state.dart';
@@ -64,5 +65,12 @@ class RecentBloc extends Bloc<RecentEvent, RecentState>{
   final List<dynamic> recent;
   RecentBloc({required this.recent}) : super(RecentState(recent: recent)){
     on<RecentEvent>((event, emit) => emit(RecentState(recent: event.recent)));
+  }
+}
+
+class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
+  final AppTheme appTheme;
+  AppThemeBloc({required this.appTheme}):super(AppThemeState(appTheme: appTheme)){
+    on<AppThemeEvent>((event, emit) => emit(AppThemeState(appTheme: event.appTheme)));
   }
 }

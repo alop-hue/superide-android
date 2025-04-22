@@ -129,11 +129,15 @@ Future<File?> pickFiles(BuildContext context) async {
 }
 
 Future<String?> pickDir() async {
-  String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-  if (selectedDirectory != null) {
-    return selectedDirectory;
-  }
-  return null;
+  return await FilePicker.platform.getDirectoryPath();
+}
+
+Future<String?> selectDir({String? dialogeTitle, String? initialDirectory, Uint8List? bytes}) async{
+  return await FilePicker.platform.saveFile(
+    dialogTitle: dialogeTitle,
+    initialDirectory: initialDirectory,
+    bytes: bytes
+  );
 }
 
 Future<File?> createFile(String filename, BuildContext context) async {
@@ -192,6 +196,12 @@ Future<String> getRecent() async{
   final prefs = await SharedPreferences.getInstance();
   final recent = prefs.getString('recent');
   return recent ?? '[]';
+}
+
+Future<String> getAppTheme() async{
+  final prefs = await SharedPreferences.getInstance();
+  final savedAppTheme = prefs.getString("savedAppTheme");
+  return savedAppTheme ?? "dark";
 }
 
 extension StringExtension on String {

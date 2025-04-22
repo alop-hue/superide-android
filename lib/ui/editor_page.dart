@@ -57,6 +57,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
 
   @override
   Widget build(BuildContext context) {
+    final appTheme = context.read<AppThemeBloc>().state.appTheme;
     final codeEditor = CodeEditor(
       isTemplate: widget.filePath == null,
       language: widget.languageDetails,
@@ -111,32 +112,32 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
             builder: (context, state) { 
               return Drawer(
                 width: 350,
-                backgroundColor: const Color(0xff2a2a2a),
+                backgroundColor: appTheme.editorPageDrawerBg,
                 child: Row(
                   children: [
                     Container(
-                      color: const Color(0xff181818),
+                      color: appTheme.editorPageToolbarBg,
                       child: Column(
                         children: [
                           const SizedBox(height: 25),
                           drawerButtons(
                             () => context.read<StackBloc>().add(StackIndexChange(stackValue: 0)), 
                             Icons.file_copy_outlined,
-                            color: state.stackIndex == 0 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                            bgColor: state.stackIndex == 0 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                            color: state.stackIndex == 0 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
+                            bgColor: state.stackIndex == 0 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                             ),
                           drawerButtons(
                             () => context.read<StackBloc>().add(StackIndexChange(stackValue: 1)),
                             Icons.search,
-                            color: state.stackIndex == 1 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                            bgColor: state.stackIndex == 1 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                            color: state.stackIndex == 1 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
+                            bgColor: state.stackIndex == 1 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                           )
                           ,
                           drawerButtons(
                             () => context.read<StackBloc>().add(StackIndexChange(stackValue: 2)),
                             FontAwesomeIcons.codeBranch,
-                            color: state.stackIndex == 2 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                            bgColor: state.stackIndex == 2 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                            color: state.stackIndex == 2 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
+                            bgColor: state.stackIndex == 2 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                           ),
                           drawerButtons(
                             () => context.read<StackBloc>().add(StackIndexChange(stackValue: 3)),
@@ -145,15 +146,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               height: 34,
                               width: 34,
                               colorFilter: ColorFilter.mode(
-                                state.stackIndex == 3 ?Colors.grey[400]!:const Color(0xff6d6d6d), BlendMode.srcIn),
+                                state.stackIndex == 3 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor, BlendMode.srcIn),
                             ),
-                            bgColor: state.stackIndex == 3 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                            bgColor: state.stackIndex == 3 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                           ),
                           drawerButtons(
                             () => context.read<StackBloc>().add(StackIndexChange(stackValue: 4)),
                             Icons.settings,
-                            color: state.stackIndex == 4 ?Colors.grey[400]!:const Color(0xff6d6d6d),
-                            bgColor: state.stackIndex == 4 ? const Color.fromARGB(255, 61, 61, 61):Colors.transparent
+                            color: state.stackIndex == 4 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
+                            bgColor: state.stackIndex == 4 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                           ),
                         ],
                       ),
@@ -168,15 +169,20 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               padding: const EdgeInsets.only(left: 20),
                               child: ListView(
                                 children: [
-                                  const Align(
+                                  Align(
                                     alignment: Alignment.centerLeft,
                                     child: Padding(
-                                      padding: EdgeInsets.only(bottom: 15),
-                                      child: Text("EXPLORER",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
+                                      padding: const EdgeInsets.only(bottom: 15),
+                                      child: Text(
+                                        "EXPLORER",
+                                        style: TextStyle(
+                                          fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                                          color: appTheme.selectScreenCardTextColor,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   SingleChildScrollView(
-                                    // scrollDirection: Axis.horizontal,
                                     child: SizedBox(
                                       child: DirectoryTreeViewerCustom(
                                         isUnfoldedFirst: false,
@@ -219,16 +225,32 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                           );
                                         },
                                         folderStyle: FolderStyle(
-                                          iconForCreateFolder: const Icon(Icons.create_new_folder,color: Colors.grey),
-                                          iconForCreateFile: const Icon(FontAwesomeIcons.fileCirclePlus, size: 20,color: Colors.grey),
+                                          iconForCreateFolder: Icon(
+                                            Icons.create_new_folder,
+                                            color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                          ),
+                                          iconForCreateFile: Icon(
+                                            FontAwesomeIcons.fileCirclePlus,
+                                            size: 20,
+                                            color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                          ),
                                           rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
                                           rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
                                           folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
                                           folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
-                                          folderNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20),
+                                          folderNameStyle: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor,
+                                            fontSize: 20,
+                                            fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                          ),
                                         ),
                                         fileStyle: FileStyle(
-                                          fileNameStyle: const TextStyle(color: Color.fromARGB(255, 179, 178, 178),fontSize: 20,height: 2),
+                                          fileNameStyle: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor,
+                                            fontSize: 20,
+                                            fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                            height: 2,
+                                          ),
                                         ),
                                         onFileTap: (f) {
                                           Navigator.of(context).pushReplacement(MaterialPageRoute(
@@ -249,9 +271,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 17),
-                                    child: Text("SEARCH",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 17),
+                                    child: Text(
+                                      "SEARCH",
+                                      style: TextStyle(
+                                        fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                                        color: appTheme.selectScreenCardTextColor,
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(height: 15),
                                   ListTile(
@@ -270,12 +298,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                             context.read<FindWordBloc>().add(FindWord(word: word));
                                           },
                                           cursorColor: Colors.grey,
-                                          style: const TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                          decoration: const InputDecoration(
-                                            hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                          style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                                          decoration: InputDecoration(
+                                            hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
                                             hintText: "Find word",
-                                            border: OutlineInputBorder(),
-                                            focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                                            border: const OutlineInputBorder(),
+                                            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
                                           ),
                                         ),
                                       ),
@@ -309,12 +337,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       child: TextField(
                                         controller: replaceWordController,
                                         cursorColor: Colors.grey,
-                                        style: const TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
-                                        decoration: const InputDecoration(
-                                          hintStyle: TextStyle(color: Color.fromARGB(255, 189, 189, 189)),
+                                        style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                                        decoration: InputDecoration(
+                                          hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
                                           hintText: "Replace",
-                                          border: OutlineInputBorder(),
-                                          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                                          border: const OutlineInputBorder(),
+                                          focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
                                         ),
                                       ),
                                     ),
@@ -329,15 +357,20 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               child: Column(
                                 children: [
                                   const SizedBox(height: 20),
-                                  const Align(
+                                  Align(
                                     alignment: Alignment.topLeft,
-                                    child: Text("SOURCE CONTROL",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white))
+                                    child: Text("SOURCE CONTROL",
+                                      style: TextStyle(
+                                        fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                                        color: appTheme.selectScreenCardTextColor,
+                                      ),
+                                    )
                                   ),
                                   const SizedBox(height: 13.5),
                                   Text(
                                     "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
                                     textAlign: TextAlign.start,
-                                    style: TextStyle(color: Colors.grey[400]),
+                                    style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
                                   ),
                                   const SizedBox(height: 12),
                                   ElevatedButton(
@@ -356,7 +389,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   Text(
                                     "You can directly publish this\nfolder to a GitHub repository.\nOnce published, you'll have\naccess to source control featured\npowered by Git and GitHub",
                                     textAlign: TextAlign.start,
-                                    style: TextStyle(color: Colors.grey[400]),
+                                    style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
                                   ),
                                   const SizedBox(height: 13.5),
                                   SizedBox(
@@ -415,29 +448,60 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 15),
-                                    const Text(
+                                    Text(
                                       "API TESTING",
-                                      style: TextStyle(color: Colors.white,fontWeight: FontWeight.w300)
+                                      style: TextStyle(
+                                        color: appTheme.selectScreenCardTextColor,
+                                        fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                                      )
                                     ),
                                     const SizedBox(height: 15),
                                     DropdownButtonHideUnderline(
                                       child: DropdownButton(
                                         borderRadius: const BorderRadius.all(Radius.circular(8)),
                                         value: webState.method,
-                                        dropdownColor: const Color(0xff2b2b2b),
-                                        items: const [  
+                                        dropdownColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 241, 241, 241),
+                                        items: [  
                                           DropdownMenuItem(
                                             value: "POST",
-                                            child: Text("POST",style: TextStyle(color: Color(0xffe0790b)))),
+                                            child: Text(
+                                              "POST",
+                                              style: TextStyle(
+                                                color: const Color(0xffe0790b),
+                                                fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                                              ),
+                                            ),
+                                          ),
                                           DropdownMenuItem(
                                             value: "GET",
-                                            child: Text("GET",style: TextStyle(color: Color(0xff26cda3)))),
+                                            child: Text(
+                                              "GET",
+                                              style: TextStyle(
+                                                color: const Color(0xff26cda3),
+                                                fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                                              ),
+                                            ),
+                                          ),
                                           DropdownMenuItem(
                                             value: "PUT",
-                                            child: Text("PUT",style: TextStyle(color: Color(0xff097bed)))),
+                                            child: Text(
+                                              "PUT",
+                                              style: TextStyle(
+                                                color: const Color(0xff097bed),
+                                                fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                                              ),
+                                            ),
+                                          ),
                                           DropdownMenuItem(
                                             value: "DELETE",
-                                            child: Text("DELETE",style: TextStyle(color: Color(0xfff22814))))
+                                            child: Text(
+                                              "DELETE",
+                                              style: TextStyle(
+                                                color: const Color(0xfff22814),
+                                                fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                                              ),
+                                            ),
+                                          ),
                                         ],
                                         onChanged: (value) async{
                                           context.read<ApiBloc>().add(ApiEvent(method: value!));
@@ -467,9 +531,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                     TabBar(
                                       labelPadding: const EdgeInsets.symmetric(horizontal: 2),
                                       controller: paramTabController,
-                                      dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                                      dividerColor: appTheme.isDark? 
+                                          const Color.fromARGB(255, 61, 61, 61) :
+                                          const Color.fromARGB(255, 182, 182, 182),
                                       dividerHeight: 1.5,
-                                      unselectedLabelColor: Colors.grey,
+                                      unselectedLabelColor: appTheme.isDark ? 
+                                          Colors.grey : 
+                                          const Color.fromARGB(255, 102, 102, 102),
                                       labelColor: const Color.fromARGB(255, 62, 142, 195),
                                       indicatorColor: const Color(0xff0e639c),
                                       indicatorWeight: 2.5,
@@ -503,7 +571,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                     flex: 3,
                                                     child: TextField(
                                                       cursorColor: Colors.grey,
-                                                      style: const TextStyle(color: Colors.grey),
+                                                      style: TextStyle(color: appTheme.selectScreenCardTextColor),
                                                       controller: paramControllers.keys.toList()[index],
                                                       textAlignVertical: TextAlignVertical.top,
                                                       decoration: const InputDecoration(
@@ -520,7 +588,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                     flex: 5,
                                                     child: TextField(
                                                       cursorColor: Colors.grey,
-                                                      style: const TextStyle(color: Colors.grey),
+                                                      style: TextStyle(color: appTheme.selectScreenCardTextColor),
                                                       controller: paramControllers.values.toList()[index],
                                                       textAlignVertical: TextAlignVertical.top,
                                                       decoration: const InputDecoration(
@@ -712,9 +780,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 20),
-                                  child: Text("SETTINGS",style: TextStyle(fontWeight: FontWeight.w300,color: Colors.white)),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 20),
+                                  child: Text(
+                                    "SETTINGS",
+                                    style: TextStyle(
+                                      fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                                      color: appTheme.selectScreenCardTextColor
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 15),
                                 settingsTile(() {
@@ -772,7 +846,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   )
                                   );
                                 }, 'Themes',
-                                  const Icon(Icons.color_lens, size: 24, color: Colors.grey)),
+                                  Icon(
+                                    Icons.color_lens, 
+                                    size: 24,
+                                    color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100)
+                                  ), appTheme.isDark
+                                ),
                                 settingsTile((){
                                 showDialog(context: context, builder: (context)=>
                                 BlocProvider<ThemeBloc>.value(
@@ -823,7 +902,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       )));
                                   }),
                                 ));
-                              }, "Font", const Icon(FontAwesomeIcons.font,color: Colors.grey,size: 21))
+                              }, "Font", Icon(
+                                FontAwesomeIcons.font,
+                                color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100),
+                                size: 21
+                              ),appTheme.isDark
+                            )
                             ],
                             ),
                           )
@@ -848,7 +932,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               ?'script.js'
                               :"tempCode.${widget.languageDetails.extension}")
                       : path.basename(widget.filePath!.path),
-                    style: const TextStyle(color: Colors.white))),
+                    style: TextStyle(color: appTheme.selectScreenCardTextColor))),
             actions: [
               PopupMenuButton(
                 itemBuilder: (context) => [
@@ -859,7 +943,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                         builder: (context) => AlertDialog(
                           icon: const Icon(FontAwesomeIcons.fileCirclePlus),
                           iconColor: Colors.grey,
-                          backgroundColor: const Color(0xff2b2b2b),
+                          backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
                           title: const Text("Create a new file",
                               style: TextStyle(color: Colors.grey)),
                           content: Form(
@@ -906,64 +990,110 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   child: const Text("OK"))
                               ],
                             ));
-                            }, child:  const Row(
+                            }, child: Row(
                               children: [
                                 Padding(
-                                  padding: EdgeInsets.only(left: 3),
-                                  child: Icon(FontAwesomeIcons.fileCirclePlus,color: Colors.grey,size: 20),
+                                  padding: const EdgeInsets.only(left: 3),
+                                  child: Icon(
+                                    FontAwesomeIcons.fileCirclePlus,
+                                    color: appTheme.selectScreenCardTextColor,
+                                    size: 20),
                                 ),
-                                SizedBox(width: 10),
-                                Text("New",style: TextStyle(color: Colors.grey,fontSize: 17)),
+                                const SizedBox(width: 10),
+                                Text("New",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
                               ],
                             ))),
-                  PopupMenuItem(
-                    child: TextButton(onPressed: () async{
-                      if (context.mounted) {
-                        final file = await pickFiles(context);
-                        if (file != null) {
-                          final language = languages.firstWhere(
-                          (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
-                          orElse: () => languages[0]);
-                          if(context.mounted) {Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                  builder: (context) => EditorPage(languageDetails: language, filePath: file)));}
-                        } else {
-                          if(context.mounted) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Failed to open file",
-                                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                                backgroundColor: const Color(0xff2b2b2b),
-                                icon: const Icon(Icons.error_outline),
-                                iconColor: Colors.red[600],
-                                actionsAlignment: MainAxisAlignment.center,
-                                  actions: [
-                                    ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
+                        PopupMenuItem(
+                          child: TextButton(onPressed: () async{
+                            if (context.mounted) {
+                              final file = await pickFiles(context);
+                              if (file != null) {
+                                final language = languages.firstWhere(
+                                (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
+                                orElse: () => languages[0]);
+                                if(context.mounted) {Navigator.of(context).pushReplacement(MaterialPageRoute(
+                                        builder: (context) => EditorPage(languageDetails: language, filePath: file)));}
+                              } else {
+                                if(context.mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text("Failed to open file",
+                                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                                      backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                      icon: const Icon(Icons.error_outline),
+                                      iconColor: Colors.red[600],
+                                      actionsAlignment: MainAxisAlignment.center,
+                                        actions: [
+                                          ElevatedButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: const Text("OK"))
+                                            ],
+                                        ));
+                                      }
+                                    }
+                                  }
+                                  if(context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                  }, child: Row(
+                                    children: [
+                                      Icon(FontAwesomeIcons.fileImport,color: appTheme.selectScreenCardTextColor,size: 20),
+                                      const SizedBox(width: 10),
+                                      Text("Open",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                         PopupMenuItem(
+                            child: TextButton(onPressed: () async{
+                              if(context.mounted){
+                                final savedPlace = await selectDir(
+                                  dialogeTitle: "Save file as...",
+                                  initialDirectory: widget.rootDir,
+                                  bytes: widget.filePath?.readAsBytesSync() ?? (widget.languageDetails.extension == 'html'
+                                    ?File("/sdcard/VSdroid/Temps/index.html"):widget.languageDetails.extension == 'css'
+                                      ?File("/sdcard/VSdroid/Temps/style.css"):widget.languageDetails.extension == 'js'
+                                        ?File("/sdcard/VSdroid/Temps/script.js")
+                                          :File("/sdcard/VSdroid/Temps/tempCode.${widget.languageDetails.extension}")).readAsBytesSync()
+                                );
+                                if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
+                                  showDialog(context: context, builder: (context)=> AlertDialog(
+                                    title: const Text("Failed to save file",
+                                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                                    backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                    icon: const Icon(Icons.error_outline),
+                                    iconColor: Colors.red[600],
+                                    actionsAlignment: MainAxisAlignment.center,
+                                      actions: [
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
                                         child: const Text("OK"))
                                       ],
-                                  ));
+                                    ),
+                                  );
                                 }
                               }
-                            }
-                            if(context.mounted) {
-                              Navigator.of(context).pop();
-                            }
-                            }, child: const Row(
+                            }, child: Row(
                               children: [
-                                Icon(FontAwesomeIcons.fileImport,color: Colors.grey,size: 20),
-                                SizedBox(width: 10),
-                                Text("Open",style: TextStyle(color: Colors.grey,fontSize: 17)),
+                                const SizedBox(width: 5.5),
+                                Icon(FontAwesomeIcons.filePen, color: appTheme.selectScreenCardTextColor,size: 20),
+                                const SizedBox(width: 7),
+                                Text("SaveAs",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
                               ],
-                            ))),
+                            ),
+                          )
+                        ),
                         PopupMenuItem(
                             child: TextButton(onPressed: () {
                               showDialog(context: context, builder: (context)=>AlertDialog(
                                 title:  Text("Are you sure ?",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
                                 content: const Text("       The code will be cleared",style: TextStyle(color: Colors.grey)),
-                                backgroundColor: const Color(0xff2b2b2b),
+                                backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
                                 icon: const Icon(Icons.error_outline,size: 35),
                                 iconColor: Colors.red[600],
                                 actionsAlignment: MainAxisAlignment.center,
@@ -984,13 +1114,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       child: const Text("OK"))
                                   ],
                               ));
-                            }, child: const Row(
+                            }, child: Row(
                               children: [
-                                Icon(Icons.clear_sharp,color: Colors.grey,size: 25),
-                                SizedBox(width: 7),
-                                Text("Clear",style: TextStyle(color: Colors.grey,fontSize: 17)),
+                                Icon(Icons.clear_sharp,color: appTheme.selectScreenCardTextColor,size: 25),
+                                const SizedBox(width: 7),
+                                Text("Clear",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
                               ],
-                            )))
+                            ),
+                          ),
+                        )
                       ]),
                 IconButton(
                   onPressed: () async {

@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:path/path.dart' as path;
@@ -15,6 +17,7 @@ class FolderPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appTheme = context.read<AppThemeBloc>().state.appTheme;
     return  Scaffold(
       appBar: AppBar(
         title: Text(path.basename(dir.path),style: const TextStyle(color: Colors.grey)),
