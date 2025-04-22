@@ -182,83 +182,81 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       ),
                                     ),
                                   ),
-                                  SingleChildScrollView(
-                                    child: SizedBox(
-                                      child: DirectoryTreeViewerCustom(
-                                        isUnfoldedFirst: false,
-                                        rootPath: widget.filePath == null ? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
-                                        enableCreateFileOption: true,
-                                        enableCreateFolderOption: true,
-                                        editingFieldStyle: EditingFieldStyle(
-                                          textFieldWidth: MediaQuery.of(context).size.width,
-                                          textStyle: const TextStyle(
-                                            color: Colors.grey,
-                                          ),
-                                          cursorColor: Colors.grey,
-                                          cursorHeight: 19,
-                                          verticalTextAlign: TextAlignVertical.top,
-                                          textfieldDecoration: const InputDecoration(
-                                            isDense: true,
-                                            contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(2)),
-                                              borderSide: BorderSide(color: Colors.grey)
-                                            ),
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(2)),
-                                              borderSide: BorderSide(color: Colors.grey)
-                                            ),
-                                          ),
-                                          folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
-                                          fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
-                                          doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
-                                          cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
+                                  SizedBox(
+                                    child: DirectoryTreeViewerCustom(
+                                      isUnfoldedFirst: false,
+                                      rootPath: widget.filePath == null ? '/sdcard/VSdroid/Temps': (widget.rootDir ?? widget.filePath!.parent.path),
+                                      enableCreateFileOption: true,
+                                      enableCreateFolderOption: true,
+                                      editingFieldStyle: EditingFieldStyle(
+                                        textFieldWidth: MediaQuery.of(context).size.width,
+                                        textStyle: const TextStyle(
+                                          color: Colors.grey,
                                         ),
-                                        fileIconBuilder: (ext) {
-                                          return SizedBox(
-                                            height: 25,
-                                            width: 25,
-                                            child:languages.firstWhere(
-                                              (lang)=>lang.extension == ext.replaceFirst(".", ""),
-                                              orElse: () => languages[0],
-                                            ).icon??FileIcon(ext)
-                                          );
-                                        },
-                                        folderStyle: FolderStyle(
-                                          iconForCreateFolder: Icon(
-                                            Icons.create_new_folder,
-                                            color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                        cursorColor: Colors.grey,
+                                        cursorHeight: 19,
+                                        verticalTextAlign: TextAlignVertical.top,
+                                        textfieldDecoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(Radius.circular(2)),
+                                            borderSide: BorderSide(color: Colors.grey)
                                           ),
-                                          iconForCreateFile: Icon(
-                                            FontAwesomeIcons.fileCirclePlus,
-                                            size: 20,
-                                            color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
-                                          ),
-                                          rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
-                                          rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
-                                          folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
-                                          folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
-                                          folderNameStyle: TextStyle(
-                                            color: appTheme.selectScreenCardTextColor,
-                                            fontSize: 20,
-                                            fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(Radius.circular(2)),
+                                            borderSide: BorderSide(color: Colors.grey)
                                           ),
                                         ),
-                                        fileStyle: FileStyle(
-                                          fileNameStyle: TextStyle(
-                                            color: appTheme.selectScreenCardTextColor,
-                                            fontSize: 20,
-                                            fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
-                                            height: 2,
-                                          ),
-                                        ),
-                                        onFileTap: (f) {
-                                          Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                            builder: (context) => EditorPage(languageDetails: (() =>languages.firstWhere(
-                                              (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                              orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
-                                        },
+                                        folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
+                                        fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
+                                        doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
+                                        cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
                                       ),
+                                      fileIconBuilder: (ext) {
+                                        return SizedBox(
+                                          height: 25,
+                                          width: 25,
+                                          child:languages.firstWhere(
+                                            (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                                            orElse: () => languages[0],
+                                          ).icon??FileIcon(ext)
+                                        );
+                                      },
+                                      folderStyle: FolderStyle(
+                                        iconForCreateFolder: Icon(
+                                          Icons.create_new_folder,
+                                          color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                        ),
+                                        iconForCreateFile: Icon(
+                                          FontAwesomeIcons.fileCirclePlus,
+                                          size: 20,
+                                          color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                        ),
+                                        rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
+                                        rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
+                                        folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
+                                        folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
+                                        folderNameStyle: TextStyle(
+                                          color: appTheme.selectScreenCardTextColor,
+                                          fontSize: 20,
+                                          fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                        ),
+                                      ),
+                                      fileStyle: FileStyle(
+                                        fileNameStyle: TextStyle(
+                                          color: appTheme.selectScreenCardTextColor,
+                                          fontSize: 20,
+                                          fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                          height: 2,
+                                        ),
+                                      ),
+                                      onFileTap: (f) {
+                                        Navigator.of(context).pushReplacement(MaterialPageRoute(
+                                          builder: (context) => EditorPage(languageDetails: (() =>languages.firstWhere(
+                                            (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                                            orElse: () =>languages[0]))(),filePath: f,rootDir: widget.rootDir)));
+                                      },
                                     ),
                                   ),
                                 ],

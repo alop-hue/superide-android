@@ -330,18 +330,15 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         if (isUnfolded(directory.path))
           Padding(
             padding: const EdgeInsets.only(left: 16.0,right: 7.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ...entries.map((entry) => entry is Directory
-                      ? _buildDirectoryTree(entry)
-                      : _buildFileItem(entry as File)),
-                  if (newEntryPath == directory.path)
-                    _buildNewEntryField(directory),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...entries.map((entry) => entry is Directory
+                    ? _buildDirectoryTree(entry)
+                    : _buildFileItem(entry as File)),
+                if (newEntryPath == directory.path)
+                  _buildNewEntryField(directory),
+              ],
             ),
           ),
       ],
@@ -391,24 +388,27 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   Widget _buildFileItem(File file) {
     return InkWell(
       onTap: () => widget.onFileTap?.call(file),
-      child: Row(
-        children: [
-          widget.fileIconBuilder ?.call(path.extension(file.path).toLowerCase()) ??
-              widget.fileStyle?.fileIcon ?? FileStyle().fileIcon,
-          const SizedBox(width: 8),
-          Text(path.basename(file.path),
-              style:
-                  widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle),
-          if (widget.enableDeleteFileOption)
-            IconButton(
-              onPressed: () {
-                file.deleteSync();
-                setState(() {});
-              },
-              icon: widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            widget.fileIconBuilder ?.call(path.extension(file.path).toLowerCase()) ??
+                widget.fileStyle?.fileIcon ?? FileStyle().fileIcon,
+            const SizedBox(width: 8),
+            Text(path.basename(file.path),
+                style:widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
             ),
-          ...widget.fileActions ?? [],
-        ],
+            if (widget.enableDeleteFileOption)
+              IconButton(
+                onPressed: () {
+                  file.deleteSync();
+                  setState(() {});
+                },
+                icon: widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+              ),
+            ...widget.fileActions ?? [],
+          ],
+        ),
       ),
     );
   }
@@ -421,7 +421,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     }
     return BlocBuilder<FolderBloc, FolderState>(
       builder: (context, state) {
-        return SingleChildScrollView(child: _buildDirectoryTree(rootDirectory));
+        return _buildDirectoryTree(rootDirectory);
       },
     );
   }
