@@ -88,12 +88,16 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
 }
 
 Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
-  return IconButton(
-    onPressed: onPressed,
-    icon: Icon(
-      iconData,
-      color: !isDark ? const Color.fromARGB(255, 40, 40, 40): const Color.fromARGB(255, 194, 194, 194),
-      size: 28,
+  return SizedBox(
+    height: 37,
+    width: 37,
+    child: IconButton(
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      icon: Icon(
+        iconData,
+        color: !isDark ? const Color.fromARGB(255, 40, 40, 40): const Color.fromARGB(255, 194, 194, 194),
+      ),
     ),
   );
 }

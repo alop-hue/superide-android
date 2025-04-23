@@ -1184,28 +1184,66 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
             children: [
               Expanded(child: codeEditor),
               Container(
+                height: 77,
                 color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  // spacing: -10,
                   children: [
-                    IconButton(onPressed: (){}, icon: SvgPicture.asset(
-                        "assets/icons/tab.svg",
-                        colorFilter: ColorFilter.mode(
-                            appTheme.isDark ? 
-                              const Color.fromARGB(255, 194, 194, 194) : 
-                              const Color.fromARGB(255, 40, 40, 40)
-                          , BlendMode.srcIn),
-                        width: 28.5,
-                        height: 28.5
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        SizedBox(
+                          height: 28,
+                          width: 37.5,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: (){}, icon: SvgPicture.asset(
+                                "assets/icons/tab.svg",
+                                colorFilter: ColorFilter.mode(
+                                    appTheme.isDark ? 
+                                      const Color.fromARGB(255, 194, 194, 194) : 
+                                      const Color.fromARGB(255, 40, 40, 40)
+                                  , BlendMode.srcIn),
+                              ),
+                            ),
+                        ),
+                        bottomTool(appTheme.isDark, Icons.undo, (){}),
+                        bottomTool(appTheme.isDark, Icons.redo, (){}),
+                        bottomTool(appTheme.isDark, Icons.arrow_upward, (){}),
+                        SizedBox(
+                          height: 28,
+                          width: 37,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: (){},
+                            icon: SvgPicture.asset("assets/icons/ai.svg")
+                          )),
+                      ],
                     ),
-                    bottomTool(appTheme.isDark, Icons.undo, (){}),
-                    bottomTool(appTheme.isDark, Icons.redo, (){}),
-                    IconButton(onPressed: (){}, icon: SvgPicture.asset("assets/icons/ai.svg",width: 28, height: 28)),
-                    bottomTool(appTheme.isDark, Icons.arrow_upward, (){}),
-                    bottomTool(appTheme.isDark, Icons.arrow_downward, (){}),
-                    bottomTool(appTheme.isDark, Icons.arrow_back, (){}),
-                    bottomTool(appTheme.isDark, Icons.arrow_forward, (){}),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.zoom_in,
+                          (){
+                            double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                            context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
+                          }
+                        ),
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.zoom_out,
+                          (){
+                            double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                            context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
+                          }
+                        ),
+                        bottomTool(appTheme.isDark, Icons.arrow_back, (){}),
+                        bottomTool(appTheme.isDark, Icons.arrow_downward, (){}),
+                        bottomTool(appTheme.isDark, Icons.arrow_forward, (){}),
+                      ],
+                    )
                   ],
                 ),
               )
