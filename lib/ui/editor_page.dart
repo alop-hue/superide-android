@@ -1193,8 +1193,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         SizedBox(
-                          height: 28,
-                          width: 37.5,
+                          height: 26,
+                          width: 70,
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             onPressed: (){}, icon: SvgPicture.asset(
@@ -1211,8 +1211,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                         bottomTool(appTheme.isDark, Icons.redo, (){}),
                         bottomTool(appTheme.isDark, Icons.arrow_upward, (){}),
                         SizedBox(
-                          height: 28,
-                          width: 37,
+                          height: 26,
+                          width: 70,
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             onPressed: (){},

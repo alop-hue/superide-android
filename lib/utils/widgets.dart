@@ -90,8 +90,11 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
 Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
   return SizedBox(
     height: 37,
-    width: 37,
+    width: 70,
     child: IconButton(
+      style: ButtonStyle(
+        shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+      ),
       padding: EdgeInsets.zero,
       onPressed: onPressed,
       icon: Icon(
@@ -184,8 +187,9 @@ class _CodeEditorState extends State<CodeEditor> {
                       },
                       textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
                       textSelectionTheme: const TextSelectionThemeData(
-                      cursorColor: Color(0xff23a9f2),
-                      selectionColor:Color.fromARGB(112, 30, 134, 245)),
+                        cursorColor: Color(0xff23a9f2),
+                        selectionColor:Color.fromARGB(112, 30, 134, 245)
+                      ),
                       controller: codeController,
                       expands: true,
                       maxLines: null,
