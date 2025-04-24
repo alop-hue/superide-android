@@ -66,39 +66,39 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                   ?File("/sdcard/VSdroid/Temps/style.css"):widget.languageDetails.extension == 'js'
                     ?File("/sdcard/VSdroid/Temps/script.js")
                       :File("/sdcard/VSdroid/Temps/tempCode.${widget.languageDetails.extension}"))
-      );
+    );
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
 
     return FutureBuilder(
       future: Future.wait([
         widget.filePath == null? setTempFile(widget.languageDetails.extension):(()async{
-        if(!widget.filePath!.existsSync()){
-          await widget.filePath!.create(recursive: true);
-        }
-        return widget.filePath;
-      })(),
-      (() async {
-        final prefs = await SharedPreferences.getInstance();
-        List<dynamic> storedData = jsonDecode(await getRecent());
-        final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension);
-        final dataToInsert = {file.path: widget.rootDir ?? file.parent.path};
-        final Set<String> uniquePaths = {};
-        storedData.insert(0, dataToInsert);
-        final List<dynamic> uniqueData = [];
-        for (final data in storedData) {
-          final path = data.keys.toList()[0];
-          if (!uniquePaths.contains(path)) {
-            uniquePaths.add(path);
-            uniqueData.add(data);
+          if(!widget.filePath!.existsSync()){
+            await widget.filePath!.create(recursive: true);
           }
-        }
-        if (uniqueData.length > 3) {
-          uniqueData.removeRange(3, uniqueData.length);
-        }
-        if (context.mounted) {
-          context.read<RecentBloc>().add(RecentEvent(recent: uniqueData));
-        }
-        prefs.setString('recent', jsonEncode(uniqueData));
+          return widget.filePath;
+        })(),
+        (() async {
+          final prefs = await SharedPreferences.getInstance();
+          List<dynamic> storedData = jsonDecode(await getRecent());
+          final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension);
+          final dataToInsert = {file.path: widget.rootDir ?? file.parent.path};
+          final Set<String> uniquePaths = {};
+          storedData.insert(0, dataToInsert);
+          final List<dynamic> uniqueData = [];
+          for (final data in storedData) {
+            final path = data.keys.toList()[0];
+            if (!uniquePaths.contains(path)) {
+              uniquePaths.add(path);
+              uniqueData.add(data);
+            }
+          }
+          if (uniqueData.length > 3) {
+            uniqueData.removeRange(3, uniqueData.length);
+          }
+          if (context.mounted) {
+            context.read<RecentBloc>().add(RecentEvent(recent: uniqueData));
+          }
+          prefs.setString('recent', jsonEncode(uniqueData));
       })()
       ]),
       builder: (context, snapshot) {
@@ -1184,35 +1184,62 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
             children: [
               Expanded(child: codeEditor),
               Container(
-                height: 77,
+                height: 78,
                 color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
                 child: Column(
-                  // spacing: -10,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         SizedBox(
                           height: 26,
-                          width: 70,
+                          width: 75,
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            onPressed: (){}, icon: SvgPicture.asset(
-                                "assets/icons/tab.svg",
-                                colorFilter: ColorFilter.mode(
-                                    appTheme.isDark ? 
-                                      const Color.fromARGB(255, 194, 194, 194) : 
-                                      const Color.fromARGB(255, 40, 40, 40)
-                                  , BlendMode.srcIn),
+                            onPressed: (){
+
+                            },
+                            icon: SvgPicture.asset(
+                              "assets/icons/tab.svg",
+                              colorFilter: ColorFilter.mode(
+                                appTheme.isDark ? 
+                                  const Color.fromARGB(255, 194, 194, 194) : 
+                                  const Color.fromARGB(255, 40, 40, 40),
+                                BlendMode.srcIn
                               ),
                             ),
+                          ),
                         ),
                         bottomTool(appTheme.isDark, Icons.undo, (){}),
                         bottomTool(appTheme.isDark, Icons.redo, (){}),
-                        bottomTool(appTheme.isDark, Icons.arrow_upward, (){}),
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.arrow_upward,
+                          () {
+                            final fileContent = widget.filePath!.readAsStringSync();
+                            final lines = fileContent.split('\n');
+                            int currentLine = 0;
+                            int currentColumn = 0;
+                            int charCount = 0;
+                            for (int i = 0; i < lines.length; i++) {
+                              if (editorOffset <= charCount + lines[i].length) {
+                                currentLine = i;
+                                currentColumn = editorOffset - charCount;
+                                break;
+                              }
+                              charCount += lines[i].length + 1;
+                            }
+                            if (currentLine > 0) {
+                              final newLine = currentLine - 1;
+                              final newColumn = currentColumn.clamp(0, lines[newLine].length);
+                              editorOffset = charCount - lines[newLine].length - 1 + newColumn;
+                              context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                            }
+                          },
+                        ),
                         SizedBox(
                           height: 26,
-                          width: 70,
+                          width: 75,
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             onPressed: (){},
@@ -1239,9 +1266,51 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                             context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
                           }
                         ),
-                        bottomTool(appTheme.isDark, Icons.arrow_back, (){}),
-                        bottomTool(appTheme.isDark, Icons.arrow_downward, (){}),
-                        bottomTool(appTheme.isDark, Icons.arrow_forward, (){}),
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.arrow_back,
+                          (){
+                            if(editorOffset > 0){
+                              editorOffset--;
+                              context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                            }
+                          }
+                        ),
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.arrow_downward,
+                          () {
+                            final fileContent = widget.filePath!.readAsStringSync();
+                            final lines = fileContent.split('\n');
+                            int currentLine = 0;
+                            int currentColumn = 0;
+                            int charCount = 0;
+                            for (int i = 0; i < lines.length; i++) {
+                              if (editorOffset <= charCount + lines[i].length) {
+                                currentLine = i;
+                                currentColumn = editorOffset - charCount;
+                                break;
+                              }
+                              charCount += lines[i].length + 1;
+                            }
+                            if (currentLine < lines.length - 1) {
+                              final newLine = currentLine + 1;
+                              final newColumn = currentColumn.clamp(0, lines[newLine].length);
+                              editorOffset = charCount + lines[currentLine].length + 1 + newColumn;
+                              context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                            }
+                          },
+                        ),
+                        bottomTool(
+                          appTheme.isDark,
+                          Icons.arrow_forward,
+                          (){
+                            if(editorOffset < (widget.filePath!.readAsStringSync().length)){
+                            editorOffset++;
+                            context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                            }
+                          },
+                        ),
                       ],
                     )
                   ],

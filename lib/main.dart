@@ -35,12 +35,13 @@ class MainApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => StackBloc()),
-        BlocProvider(create: (_) =>ThemeBloc(initialTheme: savedTheme, fontFamily: savedFont)),
+        BlocProvider(create: (_) => ThemeBloc(initialTheme: savedTheme, fontFamily: savedFont)),
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => FindWordBloc()),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => ApiBloc()),
+        BlocProvider(create: (_) => CursorMovementBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
       ],
@@ -48,13 +49,13 @@ class MainApp extends StatelessWidget {
         builder: (context, appThemeState) {
           return MaterialApp(
               theme: ThemeData(
-                  progressIndicatorTheme: progressTheme,
-                  popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
-                  scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
-                  appBarTheme: appThemeState.appTheme.appBarTheme,
-                  listTileTheme: appThemeState.appTheme.tileTheme,
-                  cardTheme: appThemeState.appTheme.cardTheme
-                ),
+                progressIndicatorTheme: progressTheme,
+                popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
+                scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
+                appBarTheme: appThemeState.appTheme.appBarTheme,
+                listTileTheme: appThemeState.appTheme.tileTheme,
+                cardTheme: appThemeState.appTheme.cardTheme
+              ),
               home: const StartScreen());
         },
       ),

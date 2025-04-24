@@ -74,3 +74,9 @@ class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
     on<AppThemeEvent>((event, emit) => emit(AppThemeState(appTheme: event.appTheme)));
   }
 }
+
+class CursorMovementBloc extends Bloc<CursorMovementEvent, CursorMovementState>{
+  CursorMovementBloc() : super(const CursorMovementState(offset: -1)){
+    on<CursorMovementEvent>((event, emit) => emit(CursorMovementState(offset: event.offset)));
+  }
+}

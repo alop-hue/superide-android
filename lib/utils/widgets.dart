@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +9,7 @@ import 'package:vsdroid/utils/themes.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:code_text_field/code_text_field.dart';
 
+int editorOffset = -1;
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
     {Color color = const Color(0xff6d6d6d),
@@ -90,7 +92,7 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
 Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
   return SizedBox(
     height: 37,
-    width: 70,
+    width: 75,
     child: IconButton(
       style: ButtonStyle(
         shape: WidgetStateProperty.all(const BeveledRectangleBorder())
@@ -120,7 +122,8 @@ class CodeEditor extends StatefulWidget {
     this.file,
     required this.filePath,
     this.isTemplate = false
-    });
+    }
+  );
 
   @override
   State<CodeEditor> createState() => _CodeEditorState();
@@ -181,19 +184,33 @@ class _CodeEditorState extends State<CodeEditor> {
                         context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
                       }
                     },
-                    child: CodeField(
-                      onChanged: (word) async{
-                        await widget.filePath.writeAsString(word);
+                    child: BlocBuilder<CursorMovementBloc, CursorMovementState>(
+                      builder: (context, offsetState) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (offsetState.offset >= 0 && offsetState.offset <= codeController.text.length) {
+                            codeController.selection = TextSelection.collapsed(offset: offsetState.offset);
+                          }
+                        });
+                        Timer? debounce;
+                        return CodeField(
+                          onTap: () => editorOffset = codeController.selection.baseOffset,
+                          onChanged: (word) {
+                            if (debounce?.isActive ?? false) debounce!.cancel();
+                            debounce = Timer(const Duration(milliseconds: 500), () {
+                              widget.filePath.writeAsString(word);
+                            });
+                          },
+                          textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
+                          textSelectionTheme: const TextSelectionThemeData(
+                            cursorColor: Color(0xff23a9f2),
+                            selectionColor:Color.fromARGB(112, 30, 134, 245)
+                          ),
+                          controller: codeController,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                        );
                       },
-                      textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
-                      textSelectionTheme: const TextSelectionThemeData(
-                        cursorColor: Color(0xff23a9f2),
-                        selectionColor:Color.fromARGB(112, 30, 134, 245)
-                      ),
-                      controller: codeController,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
                     ),
                   ),
                 );
