@@ -41,7 +41,6 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => ApiBloc()),
-        BlocProvider(create: (_) => CursorMovementBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
       ],

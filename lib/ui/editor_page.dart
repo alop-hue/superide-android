@@ -1272,22 +1272,28 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   () {
                                     final fileContent = widget.filePath!.readAsStringSync();
                                     final lines = fileContent.split('\n');
+                                    final currentOffset = codeController.selection.baseOffset;
+                                    int charCount = 0;
                                     int currentLine = 0;
                                     int currentColumn = 0;
-                                    int charCount = 0;
                                     for (int i = 0; i < lines.length; i++) {
-                                      if (editorOffset <= charCount + lines[i].length) {
+                                      final lineLength = lines[i].length + 1; // +1 for '\n'
+                                      if (currentOffset < charCount + lineLength) {
                                         currentLine = i;
-                                        currentColumn = editorOffset - charCount;
+                                        currentColumn = currentOffset - charCount;
                                         break;
                                       }
-                                      charCount += lines[i].length + 1;
+                                      charCount += lineLength;
                                     }
                                     if (currentLine > 0) {
-                                      final newLine = currentLine - 1;
-                                      final newColumn = currentColumn.clamp(0, lines[newLine].length);
-                                      editorOffset = charCount - lines[newLine].length - 1 + newColumn;
-                                      context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                                      final prevLine = lines[currentLine - 1];
+                                      final targetColumn = currentColumn.clamp(0, prevLine.length);
+                                      int newOffset = 0;
+                                      for (int i = 0; i < currentLine - 1; i++) {
+                                        newOffset += lines[i].length + 1;
+                                      }
+                                      newOffset += targetColumn;
+                                      codeController.selection = TextSelection.collapsed(offset: newOffset);
                                     }
                                   },
                                 ),
@@ -1324,9 +1330,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   appTheme.isDark,
                                   Icons.arrow_back,
                                   (){
-                                    if(editorOffset > 0){
-                                      editorOffset--;
-                                      context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                                    int currOffset = codeController.selection.baseOffset;
+                                    if(currOffset > 0){
+                                      codeController.selection = TextSelection.collapsed(offset: --currOffset);
                                     }
                                   }
                                 ),
@@ -1336,13 +1342,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   () {
                                     final fileContent = widget.filePath!.readAsStringSync();
                                     final lines = fileContent.split('\n');
+                                    final currentOffset = codeController.selection.baseOffset;
                                     int currentLine = 0;
                                     int currentColumn = 0;
                                     int charCount = 0;
                                     for (int i = 0; i < lines.length; i++) {
-                                      if (editorOffset <= charCount + lines[i].length) {
+                                      if (currentOffset <= charCount + lines[i].length) {
                                         currentLine = i;
-                                        currentColumn = editorOffset - charCount;
+                                        currentColumn = currentOffset - charCount;
                                         break;
                                       }
                                       charCount += lines[i].length + 1;
@@ -1350,8 +1357,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                     if (currentLine < lines.length - 1) {
                                       final newLine = currentLine + 1;
                                       final newColumn = currentColumn.clamp(0, lines[newLine].length);
-                                      editorOffset = charCount + lines[currentLine].length + 1 + newColumn;
-                                      context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                                      final newOffset = charCount + lines[currentLine].length + 1 + newColumn;
+                                      codeController.selection = TextSelection.collapsed(offset: newOffset);
                                     }
                                   },
                                 ),
@@ -1359,9 +1366,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   appTheme.isDark,
                                   Icons.arrow_forward,
                                   (){
-                                    if(editorOffset < (widget.filePath!.readAsStringSync().length)){
-                                    editorOffset++;
-                                    context.read<CursorMovementBloc>().add(CursorMovementEvent(offset: editorOffset));
+                                    int currOffset = codeController.selection.baseOffset;
+                                    if(currOffset < (widget.filePath!.readAsStringSync().length)) {
+                                      codeController.selection = TextSelection.collapsed(offset: ++currOffset);
                                     }
                                   },
                                 ),

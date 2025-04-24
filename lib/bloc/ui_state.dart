@@ -81,8 +81,3 @@ class AppThemeState{
   final AppTheme appTheme;
   const AppThemeState({required this.appTheme});
 }
-
-class CursorMovementState{
-  final int offset;
-  const CursorMovementState({required this.offset});
-}

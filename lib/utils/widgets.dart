@@ -138,6 +138,7 @@ class _CodeEditorState extends State<CodeEditor> {
 
   @override
   Widget build(BuildContext context) {
+    Timer? debounce;
     final CodeController codeController = widget.codeController;
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, state) {
@@ -157,34 +158,24 @@ class _CodeEditorState extends State<CodeEditor> {
                 context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
               }
             },
-            child: BlocBuilder<CursorMovementBloc, CursorMovementState>(
-              builder: (context, offsetState) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (offsetState.offset >= 0 && offsetState.offset <= codeController.text.length) {
-                    codeController.selection = TextSelection.collapsed(offset: offsetState.offset);
-                  }
+            child:CodeField(
+              onTap: () => editorOffset = codeController.selection.baseOffset,
+              onChanged: (word) {
+                if (debounce?.isActive ?? false) debounce!.cancel();
+                debounce = Timer(const Duration(milliseconds: 500), () {
+                  widget.filePath.writeAsString(word);
                 });
-                Timer? debounce;
-                return CodeField(
-                  onTap: () => editorOffset = codeController.selection.baseOffset,
-                  onChanged: (word) {
-                    if (debounce?.isActive ?? false) debounce!.cancel();
-                    debounce = Timer(const Duration(milliseconds: 500), () {
-                      widget.filePath.writeAsString(word);
-                    });
-                  },
-                  textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
-                  textSelectionTheme: const TextSelectionThemeData(
-                    cursorColor: Color(0xff23a9f2),
-                    selectionColor:Color.fromARGB(112, 30, 134, 245)
-                  ),
-                  controller: codeController,
-                  expands: true,
-                  maxLines: null,
-                  minLines: null,
-                );
               },
-            ),
+              textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
+              textSelectionTheme: const TextSelectionThemeData(
+                cursorColor: Color(0xff23a9f2),
+                selectionColor:Color.fromARGB(112, 30, 134, 245)
+              ),
+              controller: codeController,
+              expands: true,
+              maxLines: null,
+              minLines: null,
+            )
           ),
         );
       },

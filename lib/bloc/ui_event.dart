@@ -87,8 +87,3 @@ class AppThemeEvent extends UiEvent{
   final AppTheme appTheme;
   AppThemeEvent({required this.appTheme});
 }
-
-class CursorMovementEvent extends UiEvent{
-  final int offset;
-  CursorMovementEvent({required this.offset});
-}
