@@ -1246,15 +1246,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 SizedBox(
-                                  height: 26,
+                                  height: 37,
                                   width: 75,
                                   child: IconButton(
+                                    highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                    style: ButtonStyle(
+                                      shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                    ),
                                     padding: EdgeInsets.zero,
                                     onPressed: (){
         
                                     },
                                     icon: SvgPicture.asset(
                                       "assets/icons/tab.svg",
+                                      height: 25,
+                                      width: 25,
                                       colorFilter: ColorFilter.mode(
                                         appTheme.isDark ? 
                                           const Color.fromARGB(255, 194, 194, 194) : 
@@ -1298,12 +1304,20 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                   },
                                 ),
                                 SizedBox(
-                                  height: 26,
+                                  height: 37,
                                   width: 75,
                                   child: IconButton(
+                                    highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                    style: ButtonStyle(
+                                      shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                    ),
                                     padding: EdgeInsets.zero,
                                     onPressed: (){},
-                                    icon: SvgPicture.asset("assets/icons/ai.svg")
+                                    icon: SvgPicture.asset(
+                                      "assets/icons/ai.svg",
+                                      height: 25,
+                                      width: 25,
+                                    )
                                   )),
                               ],
                             ),

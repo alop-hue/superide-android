@@ -94,6 +94,7 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
     height: 37,
     width: 75,
     child: IconButton(
+      highlightColor: const Color.fromARGB(255, 1, 127, 224),
       style: ButtonStyle(
         shape: WidgetStateProperty.all(const BeveledRectangleBorder())
       ),
