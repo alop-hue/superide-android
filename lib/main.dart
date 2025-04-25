@@ -34,15 +34,10 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => StackBloc()),
         BlocProvider(create: (_) => ThemeBloc(initialTheme: savedTheme, fontFamily: savedFont)),
-        BlocProvider(create: (_) => MenuSearchBloc()),
-        BlocProvider(create: (_) => FindWordBloc()),
-        BlocProvider(create: (_) => WebViewBloc()),
-        BlocProvider(create: (_) => FolderBloc()),
-        BlocProvider(create: (_) => ApiBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
+        BlocProvider(create: (_) => WebViewBloc()),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {

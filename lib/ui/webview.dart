@@ -93,12 +93,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
                                 .add(SetViewPort(isMobile: !state.isMobile));
                             await controller.callAsyncJavaScript(
                               functionBody: """
-                                    if (window.setViewport) {
-                                      window.setViewport(isMobile);
-                                    } else {
-                                      console.error('setViewport is not defined');
-                                    }
-                                  """,
+                                        if (window.setViewport) {
+                                          window.setViewport(isMobile);
+                                        } else {
+                                          console.error('setViewport is not defined');
+                                        }
+                                      """,
                               arguments: {"isMobile": !state.isMobile},
                             );
                             if (context.mounted) {
@@ -130,12 +130,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
                             context.read<WebViewBloc>().add(
                                 EnableConsole(isConsole: !state.isConsole));
                             await controller.evaluateJavascript(source: """
-                                if (window.setEruda) {
-                                  window.setEruda(${!state.isConsole});
-                                  } else {
-                                    console.error('setEruda is not defined');
-                                  }
-                                  """);
+                                    if (window.setEruda) {
+                                      window.setEruda(${!state.isConsole});
+                                      } else {
+                                        console.error('setEruda is not defined');
+                                      }
+                                      """);
                             if (context.mounted) {
                               Navigator.of(context).pop();
                             }
@@ -174,8 +174,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
                   ? FutureBuilder(future: (() async {
                       return await controller.getTitle();
                     })(), builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                      if (snapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(
+                            child: CircularProgressIndicator());
                       }
                       return Text(snapshot.data ?? "WebView",
                           style: const TextStyle(color: Colors.white));
@@ -195,47 +197,47 @@ class _WebViewScreenState extends State<WebViewScreen> {
                 controller = webViewController;
                 controller.reload();
               },
-              onLoadStart: (controller, url) async{
-                await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/webview/eruda.js");
-                await controller.evaluateJavascript(source:
-                    """
-                    window.flutter_inappwebview.callHandler = window.flutter_inappwebview.callHandler || function() {};
-                    window.setViewport = function(isMobile) {
-                      let viewportMetaTag = document.querySelector('meta[name="viewport"]');
-                      if (!viewportMetaTag) {
-                        viewportMetaTag = document.createElement('meta');
-                        viewportMetaTag.setAttribute('name', 'viewport');
-                        document.head.appendChild(viewportMetaTag);
-                      }
-                      if (isMobile) {
-                        viewportMetaTag.setAttribute('content', 'width=device-width, initial-scale=1.0');
-                      } else {
-                        viewportMetaTag.setAttribute('content', 'width=1200');
-                      }
-                    };
-
-                    if (window.setViewport) {
-                      window.setViewport(${state.isMobile});
+              onLoadStart: (controller, url) async {
+                await controller.injectJavascriptFileFromAsset(
+                    assetFilePath: "assets/webview/eruda.js");
+                await controller.evaluateJavascript(source: """
+                        window.flutter_inappwebview.callHandler = window.flutter_inappwebview.callHandler || function() {};
+                        window.setViewport = function(isMobile) {
+                          let viewportMetaTag = document.querySelector('meta[name="viewport"]');
+                          if (!viewportMetaTag) {
+                            viewportMetaTag = document.createElement('meta');
+                            viewportMetaTag.setAttribute('name', 'viewport');
+                            document.head.appendChild(viewportMetaTag);
+                          }
+                          if (isMobile) {
+                            viewportMetaTag.setAttribute('content', 'width=device-width, initial-scale=1.0');
+                          } else {
+                            viewportMetaTag.setAttribute('content', 'width=1200');
+                          }
+                        };
+            
+                        if (window.setViewport) {
+                          window.setViewport(${state.isMobile});
+                        } else {
+                          console.error('setViewport is not defined');
+                        }
+                        """);
+                await controller.evaluateJavascript(source: """
+                      window.setEruda = function(val) {
+                        if (val) {
+                            eruda.init();
+                        } else {
+                          if (window.eruda) {
+                            eruda.destroy();
+                          }
+                        }
+                      };
+                    if (window.setEruda) {
+                      window.setEruda(${state.isConsole});
                     } else {
-                      console.error('setViewport is not defined');
+                      console.error('setEruda is not defined');
                     }
                     """);
-                await controller.evaluateJavascript(source: """
-                  window.setEruda = function(val) {
-                    if (val) {
-                        eruda.init();
-                    } else {
-                      if (window.eruda) {
-                        eruda.destroy();
-                      }
-                    }
-                  };
-                if (window.setEruda) {
-                  window.setEruda(${state.isConsole});
-                } else {
-                  console.error('setEruda is not defined');
-                }
-                """);
               },
               onLoadStop: (controller, url) {
                 setState(() {
