@@ -38,6 +38,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),
+        BlocProvider(create: (_) => MenuSearchBloc()),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {
@@ -48,7 +49,7 @@ class MainApp extends StatelessWidget {
                 scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
                 appBarTheme: appThemeState.appTheme.appBarTheme,
                 listTileTheme: appThemeState.appTheme.tileTheme,
-                cardTheme: appThemeState.appTheme.cardTheme
+                cardTheme: appThemeState.appTheme.cardTheme.data
               ),
               home: const StartScreen());
         },
