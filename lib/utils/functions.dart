@@ -139,13 +139,13 @@ Future<String?> selectDir({String? dialogeTitle, String? initialDirectory, Uint8
   );
 }
 
-Future<File?> createFile(String filename, BuildContext context) async {
+Future<File?> createFile(String filename, String dirPath, BuildContext context) async {
   await getPermission();
-  final fileDir = Directory("/sdcard/VSdroid/files");
+  final fileDir = Directory(dirPath);
   if (!fileDir.existsSync()) {
     await fileDir.create(recursive: true);
   }
-  final file = File("/sdcard/VSdroid/files/$filename");
+  final file = File("$dirPath/$filename");
   if (!file.existsSync()) {
     try {
       await file.create(recursive: true);
@@ -156,9 +156,10 @@ Future<File?> createFile(String filename, BuildContext context) async {
           context: context,
           builder: (context) => AlertDialog(
             content: Text(e.toString()),
-            title: const Text("Failed to open file",
-                style:
-                    TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+            title: const Text(
+              "Failed to open file",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)
+            ),
             backgroundColor: const Color(0xff2b2b2b),
             icon: const Icon(Icons.error_outline),
             iconColor: Colors.red[600],
@@ -167,7 +168,7 @@ Future<File?> createFile(String filename, BuildContext context) async {
       }
     }
   }
-  return null;
+  return file;
 }
 
 Future<HttpServer?> startServer() async {

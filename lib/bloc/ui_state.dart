@@ -81,3 +81,15 @@ class AppThemeState{
   final AppTheme appTheme;
   const AppThemeState({required this.appTheme});
 }
+
+class EditorState{
+  final String editorText;
+  final File filePath;
+  final Language languageDetails;
+
+  EditorState({
+    required this.editorText,
+    required this.filePath,
+    required this.languageDetails,
+  });
+}

@@ -87,3 +87,15 @@ class AppThemeEvent extends UiEvent{
   final AppTheme appTheme;
   AppThemeEvent({required this.appTheme});
 }
+
+class EditorEvent extends UiEvent{
+  final String editorText;
+  final File filePath;
+  final Language? languageDetails;
+  
+  EditorEvent({
+    required this.editorText,
+    required this.filePath,
+    required this.languageDetails
+  });
+}

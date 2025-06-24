@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:vsdroid/utils/languages.dart';
 import 'package:vsdroid/utils/themes.dart';
 
 part 'ui_event.dart';
@@ -72,5 +74,24 @@ class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
   final AppTheme appTheme;
   AppThemeBloc({required this.appTheme}):super(AppThemeState(appTheme: appTheme)){
     on<AppThemeEvent>((event, emit) => emit(AppThemeState(appTheme: event.appTheme)));
+  }
+}
+
+class EditorBloc extends Bloc<EditorEvent, EditorState> {
+  final String initialText;
+  final File filePath;
+  final Language languageDetails;
+  EditorBloc({
+    required this.initialText,
+    required this.filePath,
+    required this.languageDetails
+    }) : super(EditorState(editorText: initialText, filePath: filePath, languageDetails: languageDetails)) {
+    on<EditorEvent>((event, emit) => emit(
+      EditorState(
+        editorText: event.editorText,
+        filePath: event.filePath,
+        languageDetails: languageDetails
+      )
+    ));
   }
 }

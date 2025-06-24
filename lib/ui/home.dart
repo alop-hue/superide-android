@@ -164,7 +164,11 @@ class _SelectTypeState extends State<SelectType> {
                               onPressed: () async {
                                 _createFileKey.currentState!.validate();
                                 if (createFileController.text.isNotEmpty) {
-                                  final file = await createFile(createFileController.text, context);
+                                  final file = await createFile(
+                                    createFileController.text,
+                                    "/storage/emulated/0/VSdroid/files",
+                                    context
+                                  );
                                   if (context.mounted && file != null) {
                                     Navigator.of(context).pop();
                                     Navigator.of(context).push(

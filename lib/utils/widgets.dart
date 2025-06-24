@@ -1,15 +1,11 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/themes.dart';
-import 'package:vsdroid/utils/languages.dart';
-import 'package:code_text_field/code_text_field.dart';
-
-int editorOffset = -1;
 
 Widget drawerButtons(VoidCallback onPressed, dynamic icon,
     {Color color = const Color(0xff6d6d6d),
@@ -111,20 +107,12 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
 //-----------------------Editor---------------------------------------
 
 class CodeEditor extends StatefulWidget {
-  final Language language;
-  final Map<String, TextStyle>? theme;
-  final String? file;
   final File filePath;
-  final bool isTemplate;
-  final CodeController codeController;
+  final CodeCrafterController codeController;
   const CodeEditor({
     super.key,
-    required this.language,
     required this.codeController,
-    this.theme,
-    this.file,
     required this.filePath,
-    this.isTemplate = false
     }
   );
 
@@ -139,45 +127,28 @@ class _CodeEditorState extends State<CodeEditor> {
 
   @override
   Widget build(BuildContext context) {
-    Timer? debounce;
-    final CodeController codeController = widget.codeController;
+    final CodeCrafterController codeController = widget.codeController;
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, state) {
-        return CodeTheme(
-          data: CodeThemeData(styles: highlightThemes[state.theme]),
-          child: GestureDetector(
-            onScaleStart: (details) {
-              if(details.pointerCount == 2){
-                _initialFontSize = state.fontSize;
-              }
-            },
-            onScaleUpdate: (details) {
-              if (details.pointerCount == 2) {
-                _currentScale = details.scale;
-                double newFontSize = _initialFontSize * _currentScale;
-                newFontSize = newFontSize.clamp(8.0, 48.0);
-                context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
-              }
-            },
-            child:CodeField(
-              onTap: () => editorOffset = codeController.selection.baseOffset,
-              onChanged: (word) {
-                if (debounce?.isActive ?? false) debounce!.cancel();
-                debounce = Timer(const Duration(milliseconds: 500), () {
-                  widget.filePath.writeAsString(word);
-                });
-              },
-              textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
-              textSelectionTheme: const TextSelectionThemeData(
-                cursorColor: Color(0xff23a9f2),
-                selectionColor:Color.fromARGB(112, 30, 134, 245)
-              ),
-              controller: codeController,
-              expands: true,
-              maxLines: null,
-              minLines: null,
-            )
-          ),
+        return GestureDetector(
+          onScaleStart: (details) {
+            if(details.pointerCount == 2){
+              _initialFontSize = state.fontSize;
+            }
+          },
+          onScaleUpdate: (details) {
+            if (details.pointerCount == 2) {
+              _currentScale = details.scale;
+              double newFontSize = _initialFontSize * _currentScale;
+              newFontSize = newFontSize.clamp(8.0, 48.0);
+              context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
+            }
+          },
+          child: CodeCrafter(
+            editorTheme: highlightThemes[state.theme],
+            textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
+            controller: codeController,
+          )
         );
       },
     );
