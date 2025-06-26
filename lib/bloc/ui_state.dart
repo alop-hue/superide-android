@@ -82,14 +82,8 @@ class AppThemeState{
   const AppThemeState({required this.appTheme});
 }
 
-class EditorState{
-  final String editorText;
-  final File filePath;
-  final Language languageDetails;
+class ActiveEditorsState{
+  final List<ActiveEditors> activeEditors;
 
-  EditorState({
-    required this.editorText,
-    required this.filePath,
-    required this.languageDetails,
-  });
+  ActiveEditorsState(this.activeEditors);
 }

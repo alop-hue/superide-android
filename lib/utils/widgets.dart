@@ -95,7 +95,11 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
         shape: WidgetStateProperty.all(const BeveledRectangleBorder())
       ),
       padding: EdgeInsets.zero,
-      onPressed: onPressed,
+      onPressed: (){
+        try {
+          onPressed.call();
+        } catch (e) {/**/}
+      },
       icon: Icon(
         iconData,
         color: !isDark ? const Color.fromARGB(255, 40, 40, 40): const Color.fromARGB(255, 194, 194, 194),
@@ -109,10 +113,12 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
 class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeCrafterController codeController;
+  final String? initialText;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.filePath,
+    this.initialText
     }
   );
 
@@ -145,6 +151,7 @@ class _CodeEditorState extends State<CodeEditor> {
             }
           },
           child: CodeCrafter(
+            initialText: widget.initialText,
             editorTheme: highlightThemes[state.theme],
             textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
             controller: codeController,

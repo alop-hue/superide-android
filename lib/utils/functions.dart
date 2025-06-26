@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
@@ -308,4 +309,20 @@ class NativeChannel {
       "packageName": packageName,
     });
   }
+}
+
+class ActiveEditors{
+  final File filePath;
+  final CodeCrafterController controller;
+  final Language languageDetails;
+  bool isActive;
+  String? text;
+
+  ActiveEditors({
+    required this.filePath,
+    required this.controller,
+    required this.languageDetails,
+    this.isActive = false,
+    this.text
+  });
 }

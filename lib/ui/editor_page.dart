@@ -28,14 +28,15 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
+class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   final createFileKey = GlobalKey<FormState>();
   final trasnformationController = TransformationController();
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
-  late final CodeCrafterController codeController;
+  // late final CodeCrafterController codeController;
   late final TabController apiTabController, paramTabController;
   Map<String,String> params = {}, headers = {};
+  TabController? tabController;
 
   Future<String> getData() async {
     final file = widget.filePath ?? (widget.languageDetails.extension == 'html'
@@ -64,8 +65,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
 
   @override 
   void initState(){
-    codeController = CodeCrafterController();
-    codeController.language = widget.languageDetails.language;
     createFileController = TextEditingController();
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
@@ -85,7 +84,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
     paramTabController.dispose();
     findWordController.dispose();
     trasnformationController.dispose();
+    tabController?.dispose();
     super.dispose();
+  }
+
+  void _updateTabController(int tabCount) {
+    if (tabController == null || tabController!.length != tabCount) {
+      tabController?.dispose();
+      tabController = TabController(length: tabCount, vsync: this);
+    }
   }
 
   @override
@@ -136,23 +143,29 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
               return const Center(child: CircularProgressIndicator());
             }
             final target = snapshot.data?[0];
+            final codeController = CodeCrafterController();
+            codeController.text = editorSnapshot.data ?? "An unknown error occured";
+            codeController.language = widget.languageDetails.language;
             return MultiBlocProvider(
               providers: [
                 BlocProvider(create: (_) => StackBloc()),
                 BlocProvider(create: (_) => FindWordBloc()),
                 BlocProvider(create: (_) => ApiBloc()),
                 BlocProvider(create: (_) => FolderBloc()),
-                BlocProvider(create: (_) => EditorBloc(
-                  initialText: editorSnapshot.data ?? "An unknown error occured",
-                  filePath: target!,
-                  languageDetails: widget.languageDetails
+                BlocProvider(create: (_) => ActiveEditorsBloc(
+                  ActiveEditors(
+                    text: editorSnapshot.data ?? "An unknown error occured",
+                    filePath: target!,
+                    controller: codeController,
+                    languageDetails: widget.languageDetails,
+                    isActive: true
+                  )
                 )),
               ],
-              child: BlocBuilder<EditorBloc, EditorState>(
+              child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
                 builder: (context, editorState) {
-                  WidgetsBinding.instance.addPostFrameCallback((_){
-                    codeController.text = editorState.editorText;
-                  });
+                  _updateTabController(editorState.activeEditors.length);
+
                   return Scaffold(
                     drawer: BlocBuilder<StackBloc, StackState>(
                       buildWhen: (previous, current) => current != previous,
@@ -232,9 +245,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                             SizedBox(
                                               child: DirectoryTreeViewerCustom(
                                                 isUnfoldedFirst: false,
-                                                rootPath: widget.filePath == null ? 
-                                                    '/storage/emulated/0/VSdroid/Temps': 
-                                                    (widget.rootDir ?? editorState.filePath.parent.path),
+                                                rootPath: widget.rootDir ?? editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path,
                                                 enableCreateFileOption: true,
                                                 enableCreateFolderOption: true,
                                                 editingFieldStyle: EditingFieldStyle(
@@ -300,21 +311,34 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                     height: 2,
                                                   ),
                                                 ),
-                                                onFileTap: (f) async{
-                                                  final content = await f.readAsString();
-                                                  if(context.mounted) {
-                                                    context.read<EditorBloc>().add(
-                                                    EditorEvent(
-                                                      editorText: content,
+                                                onFileTap: (f) {
+                                                  final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                                  for(ActiveEditors item in currentState){
+                                                    item.isActive = false;
+                                                  }
+                                                  final controller = CodeCrafterController();
+                                                  controller.language = languages.firstWhere(
+                                                      (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                                                      orElse: () =>languages[0]).language;
+                                                  currentState.add(
+                                                    ActiveEditors(
+                                                      text: f.readAsStringSync(),
                                                       filePath: f,
+                                                      isActive: true,
+                                                      controller: controller,
                                                       languageDetails: languages.firstWhere(
                                                         (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
                                                         orElse: () =>languages[0])
-                                                    ));
-                                                    codeController.text = content;
-                                                    codeController.language = languages.firstWhere(
-                                                      (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                                      orElse: () =>languages[0]).language;
+                                                    )
+                                                  );
+                                                  if(context.mounted) {
+                                                    context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      final newIndex = currentState.indexWhere((item) => item.isActive == true);
+                                                      if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
+                                                        tabController!.animateTo(newIndex);
+                                                      }
+                                                    });
                                                   }
                                                 },
                                               ),
@@ -374,12 +398,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                 onTap: () async{
                                                   if (findWordController.text.isNotEmpty) {
                                                     final currentState = context.read<FindWordBloc>().state;
-                                                    final data = await editorState.filePath.readAsString();
+                                                    final data = await editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.readAsString();
                                                     final newData = data.replaceAll(
                                                       currentState.word, replaceWordController.text
                                                     );
-                                                    await editorState.filePath.writeAsString(newData);
-                                                    codeController.text = newData;
+                                                    await editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.writeAsString(newData);
+                                                    WidgetsBinding.instance.addPostFrameCallback((_){
+                                                      editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
+                                                    });
                                                     if(context.mounted) {
                                                       context.read<FindWordBloc>().add(FindWord(word: ""));
                                                     }
@@ -985,9 +1011,78 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                       title: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Text(
-                            path.basename(editorState.filePath.path),
+                            path.basename(editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path),
                             style: TextStyle(color: appTheme.selectScreenCardTextColor)
                           )),
+                      bottom: TabBar(
+                        labelPadding: EdgeInsets.zero,
+                        padding: EdgeInsets.zero,
+                        indicator: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: Color(0xff157dcc),
+                              width: 2
+                            ),
+                            left: BorderSide(
+                              color: Colors.grey,
+                              width: 0.2
+                            ),
+                            right: BorderSide(
+                              color: Colors.grey,
+                              width: 0.2
+                            ),
+                          )
+                        ),
+                        labelColor: appTheme.selectScreenCardTextColor,
+                        dividerColor: Colors.transparent,
+                        controller: tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        onTap: (value) {
+                          final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                          for(int i=0; i < currentState.length; i++){
+                            currentState[i].isActive = i == value;
+                          }
+                          context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                        },
+                        tabs: List.generate(editorState.activeEditors.length, (index){
+                          return Row(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  path.basename(editorState.activeEditors[index].filePath.path),
+                                  softWrap: false,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () {
+                                  final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+
+                                  if(currentState.length <= 1){
+                                    Navigator.of(context).pop();
+                                    return;
+                                  }
+                                  final wasActive = currentState[index].isActive;
+                                  currentState.removeAt(index);
+                                            
+                                  if (currentState.isNotEmpty && wasActive) {
+                                    int newActive = index > 0 ? index - 1 : 0;
+                                    for (int i = 0; i < currentState.length; i++) {
+                                      currentState[i].isActive = i == newActive;
+                                    }
+                                  }
+                                  context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                }, 
+                                icon: Icon(Icons.close, size: 20)
+                              )
+                            ]
+                          );
+                        })
+                        
+                      ),
                       actions: [
                         PopupMenuButton(
                           itemBuilder: (context) => [
@@ -1034,7 +1129,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                   context
                                                 ); 
                                                 if (context.mounted && file != null) {
-                                                  Navigator.of(context).push(MaterialPageRoute(
+                                                  /* Navigator.of(context).push(MaterialPageRoute(
                                                     builder: (context) => EditorPage(
                                                       rootDir: widget.rootDir ?? file.parent.path,
                                                       filePath: file,
@@ -1043,7 +1138,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                         language.extension == path.extension(file.path).replaceFirst(".", ""))
                                                       )
                                                     )
-                                                  );
+                                                  ); */
                                                 }
                                               }
                                             },
@@ -1069,11 +1164,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                       if (context.mounted) {
                                         final file = await pickFiles(context, appTheme.isDark);
                                         if (file != null) {
-                                          final language = languages.firstWhere(
-                                          (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
-                                          orElse: () => languages[0]);
-                                          if(context.mounted) {Navigator.of(context).pushReplacement(MaterialPageRoute(
-                                                  builder: (context) => EditorPage(languageDetails: language, filePath: file)));}
                                         } else {
                                           if(context.mounted) {
                                             showDialog(
@@ -1114,7 +1204,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                           final savedPlace = await selectDir(
                                             dialogeTitle: "Save file as...",
                                             initialDirectory: widget.rootDir,
-                                            bytes: editorState.filePath.readAsBytesSync()
+                                            bytes: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.readAsBytesSync()
                                           );
                                           if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
                                             showDialog(context: context, builder: (context)=> AlertDialog(
@@ -1164,7 +1254,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                                 }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
                                               ElevatedButton(
                                                 onPressed: () {
-                                                  editorState.filePath.writeAsString('');
+                                                  editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.writeAsString('');
                                                   Navigator.of(context).pop();
                                                   setState(() {});
                                                 },
@@ -1183,10 +1273,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                 ]),
                           IconButton(
                             onPressed: () async {
-                              if(path.extension(editorState.filePath.path)=='.html'){
+                              if(path.extension(editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path)=='.html'){
                                 if(context.mounted) {
                                   Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                                    WebViewScreen(htmlFile: editorState.filePath),
+                                    WebViewScreen(htmlFile: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath),
                                     transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                       return SizeTransition(sizeFactor: animation,child: child);
                                     }
@@ -1199,17 +1289,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                                 if (server != null) {
                                   try {
                                     if (context.mounted) {
-                                      stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.filePath.path, context);
+                                      stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path, context);
                                     }
                                   }
                                   catch(e){
                                     await startTermuxActivity();
                                     if(context.mounted) {
-                                      stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.filePath.path, context);
+                                      stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path, context);
                                     }
                                   }
                                   final terminal = SetupTerminal(
-                                    projectDir: editorState.filePath.parent.path,server: server
+                                    projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path,server: server
                                   );
                                   if(context.mounted && stats){
                                     Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
@@ -1235,180 +1325,186 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin{
                             onPressed: () {
                               Navigator.of(context).push(MaterialPageRoute(
                                 builder: (context) => SetupTerminal(
-                                  projectDir: editorState.filePath.parent.path
+                                  projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path
                                 )));
                             },
                             icon: const Icon(Icons.terminal, color: Color(0xff717171)))
                       ],
                     ),
-                    body: Column(
-                      children: [
-                        Expanded(
-                          child: BlocBuilder<FindWordBloc, FindWordState>(
-                            builder: (context, wordState) {
-                              // codeController.setPatternMap({RegExp.escape(wordState.word): TextStyle(backgroundColor: Colors.yellow[600]!)});
-                              codeController.findWord(wordState.word);
-                              return CodeEditor(
-                                codeController: codeController,
-                                filePath: editorState.filePath
-                              );
-                            },
-                          )),
-                        Container(
-                          height: 78,
-                          color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    body: TabBarView(
+                      controller: tabController,
+                      children: List.generate(editorState.activeEditors.length, (index){
+                        return Column(
+                          children: [
+                            Expanded(
+                              child: BlocBuilder<FindWordBloc, FindWordState>(
+                                builder: (context, wordState) {
+                                  // codeController.setPatternMap({RegExp.escape(wordState.word): TextStyle(backgroundColor: Colors.yellow[600]!)});
+                                  editorState.activeEditors[index].controller.findWord(wordState.word);
+                                  return CodeEditor(
+                                    initialText: editorState.activeEditors[index].text,
+                                    codeController: editorState.activeEditors[index].controller,
+                                    filePath: editorState.activeEditors[index].filePath
+                                  );
+                                },
+                              )),
+                            Container(
+                              height: 78,
+                              color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
+                              child: Column(
                                 children: [
-                                  SizedBox(
-                                    height: 37,
-                                    width: 75,
-                                    child: IconButton(
-                                      highlightColor: const Color.fromARGB(255, 1, 127, 224),
-                                      style: ButtonStyle(
-                                        shape: WidgetStateProperty.all(const BeveledRectangleBorder())
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      onPressed: (){
-          
-                                      },
-                                      icon: SvgPicture.asset(
-                                        "assets/icons/tab.svg",
-                                        height: 25,
-                                        width: 25,
-                                        colorFilter: ColorFilter.mode(
-                                          appTheme.isDark ? 
-                                            const Color.fromARGB(255, 194, 194, 194) : 
-                                            const Color.fromARGB(255, 40, 40, 40),
-                                          BlendMode.srcIn
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    children: [
+                                      SizedBox(
+                                        height: 37,
+                                        width: 75,
+                                        child: IconButton(
+                                          highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                          style: ButtonStyle(
+                                            shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: (){
+                                
+                                          },
+                                          icon: SvgPicture.asset(
+                                            "assets/icons/tab.svg",
+                                            height: 25,
+                                            width: 25,
+                                            colorFilter: ColorFilter.mode(
+                                              appTheme.isDark ? 
+                                                const Color.fromARGB(255, 194, 194, 194) : 
+                                                const Color.fromARGB(255, 40, 40, 40),
+                                              BlendMode.srcIn
+                                            ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                  bottomTool(appTheme.isDark, Icons.undo, (){}),
-                                  bottomTool(appTheme.isDark, Icons.redo, (){}),
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.arrow_upward,
-                                    () {
-                                      final fileContent = editorState.filePath.readAsStringSync();
-                                      final lines = fileContent.split('\n');
-                                      final currentOffset = codeController.selection.baseOffset;
-                                      int charCount = 0;
-                                      int currentLine = 0;
-                                      int currentColumn = 0;
-                                      for (int i = 0; i < lines.length; i++) {
-                                        final lineLength = lines[i].length + 1;
-                                        if (currentOffset < charCount + lineLength) {
-                                          currentLine = i;
-                                          currentColumn = currentOffset - charCount;
-                                          break;
-                                        }
-                                        charCount += lineLength;
-                                      }
-                                      if (currentLine > 0) {
-                                        final prevLine = lines[currentLine - 1];
-                                        final targetColumn = currentColumn.clamp(0, prevLine.length);
-                                        int newOffset = 0;
-                                        for (int i = 0; i < currentLine - 1; i++) {
-                                          newOffset += lines[i].length + 1;
-                                        }
-                                        newOffset += targetColumn;
-                                        codeController.selection = TextSelection.collapsed(offset: newOffset);
-                                      }
-                                    },
-                                  ),
-                                  SizedBox(
-                                    height: 37,
-                                    width: 75,
-                                    child: IconButton(
-                                      highlightColor: const Color.fromARGB(255, 1, 127, 224),
-                                      style: ButtonStyle(
-                                        shape: WidgetStateProperty.all(const BeveledRectangleBorder())
                                       ),
-                                      padding: EdgeInsets.zero,
-                                      onPressed: (){},
-                                      icon: SvgPicture.asset(
-                                        "assets/icons/ai.svg",
-                                        height: 25,
-                                        width: 25,
-                                      )
-                                    )),
+                                      bottomTool(appTheme.isDark, Icons.undo, (){}),
+                                      bottomTool(appTheme.isDark, Icons.redo, (){}),
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.arrow_upward,
+                                        () {
+                                          final fileContent = editorState.activeEditors[index].filePath.readAsStringSync();
+                                          final lines = fileContent.split('\n');
+                                          final currentOffset = editorState.activeEditors[index].controller.selection.baseOffset;
+                                          int charCount = 0;
+                                          int currentLine = 0;
+                                          int currentColumn = 0;
+                                          for (int i = 0; i < lines.length; i++) {
+                                            final lineLength = lines[i].length + 1;
+                                            if (currentOffset < charCount + lineLength) {
+                                              currentLine = i;
+                                              currentColumn = currentOffset - charCount;
+                                              break;
+                                            }
+                                            charCount += lineLength;
+                                          }
+                                          if (currentLine > 0) {
+                                            final prevLine = lines[currentLine - 1];
+                                            final targetColumn = currentColumn.clamp(0, prevLine.length);
+                                            int newOffset = 0;
+                                            for (int i = 0; i < currentLine - 1; i++) {
+                                              newOffset += lines[i].length + 1;
+                                            }
+                                            newOffset += targetColumn;
+                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: newOffset);
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(
+                                        height: 37,
+                                        width: 75,
+                                        child: IconButton(
+                                          highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                          style: ButtonStyle(
+                                            shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: (){},
+                                          icon: SvgPicture.asset(
+                                            "assets/icons/ai.svg",
+                                            height: 25,
+                                            width: 25,
+                                          )
+                                        )),
+                                    ],
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                    children: [
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.zoom_in,
+                                        (){
+                                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
+                                        }
+                                      ),
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.zoom_out,
+                                        (){
+                                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
+                                        }
+                                      ),
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.arrow_back,
+                                        (){
+                                          int currOffset = editorState.activeEditors[index].controller.selection.baseOffset;
+                                          if(currOffset > 0){
+                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: --currOffset);
+                                          }
+                                        }
+                                      ),
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.arrow_downward,
+                                        () {
+                                          final fileContent = editorState.activeEditors[index].filePath.readAsStringSync();
+                                          final lines = fileContent.split('\n');
+                                          final currentOffset = editorState.activeEditors[index].controller.selection.baseOffset;
+                                          int currentLine = 0;
+                                          int currentColumn = 0;
+                                          int charCount = 0;
+                                          for (int i = 0; i < lines.length; i++) {
+                                            if (currentOffset <= charCount + lines[i].length) {
+                                              currentLine = i;
+                                              currentColumn = currentOffset - charCount;
+                                              break;
+                                            }
+                                            charCount += lines[i].length + 1;
+                                          }
+                                          if (currentLine < lines.length - 1) {
+                                            final newLine = currentLine + 1;
+                                            final newColumn = currentColumn.clamp(0, lines[newLine].length);
+                                            final newOffset = charCount + lines[currentLine].length + 1 + newColumn;
+                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: newOffset);
+                                          }
+                                        },
+                                      ),
+                                      bottomTool(
+                                        appTheme.isDark,
+                                        Icons.arrow_forward,
+                                        (){
+                                          int currOffset = editorState.activeEditors[index].controller.selection.baseOffset;
+                                          if(currOffset < (widget.filePath!.readAsStringSync().length)) {
+                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: ++currOffset);
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  )
                                 ],
                               ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                children: [
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.zoom_in,
-                                    (){
-                                      double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                                      context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
-                                    }
-                                  ),
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.zoom_out,
-                                    (){
-                                      double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                                      context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
-                                    }
-                                  ),
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.arrow_back,
-                                    (){
-                                      int currOffset = codeController.selection.baseOffset;
-                                      if(currOffset > 0){
-                                        codeController.selection = TextSelection.collapsed(offset: --currOffset);
-                                      }
-                                    }
-                                  ),
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.arrow_downward,
-                                    () {
-                                      final fileContent = editorState.filePath.readAsStringSync();
-                                      final lines = fileContent.split('\n');
-                                      final currentOffset = codeController.selection.baseOffset;
-                                      int currentLine = 0;
-                                      int currentColumn = 0;
-                                      int charCount = 0;
-                                      for (int i = 0; i < lines.length; i++) {
-                                        if (currentOffset <= charCount + lines[i].length) {
-                                          currentLine = i;
-                                          currentColumn = currentOffset - charCount;
-                                          break;
-                                        }
-                                        charCount += lines[i].length + 1;
-                                      }
-                                      if (currentLine < lines.length - 1) {
-                                        final newLine = currentLine + 1;
-                                        final newColumn = currentColumn.clamp(0, lines[newLine].length);
-                                        final newOffset = charCount + lines[currentLine].length + 1 + newColumn;
-                                        codeController.selection = TextSelection.collapsed(offset: newOffset);
-                                      }
-                                    },
-                                  ),
-                                  bottomTool(
-                                    appTheme.isDark,
-                                    Icons.arrow_forward,
-                                    (){
-                                      int currOffset = codeController.selection.baseOffset;
-                                      if(currOffset < (widget.filePath!.readAsStringSync().length)) {
-                                        codeController.selection = TextSelection.collapsed(offset: ++currOffset);
-                                      }
-                                    },
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
-                        )
-                      ],
+                            )
+                          ],
+                        );
+                      })
                     )
                   );
                 },
