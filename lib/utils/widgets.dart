@@ -73,9 +73,10 @@ dynamic settingsTile(
     String title,
     dynamic icon,
     bool isDark,
-    {String? subTitle, Widget? trailing}
+    {String? subTitle, Widget? trailing, bool isEnabled = true}
   ) {
   return ListTile(
+    enabled: isEnabled,
     minVerticalPadding: 13,
     dense: true,
     onTap: onPressed,

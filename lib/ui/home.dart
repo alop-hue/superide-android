@@ -50,8 +50,8 @@ class _SelectTypeState extends State<SelectType> {
                     SvgPicture.asset('assets/icons/Termux.svg',height: 28, width: 28)),
                 drawerTile(() {
                   Navigator.of(context).push(PageRouteBuilder(
-                    pageBuilder: (context,animation,_) => const Settings(),
-                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                    pageBuilder: (context, animation, secondaryAnimation) => const Settings(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) => SizeTransition(sizeFactor: animation, child: child)
                   ));
                 }, "Settings",
                     const Icon(Icons.settings, color: Colors.blueGrey, size: 31.5)),

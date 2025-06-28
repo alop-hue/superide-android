@@ -181,18 +181,6 @@ Future<HttpServer?> startServer() async {
   }
 }
 
-/* Future<String> getSavedTheme() async {
-  final prefs = await SharedPreferences.getInstance();
-  final savedThemeName = prefs.getString('selectedTheme');
-  return savedThemeName ?? 'atom-one-dark';
-}
-
-Future<String> getSavedFont() async {
-  final prefs = await SharedPreferences.getInstance();
-  final savedThemeName = prefs.getString('selectedFont');
-  return savedThemeName ?? 'monospace';
-} */
-
 Future<String> getRecent() async{
   final prefs = await SharedPreferences.getInstance();
   final recent = prefs.getString('recent');
@@ -208,7 +196,8 @@ Future<String> getAppTheme() async{
 Future<String> getCodeCrafterConfig() async{
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('codeCrafterConfig');
-  return config ?? '{"indentLineStatus":true,"lineWrap":false,"enableFolding":true,"theme":"vs2015","fontFamily":"monospace"}';
+  return config ?? 
+    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace"}';
 }
 
 extension StringExtension on String {
@@ -334,7 +323,7 @@ class ActiveEditors{
 }
 
 class CodeCrafterDemoKey {
-  final bool indentLineStatus, lineWrap, enableFolding;
+  final bool indentLineStatus, lineWrap, enableFolding, isDark;
   final String theme, fontFamily;
 
   CodeCrafterDemoKey({
@@ -342,7 +331,8 @@ class CodeCrafterDemoKey {
     required this.lineWrap,
     required this.enableFolding,
     required this.theme,
-    required this.fontFamily
+    required this.fontFamily,
+    required this.isDark
   });
 
   @override
@@ -354,10 +344,7 @@ class CodeCrafterDemoKey {
       lineWrap == other.lineWrap &&
       enableFolding == other.enableFolding &&
       theme == other.theme &&
-      fontFamily == other.fontFamily;
+      fontFamily == other.fontFamily &&
+      isDark == other.isDark;
     }
-
-  @override
-  int get hashCode =>
-      indentLineStatus.hashCode ^ lineWrap.hashCode ^ enableFolding.hashCode;
 }
