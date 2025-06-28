@@ -12,21 +12,24 @@ void main() async {
   final recent = await getRecent();
   final appTheme = await getAppTheme();
   final codeCrafterConfig = await getCodeCrafterConfig();
+  final aiConfig = await getAiConfig();
   runApp(MainApp(
     recent: recent,
     appTheme: appTheme,
     codeCrafterConfig: codeCrafterConfig,
+    aiConfig: aiConfig,
   ));
 }
 
 class MainApp extends StatelessWidget {
-  final String recent, appTheme;
-  final String codeCrafterConfig;
+  final String recent, appTheme, codeCrafterConfig;
+  final String aiConfig;
   const MainApp({
       super.key,
       required this.recent,
       required this.appTheme,
-      required this.codeCrafterConfig
+      required this.codeCrafterConfig,
+      required this.aiConfig
     });
 
   @override
@@ -40,6 +43,9 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
+        BlocProvider(create: (_) => AIBloc(
+          jsonDecode(aiConfig),
+        )),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {

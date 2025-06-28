@@ -92,3 +92,9 @@ class ActiveEditorsState{
 
   ActiveEditorsState(this.activeEditors);
 }
+
+class AIState {
+  final Map<String, dynamic> config;
+
+  AIState(this.config);
+}

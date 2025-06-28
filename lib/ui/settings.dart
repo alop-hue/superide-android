@@ -19,8 +19,26 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
+  final TextEditingController apiController = TextEditingController();
+  final TextEditingController modelNameController = TextEditingController();
+  final TextEditingController modelIdController = TextEditingController();
   final ScrollController scrollController = ScrollController();
   final _formKey = GlobalKey<FormState>();
+  final String demoCode =
+'''
+#include <stdio.h>
+
+int main() {
+    int n = 10, t1 = 0, t2 = 1, nextTerm;
+    printf("Fibonacci Series: ");
+    for (int i = 1; i <= n; ++i) {
+        printf("%d ", t1);
+        nextTerm = t1 + t2;
+        t1 = t2;
+        t2 = nextTerm;
+    }
+    return 0;
+}''';
   final List<String> models = [
     "Gemini",
     "Claude",
@@ -321,243 +339,383 @@ class _SettingsState extends State<Settings> {
                               indentLineStatus: isIndentEnabled,
                               lineWrap: lineWrap,
                               enableFolding: enableFolding,
-                              isDark: appThemeState.appTheme.isDark
+                              isDark: appThemeState.appTheme.isDark,
+                              
                             )),
                             enableRulerLines: isIndentEnabled,
                             controller: CodeCrafterController()
                               ..language = languages[4].language,
                             editorTheme: highlightThemes[theme],
                             textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
-                            initialText: 
-'''
-#include <stdio.h>
-
-int main() {
-    int n = 10, t1 = 0, t2 = 1, nextTerm;
-    printf("Fibonacci Series: ");
-    for (int i = 1; i <= n; ++i) {
-        printf("%d ", t1);
-        nextTerm = t1 + t2;
-        t1 = t2;
-        t2 = nextTerm;
-    }
-    return 0;
-}''',
+                            initialText: demoCode,
                             readOnly: true,
                           ),
                         ),
                       ),
                       settingsDivider,
-                      settingsType("AI Configurations"),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-                          child: TextButton(
-                            onPressed: (){
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                  title: Text(
-                                    'Create a completion model',
-                                    style: TextStyle(
-                                      color: appThemeState.appTheme.selectScreenCardTextColor,
-                                      fontSize: 20
-                                    ),
-                                  ),
-                                  content: SizedBox(
-                                    height: 300,
-                                    child: Form(
-                                      key: _formKey,
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          DropdownButtonFormField(
-                                            dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                            hint: Text(
-                                              "Select a Provider",
-                                              style: TextStyle(
-                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                              ),
+                      settingsType("AI Configuration"),
+                      BlocBuilder<AIBloc, AIState>(
+                        builder: (context, aiState) {
+                          return Column(
+                            children: [    
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                                  child: TextButton(
+                                    onPressed: (){
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                          title: Text(
+                                            'Create a completion model',
+                                            style: TextStyle(
+                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                              fontSize: 20
                                             ),
-                                            decoration: InputDecoration(
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20)
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                                borderSide: BorderSide(
-                                                  color: Colors.lightBlue
-                                                )
-                                              ),
-                                            ),
-                                            items: List.generate(
-                                              models.length, 
-                                              (index) => DropdownMenuItem(
-                                                value: models[index],
-                                                child: Text(
-                                                  models[index],
-                                                  style: TextStyle(
-                                                    color: appThemeState.appTheme.selectScreenCardTextColor
+                                          ),
+                                          content: SizedBox(
+                                            height: 420,
+                                            child: Form(
+                                              key: _formKey,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                children: [
+                                                  DropdownButtonFormField(
+                                                    dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                    hint: Text(
+                                                      "Select a Provider",
+                                                      style: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                      ),
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      border: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20)
+                                                      ),
+                                                      focusedBorder: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        borderSide: BorderSide(
+                                                          color: Colors.lightBlue
+                                                        )
+                                                      ),
+                                                    ),
+                                                    items: List.generate(
+                                                      models.length, 
+                                                      (index) => DropdownMenuItem(
+                                                        value: models[index],
+                                                        child: Text(
+                                                          models[index],
+                                                          style: TextStyle(
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor
+                                                          ),
+                                                        )
+                                                      )
+                                                    ),
+                                                    onChanged: (val){
+                                                  
+                                                    },
+                                                    validator: (value) => value == null ? "Select a valid provider" : null,
                                                   ),
-                                                )
-                                              )
+                                                  TextFormField(
+                                                    style: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor
+                                                    ),
+                                                    controller: modelNameController,
+                                                    cursorColor: Colors.lightBlue,
+                                                    decoration: InputDecoration(
+                                                      hintText: "model name as per the provider's api",
+                                                      hintStyle: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 12
+                                                      ),
+                                                      border: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20)
+                                                      ),
+                                                      focusedBorder: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        borderSide: BorderSide(
+                                                          color: Colors.lightBlue
+                                                        )
+                                                      ),
+                                                      labelText: "model name",
+                                                      labelStyle: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                        fontSize: 15
+                                                      ),
+                                                    ),
+                                                    validator: (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
+                                                  ),
+                                                  TextFormField(
+                                                    style: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor
+                                                    ),
+                                                    controller: apiController,
+                                                    cursorColor: Colors.lightBlue,
+                                                    decoration: InputDecoration(
+                                                      border: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20)
+                                                      ),
+                                                      focusedBorder: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        borderSide: BorderSide(
+                                                          color: Colors.lightBlue
+                                                        )
+                                                      ),
+                                                      labelText: "API Key",
+                                                      hintText: "API key for the corresponding provider",
+                                                      hintStyle: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 12
+                                                      ),
+                                                      labelStyle: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                        fontSize: 15
+                                                      ),
+                                                    ),
+                                                    validator: (value) => value == null || value.isEmpty ? "Enter a valid API key" : null,
+                                                  ),
+                                                  const Text("OR", style: TextStyle(fontSize: 20, color: Colors.grey)),
+                                                  ElevatedButton(
+                                                    onPressed:(){},
+                                                    style: ButtonStyle(
+                                                      backgroundColor: WidgetStateProperty.all<Color>(Colors.lightBlue)
+                                                    ),
+                                                    child: Text(
+                                                      "Create custom model + ",
+                                                      style: TextStyle(color: Colors.white)
+                                                    )
+                                                  ),
+                                                  settingsDivider,
+                                                  TextField(
+                                                    controller: modelIdController,
+                                                    cursorColor: Colors.lightBlue,
+                                                    decoration: InputDecoration(
+                                                      hintText: "A unique model ID, leave it empty to generate one",
+                                                      hintStyle: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 12
+                                                      ),
+                                                      border: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20)
+                                                      ),
+                                                      focusedBorder: OutlineInputBorder(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        borderSide: BorderSide(
+                                                          color: Colors.lightBlue
+                                                        )
+                                                      ),
+                                                      labelText: "Model ID (Optional)",
+                                                      labelStyle: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                        fontSize: 15
+                                                      ),
+                                                    ),
+                                                  )
+                                                ],
+                                              ),
                                             ),
-                                            onChanged: (val){
-                                          
-                                            }
                                           ),
-                                          TextFormField(
-                                            cursorColor: Colors.lightBlue,
-                                            decoration: InputDecoration(
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20)
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                                borderSide: BorderSide(
-                                                  color: Colors.lightBlue
-                                                )
-                                              ),
-                                              labelText: "model name",
-                                              labelStyle: TextStyle(
-                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                              ),
+                                          actions: [
+                                            ElevatedButton(
+                                              onPressed: ()=> Navigator.of(context).pop(),
+                                              child: Text('Cancel')
                                             ),
-                                          ),
-                                          TextFormField(
-                                            cursorColor: Colors.lightBlue,
-                                            decoration: InputDecoration(
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20)
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                                borderSide: BorderSide(
-                                                  color: Colors.lightBlue
-                                                )
-                                              ),
-                                              labelText: "API Key",
-                                              hintMaxLines: 2,
-                                              hintText: "Go to the AI provider's website to get your API key",
-                                              hintStyle: TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 12
-                                              ),
-                                              labelStyle: TextStyle(
-                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                              ),
-                                            ),
-                                          ),
-                                          const Text("OR", style: TextStyle(fontSize: 20, color: Colors.grey)),
-                                          ElevatedButton(
-                                            onPressed:(){},
-                                            style: ButtonStyle(
-                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.lightBlue)
-                                            ),
-                                            child: Text(
-                                              "Create custom model + ",
-                                              style: TextStyle(color: Colors.white)
+                                            ElevatedButton(
+                                              onPressed:() async{
+                                                final currentState = aiState.config;
+                                                final prefs = await SharedPreferences.getInstance();
+                                                if(_formKey.currentState!.validate()){
+                                                  final modelName = modelNameController.text.trim();
+                                                  final apiKey = apiController.text.trim();
+                                                  final modelId = ((){
+                                                      final modelId = modelIdController.text.trim();
+                                                      if(modelId.isEmpty) {
+                                                        return "$modelName-${DateTime.now().millisecondsSinceEpoch}";
+                                                      }
+                                                      return modelId;
+                                                    })();
+                                                  final aiConfig = {
+                                                    modelId:{
+                                                      "modelName": modelName,
+                                                      "apiKey": apiKey,
+                                                    }
+                                                  };
+                                                  currentState.putIfAbsent(modelId, () => aiConfig[modelId]);
+                                                  prefs.setString('aiConfig', jsonEncode(currentState));
+                                                  if(context.mounted){
+                                                    context.read<AIBloc>().add(AIEvent(currentState));
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(content: Text("Successfully created model $modelName"))
+                                                    );
+                                                    Navigator.of(context).pop();
+                                                  }
+                                                }
+                                              },
+                                              child: Text('OK')
                                             )
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  actions: [
-                                    ElevatedButton(
-                                      onPressed: ()=> Navigator.of(context).pop(),
-                                      child: Text('Cancel')
-                                    ),
-                                    ElevatedButton(
-                                      onPressed:(){},
-                                      child: Text('OK')
-                                    )
-                                  ],
-                                )
-                              );
-                            },
-                            style: ButtonStyle(
-                              backgroundColor: WidgetStateProperty.all<Color>(Colors.lightBlue),
-                            ),
-                            child: Text(
-                              "Create an AI model +",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13
-                              ),
-                            )
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[200],
-                            ),
-                            width: 350,
-                            alignment: Alignment.center,
-                            child: Column(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: appThemeState.appTheme.isDark ? Colors.indigo : Colors.grey[200],
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      child: Text("AI Models", 
-                                        style: TextStyle(
-                                          color: appThemeState.appTheme.selectScreenCardTextColor,
-                                          fontSize: 13
+                                          ],
                                         )
-                                      ),
+                                      );
+                                    },
+                                    style: ButtonStyle(
+                                      backgroundColor: WidgetStateProperty.all<Color>(Colors.lightBlue),
                                     ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Text(
-                                    "No models created yet", 
-                                    style: TextStyle(
-                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                      fontSize: 16
+                                    child: Text(
+                                      "Create an AI model +",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13
+                                      ),
                                     )
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
+                              ),
+                              Align(
+                                alignment: Alignment.center,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[200],
+                                    ),
+                                    width: 350,
+                                    alignment: Alignment.center,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: appThemeState.appTheme.isDark ? Colors.indigo : Colors.grey[200],
+                                            borderRadius: BorderRadius.vertical(top: Radius.circular(10))
+                                          ),
+                                          alignment: Alignment.centerLeft,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 8),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(5),
+                                              child: Text(
+                                                "AI Models", 
+                                                style: TextStyle(
+                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                  fontSize: 13
+                                                )
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(10),
+                                          child: aiState.config.isEmpty ? Text(
+                                            //TODO: Add isEnabledAICompletion field
+                                            "No models created yet", 
+                                            style: TextStyle(
+                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                              fontSize: 16
+                                            )
+                                          ) : Column(
+                                            children: aiState.config.entries.map((e) {
+                                              return Card(
+                                              color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
+                                              child: ListTile(
+                                                dense: true,
+                                                leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
+                                                title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                subtitle: Text(e.value['modelName'], style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                trailing: IconButton(
+                                                  icon: Icon(Icons.delete,color: Colors.red),
+                                                  onPressed: () async{
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) => AlertDialog(
+                                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                        title: Text(
+                                                          'Delete model ${e.key}?',
+                                                          style: TextStyle(
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                            fontSize: 20
+                                                          ),
+                                                        ),
+                                                        content: Text(
+                                                          "Are you sure you want to delete this model? This action cannot be undone.",
+                                                          style: TextStyle(
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                            fontSize: 16
+                                                          )
+                                                        ),
+                                                        actions: [
+                                                          ElevatedButton(
+                                                            onPressed: ()=> Navigator.of(context).pop(),
+                                                            child: Text('Cancel')
+                                                          ),
+                                                          ElevatedButton(
+                                                            onPressed: () async{
+                                                              final currentState = aiState.config;
+                                                              currentState.remove(e.key);
+                                                              final prefs = await SharedPreferences.getInstance();
+                                                              prefs.setString('aiConfig', jsonEncode(currentState));
+                                                              if(context.mounted) {
+                                                                context.read<AIBloc>().add(AIEvent(currentState));
+                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                  SnackBar(content: Text("Successfully deleted model ${e.key}"))
+                                                                );
+                                                                Navigator.of(context).pop(true);
+                                                              }
+                                                            },
+                                                            style: ButtonStyle(
+                                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                            ),
+                                                            child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                          )
+                                                        ],
+                                                      )
+                                                    );
+                                                  }
+                                                ),
+                                              ),
+                                            );
+                                            }).toList()
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              settingsTile(
+                                null,
+                                "Enable AI completion",
+                                null,
+                                appThemeState.appTheme.isDark,
+                                isEnabled: aiState.config.isNotEmpty,
+                                trailing: SizedBox(
+                                  height: 30,
+                                  width: 55,
+                                  child: FlutterSwitch(
+                                    toggleColor: Color(0xff002b6e),
+                                    inactiveToggleColor: Colors.white,
+                                    activeColor: Color(0xffb0c6fe),
+                                    value: aiState.config.isNotEmpty, 
+                                    onToggle: (value) async{
+                                      if(aiState.config.isNotEmpty){
+                                        final prefs = await SharedPreferences.getInstance();
+                                        final currentState = aiState.config;
+                                        currentState['enabledAiCompletion'] = value;
+                                        prefs.setString('aiConfig', jsonEncode(currentState));
+                                        if(context.mounted){
+                                          context.read<AIBloc>().add(AIEvent(currentState));
+                                        }
+                                      }
+                                    }
+                                  ),
+                                ),
+                              ),
+                              settingsDivider
+                            ],
+                          );
+                        },
                       ),
-                      settingsTile(
-                        null,
-                        "Enable AI completion",
-                        null,
-                        appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            value: false, 
-                            onToggle: (value) {
-                              
-                            }
-                          ),
-                        ),
-                      ),
-                      settingsDivider
                     ],
                   ),
                 ),

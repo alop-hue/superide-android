@@ -88,3 +88,10 @@ class ActiveEditorsBloc extends Bloc<ActiveEditorsEvent, ActiveEditorsState>{
     on<ActiveEditorsEvent>((event, emit) => emit(ActiveEditorsState(event.activeEditors)));
   }
 }
+
+class AIBloc extends Bloc<AIEvent, AIState> {
+  final Map<String, dynamic> config;
+  AIBloc(this.config) : super(AIState(config)) {
+    on<AIEvent>((event, emit) => emit(AIState(event.config)));
+  }
+}

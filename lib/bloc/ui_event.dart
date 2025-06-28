@@ -88,3 +88,9 @@ class ActiveEditorsEvent extends UiEvent{
 
   ActiveEditorsEvent(this.activeEditors);
 }
+
+class AIEvent extends UiEvent{
+  final Map<String, dynamic> config;
+
+  AIEvent(this.config);
+}

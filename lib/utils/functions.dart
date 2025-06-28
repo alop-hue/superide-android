@@ -200,6 +200,12 @@ Future<String> getCodeCrafterConfig() async{
     '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace"}';
 }
 
+Future<String> getAiConfig() async{
+  final prefs = await SharedPreferences.getInstance();
+  final config = prefs.getString('aiConfig');
+  return config ?? '{}';
+}
+
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;
@@ -332,7 +338,7 @@ class CodeCrafterDemoKey {
     required this.enableFolding,
     required this.theme,
     required this.fontFamily,
-    required this.isDark
+    required this.isDark,
   });
 
   @override
@@ -346,5 +352,15 @@ class CodeCrafterDemoKey {
       theme == other.theme &&
       fontFamily == other.fontFamily &&
       isDark == other.isDark;
-    }
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    indentLineStatus,
+    lineWrap,
+    enableFolding,
+    theme,
+    fontFamily,
+    isDark,
+  );
 }
