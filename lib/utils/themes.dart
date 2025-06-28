@@ -313,7 +313,7 @@ class LightTheme extends AppTheme{
   @override
   ListTileThemeData get tileTheme => lightTileTheme;
   @override
-  Icon get appThemeIcon => const Icon(Icons.dark_mode, color: Color.fromARGB(255, 36, 36, 36),);
+  Icon get appThemeIcon => const Icon(Icons.dark_mode, color: Color.fromARGB(255, 36, 36, 36));
 }
 
 final Map<String, AppTheme> themeMap = {"dark": DarkTheme(), "light": LightTheme()};

@@ -13,12 +13,18 @@ class StackBloc extends Bloc<StackIndexChange, StackState> {
 }
 
 class ThemeBloc extends Bloc<UiEvent, ThemeState>{
-  final String initialTheme,fontFamily;
-  ThemeBloc({required this.initialTheme, required this.fontFamily})
-    :super(ThemeState(theme: initialTheme,fontFamily: fontFamily, fontSize: 15)){
-    on<SetTheme>((event, emit)=>emit(state.copyWith(theme: event.theme)));
-    on<SetFont>((event, emit)=>emit(state.copyWith(fontFamily: event.font)));
+  final Map<String, dynamic> codeCrafterConfig;
+  ThemeBloc({
+    required this.codeCrafterConfig
+  })
+    :super(
+      ThemeState(
+        fontSize: 15,
+        codeCrafterConfig: codeCrafterConfig
+      )
+    ){
     on<SetFontSize>((event, emit)=>emit(state.copyWith(fontSize: event.fontSize)));
+    on<ChangeConfigEvent>((event, emit) => emit(state.copyWith(codeCrafterConfig: event.codeCrafterConfig)));
   }
 }
 

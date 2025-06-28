@@ -7,22 +7,27 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/themes.dart';
 
-Widget drawerButtons(VoidCallback onPressed, dynamic icon,
-    {Color color = const Color(0xff6d6d6d),
-    Color bgColor = Colors.transparent}) {
+Widget drawerButtons(
+  VoidCallback onPressed, dynamic icon,
+  { 
+    Color color = const Color(0xff6d6d6d),
+    Color bgColor = Colors.transparent,
+    EdgeInsets? padding
+  }
+  ) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 15),
     child: Container(
       decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: const BorderRadius.all(Radius.circular(10))),
-      padding: EdgeInsets.symmetric(
-          horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType) ? 2.5 : icon.runtimeType == IconDataSolid ? 5 : 4,
-          vertical:![IconData, IconDataSolid].contains(icon.runtimeType) ? 8 : 5),
+        color: bgColor,
+        borderRadius: const BorderRadius.all(Radius.circular(10))),
+      padding: padding ?? EdgeInsets.symmetric(
+        horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType) ? 2.5 : icon.runtimeType == IconDataSolid ? 5 : 4,
+        vertical:![IconData, IconDataSolid].contains(icon.runtimeType) ? 8 : 5),
       child: IconButton(
-          onPressed: onPressed,
-          icon: ![IconData, IconDataSolid].contains(icon.runtimeType)
-            ? icon : Icon(icon,color: color,size: icon.runtimeType == IconDataSolid ? 35 : 38)),
+        onPressed: onPressed,
+        icon: ![IconData, IconDataSolid].contains(icon.runtimeType)
+          ? icon : Icon(icon,color: color,size: icon.runtimeType == IconDataSolid ? 35 : 38)),
     ),
   );
 }
@@ -46,19 +51,52 @@ Widget fileTiles(VoidCallback onPressed, String text, dynamic icon, bool isDark,
   );
 }
 
-Widget settingsTile(VoidCallback onPressed, String title, dynamic icon, bool isDark) {
+Widget settingsDivider = Divider(
+  thickness: 0.4,
+  indent: 18,
+  endIndent: 18,
+  color: Colors.grey,
+);
+
+Widget settingsType(String type) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
+  child: Text(
+      type, 
+      style: TextStyle(
+        color: Color(0xffacc3fc)
+      )
+    ),
+);
+
+dynamic settingsTile(
+    VoidCallback? onPressed,
+    String title,
+    dynamic icon,
+    bool isDark,
+    {String? subTitle, Widget? trailing}
+  ) {
   return ListTile(
+    minVerticalPadding: 13,
     dense: true,
     onTap: onPressed,
     leading: icon,
+    trailing: trailing,
     title: Text(
       title,
       style: TextStyle(
-        fontSize: 18.5,
+        fontSize: 17.5,
         fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
         color: isDark ? Colors.grey[400] : const Color.fromARGB(255, 93, 93, 93),
       ),
     ),
+    subtitle: subTitle != null ? Text(
+      subTitle,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
+        color: isDark ? Colors.grey[400] : const Color.fromARGB(255, 93, 93, 93),
+      ),
+    ) : null,
   );
 }
 
@@ -114,11 +152,13 @@ class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeCrafterController codeController;
   final String? initialText;
+  final FocusNode? focusNode;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.filePath,
-    this.initialText
+    this.initialText,
+    this.focusNode
     }
   );
 
@@ -151,10 +191,14 @@ class _CodeEditorState extends State<CodeEditor> {
             }
           },
           child: CodeCrafter(
+            enableRulerLines: state.codeCrafterConfig['indentLineStatus'],
+            selectionColor: Colors.blueAccent.withAlpha(80),
+            selectionHandleColor: Colors.blue,
             initialText: widget.initialText,
-            editorTheme: highlightThemes[state.theme],
-            textStyle: TextStyle(fontFamily: state.fontFamily, fontSize: state.fontSize),
+            editorTheme: highlightThemes[state.codeCrafterConfig['theme']],
+            textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
             controller: codeController,
+            focusNode: widget.focusNode,
           )
         );
       },

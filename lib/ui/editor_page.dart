@@ -33,8 +33,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   final trasnformationController = TransformationController();
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
-  // late final CodeCrafterController codeController;
   late final TabController apiTabController, paramTabController;
+  late final FocusNode codeFocus;
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
 
@@ -69,6 +69,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
     apiUrlController = TextEditingController();
+    codeFocus = FocusNode();
     trasnformationController.value = Matrix4.identity()..scale(1.45);
     apiTabController =  TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
@@ -144,7 +145,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             }
             final target = snapshot.data?[0];
             final codeController = CodeCrafterController();
-            codeController.text = editorSnapshot.data ?? "An unknown error occured";
             codeController.language = widget.languageDetails.language;
             return MultiBlocProvider(
               providers: [
@@ -165,8 +165,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
               child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
                 builder: (context, editorState) {
                   _updateTabController(editorState.activeEditors.length);
-
                   return Scaffold(
+                    onDrawerChanged: (isOpened) => codeFocus.unfocus(),
                     drawer: BlocBuilder<StackBloc, StackState>(
                       buildWhen: (previous, current) => current != previous,
                       builder: (context, state) { 
@@ -212,9 +212,19 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(StackIndexChange(stackValue: 4)),
+                                      SvgPicture.asset(
+                                        'assets/icons/ai.svg',
+                                        height: 34,
+                                        width: 34,
+                                      ),
+                                      bgColor: state.stackIndex == 4 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent,
+                                      padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 5)
+                                    ),
+                                    drawerButtons(
+                                      () => context.read<StackBloc>().add(StackIndexChange(stackValue: 5)),
                                       Icons.settings,
-                                      color: state.stackIndex == 4 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
-                                      bgColor: state.stackIndex == 4 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
+                                      color: state.stackIndex == 5 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
+                                      bgColor: state.stackIndex == 5 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                                     ),
                                   ],
                                 ),
@@ -863,6 +873,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         },
                                       ),
                                     ),
+                                    Center(
+                                      child: Text("AI is not configured"),
+                                    ),
                                     Padding(
                                       padding: const EdgeInsets.only(top: 45),
                                       child: Column(
@@ -885,7 +898,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                               value: uiBloc,
                                               child: BlocBuilder<ThemeBloc, ThemeState>(
                                                 builder: (context, themeState) {
-                                                  final String currentTheme = themeState.theme;
+                                                  final String currentTheme = themeState.codeCrafterConfig['theme'];
                                                   return AlertDialog(
                                                     contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                                     insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -913,12 +926,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                               color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
                                                                 child: ListTile(
                                                                   iconColor: Colors.grey,
-                                                                  leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
+                                                                  leading: e==currentTheme? const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
                                                                   onTap: () async{
                                                                     final prefs = await SharedPreferences.getInstance();
-                                                                    await prefs.setString('selectedTheme', e);
+                                                                    final currentState = themeState.codeCrafterConfig;
+                                                                    currentState['theme'] = e;
+                                                                    await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
                                                                     if (context.mounted) {
-                                                                      context.read<ThemeBloc>().add(SetTheme(theme: e));
+                                                                      context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                                                       Navigator.of(context).pop();
                                                                     }
                                                                   },
@@ -945,7 +960,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                           BlocProvider<ThemeBloc>.value(
                                             value: uiBloc,
                                             child: BlocBuilder<ThemeBloc,ThemeState>(builder: (context,state){
-                                              final String currentFont = state.fontFamily;
+                                              final String currentFont = state.codeCrafterConfig['fontFamily'];
                                               return AlertDialog(
                                               contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                                 insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -975,9 +990,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                       ListTile(
                                                         onTap: () async{
                                                           final prefs = await SharedPreferences.getInstance();
-                                                          await prefs.setString('selectedFont', e);
+                                                          final currentState = state.codeCrafterConfig;
+                                                          currentState['theme'] = e;
+                                                          await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
                                                           if (context.mounted) {
-                                                            context.read<ThemeBloc>().add(SetFont(font: e));
+                                                            context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                                             Navigator.of(context).pop();
                                                           }
                                                         },
@@ -1024,16 +1041,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               width: 2
                             ),
                             left: BorderSide(
-                              color: Colors.grey,
+                              color: appTheme.isDark? Colors.grey : Colors.blueGrey[600]!,
                               width: 0.2
                             ),
                             right: BorderSide(
-                              color: Colors.grey,
+                              color: appTheme.isDark? Colors.grey : Colors.blueGrey[600]!,
                               width: 0.2
                             ),
                           )
                         ),
                         labelColor: appTheme.selectScreenCardTextColor,
+                        unselectedLabelColor: appTheme.isDark ? null : Colors.grey[400],
                         dividerColor: Colors.transparent,
                         controller: tabController,
                         isScrollable: true,
@@ -1046,39 +1064,40 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                           context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
                         },
                         tabs: List.generate(editorState.activeEditors.length, (index){
-                          return Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Text(
-                                  path.basename(editorState.activeEditors[index].filePath.path),
-                                  softWrap: false,
-                                  maxLines: 1,
+                          return Tab(
+                            height: 32,
+                            child: Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    path.basename(editorState.activeEditors[index].filePath.path),
+                                    softWrap: false,
+                                    maxLines: 1,
+                                  ),
                                 ),
-                              ),
-                              IconButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () {
-                                  final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
-
-                                  if(currentState.length <= 1){
-                                    Navigator.of(context).pop();
-                                    return;
-                                  }
-                                  final wasActive = currentState[index].isActive;
-                                  currentState.removeAt(index);
-                                            
-                                  if (currentState.isNotEmpty && wasActive) {
-                                    int newActive = index > 0 ? index - 1 : 0;
-                                    for (int i = 0; i < currentState.length; i++) {
-                                      currentState[i].isActive = i == newActive;
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () {
+                                    final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                    if(currentState.length <= 1){
+                                      Navigator.of(context).pop();
+                                      return;
                                     }
-                                  }
-                                  context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
-                                }, 
-                                icon: Icon(Icons.close, size: 20)
-                              )
-                            ]
+                                    final wasActive = currentState[index].isActive;
+                                    currentState.removeAt(index);
+                                    if (currentState.isNotEmpty && wasActive) {
+                                      int newActive = index > 0 ? index - 1 : 0;
+                                      for (int i = 0; i < currentState.length; i++) {
+                                        currentState[i].isActive = i == newActive;
+                                      }
+                                    }
+                                    context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                  }, 
+                                  icon: Icon(Icons.close, size: 20)
+                                )
+                              ]
+                            ),
                           );
                         })
                         
@@ -1344,7 +1363,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   return CodeEditor(
                                     initialText: editorState.activeEditors[index].text,
                                     codeController: editorState.activeEditors[index].controller,
-                                    filePath: editorState.activeEditors[index].filePath
+                                    filePath: editorState.activeEditors[index].filePath,
+                                    focusNode: codeFocus,
                                   );
                                 },
                               )),

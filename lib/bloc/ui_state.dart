@@ -6,14 +6,19 @@ class StackState {
 }
 
 class ThemeState {
-  final String theme, fontFamily;
   final double fontSize;
-  const ThemeState({required this.theme,required this.fontFamily, required this.fontSize});
-  ThemeState copyWith({String? theme, String? fontFamily, double? fontSize}){
+  final Map<String, dynamic> codeCrafterConfig;
+  const ThemeState({
+    required this.fontSize,
+    required this.codeCrafterConfig
+  });
+  ThemeState copyWith({
+    double? fontSize,
+    Map<String, dynamic>? codeCrafterConfig
+  }){
     return ThemeState(
-      theme: theme ?? this.theme,
-      fontFamily: fontFamily ?? this.fontFamily,
-      fontSize: fontSize ?? this.fontSize
+      fontSize: fontSize ?? this.fontSize,
+      codeCrafterConfig: codeCrafterConfig ?? this.codeCrafterConfig
     );
   }
 }

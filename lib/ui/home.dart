@@ -49,7 +49,10 @@ class _SelectTypeState extends State<SelectType> {
                     "Setup Termux",
                     SvgPicture.asset('assets/icons/Termux.svg',height: 28, width: 28)),
                 drawerTile(() {
-                  Navigator.of(context).push(MaterialPageRoute(builder: (context) => const Settings()));
+                  Navigator.of(context).push(PageRouteBuilder(
+                    pageBuilder: (context,animation,_) => const Settings(),
+                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                  ));
                 }, "Settings",
                     const Icon(Icons.settings, color: Colors.blueGrey, size: 31.5)),
                 Padding(
@@ -176,7 +179,7 @@ class _SelectTypeState extends State<SelectType> {
                                         pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
                                         .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", ""))),
                                         transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                          return SizeTransition(sizeFactor: animation,child: child);
+                                          return SizeTransition(sizeFactor: animation, child: child);
                                         }
                                       )
                                     );

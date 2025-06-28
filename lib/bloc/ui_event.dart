@@ -8,19 +8,14 @@ class StackIndexChange extends UiEvent {
   StackIndexChange({required this.stackValue});
 }
 
-class SetTheme extends UiEvent {
-  final String theme;
-  SetTheme({required this.theme});
-}
-
-class SetFont extends UiEvent {
-  final String font;
-  SetFont({required this.font});
-}
-
 class SetFontSize extends UiEvent{
   final double fontSize;
   SetFontSize({required this.fontSize});
+}
+
+class ChangeConfigEvent extends UiEvent{
+  final Map<String, dynamic> codeCrafterConfig;
+  ChangeConfigEvent(this.codeCrafterConfig);
 }
 
 class Search extends UiEvent {

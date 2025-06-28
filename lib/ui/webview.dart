@@ -70,7 +70,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvokedWithResult: (_, __) async {
+      onPopInvokedWithResult: (val, _) async {
         await stopServer();
       },
       child: BlocBuilder<WebViewBloc, WebViewState>(

@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.5.4
+  sdk: ^3.8.1
 
 dependencies:
   android_intent_plus: ^5.3.0
@@ -16,12 +16,13 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_bloc: ^9.1.1
-  flutter_code_crafter: ^0.1.0
+  flutter_code_crafter: ^0.1.4
   flutter_highlight: ^0.7.0
   flutter_inappwebview: ^6.1.5
   flutter_json: ^0.0.4
   flutter_pty: ^0.4.1
   flutter_svg: ^2.2.0
+  flutter_switch: ^0.3.2
   font_awesome_flutter: ^10.8.0
   highlight: ^0.7.0
   http: ^1.2.2

@@ -9,32 +9,33 @@ import 'package:vsdroid/utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final savedTheme = await getSavedTheme();
-  final savedFont = await getSavedFont();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
+  final codeCrafterConfig = await getCodeCrafterConfig();
   runApp(MainApp(
-    savedTheme: savedTheme,
-    savedFont: savedFont,
     recent: recent,
     appTheme: appTheme,
+    codeCrafterConfig: codeCrafterConfig,
   ));
 }
 
 class MainApp extends StatelessWidget {
-  final String savedTheme, savedFont, recent, appTheme;
-  const MainApp(
-      {super.key,
-      required this.savedTheme,
-      required this.savedFont,
+  final String recent, appTheme;
+  final String codeCrafterConfig;
+  const MainApp({
+      super.key,
       required this.recent,
-      required this.appTheme});
+      required this.appTheme,
+      required this.codeCrafterConfig
+    });
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => ThemeBloc(initialTheme: savedTheme, fontFamily: savedFont)),
+        BlocProvider(create: (_) => ThemeBloc(
+          codeCrafterConfig: jsonDecode(codeCrafterConfig)
+        )),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),

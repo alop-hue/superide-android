@@ -181,7 +181,7 @@ Future<HttpServer?> startServer() async {
   }
 }
 
-Future<String> getSavedTheme() async {
+/* Future<String> getSavedTheme() async {
   final prefs = await SharedPreferences.getInstance();
   final savedThemeName = prefs.getString('selectedTheme');
   return savedThemeName ?? 'atom-one-dark';
@@ -191,7 +191,7 @@ Future<String> getSavedFont() async {
   final prefs = await SharedPreferences.getInstance();
   final savedThemeName = prefs.getString('selectedFont');
   return savedThemeName ?? 'monospace';
-}
+} */
 
 Future<String> getRecent() async{
   final prefs = await SharedPreferences.getInstance();
@@ -203,6 +203,12 @@ Future<String> getAppTheme() async{
   final prefs = await SharedPreferences.getInstance();
   final savedAppTheme = prefs.getString("savedAppTheme");
   return savedAppTheme ?? "dark";
+}
+
+Future<String> getCodeCrafterConfig() async{
+  final prefs = await SharedPreferences.getInstance();
+  final config = prefs.getString('codeCrafterConfig');
+  return config ?? '{"indentLineStatus":true,"lineWrap":false,"enableFolding":true,"theme":"vs2015","fontFamily":"monospace"}';
 }
 
 extension StringExtension on String {
@@ -325,4 +331,33 @@ class ActiveEditors{
     this.isActive = false,
     this.text
   });
+}
+
+class CodeCrafterDemoKey {
+  final bool indentLineStatus, lineWrap, enableFolding;
+  final String theme, fontFamily;
+
+  CodeCrafterDemoKey({
+    required this.indentLineStatus,
+    required this.lineWrap,
+    required this.enableFolding,
+    required this.theme,
+    required this.fontFamily
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) || 
+      other is CodeCrafterDemoKey &&
+      runtimeType == other.runtimeType &&
+      indentLineStatus == other.indentLineStatus &&
+      lineWrap == other.lineWrap &&
+      enableFolding == other.enableFolding &&
+      theme == other.theme &&
+      fontFamily == other.fontFamily;
+    }
+
+  @override
+  int get hashCode =>
+      indentLineStatus.hashCode ^ lineWrap.hashCode ^ enableFolding.hashCode;
 }
