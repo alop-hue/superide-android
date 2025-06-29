@@ -46,7 +46,7 @@ int main() {
     "Grok",
     "DeepSeek",
     "Gorq",
-    "TogetherAi",
+    "TogetherAI",
     "Sonar",
     "OpenRouter",
     "FireWorks",

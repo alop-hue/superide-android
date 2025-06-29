@@ -191,15 +191,23 @@ class _CodeEditorState extends State<CodeEditor> {
               context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
             }
           },
-          child: CodeCrafter(
-            enableRulerLines: state.codeCrafterConfig['indentLineStatus'],
-            selectionColor: Colors.blueAccent.withAlpha(80),
-            selectionHandleColor: Colors.blue,
-            initialText: widget.initialText,
-            editorTheme: highlightThemes[state.codeCrafterConfig['theme']],
-            textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
-            controller: codeController,
-            focusNode: widget.focusNode,
+          child: BlocBuilder<AIBloc, AIState>(
+            builder: (context, aiState) {
+              return CodeCrafter(
+                aiCompletion: aiState.completionModel != null ? AiCompletion(
+                  enableCompletion: aiState.isEnabled,
+                  model: aiState.completionModel!,
+                ): null,
+                enableRulerLines: state.codeCrafterConfig['indentLineStatus'],
+                selectionColor: Colors.blueAccent.withAlpha(80),
+                selectionHandleColor: Colors.blue,
+                initialText: widget.initialText,
+                editorTheme: highlightThemes[state.codeCrafterConfig['theme']],
+                textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
+                controller: codeController,
+                focusNode: widget.focusNode,
+              );
+            },
           )
         );
       },
