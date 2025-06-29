@@ -99,48 +99,48 @@ class AIState {
   final Models? completionModel, chatModel;
 
   AIState(this.config, this.isEnabled, this.modelSelected)
-  : completionModel = ((){
-    if(config.isEmpty || modelSelected.isEmpty) {
-      return null;
-    }
-    final String provider = config[modelSelected['code']]['provider'];
-    final String apiKey = config[modelSelected['code']]['apiKey'];
-    final String modelName = config[modelSelected['code']]['modelName'];
-    switch (provider) {
-      case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
-      case 'Claude': return Claude(apiKey: apiKey, model: modelName);
-      case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
-      case 'Grok': return Grok(apiKey: apiKey, model: modelName);
-      case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
-      case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
-      case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
-      case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
-      case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
-      case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
-    }
-    return Gemini(apiKey: "");
-  })(),
-  chatModel = ((){
-    if(config.isEmpty || modelSelected.isEmpty) {
-      return null;
-    }
-    final String provider = config[modelSelected['chat']]['provider'];
-    final String apiKey = config[modelSelected['chat']]['apiKey'];
-    final String modelName = config[modelSelected['chat']]['modelName'];
-    switch (provider) {
-      case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
-      case 'Claude': return Claude(apiKey: apiKey, model: modelName);
-      case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
-      case 'Grok': return Grok(apiKey: apiKey, model: modelName);
-      case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
-      case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
-      case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
-      case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
-      case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
-      case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
-    }
-    return Gemini(apiKey: "");
-  })();
+    : completionModel = (() {
+        if (config.isEmpty || modelSelected.isEmpty || modelSelected['code'] == null || config[modelSelected['code']] == null) {
+          return null;
+        }
+        final String provider = config[modelSelected['code']]['provider'];
+        final String apiKey = config[modelSelected['code']]['apiKey'];
+        final String modelName = config[modelSelected['code']]['modelName'];
+        switch (provider) {
+          case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
+          case 'Claude': return Claude(apiKey: apiKey, model: modelName);
+          case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
+          case 'Grok': return Grok(apiKey: apiKey, model: modelName);
+          case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
+          case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
+          case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
+          case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
+          case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
+          case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+        }
+        return Gemini(apiKey: "");
+      })(),
+      chatModel = (() {
+        if (config.isEmpty || modelSelected.isEmpty || modelSelected['chat'] == null || config[modelSelected['chat']] == null) {
+          return null;
+        }
+        final String provider = config[modelSelected['chat']]['provider'];
+        final String apiKey = config[modelSelected['chat']]['apiKey'];
+        final String modelName = config[modelSelected['chat']]['modelName'];
+        switch (provider) {
+          case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
+          case 'Claude': return Claude(apiKey: apiKey, model: modelName);
+          case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
+          case 'Grok': return Grok(apiKey: apiKey, model: modelName);
+          case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
+          case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
+          case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
+          case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
+          case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
+          case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+        }
+        return Gemini(apiKey: "");
+      })();
 
   AIState copyWith({
     Map<String, dynamic>? config,

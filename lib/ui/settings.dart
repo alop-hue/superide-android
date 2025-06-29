@@ -297,7 +297,7 @@ int main() {
                         "Code Folding",
                         Icon(
                           Icons.blur_linear,
-                          color: appThemeState.appTheme.selectScreenCardTextColor,
+                          color:  appThemeState.appTheme.selectScreenCardTextColor,
                           size: 19
                         ),
                         appThemeState.appTheme.isDark,
@@ -559,7 +559,6 @@ int main() {
                                               ),
                                               ElevatedButton(
                                                 onPressed:() async{
-                                                  final currentState = aiState.config;
                                                   final prefs = await SharedPreferences.getInstance();
                                                   if(_formKey.currentState!.validate()){
                                                     final modelName = modelNameController.text.trim();
@@ -578,10 +577,10 @@ int main() {
                                                         "apiKey": apiKey,
                                                       }
                                                     };
-                                                    currentState.putIfAbsent(modelId, () => aiConfig[modelId]);
-                                                    prefs.setString('aiConfig', jsonEncode(currentState));
+                                                    final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
+                                                    prefs.setString('aiConfig', jsonEncode(newConfig));
                                                     if(context.mounted){
-                                                      context.read<AIBloc>().add(AIConfigEvent(currentState));
+                                                      context.read<AIBloc>().add(AIConfigEvent(newConfig));
                                                       ScaffoldMessenger.of(context).showSnackBar(
                                                         SnackBar(content: Text("Successfully created model $modelName"))
                                                       );
@@ -609,7 +608,7 @@ int main() {
                                   ),
                                 ),
                               ),
-                              Align(
+                               Align(
                                 alignment: Alignment.center,
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 15),
@@ -760,11 +759,16 @@ int main() {
                                 ),
                               ),
                               settingsTile(
-                                (){
+                                () async{
                                   if(aiState.config.isEmpty){
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text("No AI models created yet. Please create a model first."))
-                                    );
+                                    final prefs = await SharedPreferences.getInstance();
+                                    if(context.mounted){
+                                      prefs.setString('modelSelected', jsonEncode({}));
+                                      context.read<AIBloc>().add(ModelSelectEvent({}));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                      );
+                                    }
                                   }
                                   else{
                                     showDialog(
@@ -825,11 +829,16 @@ int main() {
                                 subTitle: aiState.modelSelected['code'],
                               ),
                               settingsTile(
-                                (){
+                                () async{
                                   if(aiState.config.isEmpty){
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text("No AI models created yet. Please create a model first."))
-                                    );
+                                    final prefs = await SharedPreferences.getInstance();
+                                    if(context.mounted){
+                                      prefs.setString('modelSelected', jsonEncode({}));
+                                      context.read<AIBloc>().add(ModelSelectEvent({}));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                      );
+                                    }
                                   }
                                   else{
                                     showDialog(
@@ -860,9 +869,9 @@ int main() {
                                                 value: aiState.config.entries.elementAt(index).key,
                                                 groupValue: aiState.modelSelected['chat'] ?? "",
                                                 onChanged: (val) async{
+                                                  final prefs = await SharedPreferences.getInstance();
                                                   final currentState = aiState.modelSelected;
                                                   currentState['chat'] = val!;
-                                                  final prefs = await SharedPreferences.getInstance();
                                                   prefs.setString('modelSelected', jsonEncode(currentState));
                                                   if(context.mounted) {
                                                     context.read<AIBloc>().add(ModelSelectEvent(currentState));
