@@ -47,7 +47,7 @@ class WebViewBloc extends Bloc<UiEvent, WebViewState>{
   }
 }
 
-class ApiBloc extends Bloc<UiEvent, ApiState>{
+class ApiBloc extends Bloc<RestEvent, ApiState>{
   ApiBloc():super(const ApiState(method: "GET",data: null, url: null, params: {}, headers: {}, body: {})){
     on<ApiEvent>((event, emit)=>emit(state.copyWith(method: event.method)));
     on<GetParams>((event, emit)=>emit(state.copyWith(params: event.params)));
@@ -90,8 +90,11 @@ class ActiveEditorsBloc extends Bloc<ActiveEditorsEvent, ActiveEditorsState>{
 }
 
 class AIBloc extends Bloc<AIEvent, AIState> {
-  final Map<String, dynamic> config;
-  AIBloc(this.config) : super(AIState(config)) {
-    on<AIEvent>((event, emit) => emit(AIState(event.config)));
+  final Map<String, dynamic> config, modelSelected;
+  final bool isEnabled;
+  AIBloc(this.config, this.isEnabled, this.modelSelected) : super(AIState(config, isEnabled, modelSelected)) {
+    on<AIConfigEvent>((event, emit) => emit(state.copyWith(config: event.config)));
+    on<AIEnableEvent>((event, emit) => emit(state.copyWith(isEnabled: event.isEnabled)));
+    on<ModelSelectEvent>((event, emit) => emit(state.copyWith(modelSelected: event.modelSelected)));
   }
 }

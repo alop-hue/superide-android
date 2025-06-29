@@ -94,7 +94,20 @@ class ActiveEditorsState{
 }
 
 class AIState {
-  final Map<String, dynamic> config;
+  final Map<String, dynamic> config, modelSelected;
+  final bool isEnabled;
 
-  AIState(this.config);
+  AIState(this.config, this.isEnabled, this.modelSelected);
+
+  AIState copyWith({
+    Map<String, dynamic>? config,
+    Map<String, dynamic>? modelSelected,
+    bool? isEnabled,
+  }) {
+    return AIState(
+      config ?? this.config,
+      isEnabled ?? this.isEnabled,
+      modelSelected ?? this.modelSelected,
+    );
+  }
 }

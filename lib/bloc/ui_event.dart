@@ -2,6 +2,8 @@ part of 'ui_bloc.dart';
 
 @immutable
 sealed class UiEvent {}
+sealed class RestEvent extends UiEvent {}
+sealed class AIEvent extends UiEvent{}
 
 class StackIndexChange extends UiEvent {
   final int stackValue;
@@ -38,32 +40,33 @@ class EnableConsole extends UiEvent{
   EnableConsole({required this.isConsole});
 }
 
-class ApiEvent extends UiEvent{
+
+class ApiEvent extends RestEvent{
   final String method;
   ApiEvent({required this.method});
 }
 
-class GetParams extends UiEvent{
+class GetParams extends RestEvent{
   final Map<String,String> params;
   GetParams({required this.params});
 }
 
-class GetHeaders extends UiEvent{
+class GetHeaders extends RestEvent{
   final Map<String,String> headers;
   GetHeaders({required this.headers});
 }
 
-class GetBody extends UiEvent{
+class GetBody extends RestEvent{
   final Map<String,String> body;
   GetBody({required this.body});
 }
 
-class GetUrl extends UiEvent{
+class GetUrl extends RestEvent{
   final String url;
   GetUrl({required this.url});
 }
 
-class GotApiData extends UiEvent{
+class GotApiData extends RestEvent{
   final Map<String,dynamic> data;
   GotApiData({required this.data});
 }
@@ -89,8 +92,21 @@ class ActiveEditorsEvent extends UiEvent{
   ActiveEditorsEvent(this.activeEditors);
 }
 
-class AIEvent extends UiEvent{
+
+class AIConfigEvent extends AIEvent{
   final Map<String, dynamic> config;
 
-  AIEvent(this.config);
+  AIConfigEvent(this.config);
+}
+
+class AIEnableEvent extends AIEvent {
+  final bool isEnabled;
+
+  AIEnableEvent(this.isEnabled);
+}
+
+class ModelSelectEvent extends AIEvent {
+  final Map<String, dynamic> modelSelected;
+
+  ModelSelectEvent(this.modelSelected);
 }

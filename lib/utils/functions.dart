@@ -197,13 +197,19 @@ Future<String> getCodeCrafterConfig() async{
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('codeCrafterConfig');
   return config ?? 
-    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace"}';
+    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true}';
 }
 
 Future<String> getAiConfig() async{
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('aiConfig');
   return config ?? '{}';
+}
+
+Future<String> getModelSelected() async{
+  final prefs = await SharedPreferences.getInstance();
+  final model = prefs.getString('modelSelected');
+  return model ?? '{}';
 }
 
 extension StringExtension on String {

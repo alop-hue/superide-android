@@ -180,55 +180,55 @@ int main() {
                           showDialog(context: context, builder: (context) {
                             final String currentFont = themeState.codeCrafterConfig['fontFamily'];
                             return AlertDialog(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                               insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
                               titlePadding: const EdgeInsets.all(15),
                               backgroundColor: const Color.fromARGB(255, 61, 61, 61),
                               title: Card(
-                              color: const Color.fromARGB(255, 37, 37, 37),
-                              child: ListTile(
-                                leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
-                                title: const Text(" Select a font   "),
-                                subtitle: Text("   ${fonts.length} fonts available"),
-                                titleTextStyle: const TextStyle(fontSize: 25),
-                                subtitleTextStyle: const TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                            content:Scrollbar(
-                              thumbVisibility: true,
-                              child:Padding(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    children: fonts.map(
-                                      (e) => Card(
-                                        color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                        elevation: 0,
-                                        child:
-                                        ListTile(
-                                          onTap: () async{
-                                            final currentState = themeState.codeCrafterConfig;
-                                            currentState['fontFamily'] = e;
-                                            final prefs = await SharedPreferences.getInstance();
-                                            await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
-                                            if (context.mounted) {
-                                              context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                                              Navigator.of(context).pop();
-                                            }
-                                          },
-                                          iconColor: Colors.grey,
-                                          leading: e == currentFont ? 
-                                            const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
-                                            const Icon(Icons.radio_button_off_sharp),
-                                          title: Text(e.capitalize())
-                                        )
-                                      )
-                                    ).toList()
-                                  ),
+                                color: const Color.fromARGB(255, 37, 37, 37),
+                                child: ListTile(
+                                  leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
+                                  title: const Text(" Select a font   "),
+                                  subtitle: Text("   ${fonts.length} fonts available"),
+                                  titleTextStyle: const TextStyle(fontSize: 25),
+                                  subtitleTextStyle: const TextStyle(color: Colors.grey),
                                 ),
+                              ),
+                              content:Scrollbar(
+                                thumbVisibility: true,
+                                child:Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      children: fonts.map(
+                                        (e) => Card(
+                                          color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
+                                          elevation: 0,
+                                          child:
+                                          ListTile(
+                                            onTap: () async{
+                                              final currentState = themeState.codeCrafterConfig;
+                                              currentState['fontFamily'] = e;
+                                              final prefs = await SharedPreferences.getInstance();
+                                              await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                              if (context.mounted) {
+                                                context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                                Navigator.of(context).pop();
+                                              }
+                                            },
+                                            iconColor: Colors.grey,
+                                            leading: e == currentFont ? 
+                                              const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
+                                              const Icon(Icons.radio_button_off_sharp),
+                                            title: Text(e.capitalize())
+                                          )
+                                        )
+                                      ).toList()
+                                    ),
+                                  ),
+                                )
                               )
-                            )
-                          );  
+                            );  
                           });
                         },
                         "Font Style",
@@ -237,7 +237,7 @@ int main() {
                         subTitle: (fontFamily as String).capitalize(),
                       ),
                       settingsTile(
-                        (){},
+                        null,
                         "Indent Guilde line",
                         Icon(
                           Icons.format_line_spacing_sharp,
@@ -265,7 +265,7 @@ int main() {
                         subTitle: isIndentEnabled ? "Enabled" : "Disabled"
                       ),
                       settingsTile(
-                        (){},
+                        null,
                         "Line Wrap",
                         Icon(
                           Icons.wrap_text,
@@ -293,7 +293,7 @@ int main() {
                         subTitle: lineWrap ? "Enabled" : "Disabled"
                       ),
                       settingsTile(
-                        (){},
+                        null,
                         "Code Folding",
                         Icon(
                           Icons.blur_linear,
@@ -352,11 +352,15 @@ int main() {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 35),
                       settingsDivider,
+                      const SizedBox(height: 20),
                       settingsType("AI Configuration"),
                       BlocBuilder<AIBloc, AIState>(
                         builder: (context, aiState) {
                           return Column(
+                            spacing: 10,
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [    
                               Align(
                                 alignment: Alignment.centerRight,
@@ -489,6 +493,9 @@ int main() {
                                                   ),
                                                   settingsDivider,
                                                   TextField(
+                                                    style: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor
+                                                    ),
                                                     controller: modelIdController,
                                                     cursorColor: Colors.lightBlue,
                                                     decoration: InputDecoration(
@@ -545,7 +552,7 @@ int main() {
                                                   currentState.putIfAbsent(modelId, () => aiConfig[modelId]);
                                                   prefs.setString('aiConfig', jsonEncode(currentState));
                                                   if(context.mounted){
-                                                    context.read<AIBloc>().add(AIEvent(currentState));
+                                                    context.read<AIBloc>().add(AIConfigEvent(currentState));
                                                     ScaffoldMessenger.of(context).showSnackBar(
                                                       SnackBar(content: Text("Successfully created model $modelName"))
                                                     );
@@ -608,7 +615,6 @@ int main() {
                                         Padding(
                                           padding: const EdgeInsets.all(10),
                                           child: aiState.config.isEmpty ? Text(
-                                            //TODO: Add isEnabledAICompletion field
                                             "No models created yet", 
                                             style: TextStyle(
                                               color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
@@ -656,7 +662,7 @@ int main() {
                                                               final prefs = await SharedPreferences.getInstance();
                                                               prefs.setString('aiConfig', jsonEncode(currentState));
                                                               if(context.mounted) {
-                                                                context.read<AIBloc>().add(AIEvent(currentState));
+                                                                context.read<AIBloc>().add(AIConfigEvent(currentState));
                                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                                   SnackBar(content: Text("Successfully deleted model ${e.key}"))
                                                                 );
@@ -686,7 +692,11 @@ int main() {
                               settingsTile(
                                 null,
                                 "Enable AI completion",
-                                null,
+                                Icon(
+                                  Icons.lightbulb,
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  size: 19
+                                ),
                                 appThemeState.appTheme.isDark,
                                 isEnabled: aiState.config.isNotEmpty,
                                 trailing: SizedBox(
@@ -696,20 +706,158 @@ int main() {
                                     toggleColor: Color(0xff002b6e),
                                     inactiveToggleColor: Colors.white,
                                     activeColor: Color(0xffb0c6fe),
-                                    value: aiState.config.isNotEmpty, 
+                                    value: aiState.config.isNotEmpty && aiState.isEnabled, 
                                     onToggle: (value) async{
                                       if(aiState.config.isNotEmpty){
                                         final prefs = await SharedPreferences.getInstance();
                                         final currentState = aiState.config;
-                                        currentState['enabledAiCompletion'] = value;
                                         prefs.setString('aiConfig', jsonEncode(currentState));
                                         if(context.mounted){
-                                          context.read<AIBloc>().add(AIEvent(currentState));
+                                          final currentValue = themeState.codeCrafterConfig;
+                                          currentValue['isAIEnabled'] = value;
+                                          prefs.setString('codeCrafterConfig', jsonEncode(currentValue));
+                                          context.read<AIBloc>().add(AIConfigEvent(currentState));
+                                          context.read<AIBloc>().add(AIEnableEvent(value));
                                         }
+                                      }
+                                      else{
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                        );
                                       }
                                     }
                                   ),
                                 ),
+                              ),
+                              settingsTile(
+                                (){
+                                  if(aiState.config.isEmpty){
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                    );
+                                  }
+                                  else{
+                                    showDialog(
+                                      context: context,
+                                      builder: (contex) => AlertDialog(
+                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                        title: Card(
+                                          color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[400],
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(9),
+                                            child: Text(
+                                              "Completion Model",
+                                              style: TextStyle(
+                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                fontSize: 20
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        content: SizedBox(
+                                          height: 300,
+                                          width: 250,
+                                          child: ListView(
+                                            children: List.generate(aiState.config.length, (index){
+                                              return RadioListTile(
+                                                activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
+                                                title: Text(aiState.config.entries.elementAt(index).key),
+                                                value: aiState.config.entries.elementAt(index).key,
+                                                groupValue: aiState.modelSelected['code'] ?? "",
+                                                onChanged: (val) async{
+                                                  final currentState = aiState.modelSelected;
+                                                  currentState['code'] = val!;
+                                                  final prefs = await SharedPreferences.getInstance();
+                                                  prefs.setString('modelSelected', jsonEncode(currentState));
+                                                  if(context.mounted) {
+                                                    context.read<AIBloc>().add(ModelSelectEvent(currentState));
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(content: Text("Successfully selected model $val"))
+                                                    );
+                                                    Navigator.of(context).pop(true);
+                                                  }
+                                                },
+                                              );
+                                            }),
+                                          ),
+                                        ),
+                                      )
+                                    );
+                                  }
+                                },
+                                "Select completion model",
+                                Icon(
+                                  Icons.chrome_reader_mode_outlined,
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  size: 19
+                                ),
+                                appThemeState.appTheme.isDark,
+                                subTitle: aiState.modelSelected['code'],
+                              ),
+                              settingsTile(
+                                (){
+                                  if(aiState.config.isEmpty){
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                    );
+                                  }
+                                  else{
+                                    showDialog(
+                                      context: context,
+                                      builder: (contex) => AlertDialog(
+                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                        title: Card(
+                                          color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[400],
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(9),
+                                            child: Text(
+                                              "Chat Model",
+                                              style: TextStyle(
+                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                fontSize: 20
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        content: SizedBox(
+                                          height: 300,
+                                          width: 250,
+                                          child: ListView(
+                                            children: List.generate(aiState.config.length, (index){
+                                              return RadioListTile(
+                                                activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
+                                                title: Text(aiState.config.entries.elementAt(index).key),
+                                                value: aiState.config.entries.elementAt(index).key,
+                                                groupValue: aiState.modelSelected['chat'] ?? "",
+                                                onChanged: (val) async{
+                                                  final currentState = aiState.modelSelected;
+                                                  currentState['chat'] = val!;
+                                                  final prefs = await SharedPreferences.getInstance();
+                                                  prefs.setString('modelSelected', jsonEncode(currentState));
+                                                  if(context.mounted) {
+                                                    context.read<AIBloc>().add(ModelSelectEvent(currentState));
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(content: Text("Successfully selected model $val"))
+                                                    );
+                                                    Navigator.of(context).pop(true);
+                                                  }
+                                                },
+                                              );
+                                            }),
+                                          ),
+                                        ),
+                                      )
+                                    );
+                                  }
+                                },
+                                "Select chat model",
+                                Icon(
+                                  Icons.chat,
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  size: 19
+                                ),
+                                appThemeState.appTheme.isDark,
+                                subTitle: aiState.modelSelected['chat']
                               ),
                               settingsDivider
                             ],

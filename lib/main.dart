@@ -13,23 +13,25 @@ void main() async {
   final appTheme = await getAppTheme();
   final codeCrafterConfig = await getCodeCrafterConfig();
   final aiConfig = await getAiConfig();
+  final modelSelected = await getModelSelected();
   runApp(MainApp(
     recent: recent,
     appTheme: appTheme,
     codeCrafterConfig: codeCrafterConfig,
     aiConfig: aiConfig,
+    modelSelected: modelSelected,
   ));
 }
 
 class MainApp extends StatelessWidget {
-  final String recent, appTheme, codeCrafterConfig;
-  final String aiConfig;
+  final String recent, appTheme, codeCrafterConfig, aiConfig, modelSelected;
   const MainApp({
       super.key,
       required this.recent,
       required this.appTheme,
       required this.codeCrafterConfig,
-      required this.aiConfig
+      required this.aiConfig,
+      required this.modelSelected
     });
 
   @override
@@ -45,6 +47,8 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => AIBloc(
           jsonDecode(aiConfig),
+          jsonDecode(codeCrafterConfig)['isAIEnabled'] as bool,
+          jsonDecode(modelSelected)
         )),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
