@@ -1380,9 +1380,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         height: 37,
                                         width: 75,
                                         child: IconButton(
-                                          highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                          highlightColor: Colors.lightBlue.withAlpha(160),
                                           style: ButtonStyle(
-                                            shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.all(Radius.circular(10))
+                                            ))
                                           ),
                                           padding: EdgeInsets.zero,
                                           onPressed: (){
@@ -1438,9 +1440,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         height: 37,
                                         width: 75,
                                         child: IconButton(
-                                          highlightColor: const Color.fromARGB(255, 1, 127, 224),
+                                          highlightColor: Colors.lightBlue.withAlpha(160),
                                           style: ButtonStyle(
-                                            shape: WidgetStateProperty.all(const BeveledRectangleBorder())
+                                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.all(Radius.circular(10))
+                                            ))
                                           ),
                                           padding: EdgeInsets.zero,
                                           onPressed: (){
