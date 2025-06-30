@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
+import 'package:vsdroid/ui/donation_page.dart';
 import 'package:vsdroid/ui/folder_page.dart';
 import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/ui/menu_screen.dart';
@@ -51,7 +52,7 @@ class _SelectTypeState extends State<SelectType> {
                 drawerTile(() {
                   Navigator.of(context).push(PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) => const Settings(),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) => SizeTransition(sizeFactor: animation, child: child)
+                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
                   ));
                 }, "Settings",
                     const Icon(Icons.settings, color: Colors.blueGrey, size: 31.5)),
@@ -75,12 +76,15 @@ class _SelectTypeState extends State<SelectType> {
                           height: 25.5, width: 25.5)),
                 ),
                 drawerTile(
-                  () {},
+                  () => Navigator.of(context).push(PageRouteBuilder(
+                    pageBuilder: (context, animation, secondAnimation) => const BuyMeCoffee(),
+                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                  )),
                   "Buy me a coffee",
                   SvgPicture.asset(
                     width: 29,
                     height: 29,
-                    'assets/icons/buy-me-a-coffee.svg',
+                    'assets/icons/bmc-logo.svg',
                     colorFilter: const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn)
                   )
                 ),
