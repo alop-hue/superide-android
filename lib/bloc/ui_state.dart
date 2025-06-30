@@ -95,10 +95,10 @@ class ActiveEditorsState{
 
 class AIState {
   final Map<String, dynamic> config, modelSelected;
-  final bool isEnabled;
+  final bool isEnabled, showSuggestionOntap;
   final Models? completionModel, chatModel;
 
-  AIState(this.config, this.isEnabled, this.modelSelected)
+  AIState(this.config, this.isEnabled, this.modelSelected, this.showSuggestionOntap)
     : completionModel = (() {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['code'] == null || config[modelSelected['code']] == null) {
           return null;
@@ -146,11 +146,13 @@ class AIState {
     Map<String, dynamic>? config,
     Map<String, dynamic>? modelSelected,
     bool? isEnabled,
+    bool? showSuggestionOntap,
   }) {
     return AIState(
       config ?? this.config,
       isEnabled ?? this.isEnabled,
       modelSelected ?? this.modelSelected,
+      showSuggestionOntap ?? this.showSuggestionOntap 
     );
   }
 }

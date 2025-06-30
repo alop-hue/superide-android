@@ -162,10 +162,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_code_crafter
-      sha256: dc35bf801a5bb5c260dc4799296658e0d426a5564c6ec41728f3564cfa34a69e
+      sha256: d528559a5198506bbffd82440905337d8d64294b38ed4a5f1933fa24eacbfaf1
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.5"
+    version: "0.1.6"
   flutter_highlight:
     dependency: "direct main"
     description:

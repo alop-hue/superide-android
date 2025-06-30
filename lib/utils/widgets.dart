@@ -195,6 +195,7 @@ class _CodeEditorState extends State<CodeEditor> {
             builder: (context, aiState) {
               return CodeCrafter(
                 aiCompletion: aiState.completionModel != null ? AiCompletion(
+                  completionType: aiState.showSuggestionOntap ? CompletionType.manual : CompletionType.mixed,
                   enableCompletion: aiState.isEnabled,
                   model: aiState.completionModel!,
                 ): null,

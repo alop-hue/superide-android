@@ -1443,7 +1443,20 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             shape: WidgetStateProperty.all(const BeveledRectangleBorder())
                                           ),
                                           padding: EdgeInsets.zero,
-                                          onPressed: (){},
+                                          onPressed: (){
+                                            final codeModel = context.read<AIBloc>().state.modelSelected['code'];
+                                            if(codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled){
+                                              editorState.activeEditors[index].controller.getManualAiSuggestion();
+                                            }
+                                            else{
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: const Text("No completion model found. Configure one in the settings"),
+                                                  duration: const Duration(seconds: 2),
+                                                )
+                                              );
+                                            }
+                                          },
                                           icon: SvgPicture.asset(
                                             "assets/icons/ai.svg",
                                             height: 25,

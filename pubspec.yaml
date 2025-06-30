@@ -16,7 +16,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_bloc: ^9.1.1
-  flutter_code_crafter: ^0.1.5
+  flutter_code_crafter: ^0.1.6
   flutter_highlight: ^0.7.0
   flutter_inappwebview: ^6.1.5
   flutter_json: ^0.0.4

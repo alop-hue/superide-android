@@ -195,12 +195,9 @@ Future<String> getAppTheme() async{
 
 Future<String> getCodeCrafterConfig() async{
   final prefs = await SharedPreferences.getInstance();
-  /* prefs.remove('codeCrafterConfig'); // Remove old config if exists
-  prefs.remove('aiConfig'); // Remove old AI config if exists
-  prefs.remove('modelSelected'); // Remove old model selection if exists */
   final config = prefs.getString('codeCrafterConfig');
   return config ?? 
-    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true}';
+    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true, "manualCompletion" : true}';
 }
 
 Future<String> getAiConfig() async{

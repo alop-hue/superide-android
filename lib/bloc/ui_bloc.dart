@@ -92,10 +92,16 @@ class ActiveEditorsBloc extends Bloc<ActiveEditorsEvent, ActiveEditorsState>{
 
 class AIBloc extends Bloc<AIEvent, AIState> {
   final Map<String, dynamic> config, modelSelected;
-  final bool isEnabled;
-  AIBloc(this.config, this.isEnabled, this.modelSelected) : super(AIState(config, isEnabled, modelSelected)) {
+  final bool isEnabled, showSuggestionOntap;
+  AIBloc(
+      this.config,
+      this.isEnabled,
+      this.modelSelected,
+      this.showSuggestionOntap
+    ) : super(AIState(config, isEnabled, modelSelected, showSuggestionOntap)) {
     on<AIConfigEvent>((event, emit) => emit(state.copyWith(config: event.config)));
     on<AIEnableEvent>((event, emit) => emit(state.copyWith(isEnabled: event.isEnabled)));
     on<ModelSelectEvent>((event, emit) => emit(state.copyWith(modelSelected: event.modelSelected)));
+    on<AIModeEvent>((event, emit) => emit(state.copyWith(showSuggestionOntap: event.showSuggestionOntap)));
   }
 }

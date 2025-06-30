@@ -110,3 +110,9 @@ class ModelSelectEvent extends AIEvent {
 
   ModelSelectEvent(this.modelSelected);
 }
+
+class AIModeEvent extends AIEvent {
+  final bool showSuggestionOntap;
+
+  AIModeEvent(this.showSuggestionOntap);
+}

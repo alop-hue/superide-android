@@ -382,7 +382,7 @@ int main() {
                                               ),
                                             ),
                                             content: SizedBox(
-                                              height: 450,
+                                              height: 350,
                                               width: 350,
                                               child: Form(
                                                 key: _formKey,
@@ -492,27 +492,6 @@ int main() {
                                                             ),
                                                           ),
                                                           validator: (value) => value == null || value.isEmpty ? "Enter a valid API key" : null,
-                                                        ),
-                                                      ),
-                                                      const Padding(
-                                                        padding: EdgeInsets.symmetric(vertical: 10),
-                                                        child: Center(
-                                                          child: Text("OR", style: TextStyle(fontSize: 20, color: Colors.grey))
-                                                        ),
-                                                      ),
-                                                      Center(
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                                          child: ElevatedButton(
-                                                            onPressed:(){},
-                                                            style: ButtonStyle(
-                                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.lightBlue)
-                                                            ),
-                                                            child: Text(
-                                                              "Create custom model + ",
-                                                              style: TextStyle(color: Colors.white)
-                                                            )
-                                                          ),
                                                         ),
                                                       ),
                                                       Padding(
@@ -739,13 +718,10 @@ int main() {
                                     onToggle: (value) async{
                                       if(aiState.config.isNotEmpty){
                                         final prefs = await SharedPreferences.getInstance();
-                                        final currentState = aiState.config;
-                                        prefs.setString('aiConfig', jsonEncode(currentState));
                                         if(context.mounted){
                                           final currentValue = themeState.codeCrafterConfig;
                                           currentValue['isAIEnabled'] = value;
                                           prefs.setString('codeCrafterConfig', jsonEncode(currentValue));
-                                          context.read<AIBloc>().add(AIConfigEvent(currentState));
                                           context.read<AIBloc>().add(AIEnableEvent(value));
                                         }
                                       }
@@ -757,6 +733,43 @@ int main() {
                                     }
                                   ),
                                 ),
+                              ),
+                              settingsTile(
+                                null,
+                                "Show on tapping the AI icon",
+                                Icon(
+                                  Icons.touch_app_rounded,
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                ),
+                                appThemeState.appTheme.isDark,
+                                trailing: SizedBox(
+                                  height: 30,
+                                  width: 55,
+                                  child: FlutterSwitch(
+                                    toggleColor: Color(0xff002b6e),
+                                    inactiveToggleColor: Colors.white,
+                                    activeColor: Color(0xffb0c6fe),
+                                    value: aiState.config.isNotEmpty && aiState.showSuggestionOntap && aiState.isEnabled,
+                                    onToggle: (val) async{
+                                      if(aiState.config.isNotEmpty){
+                                        final prefs = await SharedPreferences.getInstance();
+                                        if(context.mounted){
+                                          context.read<AIBloc>().add(AIModeEvent(val));
+                                          final currentState = themeState.codeCrafterConfig;
+                                          currentState['manualCompletion'] = val;
+                                          prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                        }
+                                      }
+                                      else{
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                        );
+                                      }
+                                    }
+                                  ),
+                                ),
+                                subTitle: aiState.showSuggestionOntap ? "Suggestion shows only on tapping the AI icon located in the bottom right corner.\nRcommended, limited api usage" 
+                                : "Suggestion on every 1.5 seconds if user stops typing.\nIncreases api usage",
                               ),
                               settingsTile(
                                 () async{

@@ -48,7 +48,8 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeCrafterConfig)['isAIEnabled'] as bool,
-          jsonDecode(modelSelected)
+          jsonDecode(modelSelected),
+          jsonDecode(codeCrafterConfig)['manualCompletion'] as bool
         )),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
