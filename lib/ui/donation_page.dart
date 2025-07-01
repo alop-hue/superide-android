@@ -18,7 +18,7 @@ class BuyMeCoffee extends StatelessWidget {
   }
 
   void _launchUPI(){
-    const upiUrl = 'upi://pay?pa=athulas2005@oksbi&pn=Athul%20A%20S&tn=Support%20VSdroid&cu=INR';
+    const upiUrl = 'upi://pay?pa=athulas2005@oksbi&pn=HECKMON&tn=Support%20VSdroid&cu=INR';
     final intent = AndroidIntent(
       action: 'action_view',
       data: upiUrl,
@@ -77,16 +77,12 @@ class BuyMeCoffee extends StatelessWidget {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-                      SizedBox(
-                        height: 40,
-                        width: 165,
-                        child: InkWell(
-                          onTap: () => _launchURL('https://www.buymeacoffee.com/bames_jond'),
-                          child: SvgPicture.asset(
-                            'assets/icons/bmc-button.svg',
-                            height: 60,
-                            fit: BoxFit.contain,
-                          ),
+                      InkWell(
+                        onTap: () => _launchURL('https://www.buymeacoffee.com/bames_jond'),
+                        child: SvgPicture.asset(
+                          'assets/icons/bmc-button.svg',
+                          height: 38,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       const SizedBox(height: 28),

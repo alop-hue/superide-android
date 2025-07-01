@@ -129,7 +129,7 @@ final fonts = [
                 cursor: Colors.grey,
                 selection: Color.fromARGB(134, 170, 191, 211),
                 foreground: Colors.white,
-                background: Color.fromARGB(255, 13, 44, 60),
+                background: Colors.black,
                 black: Color(0xff000000),
                 white: Color(0xffffffff),
                 red: Color(0xffff0000),

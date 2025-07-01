@@ -768,8 +768,8 @@ int main() {
                                     }
                                   ),
                                 ),
-                                subTitle: aiState.showSuggestionOntap ? "Suggestion shows only on tapping the AI icon located in the bottom right corner.\nRcommended, limited api usage" 
-                                : "Suggestion on every 1.5 seconds if user stops typing.\nIncreases api usage",
+                                subTitle: aiState.showSuggestionOntap ? "Suggestion shows only on tapping the AI icon located in the bottom right corner.\nRcommended, less api usage" 
+                                : "Suggestion on every 1.5 seconds if user stops typing.\nHigh api usage",
                               ),
                               settingsTile(
                                 () async{

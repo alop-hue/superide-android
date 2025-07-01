@@ -75,18 +75,21 @@ class _SelectTypeState extends State<SelectType> {
                       Image.asset('assets/icons/about-512.png',
                           height: 25.5, width: 25.5)),
                 ),
-                drawerTile(
-                  () => Navigator.of(context).push(PageRouteBuilder(
-                    pageBuilder: (context, animation, secondAnimation) => const BuyMeCoffee(),
-                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
-                  )),
-                  "Buy me a coffee",
-                  SvgPicture.asset(
-                    width: 29,
-                    height: 29,
-                    'assets/icons/bmc-logo.svg',
-                    colorFilter: const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn)
-                  )
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: drawerTile(
+                    () => Navigator.of(context).push(PageRouteBuilder(
+                      pageBuilder: (context, animation, secondAnimation) => const BuyMeCoffee(),
+                      transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                    )),
+                    "Buy me a coffee",
+                    SvgPicture.asset(
+                      width: 29,
+                      height: 29,
+                      'assets/icons/bmc-logo.svg',
+                      colorFilter: const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn)
+                    )
+                  ),
                 ),
               ],
             ),
