@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/languages.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 
 Future<bool> getPermission() async {
   final externalStatus = await Permission.manageExternalStorage.status;
@@ -66,8 +67,14 @@ Future<File> setTempFile(String extension) async {
     else{
       target = File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
     }
-    if (!target.existsSync()) {
+    if (!target.existsSync() || (target.existsSync() && target.readAsStringSync().isEmpty)) {
       await target.create(recursive: true);
+      await target.writeAsString(
+        languages.firstWhere(
+          (lang)=> lang.extension == path.extension(target.path).replaceFirst(".", ""),
+          orElse: () =>languages[0]
+        ).helloWorld
+      );
       return target;
     }
   }
@@ -323,14 +330,14 @@ class ActiveEditors{
   final CodeCrafterController controller;
   final Language languageDetails;
   bool isActive;
-  String? text;
+  // String? text;
 
   ActiveEditors({
     required this.filePath,
     required this.controller,
     required this.languageDetails,
     this.isActive = false,
-    this.text
+    // this.text
   });
 }
 

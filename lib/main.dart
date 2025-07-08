@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
@@ -41,6 +40,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => ThemeBloc(
           codeCrafterConfig: jsonDecode(codeCrafterConfig)
         )),
+        BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),
@@ -55,15 +55,16 @@ class MainApp extends StatelessWidget {
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {
           return MaterialApp(
-              theme: ThemeData(
-                progressIndicatorTheme: progressTheme,
-                popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
-                scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
-                appBarTheme: appThemeState.appTheme.appBarTheme,
-                listTileTheme: appThemeState.appTheme.tileTheme,
-                cardTheme: appThemeState.appTheme.cardTheme.data
-              ),
-              home: const StartScreen());
+            theme: ThemeData(
+              progressIndicatorTheme: progressTheme,
+              popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
+              scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
+              appBarTheme: appThemeState.appTheme.appBarTheme,
+              listTileTheme: appThemeState.appTheme.tileTheme,
+              cardTheme: appThemeState.appTheme.cardTheme.data
+            ),
+            home: const StartScreen()
+          );
         },
       ),
     );

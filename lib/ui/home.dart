@@ -11,6 +11,7 @@ import 'package:vsdroid/ui/folder_page.dart';
 import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/ui/menu_screen.dart';
 import 'package:vsdroid/ui/project_screen.dart';
+import 'package:vsdroid/ui/runtimes.dart';
 import 'package:vsdroid/ui/settings.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
@@ -38,11 +39,10 @@ class _SelectTypeState extends State<SelectType> {
   Widget build(BuildContext context) {
     return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, appThemestate) {
-        final appTheme = context.read<AppThemeBloc>().state.appTheme;
         return Scaffold(
           resizeToAvoidBottomInset: false,
           drawer: Drawer(
-            backgroundColor: appTheme.selectScreenDrawerBg,
+            backgroundColor: appThemestate.appTheme.selectScreenDrawerBg,
             child: ListView(
               children: [
                 drawerTile(
@@ -59,21 +59,25 @@ class _SelectTypeState extends State<SelectType> {
                 Padding(
                   padding: const EdgeInsets.only(left: 1.5),
                   child: drawerTile(
-                      () {},
-                      "Github",
-                      Icon(
-                        FontAwesomeIcons.github,
-                        color: appTheme.isDark?Colors.grey:const Color.fromARGB(255, 36, 36, 36),
-                        size: 26.5,
-                      )),
+                    () {},
+                    "Github",
+                    Icon(
+                      FontAwesomeIcons.github,
+                      color: appThemestate.appTheme.isDark?Colors.grey:const Color.fromARGB(255, 36, 36, 36),
+                      size: 26.5,
+                    )
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 2),
                   child: drawerTile(
-                      () {},
-                      "About",
-                      Image.asset('assets/icons/about-512.png',
-                          height: 25.5, width: 25.5)),
+                    () {},
+                    "About",
+                    Image.asset(
+                      'assets/icons/about-512.png',
+                      height: 25.5, width: 25.5
+                    )
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 4),
@@ -95,7 +99,28 @@ class _SelectTypeState extends State<SelectType> {
             ),
           ),
           appBar: AppBar(backgroundColor: Colors.transparent, actions: [
+            Transform.scale(
+              scale: 0.85,
+              child: IconButton(
+                tooltip: "Runtimes",
+                onPressed: (){
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context ,animation, secondaryAnimation) => RuntimeManager(),
+                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                        return SizeTransition(sizeFactor: animation, child: child);
+                      }
+                    )
+                  );
+                },
+                icon: Image.asset(
+                  "assets/icons/compiler.png",
+                  color: appThemestate.appTheme.appBarTheme.iconTheme!.color,
+                )
+              ),
+            ),
             IconButton(
+              tooltip: "App theme",
               onPressed: () async{
                 final prefs = await SharedPreferences.getInstance();
                 final String? current = prefs.getString("savedAppTheme");
@@ -108,11 +133,12 @@ class _SelectTypeState extends State<SelectType> {
                   prefs.setString("savedAppTheme", "dark");
                 }
               },
-              icon: appTheme.appThemeIcon
+              icon: appThemestate.appTheme.appThemeIcon
             ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
+                tooltip: "Github",
                 onPressed: () {},
                 icon: const Icon(FontAwesomeIcons.github)
               ),
@@ -126,9 +152,9 @@ class _SelectTypeState extends State<SelectType> {
                   padding: const EdgeInsets.only(left: 30, top: 18),
                   child: Text("Start",
                     style: TextStyle(
-                      color: appTheme.selectScreenCardTextColor,
+                      color: appThemestate.appTheme.selectScreenCardTextColor,
                       fontSize: 35,
-                      fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w400,
+                      fontWeight: appThemestate.appTheme.isDark? FontWeight.w300 : FontWeight.w400,
                       )
                     ),
                   ),
@@ -138,7 +164,7 @@ class _SelectTypeState extends State<SelectType> {
                     builder: (context) => AlertDialog(
                       icon: const Icon(FontAwesomeIcons.fileCirclePlus),
                       iconColor: Colors.grey,
-                      backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                      backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
                       title: const Text("Create a new file",style: TextStyle(color: Colors.grey)),
                       content: Form(
                         key: _createFileKey,
@@ -198,11 +224,11 @@ class _SelectTypeState extends State<SelectType> {
                         ));
                   }, "New File...",
                   const Icon(FontAwesomeIcons.fileCirclePlus),
-                  appTheme.isDark
+                  appThemestate.appTheme.isDark
                 ),
                 fileTiles(() async {
                   if (context.mounted) {
-                    final file = await pickFiles(context, appTheme.isDark);
+                    final file = await pickFiles(context, appThemestate.appTheme.isDark);
                     if (file != null) {
                       final language = languages.firstWhere(
                           (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
@@ -225,7 +251,7 @@ class _SelectTypeState extends State<SelectType> {
                         context: context,
                         builder: (context) => AlertDialog(
                           title:  Text("Failed to open file",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                          backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
                           icon: const Icon(Icons.error_outline,size: 35),
                           iconColor: Colors.red[600],
                           actionsAlignment: MainAxisAlignment.center,
@@ -243,7 +269,7 @@ class _SelectTypeState extends State<SelectType> {
                   }
                   }, "Open File...",
                   const Icon(FontAwesomeIcons.fileImport),
-                  appTheme.isDark
+                  appThemestate.appTheme.isDark
                 ),
                 fileTiles(() async {
                   final dirPath = await pickDir();
@@ -268,7 +294,7 @@ class _SelectTypeState extends State<SelectType> {
                         context: context,
                         builder: (context) => AlertDialog(
                           title:  Text("Failed to open folder",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                          backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
                           icon: const Icon(Icons.error_outline,size: 35),
                           iconColor: Colors.red[600],
                           actionsAlignment: MainAxisAlignment.center,
@@ -286,7 +312,8 @@ class _SelectTypeState extends State<SelectType> {
                   },
                   "Open Folder...",
                   const Icon(FontAwesomeIcons.folderOpen),
-                  appTheme.isDark),
+                  appThemestate.appTheme.isDark
+                ),
                 fileTiles(
                   () {},
                   val: 4,
@@ -297,7 +324,7 @@ class _SelectTypeState extends State<SelectType> {
                     width: 28,
                     colorFilter:const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
                   ),
-                  appTheme.isDark
+                  appThemestate.appTheme.isDark
                 ),
                 const SizedBox(height: 30),
                 Align(
@@ -321,15 +348,15 @@ class _SelectTypeState extends State<SelectType> {
                           height: 60,
                           width: 320,
                           child: Card(
-                            color: appTheme.selectScreenCardsBg,
+                            color: appThemestate.appTheme.selectScreenCardsBg,
                             child: Align(
                               alignment: Alignment.center,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(FontAwesomeIcons.folderTree,color: appTheme.selectScreenCardTextColor),
+                                  Icon(FontAwesomeIcons.folderTree,color: appThemestate.appTheme.selectScreenCardTextColor),
                                   const SizedBox(width: 12.5),
-                                  Text("New Project",style: TextStyle(fontSize: 16.5,color: appTheme.selectScreenCardTextColor)),
+                                  Text("New Project",style: TextStyle(fontSize: 16.5,color: appThemestate.appTheme.selectScreenCardTextColor)),
                                 ],
                               ),
                             ),
@@ -354,17 +381,17 @@ class _SelectTypeState extends State<SelectType> {
                           height: 60,
                           width: 320,
                           child: Card(
-                            color: appTheme.selectScreenCardsBg,
+                            color: appThemestate.appTheme.selectScreenCardsBg,
                             child: Align(
                               alignment: Alignment.center,
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(FontAwesomeIcons.fileCode,color: appTheme.selectScreenCardTextColor),
+                                  Icon(FontAwesomeIcons.fileCode,color: appThemestate.appTheme.selectScreenCardTextColor),
                                   const SizedBox(width: 5),
                                   Text(
                                     "Open Template",
-                                    style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 16.5),
+                                    style: TextStyle(color: appThemestate.appTheme.selectScreenCardTextColor,fontSize: 16.5),
                                   ),
                                 ],
                               ),
@@ -383,8 +410,8 @@ class _SelectTypeState extends State<SelectType> {
                     children: [
                        Text("Recent",
                         style: TextStyle(
-                          color: appTheme.selectScreenCardTextColor,
-                          fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w400,
+                          color: appThemestate.appTheme.selectScreenCardTextColor,
+                          fontWeight: appThemestate.appTheme.isDark? FontWeight.w300 : FontWeight.w400,
                           fontSize: 35)),
                       const SizedBox(height: 12),
                       BlocBuilder<RecentBloc, RecentState>(
@@ -393,8 +420,8 @@ class _SelectTypeState extends State<SelectType> {
                           return recentState.recent.isEmpty ? Text(
                             "You don't have any recent activity",
                             style: TextStyle(
-                              color: appTheme.selectScreenCardTextColor,
-                              fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                              color: appThemestate.appTheme.selectScreenCardTextColor,
+                              fontWeight: appThemestate.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
                               fontSize: 18
                             )
                           ):
@@ -408,7 +435,7 @@ class _SelectTypeState extends State<SelectType> {
                                 itemBuilder: (context,index) {
                                   return Card(
                                     child: ListTile(
-                                      textColor: appTheme.selectScreenCardTextColor,
+                                      textColor: appThemestate.appTheme.selectScreenCardTextColor,
                                       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
                                       onTap: (){
                                         Navigator.of(context).push(
@@ -449,7 +476,8 @@ class _SelectTypeState extends State<SelectType> {
                                       subtitle: Text(
                                         recentData[index][recentData[index].keys.toList()[0]],
                                         style: TextStyle(
-                                          color:appTheme.isDark ? Colors.grey : Colors.grey[600],fontSize: 12)), 
+                                          color: appThemestate.appTheme.isDark ? Colors.grey : Colors.grey[600],fontSize: 12
+                                        )), 
                                       leading: ((){
                                         final matchingLang = languages.where((lang)=>
                                         lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")).toList();

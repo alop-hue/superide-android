@@ -69,10 +69,18 @@ class MenuScreen extends StatelessWidget {
                             ),
                             subtitle: Text(e.details),
                             onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (context) =>EditorPage(languageDetails: e)),
-                              ),
-                                )))
-                            .toList();
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) =>
+                                  EditorPage(languageDetails: e, rootDir: '/storage/emulated/0/VSdroid/Temps'),
+                                transitionsBuilder:(context, animation, secondaryAnimation, child) {
+                                  return SizeTransition(
+                                    sizeFactor: animation,
+                                    child: child,
+                                  );
+                                }
+                              )
+                            ),
+                          ))).toList();
                         context.read<MenuSearchBloc>().add(Search(searchedLangs:data.isEmpty ? [] : searchedLangs));
                       },
                       style: const TextStyle(color: Colors.grey),
@@ -81,13 +89,11 @@ class MenuScreen extends StatelessWidget {
                           hintText: "Search language",
                           prefixIcon: Icon(Icons.search),
                           focusedBorder: OutlineInputBorder(
-                              borderSide:
-                                  BorderSide(color: Color(0xff0178b9)),
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(35))),
-                          border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(35))))),
+                            borderSide:BorderSide(color: Color(0xff0178b9)),
+                            borderRadius:BorderRadius.all(Radius.circular(35))),
+                          border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(35)))
+                      )
+                    ),
                 ),
               )
             ]),
@@ -96,15 +102,15 @@ class MenuScreen extends StatelessWidget {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     childCount: state.searchedLangs.isEmpty
-                        ? languages.length
-                        : state.searchedLangs.length,
+                      ? languages.length
+                      : state.searchedLangs.length,
                     (context, index) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 3),
+                          horizontal: 12, vertical: 3),
                         child: state.searchedLangs.isEmpty
-                            ? allLangs[index]
-                            : state.searchedLangs[index],
+                          ? allLangs[index]
+                          : state.searchedLangs[index],
                       );
                     },
                   ),

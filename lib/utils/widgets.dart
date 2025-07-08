@@ -154,13 +154,11 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
 class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeCrafterController codeController;
-  final String? initialText;
   final FocusNode? focusNode;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.filePath,
-    this.initialText,
     this.focusNode
     }
   );
@@ -196,6 +194,7 @@ class _CodeEditorState extends State<CodeEditor> {
           child: BlocBuilder<AIBloc, AIState>(
             builder: (context, aiState) {
               return CodeCrafter(
+                filePath: widget.filePath.path,
                 aiCompletion: aiState.completionModel != null ? AiCompletion(
                   completionType: aiState.showSuggestionOntap ? CompletionType.manual : CompletionType.mixed,
                   enableCompletion: aiState.isEnabled,
@@ -204,7 +203,6 @@ class _CodeEditorState extends State<CodeEditor> {
                 enableRulerLines: state.codeCrafterConfig['indentLineStatus'],
                 selectionColor: Colors.blueAccent.withAlpha(80),
                 selectionHandleColor: Colors.blue,
-                initialText: widget.initialText,
                 editorTheme: highlightThemes[state.codeCrafterConfig['theme']],
                 textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
                 controller: codeController,
@@ -406,13 +404,15 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           ),
         ),
         IconButton(
-            icon: widget.editingFieldStyle?.doneIcon ??
-                EditingFieldStyle().doneIcon,
-            onPressed: () => createEntry(parent)),
+          icon: widget.editingFieldStyle?.doneIcon ??
+              EditingFieldStyle().doneIcon,
+          onPressed: () => createEntry(parent)
+        ),
         IconButton(
-            icon: widget.editingFieldStyle?.cancelIcon ??
-                EditingFieldStyle().cancelIcon,
-            onPressed: stopCreating),
+          icon: widget.editingFieldStyle?.cancelIcon ??
+              EditingFieldStyle().cancelIcon,
+          onPressed: stopCreating
+        ),
       ],
     );
   }
@@ -455,6 +455,65 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       builder: (context, state) {
         return _buildDirectoryTree(rootDirectory);
       },
+    );
+  }
+}
+
+class DownloadButton extends StatefulWidget {
+  final double progress;
+  const DownloadButton({
+    super.key,
+    required this.progress
+  });
+
+  @override
+  State<DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<DownloadButton> {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 130,
+      width: 100,
+      child: Stack(
+        children: [
+          FractionallySizedBox(
+            widthFactor: widget.progress,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ButtonStyle(
+              backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+              shadowColor: WidgetStatePropertyAll(Colors.transparent),
+              side: WidgetStatePropertyAll(BorderSide(
+                color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
+                width: 1.5
+              ))
+            ),
+            onPressed: (){},
+            child: widget.progress == 0.0 ? Icon(
+              Icons.download,
+              size: 22,
+              color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor
+            ) : Text(
+              widget.progress < 1.0
+                ? "${(widget.progress * 100).toInt()}%"
+                : "Done",
+                style: TextStyle(
+                  color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          )
+        ],
+      ),
     );
   }
 }
