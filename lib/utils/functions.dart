@@ -8,9 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/utils/languages.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import '../utils/languages.dart';
 
 Future<bool> getPermission() async {
   final externalStatus = await Permission.manageExternalStorage.status;

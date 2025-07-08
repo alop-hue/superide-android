@@ -1,8 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/themes.dart';
+import '../utils/functions.dart';
+import '../utils/themes.dart';
 
 part 'ui_event.dart';
 part 'ui_state.dart';
@@ -104,4 +104,8 @@ class AIBloc extends Bloc<AIEvent, AIState> {
     on<ModelSelectEvent>((event, emit) => emit(state.copyWith(modelSelected: event.modelSelected)));
     on<AIModeEvent>((event, emit) => emit(state.copyWith(showSuggestionOntap: event.showSuggestionOntap)));
   }
+}
+
+class DownloadProgressBloc extends Bloc<DownloadProgressEvent, DownloadProgressState>{
+  DownloadProgressBloc():super(DownloadProgressState(null));
 }

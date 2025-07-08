@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/editor_page.dart';
-import 'package:vsdroid/utils/languages.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/utils/themes.dart';
-import 'package:vsdroid/utils/widgets.dart';
+import '../bloc/ui_bloc.dart';
+import '../ui/editor_page.dart';
+import '../utils/languages.dart';
+import '../utils/themes.dart';
+import '../utils/widgets.dart';
 
 class FolderPage extends StatelessWidget {
   final Directory dir;

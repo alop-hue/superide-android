@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/themes.dart';
+import '../bloc/ui_bloc.dart';
+import '../utils/themes.dart';
 
 Widget drawerButtons(
   VoidCallback onPressed, dynamic icon,
@@ -459,7 +459,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 }
 
-class DownloadButton extends StatefulWidget {
+/* class DownloadButton extends StatefulWidget {
   final double progress;
   const DownloadButton({
     super.key,
@@ -516,4 +516,4 @@ class _DownloadButtonState extends State<DownloadButton> {
       ),
     );
   }
-}
+} */

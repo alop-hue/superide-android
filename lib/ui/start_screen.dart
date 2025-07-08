@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:vsdroid/ui/home.dart';
-import 'package:vsdroid/utils/functions.dart';
+import '../ui/home.dart';
+import '../utils/functions.dart';
 
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});

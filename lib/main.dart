@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/start_screen.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/themes.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import '../bloc/ui_bloc.dart';
+import '../ui/start_screen.dart';
+import '../utils/functions.dart';
+import '../utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,10 @@ void main() async {
   final codeCrafterConfig = await getCodeCrafterConfig();
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
+  await FlutterDownloader.initialize(
+    //TODO: set it false on production
+    debug: true,
+  );
   runApp(MainApp(
     recent: recent,
     appTheme: appTheme,

@@ -166,6 +166,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.7"
+  flutter_downloader:
+    dependency: "direct main"
+    description:
+      name: flutter_downloader
+      sha256: "93a9ddbd561f8a3f5483b4189453fba145a0a1014a88143c96a966296b78a118"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.12.0"
   flutter_highlight:
     dependency: "direct main"
     description:
@@ -432,6 +440,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  percent_indicator:
+    dependency: "direct main"
+    description:
+      name: percent_indicator
+      sha256: "157d29133bbc6ecb11f923d36e7960a96a3f28837549a20b65e5135729f0f9fd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.5"
   permission_handler:
     dependency: "direct main"
     description:

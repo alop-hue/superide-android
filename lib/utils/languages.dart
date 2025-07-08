@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:highlight/highlight.dart';
@@ -74,15 +72,15 @@ class Language {
 }
 
 class RunTimes{
-  final String name, details;
+  final String name, details, url;
   final String? version;
   final dynamic icon;
-  final Directory path;
+
   RunTimes({
     required this.name,
     required this.details,
+    required this.url,
     required this.icon,
-    required this.path,
     this.version
   });
 }
@@ -625,15 +623,17 @@ List<Language> languages = [
 final pythonRunTime = RunTimes(
   name: "Python",
   details: "The python interpreter.",
+  version: "3.13.5",
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.tar.xz",
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
-  path: Directory("/data/data/com.vsdroid/files/python")
 );
 
 final nodeRunTime = RunTimes(
   name: "Node JS",
   details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
+  version: "18.20.4",
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.tar.xz",
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35,width: 35),
-  path: Directory("/data/data/com.vsdroid/files/node")
 );
 
 final List<RunTimes> runtimes = [

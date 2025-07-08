@@ -4,12 +4,12 @@ import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/languages.dart';
-import 'package:vsdroid/utils/themes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:vsdroid/utils/widgets.dart';
+import '../bloc/ui_bloc.dart';
+import '../utils/functions.dart';
+import '../utils/languages.dart';
+import '../utils/themes.dart';
+import '../utils/widgets.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});

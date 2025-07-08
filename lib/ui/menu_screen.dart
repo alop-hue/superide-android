@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/editor_page.dart';
-import 'package:vsdroid/utils/languages.dart';
 import 'package:file_icon/file_icon.dart';
+import '../bloc/ui_bloc.dart';
+import '../ui/editor_page.dart';
+import '../utils/languages.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});

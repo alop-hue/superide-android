@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/folder_page.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/widgets.dart';
+import '../bloc/ui_bloc.dart';
+import '../ui/folder_page.dart';
+import '../utils/functions.dart';
+import '../utils/widgets.dart';
 
 class ProjectScreen extends StatelessWidget {
   const ProjectScreen({super.key});

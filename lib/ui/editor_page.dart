@@ -9,14 +9,14 @@ import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
-import 'package:vsdroid/terminal/terminal.dart';
-import 'package:vsdroid/ui/webview.dart';
-import 'package:vsdroid/utils/languages.dart';
-import 'package:vsdroid/utils/functions.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/utils/themes.dart';
-import 'package:vsdroid/utils/widgets.dart';
+import '../bloc/ui_bloc.dart';
+import '../terminal/terminal.dart';
+import '../ui/webview.dart';
+import '../utils/languages.dart';
+import '../utils/functions.dart';
+import '../utils/themes.dart';
+import '../utils/widgets.dart';
 
 class EditorPage extends StatefulWidget {
   final Language languageDetails;
@@ -37,31 +37,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   late final FocusNode codeFocus;
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
-
-  /* Future<String> getData() async {
-    final file = widget.filePath ?? (widget.languageDetails.extension == 'html'
-                ?File("/sdcard/VSdroid/Temps/index.html"):widget.languageDetails.extension == 'css'
-                  ?File("/sdcard/VSdroid/Temps/style.css"):widget.languageDetails.extension == 'js'
-                    ?File("/sdcard/VSdroid/Temps/script.js")
-                      :File("/sdcard/VSdroid/Temps/tempCode.${widget.languageDetails.extension}"));
-    try {
-      if (file.existsSync()) {
-        String source = await file.readAsString();
-        if (source.isNotEmpty) {
-          return source;
-        } else {
-          if(widget.filePath == null) {
-            return widget.languageDetails.helloWorld;
-          }else{
-            return 'Your canvas is ready.\nWrite something amazing!';
-          }
-        }
-      }
-    } catch (e) {
-    //
-    }
-    return "Can't read file content";
-  } */
 
   @override 
   void initState(){

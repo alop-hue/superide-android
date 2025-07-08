@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/bloc/ui_bloc.dart';
+import '../bloc/ui_bloc.dart';
 
 class WebViewScreen extends StatefulWidget {
   final File htmlFile;

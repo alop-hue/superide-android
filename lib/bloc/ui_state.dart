@@ -156,3 +156,9 @@ class AIState {
     );
   }
 }
+
+class DownloadProgressState{
+  final Map<String, double>? downloadProgress;
+
+  DownloadProgressState(this.downloadProgress);
+}

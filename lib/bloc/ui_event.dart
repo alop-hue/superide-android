@@ -116,3 +116,9 @@ class AIModeEvent extends AIEvent {
 
   AIModeEvent(this.showSuggestionOntap);
 }
+
+class DownloadProgressEvent extends UiEvent{
+  final Map<String, double>? downloadProgress;
+
+  DownloadProgressEvent(this.downloadProgress);
+}
