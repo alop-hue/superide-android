@@ -107,5 +107,7 @@ class AIBloc extends Bloc<AIEvent, AIState> {
 }
 
 class DownloadProgressBloc extends Bloc<DownloadProgressEvent, DownloadProgressState>{
-  DownloadProgressBloc():super(DownloadProgressState(null));
+  DownloadProgressBloc():super(DownloadProgressState(null)){
+    on<DownloadProgressEvent>((event, emit) => emit(DownloadProgressState(event.downloadProgress)));
+  }
 }

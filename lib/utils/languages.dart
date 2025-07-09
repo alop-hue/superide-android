@@ -72,13 +72,17 @@ class Language {
 }
 
 class RunTimes{
-  final String name, details, url;
+  final String name, details, url, archiveName, parentName;
+  final double archiveSize;
   final String? version;
   final dynamic icon;
 
   RunTimes({
     required this.name,
     required this.details,
+    required this.archiveName,
+    required this.parentName,
+    required this.archiveSize,
     required this.url,
     required this.icon,
     this.version
@@ -625,6 +629,9 @@ final pythonRunTime = RunTimes(
   details: "The python interpreter.",
   version: "3.13.5",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.tar.xz",
+  archiveName: "python.tar.xz",
+  archiveSize: 33.7,
+  parentName: "python",
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
 );
 
@@ -633,6 +640,9 @@ final nodeRunTime = RunTimes(
   details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
   version: "18.20.4",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.tar.xz",
+  archiveName: "node.tar.xz",
+  archiveSize: 11.4,
+  parentName: "node",
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35,width: 35),
 );
 

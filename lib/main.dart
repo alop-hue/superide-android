@@ -50,6 +50,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
+        BlocProvider(create: (_) => DownloadProgressBloc()),
         BlocProvider(create: (_) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeCrafterConfig)['isAIEnabled'] as bool,
