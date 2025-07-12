@@ -7,6 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/terminal/terminal.dart';
 import '../ui/donation_page.dart';
 import '../ui/folder_page.dart';
 import '../ui/editor_page.dart';
@@ -100,7 +101,7 @@ class _SelectTypeState extends State<SelectType> {
           ),
           appBar: AppBar(backgroundColor: Colors.transparent, actions: [
             Transform.scale(
-              scale: 0.85,
+              scale: 0.8,
               child: IconButton(
                 tooltip: "Runtimes",
                 onPressed: (){
@@ -118,6 +119,25 @@ class _SelectTypeState extends State<SelectType> {
                   color: appThemestate.appTheme.appBarTheme.iconTheme!.color,
                 )
               ),
+            ),
+            IconButton(
+              onPressed: (){
+                final homeDir = Directory('/data/data/com.vsdroid/home');
+                if(!homeDir.existsSync()){
+                  homeDir.createSync(recursive: true);
+                }
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context ,animation, secondaryAnimation) => SetupTerminal(
+                      projectDir: homeDir.path,
+                    ),
+                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                        return SizeTransition(sizeFactor: animation, child: child);
+                      }
+                  )
+                );
+              },
+              icon: Icon(Icons.terminal, size: 34)
             ),
             IconButton(
               tooltip: "App theme",

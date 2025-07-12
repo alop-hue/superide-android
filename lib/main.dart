@@ -14,10 +14,7 @@ void main() async {
   final codeCrafterConfig = await getCodeCrafterConfig();
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
-  await FlutterDownloader.initialize(
-    //TODO: set it false on production
-    debug: true,
-  );
+  await FlutterDownloader.initialize();
   runApp(MainApp(
     recent: recent,
     appTheme: appTheme,

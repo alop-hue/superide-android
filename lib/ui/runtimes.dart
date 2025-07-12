@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
+import 'package:vsdroid/utils/functions.dart';
 import '../utils/languages.dart';
 
 @pragma('vm:entry-point')
@@ -23,9 +24,10 @@ class RuntimeManager extends StatefulWidget {
 
 class _RuntimeManagerState extends State<RuntimeManager> {
   final ReceivePort _port = ReceivePort();
+  final Map<String, String> archiveNameMap = {};
   final Map<int, String> taskIdMap = {};
   final Set<int> loadingIndexes = {};
-  final Set<String> loadingTaskIds = {}; // Track taskIds waiting for first progress
+  final Set<String> loadingTaskIds = {};
   late final AppThemeState appThemeState;
 
   @override
@@ -33,16 +35,29 @@ class _RuntimeManagerState extends State<RuntimeManager> {
     FlutterDownloader.registerCallback(downloadCallback);
     appThemeState = context.read<AppThemeBloc>().state;
     IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
-    _port.listen((data) {
+    const String dir = "/data/data/com.vsdroid/runtimes";
+    _port.listen((data) async{
       final id = data[0] as String;
       final progress = data[2] as int;
+      final status = DownloadTaskStatus.fromInt(data[1]);
+      if(status.name == 'complete'){
+        await Extractor.extractZip(
+          context,
+          "$dir/${archiveNameMap[id]}",
+          dir,
+          archiveName: archiveNameMap[id]
+        );
+        await File("$dir/${archiveNameMap[id]}").delete(recursive: true);
+      }
       setState(() {
-        loadingTaskIds.remove(id); // Remove spinner when first progress arrives
+        loadingTaskIds.remove(id);
       });
-      final bloc = context.read<DownloadProgressBloc>();
-      final current = Map<String, double>.from(bloc.state.downloadProgress ?? {});
-      current[id] = progress.toDouble();
-      bloc.add(DownloadProgressEvent(current));
+      if(mounted){
+        final bloc = context.read<DownloadProgressBloc>();
+        final current = Map<String, double>.from(bloc.state.downloadProgress ?? {});
+        current[id] = progress.toDouble();
+        bloc.add(DownloadProgressEvent(current));
+      }
     });
     super.initState();
   }
@@ -77,7 +92,22 @@ class _RuntimeManagerState extends State<RuntimeManager> {
                     padding: const EdgeInsets.only(bottom: 5),
                     child: Text("${runtime.name} - ${runtime.version}"),
                   ),
-                  subtitle: Text(runtime.details),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2.5),
+                        child: Text(
+                          "Size: ${runtime.archiveSize} MB",
+                          style: TextStyle(
+                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                      ),
+                      Text(runtime.details)
+                    ],
+                  ),
                   trailing: SizedBox(
                     height: 50,
                     width: 100,
@@ -119,10 +149,10 @@ class _RuntimeManagerState extends State<RuntimeManager> {
                                     ElevatedButton(
                                       onPressed: () {
                                         if(archiveFile.existsSync()){
-                                          archiveFile.deleteSync();
+                                          archiveFile.deleteSync(recursive: true);
                                         }
                                         if(parentDir.existsSync()){
-                                          parentDir.deleteSync();
+                                          parentDir.deleteSync(recursive: true);
                                         }
                                         setState(() {
                                           final taskId = taskIdMap[index];
@@ -179,7 +209,7 @@ class _RuntimeManagerState extends State<RuntimeManager> {
                             });
                             final dir = "/data/data/com.vsdroid/runtimes";
                             if(!(await Directory(dir).exists())){
-                              await Directory(dir).create();
+                              await Directory(dir).create(recursive: true);
                             }
                             final String? taskId = await FlutterDownloader.enqueue(
                               url: runtimes[index].url,
@@ -191,10 +221,10 @@ class _RuntimeManagerState extends State<RuntimeManager> {
                             if(taskId != null){
                               setState(() {
                                 taskIdMap[index] = taskId;
-                                loadingTaskIds.add(taskId); // Show spinner until progress event
+                                loadingTaskIds.add(taskId);
                               });
+                              archiveNameMap[taskId] = runtimes[index].archiveName;
                             }
-                            // Do not remove loadingIndexes here; let progress event do it
                           },
                           child: LinearPercentIndicator(
                             progressColor: Colors.blueAccent.withAlpha(180),

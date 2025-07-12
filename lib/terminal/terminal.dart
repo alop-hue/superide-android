@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
@@ -9,8 +8,12 @@ import 'package:flutter/material.dart';
 
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
-  final HttpServer? server;
-  const SetupTerminal({super.key, required this.projectDir, this.server});
+  final List<String> args;
+  const SetupTerminal({
+    super.key,
+    required this.projectDir,
+    this.args = const []
+  });
 
   @override
   State<SetupTerminal> createState() => _SetupTerminalState();
@@ -21,25 +24,83 @@ class _SetupTerminalState extends State<SetupTerminal> {
   final terminalController = TerminalController();
 
   Future<void> setupTerminal() async {
-    final appPath = await NativeChannel.loadLibrary("libbash.so");
+    const String runtimeDir = '/data/data/com.vsdroid/runtimes';
+    final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
     if (!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
+    final bashrcFile = File('${workDir.path}/.bashrc');
+    await bashrcFile.writeAsString(
+'''
+alias ll="ls -l"
+alias la="ls -a"
+python() {
+  if [ ! -d /data/data/com.vsdroid/runtimes/python ]; then
+    echo "Python is not installed. Go to the download page and install it first."
+  else
+    LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
+    PYTHONHOME=/data/data/com.vsdroid/runtimes/python \\
+    PATH=/data/data/com.vsdroid/runtimes/python/bin:\$PATH \\
+    $sharedPath/libpythonlauncher.so "\$@"
+  fi
+}
+
+python3() {
+  if [ ! -d /data/data/com.vsdroid/runtimes/python ]; then
+    echo "Python is not installed. Go to the download page and install it first."
+  else
+    LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
+    PYTHONHOME=/data/data/com.vsdroid/runtimes/python \\
+    PATH=/data/data/com.vsdroid/runtimes/python/bin:\$PATH \\
+    $sharedPath/libpythonlauncher.so "\$@"
+  fi
+}
+
+node() {
+  if [ ! -d /data/data/com.vsdroid/runtimes/node ]; then
+    echo "Node JS is not installed. Go to the download page and install it first."
+  else
+    LD_LIBRARY_PATH=$runtimeDir/node:\$LD_LIBRARY_PATH $sharedPath/libnodelauncher.so
+  fi
+}
+
+
+if [ ! -f /data/data/com.vsdroid/runtimes/python/bin/pip3 ]; then
+  echo "Installing pip..." \\
+  LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
+  PYTHONHOME=$runtimeDir/python \\
+  PATH=$runtimeDir/python/bin \\
+  $sharedPath/libpythonlauncher.so -m ensurepip
+fi
+
+alias pip='LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
+alias pip3='LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
+''');
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m~ \x1b[0m\$ ",
-      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin'
+      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin',
     };
-    _startPty(appPath, enVars);
+    _startPty(
+      "$sharedPath/libbash.so",
+      enVars,
+      args: [
+        "--rcfile",
+        "${workDir.path}/.bashrc",
+        ...widget.args
+      ]
+    );
   }
 
-  void _startPty(String execPath, Map<String, String> enVars) {
+  void _startPty(String execPath, Map<String, String> enVars, {List<String> args = const []}) {
     final pty = Pty.start(execPath,
         workingDirectory: enVars['HOME'],
         environment: enVars,
         rows: terminal.viewHeight,
-        columns: terminal.viewWidth);
+        columns: terminal.viewWidth,
+        arguments: args
+      );
     pty.output
         .cast<List<int>>()
         .transform(const Utf8Decoder())
@@ -52,80 +113,29 @@ class _SetupTerminalState extends State<SetupTerminal> {
     };
   }
 
-  Future<void> listenServer() async {
-    String info = "";
-    if (widget.server != null) {
-      await for (HttpRequest request in widget.server!) {
-        if (WebSocketTransformer.isUpgradeRequest(request)) {
-          WebSocket websocket = await WebSocketTransformer.upgrade(request);
-          websocket.listen((message) {
-            terminal.write(utf8.decode(message).toString().replaceAll("\n", "\r\n"));
-          },onDone: () async => await NativeChannel.closeTermux()
-          );
-          terminal.onOutput = (data) async{
-            if(data.contains(utf8.decode([127]))){
-              terminal.buffer.backspace();
-              terminal.write("\x1B[1P");
-              data = data.replaceAll(utf8.decode([127]), "");
-              if(info.isNotEmpty){
-                info = info.substring(0,info.length - 1);
-              }
-            }
-            data = data.replaceAll("\r", "\r\n");
-            info += data;
-            terminal.write(data);
-            if(data.contains("\r") || data.contains("\n")){
-              await websocket.addStream(Stream<Uint8List>.value(const Utf8Encoder().convert(info)));
-              info = "";
-            }
-          };
-        } else {
-          request.response
-            ..statusCode = HttpStatus.forbidden
-            ..write('\r\nFailed to connect with Termux')
-            ..close();
-        }
-      }
-    }
-  }
-
-
-  @override
-  void didChangeDependencies() {
-    listenServer();
-    super.didChangeDependencies();
-  }
-
   @override
   void dispose() {
     terminalController.dispose();
-    widget.server?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      onPopInvokedWithResult: (didPop, result) async {
-        await widget.server?.close();
-        await NativeChannel.closeTermux();
-      },
-      child: Scaffold(
-        body: FutureBuilder(
-          future: setupTerminal(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return TerminalView(
-              terminal,
-              controller: terminalController,
-              autofocus: true,
-              keyboardType: TextInputType.multiline,
-              theme: terminalTheme,
-            );
-          },
-        ),
+    return Scaffold(
+      body: FutureBuilder(
+        future: setupTerminal(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return TerminalView(
+            terminal,
+            controller: terminalController,
+            autofocus: true,
+            keyboardType: TextInputType.multiline,
+            theme: terminalTheme,
+          );
+        },
       ),
     );
   }

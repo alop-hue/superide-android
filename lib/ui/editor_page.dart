@@ -1269,40 +1269,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             }
                           }
                           else{
-                            final server = await startServer();
-                            bool stats = false;
-                            if (server != null) {
-                              try {
-                                if (context.mounted) {
-                                  stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path, context);
-                                }
+                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+                              SetupTerminal(
+                                projectDir: widget.rootDir,
+                                args: ["-c", "source ~/.bashrc; ${widget.languageDetails.command} ${editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path}"]
+                              ),
+                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                return SizeTransition(sizeFactor: animation,child: child);
                               }
-                              catch(e){
-                                await startTermuxActivity();
-                                if(context.mounted) {
-                                  stats = await NativeChannel.sendCommand(widget.languageDetails, editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path, context);
-                                }
-                              }
-                              final terminal = SetupTerminal(
-                                projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path,server: server
-                              );
-                              if(context.mounted && stats){
-                                Navigator.of(context).push(MaterialPageRoute(builder: (context)=>terminal));
-                              }
-                            }
-                            else{
-                              if(context.mounted) {
-                                showDialog(context: context,builder: (context) => AlertDialog(
-                                  backgroundColor: const Color.fromARGB(255, 49, 49, 49),
-                                  title: const Text("Failed to Connect",style: TextStyle(color: Colors.white)),
-                                  content: const Text("Failed to connect with Termux",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.white)),
-                                  icon: const Icon(Icons.error_outline_sharp),
-                                  iconColor: Colors.red[700],
-                                ));
-                              }
-                            }
+                            ));
                           }
                         },
                         icon: const Icon(Icons.play_arrow)),

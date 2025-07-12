@@ -5,7 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_archive/flutter_archive.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
+import 'package:percent_indicator/percent_indicator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -265,63 +267,90 @@ Future<Map<String, dynamic>> sendRequest({
   }
 }
 
+class Extractor {
+  static Future<void> extractZip(
+    BuildContext context,
+    String inputPath,
+    String outputDir, {
+    String? archiveName,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final progressNotifier = ValueNotifier<double>(0.0);
+
+    final snackbar = SnackBar(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(days: 1),
+      content: ValueListenableBuilder<double>(
+        valueListenable: progressNotifier,
+        builder: (context, value, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Extracting${archiveName == null ? "" : " "}${archiveName ?? "..."}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            LinearPercentIndicator(
+              percent: value.clamp(0.0, 1.0),
+              progressColor: Colors.greenAccent,
+              backgroundColor: Colors.white24,
+              barRadius: const Radius.circular(20),
+              lineHeight: 8,
+              trailing: Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: Text(
+                  "${(value * 100).toStringAsFixed(1)}%",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+
+    messenger.showSnackBar(snackbar);
+
+    try {
+      await ZipFile.extractToDirectory(
+        zipFile: File(inputPath),
+        destinationDir: Directory(outputDir),
+        onExtracting: (entry, rawProgress) {
+          progressNotifier.value = rawProgress / 100.0;
+          return ZipFileOperation.includeItem;
+        },
+      );
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('🎉 Extraction complete!')),
+      );
+    }
+    catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('❌ Extraction failed')),
+      );
+      debugPrint('Extraction error: $e');
+    }
+  }
+}
+
 class NativeChannel {
   static const MethodChannel _channel = MethodChannel('com.vsdroid');
 
-  static Future<String> loadLibrary(String libName) async {
+  static Future<String> getLibraryPath() async {
     try {
-      final String result =
-          await _channel.invokeMethod('loadLibrary', {"libName": libName});
+      final String result = await _channel.invokeMethod('getLibraryPath');
       return result;
     } on PlatformException catch (e) {
       return "Failed to load library: ${e.message}";
     }
-  }
-
-  static Future<bool> sendCommand(
-      Language language, String filePath, BuildContext context, {bool containInput = false}) async {
-    if (language.command == null) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color.fromARGB(255, 49, 49, 49),
-          title: const Text("Not executable",
-              style: TextStyle(color: Colors.white)),
-          content: const Text("Unable to execute this language on termux",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white)),
-          icon: const Icon(Icons.warning_amber_outlined),
-          iconColor: Colors.orange[300],
-        ),
-      );
-      return false;
-    }
-    try {
-      if (language.name == "Java") {
-        File(filePath).parent.listSync().forEach((FileSystemEntity item){
-          if(item is File && item.path.contains(".class")){
-            item.deleteSync(recursive: true);
-          }
-        });
-      } 
-    } finally {
-        await _channel.invokeMethod('sendCommand', {
-          "fileName": filePath,
-          "languageCommand": language.command,
-          "type": language.type,
-         });
-      }
-    return true;
-  }
-
-  static Future<void> closeTermux() async{
-    await _channel.invokeMethod("closeTermux");
-  }
-
-  static Future<void> installOnTermux(String packageName) async {
-    await _channel.invokeMethod("installOnTermux", {
-      "packageName": packageName,
-    });
   }
 }
 
@@ -330,14 +359,12 @@ class ActiveEditors{
   final CodeCrafterController controller;
   final Language languageDetails;
   bool isActive;
-  // String? text;
 
   ActiveEditors({
     required this.filePath,
     required this.controller,
     required this.languageDetails,
     this.isActive = false,
-    // this.text
   });
 }
 

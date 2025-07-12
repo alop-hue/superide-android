@@ -103,7 +103,7 @@ final langpython = Language(
   details: 'A popular language known for simplicity and versatility.',
   language: python,
   helloWorld: 'print("Hello, World!")',
-  command: 'python -u',
+  command: 'python',
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
   type: 'interpreted'
 );
@@ -133,7 +133,7 @@ final langc = Language(
   details:'A powerful, low-level language widely used in system programming.',
   language: cpp,
   helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
-  command: 'gcc',
+  command: 'clang',
   icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
   type: 'compiled'
 );
@@ -143,7 +143,7 @@ final langcpp = Language(
   details:'A high-performance language used for system programming and games.',
   language: cpp,
   helloWorld:'#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
-  command: 'g++',
+  command: 'clang++',
   icon: SvgPicture.asset('assets/material_icons/cpp.svg',height: 35,width: 35),
   type: 'compiled'
 );
@@ -628,22 +628,22 @@ final pythonRunTime = RunTimes(
   name: "Python",
   details: "The python interpreter.",
   version: "3.13.5",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.tar.xz",
-  archiveName: "python.tar.xz",
-  archiveSize: 33.7,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.zip",
+  archiveName: "python.zip",
+  archiveSize: 77.5,
   parentName: "python",
-  icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
+  icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35, width: 35),
 );
 
 final nodeRunTime = RunTimes(
   name: "Node JS",
   details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
   version: "18.20.4",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.tar.xz",
-  archiveName: "node.tar.xz",
-  archiveSize: 11.4,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.zip",
+  archiveName: "node.zip",
+  archiveSize: 17.3,
   parentName: "node",
-  icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35,width: 35),
+  icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );
 
 final List<RunTimes> runtimes = [
