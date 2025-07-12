@@ -6,6 +6,7 @@ import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 
+//TODO: Check for partial zip
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
   final List<String> args;
@@ -24,6 +25,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
   final terminalController = TerminalController();
 
   Future<void> setupTerminal() async {
+    String notFoundmessage (String binName) => "$binName is not installed. Go to the download page and install it first.";
     const String runtimeDir = '/data/data/com.vsdroid/runtimes';
     final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
@@ -32,33 +34,69 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
     final bashrcFile = File('${workDir.path}/.bashrc');
     await bashrcFile.writeAsString(
+
+//TODO: Fix C++ issue
 '''
 alias ll="ls -l"
 alias la="ls -a"
-python() {
-  if [ ! -d /data/data/com.vsdroid/runtimes/python ]; then
-    echo "Python is not installed. Go to the download page and install it first."
+
+clang() {
+  if [ ! -d $runtimeDir/clang ]; then
+    echo "${notFoundmessage('Clang')}"
   else
-    LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
-    PYTHONHOME=/data/data/com.vsdroid/runtimes/python \\
-    PATH=/data/data/com.vsdroid/runtimes/python/bin:\$PATH \\
+    if [ ! -L $runtimeDir/clang/ld.lld ]; then
+      rm -f $runtimeDir/clang/ld.lld
+      ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
+    fi
+
+    export PATH=$runtimeDir/clang:\$PATH
+
+    LD_LIBRARY_PATH=$runtimeDir/clang:\$LD_LIBRARY_PATH \\
+    C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/ClangInclude/include \\
+    CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/ClangInclude/include: \\
+    $sharedPath/libclang-20.so \\
+      -fuse-ld=lld \\
+      -L$runtimeDir/clang/lib/clang/20/lib/aarch64-unknown-linux-android24 \\
+      -B$runtimeDir/clang/lib/clang/20/lib/aarch64-unknown-linux-android24 \\
+      -resource-dir=$runtimeDir/clang/lib/clang/20 \\
+      "\$@"
+  fi
+}
+
+
+clangloader() {
+  if [ ! -d $runtimeDir/clang ]; then
+    echo "${notFoundmessage('Clang')}"
+  else
+    LD_LIBRARY_PATH=$runtimeDir/clang:\$LD_LIBRARY_PATH \\
+    $sharedPath/libclangloader.so "\$@"
+  fi
+}
+
+python() {
+  if [ ! -d $runtimeDir/python ]; then
+    echo "${notFoundmessage('Python')}"
+  else
+    LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
+    PYTHONHOME=$runtimeDir/python \\
+    PATH=$runtimeDir/python/bin:\$PATH \\
     $sharedPath/libpythonlauncher.so "\$@"
   fi
 }
 
 python3() {
-  if [ ! -d /data/data/com.vsdroid/runtimes/python ]; then
-    echo "Python is not installed. Go to the download page and install it first."
+  if [ ! -d $runtimeDir/python ]; then
+    echo "${notFoundmessage('Node JS')}"
   else
-    LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
-    PYTHONHOME=/data/data/com.vsdroid/runtimes/python \\
-    PATH=/data/data/com.vsdroid/runtimes/python/bin:\$PATH \\
+    LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
+    PYTHONHOME=$runtimeDir/python \\
+    PATH=$runtimeDir/python/bin:\$PATH \\
     $sharedPath/libpythonlauncher.so "\$@"
   fi
 }
 
 node() {
-  if [ ! -d /data/data/com.vsdroid/runtimes/node ]; then
+  if [ ! -d $runtimeDir/node ]; then
     echo "Node JS is not installed. Go to the download page and install it first."
   else
     LD_LIBRARY_PATH=$runtimeDir/node:\$LD_LIBRARY_PATH $sharedPath/libnodelauncher.so
@@ -66,16 +104,16 @@ node() {
 }
 
 
-if [ ! -f /data/data/com.vsdroid/runtimes/python/bin/pip3 ]; then
+if [ ! -f $runtimeDir/python/bin/pip3 ]; then
   echo "Installing pip..." \\
-  LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH \\
+  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
   PYTHONHOME=$runtimeDir/python \\
   PATH=$runtimeDir/python/bin \\
   $sharedPath/libpythonlauncher.so -m ensurepip
 fi
 
-alias pip='LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
-alias pip3='LD_LIBRARY_PATH=/data/data/com.vsdroid/runtimes/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
+alias pip='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
+alias pip3='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
 ''');
     final enVars = <String, String>{
       'HOME': workDir.path,

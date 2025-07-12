@@ -1258,21 +1258,46 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             ]),
                       IconButton(
                         onPressed: () async {
-                          if(path.extension(editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path)=='.html'){
+                          final File filePath = editorState.activeEditors.where((item)=> item.isActive == true).first.filePath;
+                          final String extention = path.extension(filePath.path);
+                          if(extention =='.html'){
                             if(context.mounted) {
                               Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                                WebViewScreen(htmlFile: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath),
+                                WebViewScreen(htmlFile: filePath),
                                 transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                   return SizeTransition(sizeFactor: animation,child: child);
                                 }
                               ));
                             }
                           }
-                          else{
+                          else if(extention =='.c' || extention =='.cpp' || extention =='.c++' ||extention =='.cc'){
+                            final Directory tempDir = Directory('/data/data/com.vsdroid/temps');
+                            if(!tempDir.existsSync()){
+                              tempDir.createSync(recursive: true);
+                            }
+                            final String clangCompileCommand = "clang -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
+                            final String clangRunCommand = 'clangloader ${tempDir.path}/libtemp.so';
                             Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
                               SetupTerminal(
                                 projectDir: widget.rootDir,
-                                args: ["-c", "source ~/.bashrc; ${widget.languageDetails.command} ${editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path}"]
+                                args: [
+                                  "-c",
+                                  "source ~/.bashrc; $clangCompileCommand && $clangRunCommand"
+                                ]
+                              ),
+                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                return SizeTransition(sizeFactor: animation,child: child);
+                              }
+                            ));
+                          }
+                          else{
+                            final String command = languages.firstWhere((language) =>
+                              language.extension == path.extension(filePath.path).replaceFirst(".", ""),
+                            ).command ?? '';
+                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+                              SetupTerminal(
+                                projectDir: widget.rootDir,
+                                args: ["-c", "source ~/.bashrc; $command ${filePath.path}"]
                               ),
                               transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                 return SizeTransition(sizeFactor: animation,child: child);

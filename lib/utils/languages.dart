@@ -646,7 +646,19 @@ final nodeRunTime = RunTimes(
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );
 
+final clangRunTime = RunTimes(
+  name: "Clang",
+  details: "The clang compiler.",
+  version: "20.1.7",
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
+  archiveName: "clang.zip",
+  archiveSize: 69.5,
+  parentName: "clang",
+  icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
+);
+
 final List<RunTimes> runtimes = [
   pythonRunTime,
-  nodeRunTime
+  nodeRunTime,
+  clangRunTime
 ];
