@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:vsdroid/terminal/rcfile.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 
-//TODO: Check for partial zip
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
   final List<String> args;
@@ -25,7 +25,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
   final terminalController = TerminalController();
 
   Future<void> setupTerminal() async {
-    String notFoundmessage (String binName) => "$binName is not installed. Go to the download page and install it first.";
     const String runtimeDir = '/data/data/com.vsdroid/runtimes';
     final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
@@ -33,137 +32,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       await workDir.create(recursive: true);
     }
     final bashrcFile = File('${workDir.path}/.bashrc');
-    await bashrcFile.writeAsString(
-
-//TODO: Fix C++ issue
-'''
-alias ll="ls -l"
-alias la="ls -a"
-
-clang() {
-  if [ ! -d $runtimeDir/clang ]; then
-    echo "${notFoundmessage('Clang')}"
-  else
-    rm -f $runtimeDir/clang/ld.lld
-    ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
-
-    export PATH=$runtimeDir/clang:\$PATH
-
-    LD_LIBRARY_PATH=$runtimeDir/clang:\$LD_LIBRARY_PATH \\
-    C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
-    CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
-    $sharedPath/libclang-20.so \\
-      -fuse-ld=lld \\
-      -L$runtimeDir/clang/lib/clang/20/lib/linux \\
-      -B$runtimeDir/clang/lib/clang/20/lib/linux \\
-      -resource-dir=$runtimeDir/clang/lib/clang/20 \\
-      "\$@"
-  fi
-}
-
-clang++() {
-  if [ ! -d $runtimeDir/clang ]; then
-    echo "${notFoundmessage('Clang')}"
-    return 1
-  fi
-
-  local is_help_request=0
-  for arg in "\$@"; do
-    case "\$arg" in
-      --version|-v|--help|-h)
-        is_help_request=1
-        break
-        ;;
-    esac
-  done
-
-  if [ \$is_help_request -eq 0 ]; then
-    local has_input_files=0
-    for arg in "\$@"; do
-      # Skip options and look for potential input files
-      if [[ "\$arg" != -* ]] && [[ "\$arg" != - ]]; then
-        has_input_files=1
-        break
-      fi
-    done
-
-    if [ \$has_input_files -eq 0 ]; then
-      echo "error: no input files" >&2
-      echo "Usage: clang++ [options] file..." >&2
-      return 1
-    fi
-  fi
-
-  rm -f $runtimeDir/clang/ld.lld
-  ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
-  export PATH=$runtimeDir/clang:\$PATH
-
-  LD_LIBRARY_PATH=$runtimeDir/clang:$runtimeDir/clang/lib/clang/20/lib/linux:\$LD_LIBRARY_PATH \\
-  CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include/c++/v1:$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
-  C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
-  $sharedPath/libclang-20.so \\
-    -fuse-ld=lld \\
-    -x c++ \\
-    -std=c++20 \\
-    -stdlib=libc++ \\
-    -lc++ \\
-    -L$runtimeDir/clang/lib/clang/20/lib/linux \\
-    -B$runtimeDir/clang/lib/clang/20/lib/linux \\
-    -resource-dir=$runtimeDir/clang/lib/clang/20 \\
-    "\$@"
-}
-
-clangloader() {
-  if [ ! -d $runtimeDir/clang ]; then
-    echo "${notFoundmessage('Clang')}"
-  else
-    LD_LIBRARY_PATH=$runtimeDir/clang/lib/clang/20/lib/linux:$runtimeDir/clang:\$LD_LIBRARY_PATH \\
-    $sharedPath/libclangloader.so "\$@"
-  fi
-}
-
-python() {
-  if [ ! -d $runtimeDir/python ]; then
-    echo "${notFoundmessage('Python')}"
-  else
-    LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
-    PYTHONHOME=$runtimeDir/python \\
-    PATH=$runtimeDir/python/bin:\$PATH \\
-    $sharedPath/libpythonlauncher.so "\$@"
-  fi
-}
-
-python3() {
-  if [ ! -d $runtimeDir/python ]; then
-    echo "${notFoundmessage('Node JS')}"
-  else
-    LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
-    PYTHONHOME=$runtimeDir/python \\
-    PATH=$runtimeDir/python/bin:\$PATH \\
-    $sharedPath/libpythonlauncher.so "\$@"
-  fi
-}
-
-node() {
-  if [ ! -d $runtimeDir/node ]; then
-    echo "Node JS is not installed. Go to the download page and install it first."
-  else
-    LD_LIBRARY_PATH=$runtimeDir/node:\$LD_LIBRARY_PATH $sharedPath/libnodelauncher.so
-  fi
-}
-
-
-if [ ! -f $runtimeDir/python/bin/pip3 ]; then
-  echo "Installing pip..." \\
-  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH \\
-  PYTHONHOME=$runtimeDir/python \\
-  PATH=$runtimeDir/python/bin \\
-  $sharedPath/libpythonlauncher.so -m ensurepip
-fi
-
-alias pip='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
-alias pip3='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
-''');
+    await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m~ \x1b[0m\$ ",

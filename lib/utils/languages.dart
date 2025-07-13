@@ -648,7 +648,7 @@ final nodeRunTime = RunTimes(
 
 final clangRunTime = RunTimes(
   name: "Clang",
-  details: "The clang compiler.",
+  details: "The clang compiler for C/C++.",
   version: "20.1.7",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
   archiveName: "clang.zip",
@@ -657,8 +657,20 @@ final clangRunTime = RunTimes(
   icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
 );
 
+final java17RunTime = RunTimes(
+  name: "OpenJDK",
+  details: "The Java Virtual Machine.",
+  version: "17",
+  archiveSize: 121,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/java-17-openjdk.zip",
+  archiveName: "java-17-openjdk.zip",
+  parentName: "java-17-openjdk",
+  icon: SvgPicture.asset('assets/icons/Java.svg',height: 35, width: 35)
+);
+
 final List<RunTimes> runtimes = [
   pythonRunTime,
   nodeRunTime,
-  clangRunTime
+  clangRunTime,
+  java17RunTime
 ];

@@ -1306,6 +1306,22 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               }
                             ));
                           }
+                          else if(extention == ".java"){
+                            final String compileCommand = "javac ${filePath.path} -d ${tempDir.path}";
+                            final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+                              SetupTerminal(
+                                projectDir: widget.rootDir,
+                                args: [
+                                  "-c",
+                                  "source ~/.bashrc; $compileCommand && $runCommand"
+                                ]
+                              ),
+                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                return SizeTransition(sizeFactor: animation,child: child);
+                              }
+                            ));
+                          }
                           else{
                             final String command = languages.firstWhere((language) =>
                               language.extension == path.extension(filePath.path).replaceFirst(".", ""),
