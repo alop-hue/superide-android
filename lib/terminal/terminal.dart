@@ -44,31 +44,80 @@ clang() {
   if [ ! -d $runtimeDir/clang ]; then
     echo "${notFoundmessage('Clang')}"
   else
-    if [ ! -L $runtimeDir/clang/ld.lld ]; then
-      rm -f $runtimeDir/clang/ld.lld
-      ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
-    fi
+    rm -f $runtimeDir/clang/ld.lld
+    ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
 
     export PATH=$runtimeDir/clang:\$PATH
 
     LD_LIBRARY_PATH=$runtimeDir/clang:\$LD_LIBRARY_PATH \\
-    C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/ClangInclude/include \\
-    CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/ClangInclude/include: \\
+    C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
+    CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
     $sharedPath/libclang-20.so \\
       -fuse-ld=lld \\
-      -L$runtimeDir/clang/lib/clang/20/lib/aarch64-unknown-linux-android24 \\
-      -B$runtimeDir/clang/lib/clang/20/lib/aarch64-unknown-linux-android24 \\
+      -L$runtimeDir/clang/lib/clang/20/lib/linux \\
+      -B$runtimeDir/clang/lib/clang/20/lib/linux \\
       -resource-dir=$runtimeDir/clang/lib/clang/20 \\
       "\$@"
   fi
 }
 
+clang++() {
+  if [ ! -d $runtimeDir/clang ]; then
+    echo "${notFoundmessage('Clang')}"
+    return 1
+  fi
+
+  local is_help_request=0
+  for arg in "\$@"; do
+    case "\$arg" in
+      --version|-v|--help|-h)
+        is_help_request=1
+        break
+        ;;
+    esac
+  done
+
+  if [ \$is_help_request -eq 0 ]; then
+    local has_input_files=0
+    for arg in "\$@"; do
+      # Skip options and look for potential input files
+      if [[ "\$arg" != -* ]] && [[ "\$arg" != - ]]; then
+        has_input_files=1
+        break
+      fi
+    done
+
+    if [ \$has_input_files -eq 0 ]; then
+      echo "error: no input files" >&2
+      echo "Usage: clang++ [options] file..." >&2
+      return 1
+    fi
+  fi
+
+  rm -f $runtimeDir/clang/ld.lld
+  ln -s $sharedPath/liblld.so $runtimeDir/clang/ld.lld
+  export PATH=$runtimeDir/clang:\$PATH
+
+  LD_LIBRARY_PATH=$runtimeDir/clang:$runtimeDir/clang/lib/clang/20/lib/linux:\$LD_LIBRARY_PATH \\
+  CPLUS_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include/c++/v1:$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
+  C_INCLUDE_PATH=$runtimeDir/clang/sysroot/usr/include:$runtimeDir/clang/lib/clang/20/include \\
+  $sharedPath/libclang-20.so \\
+    -fuse-ld=lld \\
+    -x c++ \\
+    -std=c++20 \\
+    -stdlib=libc++ \\
+    -lc++ \\
+    -L$runtimeDir/clang/lib/clang/20/lib/linux \\
+    -B$runtimeDir/clang/lib/clang/20/lib/linux \\
+    -resource-dir=$runtimeDir/clang/lib/clang/20 \\
+    "\$@"
+}
 
 clangloader() {
   if [ ! -d $runtimeDir/clang ]; then
     echo "${notFoundmessage('Clang')}"
   else
-    LD_LIBRARY_PATH=$runtimeDir/clang:\$LD_LIBRARY_PATH \\
+    LD_LIBRARY_PATH=$runtimeDir/clang/lib/clang/20/lib/linux:$runtimeDir/clang:\$LD_LIBRARY_PATH \\
     $sharedPath/libclangloader.so "\$@"
   fi
 }

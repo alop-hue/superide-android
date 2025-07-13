@@ -1258,6 +1258,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             ]),
                       IconButton(
                         onPressed: () async {
+                          final Directory tempDir = Directory('/data/data/com.vsdroid/temps');
+                            if(!tempDir.existsSync()){
+                              tempDir.createSync(recursive: true);
+                            }
                           final File filePath = editorState.activeEditors.where((item)=> item.isActive == true).first.filePath;
                           final String extention = path.extension(filePath.path);
                           if(extention =='.html'){
@@ -1270,12 +1274,24 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               ));
                             }
                           }
-                          else if(extention =='.c' || extention =='.cpp' || extention =='.c++' ||extention =='.cc'){
-                            final Directory tempDir = Directory('/data/data/com.vsdroid/temps');
-                            if(!tempDir.existsSync()){
-                              tempDir.createSync(recursive: true);
-                            }
+                          else if(extention =='.c'){
                             final String clangCompileCommand = "clang -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
+                            final String clangRunCommand = 'clangloader ${tempDir.path}/libtemp.so';
+                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+                              SetupTerminal(
+                                projectDir: widget.rootDir,
+                                args: [
+                                  "-c",
+                                  "source ~/.bashrc; $clangCompileCommand && $clangRunCommand"
+                                ]
+                              ),
+                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                return SizeTransition(sizeFactor: animation,child: child);
+                              }
+                            ));
+                          }
+                          else if(extention =='.cpp' || extention =='.c++' ||extention =='.cc'){
+                            final String clangCompileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
                             final String clangRunCommand = 'clangloader ${tempDir.path}/libtemp.so';
                             Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
                               SetupTerminal(
