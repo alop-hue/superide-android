@@ -3,6 +3,10 @@ String createRcFile(String runtimeDir, String sharedPath){
 alias ll="ls -l"
 alias la="ls -a"
 
+bash() {
+  $sharedPath/libbash.so "\$@"
+}
+
 run_java_tool() {
   local tool="\$1"
   shift
@@ -11,7 +15,6 @@ run_java_tool() {
   else
     LD_LIBRARY_PATH=$runtimeDir/java-17-openjdk/lib:\$LD_LIBRARY_PATH \\
     JAVA_HOME=$runtimeDir/java-17-openjdk \\
-    HOME="/data/data/com.vsdroid/home" \\
     $sharedPath/lib\${tool}.so "\$@"
   fi
 }
@@ -43,6 +46,31 @@ jstatd()      { run_java_tool jstatd "\$@"; }
 keytool()     { run_java_tool keytool "\$@"; }
 rmiregistry() { run_java_tool rmiregistry "\$@"; }
 serialver()   { run_java_tool serialver "\$@"; }
+
+kotlinc() {
+  if [ ! -d $runtimeDir/kotlin ]; then
+    echo "${notFoundmessage('Kotlin')}"
+  else
+    if [ ! -d $runtimeDir/kotlin/tmp ]; then
+      mkdir $runtimeDir/kotlin/tmp
+    fi
+    LD_LIBRARY_PATH=$runtimeDir/java-17-openjdk/lib:\$LD_LIBRARY_PATH \\
+    JAVA_HOME=$runtimeDir/java-17-openjdk \\
+    JAVA_OPTS="\$JAVA_OPTS -Djansi.passthrough=true -Djansi.force=false" \\
+    TMPDIR=$runtimeDir/kotlin/tmp \\
+    echo "Compiling..."
+    java \\
+      -Djansi.passthrough=true \\
+      -Djansi.strip=true \\
+      -Dorg.fusesource.jansi.AnsiConsole=false \\
+      -Djava.io.tmpdir=$runtimeDir/kotlin/tmp \\
+      -cp "$runtimeDir/kotlin/lib/*" \\
+      org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \\
+    "\$@"
+  fi
+}
+
+alias kotlin="java"
 
 clang() {
   if [ ! -d $runtimeDir/clang ]; then
@@ -84,7 +112,6 @@ clang++() {
   if [ \$is_help_request -eq 0 ]; then
     local has_input_files=0
     for arg in "\$@"; do
-      # Skip options and look for potential input files
       if [[ "\$arg" != -* ]] && [[ "\$arg" != - ]]; then
         has_input_files=1
         break
@@ -156,7 +183,6 @@ node() {
     $sharedPath/libnodelauncher.so "\$@"
   fi
 }
-
 
 if [ ! -f $runtimeDir/python/bin/pip3 ]; then
   echo "Installing pip..." \\

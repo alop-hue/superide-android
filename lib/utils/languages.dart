@@ -668,9 +668,21 @@ final java17RunTime = RunTimes(
   icon: SvgPicture.asset('assets/icons/Java.svg',height: 35, width: 35)
 );
 
+final kotlinRunTime = RunTimes(
+  name: "Kotlin",
+  details: "The Kotlin runtime\nNote: OpenJDK installation is required",
+  archiveName: "kotlin.zip",
+  parentName: "kotlin",
+  archiveSize: 74.1,
+  version: "N/A",
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/kotlin.zip",
+  icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35, width: 35)
+);
+
 final List<RunTimes> runtimes = [
   pythonRunTime,
   nodeRunTime,
   clangRunTime,
-  java17RunTime
+  java17RunTime,
+  kotlinRunTime
 ];
