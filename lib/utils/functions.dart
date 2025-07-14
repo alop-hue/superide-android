@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/terminal/terminal.dart';
 import '../utils/languages.dart';
 
 Future<bool> getPermission() async {
@@ -265,6 +266,21 @@ Future<Map<String, dynamic>> sendRequest({
       'error': e.toString(),
     };
   }
+}
+
+void runCode(BuildContext context, String compileCommand, String runCommand, String rootDir){
+  Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
+    SetupTerminal(
+      projectDir: rootDir,
+      args: [
+        "-c",
+        "source ~/.bashrc; $compileCommand && $runCommand"
+      ]
+    ),
+    transitionsBuilder: (context ,animation, secondaryAnimation, child){
+      return SizeTransition(sizeFactor: animation,child: child);
+    }
+  ));
 }
 
 class Extractor {

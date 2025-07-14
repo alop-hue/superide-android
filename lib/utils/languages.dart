@@ -641,7 +641,7 @@ final nodeRunTime = RunTimes(
   version: "18.20.4",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.zip",
   archiveName: "node.zip",
-  archiveSize: 17.3,
+  archiveSize: 20.2,
   parentName: "node",
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );

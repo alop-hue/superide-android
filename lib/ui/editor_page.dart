@@ -1264,93 +1264,54 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             }
                           final File filePath = editorState.activeEditors.where((item)=> item.isActive == true).first.filePath;
                           final String extention = path.extension(filePath.path);
-                          if(extention =='.html'){
-                            if(context.mounted) {
-                              Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                                WebViewScreen(htmlFile: filePath),
-                                transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                  return SizeTransition(sizeFactor: animation,child: child);
-                                }
-                              ));
-                            }
-                          }
-                          else if(extention =='.c'){
-                            final String clangCompileCommand = "clang -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
-                            final String clangRunCommand = 'clangloader ${tempDir.path}/libtemp.so';
-                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                              SetupTerminal(
-                                projectDir: widget.rootDir,
-                                args: [
-                                  "-c",
-                                  "source ~/.bashrc; $clangCompileCommand && $clangRunCommand"
-                                ]
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
+                          switch (extention) {
+                            case '.html':
+                              if (context.mounted) {
+                                Navigator.of(context).push(PageRouteBuilder(
+                                  pageBuilder: (context, animation, scondaryAnimation) => WebViewScreen(htmlFile: filePath),
+                                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                    return SizeTransition(sizeFactor: animation, child: child);
+                                  },
+                                ));
                               }
-                            ));
-                          }
-                          else if(extention =='.cpp' || extention =='.c++' ||extention =='.cc'){
-                            final String clangCompileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
-                            final String clangRunCommand = 'clangloader ${tempDir.path}/libtemp.so';
-                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                              SetupTerminal(
-                                projectDir: widget.rootDir,
-                                args: [
-                                  "-c",
-                                  "source ~/.bashrc; $clangCompileCommand && $clangRunCommand"
-                                ]
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            ));
-                          }
-                          else if(extention == ".java"){
-                            final String compileCommand = "javac ${filePath.path} -d ${tempDir.path}";
-                            final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                              SetupTerminal(
-                                projectDir: widget.rootDir,
-                                args: [
-                                  "-c",
-                                  "source ~/.bashrc; $compileCommand && $runCommand"
-                                ]
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            ));
-                          }
-                          else if(extention == ".kt"){
-                            final String compileCommand = 'kotlinc ${filePath.path} -d ${tempDir.path}';
-                            final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                              SetupTerminal(
-                                projectDir: widget.rootDir,
-                                args: [
-                                  "-c",
-                                  "source ~/.bashrc; $compileCommand && $runCommand"
-                                ]
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            ));
-                          }
-                          else{
-                            final String command = languages.firstWhere((language) =>
-                              language.extension == path.extension(filePath.path).replaceFirst(".", ""),
-                            ).command ?? '';
-                            Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-                              SetupTerminal(
-                                projectDir: widget.rootDir,
-                                args: ["-c", "source ~/.bashrc; $command ${filePath.path}"]
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            ));
+                              break;
+                            case '.c':
+                              final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
+                              final String runCommand = 'clangloader ${tempDir.path}/libtemp.so';
+                              runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
+                            case '.cpp':
+                            case '.c++':
+                            case '.cc':
+                              final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
+                              final String runCommand = 'clangloader ${tempDir.path}/libtemp.so';
+                              runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
+                            case '.java':
+                              final String compileCommand = "javac ${filePath.path} -d ${tempDir.path}";
+                              final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                              runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
+                            case '.kt':
+                              final String compileCommand = 'kotlinc ${filePath.path} -d ${tempDir.path}';
+                              final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                              runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
+                            default:
+                              final String command = languages.firstWhere((language) =>
+                                language.extension == path.extension(filePath.path).replaceFirst(".", ""),
+                              ).command ?? '';
+                              Navigator.of(context).push(PageRouteBuilder(
+                                pageBuilder: (context, animation, scondaryAnimation) =>
+                                  SetupTerminal(
+                                    projectDir: widget.rootDir,
+                                    args: ["-c", "source ~/.bashrc; $command ${filePath.path}"]
+                                  ),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return SizeTransition(sizeFactor: animation, child: child);
+                                },
+                              )
+                            );
                           }
                         },
                         icon: const Icon(Icons.play_arrow)),

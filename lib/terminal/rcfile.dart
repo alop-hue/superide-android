@@ -194,6 +194,8 @@ fi
 
 alias pip='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
 alias pip3='LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip'
+alias npm='echo  "prefix=/data/data/com.vsdroid/runtimes/node/node_modules" > ~/.npmrc && NODE_OPTIONS="--dns-result-order=ipv4first" node $runtimeDir/node/node_modules/npm/bin/npm-cli.js'
+alias npx='echo  "prefix=/data/data/com.vsdroid/runtimes/node/node_modules" > ~/.npmrc && NODE_OPTIONS="--dns-result-order=ipv4first" node $runtimeDir/node/node_modules/npm/bin/npx-cli.js'
 ''';
 }
 
