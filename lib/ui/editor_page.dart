@@ -1322,7 +1322,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path
                             )));
                         },
-                        icon: const Icon(Icons.terminal, color: Color(0xff717171)))
+                        icon: const Icon(Icons.terminal))
                   ],
                 ),
                 body: TabBarView(

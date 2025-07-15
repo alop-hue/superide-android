@@ -33,14 +33,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
     final bashrcFile = File('${workDir.path}/.bashrc');
     await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
-    final profileFile = File('${workDir.path}/.profile');
-    await profileFile.writeAsString(
-'''
-if [ -f "\$HOME/.bashrc" ]; then
-    source "\$HOME/.bashrc"
-fi
-'''
-    );
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m~ \x1b[0m\$ ",
@@ -64,8 +56,8 @@ fi
         workingDirectory: enVars['HOME'],
         environment: enVars,
         rows: terminal.viewHeight,
-        columns: terminal.viewWidth,
-        arguments: args
+        columns: 63,
+        arguments: args,
       );
     pty.output
         .cast<List<int>>()
