@@ -626,7 +626,7 @@ List<Language> languages = [
 
 final pythonRunTime = RunTimes(
   name: "Python",
-  details: "The python interpreter.",
+  details: "The python interpreter.\nOpen the terminal to auto install pip.",
   version: "3.13.5",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.zip",
   archiveName: "python.zip",
@@ -670,11 +670,11 @@ final java17RunTime = RunTimes(
 
 final kotlinRunTime = RunTimes(
   name: "Kotlin",
-  details: "The Kotlin runtime\nNote: OpenJDK installation is required",
+  details: "The Kotlin runtime.\nNote: OpenJDK installation is required",
   archiveName: "kotlin.zip",
   parentName: "kotlin",
   archiveSize: 74.1,
-  version: "N/A",
+  version: "2.2.0",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/kotlin.zip",
   icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35, width: 35)
 );

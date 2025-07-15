@@ -21,8 +21,8 @@ class SetupTerminal extends StatefulWidget {
 }
 
 class _SetupTerminalState extends State<SetupTerminal> {
-  final terminal = Terminal();
-  final terminalController = TerminalController();
+  final terminal = Terminal(platform: TerminalTargetPlatform.android);
+  final terminalController = TerminalController(selectionMode: SelectionMode.block);
 
   Future<void> setupTerminal() async {
     const String runtimeDir = '/data/data/com.vsdroid/runtimes';
@@ -33,10 +33,20 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
     final bashrcFile = File('${workDir.path}/.bashrc');
     await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
+    final profileFile = File('${workDir.path}/.profile');
+    await profileFile.writeAsString(
+'''
+if [ -f "\$HOME/.bashrc" ]; then
+    source "\$HOME/.bashrc"
+fi
+'''
+    );
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m~ \x1b[0m\$ ",
       'PATH': '/bin:/usr/bin:/sbin:/usr/sbin',
+      'VSDROID_SHARED_PATH': sharedPath,
+      'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin'
     };
     _startPty(
       "$sharedPath/libbash.so",
@@ -86,6 +96,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
           }
           return TerminalView(
             terminal,
+            padding: EdgeInsets.zero,
             controller: terminalController,
             autofocus: true,
             keyboardType: TextInputType.multiline,
