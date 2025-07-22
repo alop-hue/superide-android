@@ -26,16 +26,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
   Future<void> setupTerminal() async {
     const String runtimeDir = '/data/data/com.vsdroid/runtimes';
-    Directory rcDir = Directory('/data/data/com.vsdroid/rc');
     final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
     if(!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
-    if(!rcDir.existsSync()){
-      await rcDir.create(recursive: true);
-    }
-    final bashrcFile = File('${rcDir.path}/rc.sh');
+    final bashrcFile = File('${workDir.path}/.bashrc');
     if(!bashrcFile.existsSync()){
       await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
     }
@@ -51,7 +47,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       enVars,
       args: [
         "--rcfile",
-        "${rcDir.path}/rc.sh",
+        "${workDir.path}/.bashrc",
         ...widget.args
       ]
     );
