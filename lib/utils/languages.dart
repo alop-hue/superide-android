@@ -638,10 +638,10 @@ final pythonRunTime = RunTimes(
 final nodeRunTime = RunTimes(
   name: "Node JS",
   details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
-  version: "18.20.4",
+  version: "24.4.1",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.zip",
   archiveName: "node.zip",
-  archiveSize: 20.2,
+  archiveSize: 46.4,
   parentName: "node",
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );

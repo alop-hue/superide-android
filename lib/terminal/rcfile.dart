@@ -3,7 +3,8 @@ String createRcFile(String runtimeDir, String sharedPath){
 alias ll="ls -l"
 alias la="ls -a"
 
-export LD_LIBRARY_PATH=$runtimeDir/node:\$LD_LIBRARY_PATH
+
+export LD_LIBRARY_PATH=$runtimeDir/node/lib:$sharedPath:\$LD_LIBRARY_PATH
 
 if [ ! -d /data/data/com.vsdroid/bin ]; then
   mkdir /data/data/com.vsdroid/bin
@@ -15,7 +16,7 @@ if [ -d $runtimeDir/node ]; then
   ln -sf $sharedPath/libnodelauncher.so \$VSDROID_BIN_PATH/node
 fi
 
-export PATH=/data/data/com.vsdroid/bin:\$PATH
+export PATH=/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/node_modules/bin:\$PATH
 
 run_java_tool() {
   local tool="\$1"
@@ -200,16 +201,16 @@ pip3() {
 }
 
 npm() {
-  echo "prefix=/data/data/com.vsdroid/runtimes/node/node_modules" > ~/.npmrc
+  echo "prefix=/data/data/com.vsdroid/runtimes/node" > ~/.npmrc
   NODE_OPTIONS="--dns-result-order=ipv4first" \\
-  node $runtimeDir/node/node_modules/npm/bin/npm-cli.js \\
+  node $runtimeDir/node/lib/node_modules/npm/bin/npm-cli.js \\
   "\$@"
 }
 
 npx() {
-  echo "prefix=/data/data/com.vsdroid/runtimes/node/node_modules" > ~/.npmrc
+  echo "prefix=/data/data/com.vsdroid/runtimes/node" > ~/.npmrc
   NODE_OPTIONS="--dns-result-order=ipv4first" \\
-  node $runtimeDir/node/node_modules/npm/bin/npx-cli.js \\
+  node $runtimeDir/node/lib/node_modules/npm/bin/npx-cli.js \\
   "\$@"
 }
 ''';
