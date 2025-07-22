@@ -5,6 +5,7 @@ alias la="ls -a"
 
 
 export LD_LIBRARY_PATH=$runtimeDir/node/lib:$sharedPath:\$LD_LIBRARY_PATH
+export NODE_OPTIONS="--require $runtimeDir/node/error_handler.js"
 
 if [ ! -d /data/data/com.vsdroid/bin ]; then
   mkdir /data/data/com.vsdroid/bin

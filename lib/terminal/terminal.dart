@@ -35,10 +35,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
     await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
     final enVars = <String, String>{
       'HOME': workDir.path,
-      'PS1': " \x1b[32m~ \x1b[0m\$ ",
+      'PS1': " \x1b[32m\\w \x1b[0m\$ ",
       'PATH': '/bin:/usr/bin:/sbin:/usr/sbin',
       'VSDROID_SHARED_PATH': sharedPath,
-      'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin'
+      'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
     };
     _startPty(
       "$sharedPath/libbash.so",
