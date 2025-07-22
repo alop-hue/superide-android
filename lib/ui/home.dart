@@ -8,13 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/terminal/terminal.dart';
-import '../ui/donation_page.dart';
-import '../ui/folder_page.dart';
-import '../ui/editor_page.dart';
-import '../ui/menu_screen.dart';
-import '../ui/project_screen.dart';
-import '../ui/runtimes.dart';
-import '../ui/settings.dart';
+import 'donation_page.dart';
+import 'folder_page.dart';
+import 'editor_page.dart';
+import 'menu_screen.dart';
+import 'project_screen.dart';
+import 'downloads.dart';
+import 'settings.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
@@ -46,10 +46,6 @@ class _SelectTypeState extends State<SelectType> {
             backgroundColor: appThemestate.appTheme.selectScreenDrawerBg,
             child: ListView(
               children: [
-                drawerTile(
-                    () {},
-                    "Setup Termux",
-                    SvgPicture.asset('assets/icons/Termux.svg',height: 28, width: 28)),
                 drawerTile(() {
                   Navigator.of(context).push(PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) => const Settings(),
@@ -107,17 +103,14 @@ class _SelectTypeState extends State<SelectType> {
                 onPressed: (){
                   Navigator.of(context).push(
                     PageRouteBuilder(
-                      pageBuilder: (context ,animation, secondaryAnimation) => RuntimeManager(),
+                      pageBuilder: (context ,animation, secondaryAnimation) => DownloadManager(),
                       transitionsBuilder: (context ,animation, secondaryAnimation, child){
                         return SizeTransition(sizeFactor: animation, child: child);
                       }
                     )
                   );
                 },
-                icon: Image.asset(
-                  "assets/icons/compiler.png",
-                  color: appThemestate.appTheme.appBarTheme.iconTheme!.color,
-                )
+                icon: Icon(Icons.download, size: 35),
               ),
             ),
             IconButton(

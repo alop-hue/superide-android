@@ -58,7 +58,7 @@ class Language {
   final String name, extension, details, helloWorld;
   final Mode? language;
   final dynamic icon;
-  final String? command, type;
+  final String? command, type, lspExecutable;
   Language({
     required this.name,
     required this.extension,
@@ -67,17 +67,18 @@ class Language {
     required this.helloWorld,
     this.icon,
     this.command,
-    this.type
+    this.type,
+    this.lspExecutable
   });
 }
 
-class RunTimes{
+class RunTime{
   final String name, details, url, archiveName, parentName;
   final double archiveSize;
   final String? version;
   final dynamic icon;
 
-  RunTimes({
+  RunTime({
     required this.name,
     required this.details,
     required this.archiveName,
@@ -86,6 +87,23 @@ class RunTimes{
     required this.url,
     required this.icon,
     this.version
+  });
+}
+
+class Extension{
+  final String name, details, url, archiveName, parentName, fileExtension, serverFile;
+  final double archiveSize;
+  final dynamic icon;  
+  Extension({
+    required this.name,
+    required this.details,
+    required this.archiveName,
+    required this.parentName,
+    required this.archiveSize,
+    required this.url,
+    required this.icon,
+    required this.fileExtension,
+    required this.serverFile
   });
 }
 
@@ -105,7 +123,8 @@ final langpython = Language(
   helloWorld: 'print("Hello, World!")',
   command: 'python',
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
-  type: 'interpreted'
+  type: 'interpreted',
+  lspExecutable: "/data/data/com.vsdroid/bin/node"
 );
 final langjavascript = Language(
   name: 'Javascript',
@@ -624,7 +643,7 @@ List<Language> languages = [
   langverilog,
 ];
 
-final pythonRunTime = RunTimes(
+final pythonRunTime = RunTime(
   name: "Python",
   details: "The python interpreter.\nOpen the terminal to auto install pip.",
   version: "3.13.5",
@@ -635,7 +654,7 @@ final pythonRunTime = RunTimes(
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35, width: 35),
 );
 
-final nodeRunTime = RunTimes(
+final nodeRunTime = RunTime(
   name: "Node JS",
   details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
   version: "24.4.1",
@@ -646,7 +665,7 @@ final nodeRunTime = RunTimes(
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );
 
-final clangRunTime = RunTimes(
+final clangRunTime = RunTime(
   name: "Clang",
   details: "The clang compiler for C/C++.",
   version: "20.1.7",
@@ -657,7 +676,7 @@ final clangRunTime = RunTimes(
   icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
 );
 
-final java17RunTime = RunTimes(
+final java17RunTime = RunTime(
   name: "OpenJDK",
   details: "The Java Virtual Machine.",
   version: "17",
@@ -668,7 +687,7 @@ final java17RunTime = RunTimes(
   icon: SvgPicture.asset('assets/icons/Java.svg',height: 35, width: 35)
 );
 
-final kotlinRunTime = RunTimes(
+final kotlinRunTime = RunTime(
   name: "Kotlin",
   details: "The Kotlin runtime.\nNote: OpenJDK installation is required",
   archiveName: "kotlin.zip",
@@ -679,10 +698,26 @@ final kotlinRunTime = RunTimes(
   icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35, width: 35)
 );
 
-final List<RunTimes> runtimes = [
+final List<RunTime> runtimes = [
   pythonRunTime,
   nodeRunTime,
   clangRunTime,
   java17RunTime,
   kotlinRunTime
+];
+
+final pyright = Extension(
+  name: "Pyright",
+  details: "Langauge server for python.\nRequired for code completion and suggestions",
+  archiveName: "pyright.zip",
+  parentName: "pyright",
+  archiveSize: 5.7,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/pyright.zip",
+  icon: SvgPicture.asset("assets/icons/pyright.svg", width: 35, height: 35),
+  fileExtension: "py",
+  serverFile: "/data/data/com.vsdroid/extensions/pyright/dist/pyright-langserver.js"
+);
+
+final List<Extension> extensions = [
+  pyright
 ];

@@ -283,6 +283,36 @@ void runCode(BuildContext context, String compileCommand, String runCommand, Str
   ));
 }
 
+Future<LspConfig?> startLspServer({
+    required String ext,
+    required String? executable,
+    required List<String> args,
+    required String filePath,
+    required String workspacePath,
+    required String langId
+  }) async{
+  if(executable == null) return null;
+  if(extensions.any((item) => item.fileExtension == ext)){
+    try {
+      final config = await LspStdioConfig.start(
+        executable: executable,
+        args: [
+          extensions.singleWhere((item) => item.fileExtension == ext).serverFile,
+          ...args
+        ],
+        filePath: filePath,
+        workspacePath: workspacePath,
+        languageId: langId,
+      );
+      
+      return config;
+    } catch (e) {
+      debugPrint('LSP Initialization failed: $e');
+    }
+  }
+  return null;
+}
+
 class Extractor {
   static Future<void> extractZip(
     BuildContext context,

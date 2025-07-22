@@ -170,10 +170,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_code_crafter
-      sha256: "28c639279e94618cfd56b265991990c934ebc754bcf1ae6a7f9b1a0e06714bc5"
+      sha256: c5b98bde947e5049485009baa183f861f1dff9dc9e2c895e29891efadfd4a797
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.7"
+    version: "0.1.8"
   flutter_downloader:
     dependency: "direct main"
     description:

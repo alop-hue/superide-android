@@ -15,13 +15,15 @@ void main() async {
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
   await FlutterDownloader.initialize();
-  runApp(MainApp(
-    recent: recent,
-    appTheme: appTheme,
-    codeCrafterConfig: codeCrafterConfig,
-    aiConfig: aiConfig,
-    modelSelected: modelSelected,
-  ));
+  runApp(
+    MainApp(
+      recent: recent,
+      appTheme: appTheme,
+      codeCrafterConfig: codeCrafterConfig,
+      aiConfig: aiConfig,
+      modelSelected: modelSelected,
+    )
+  );
 }
 
 class MainApp extends StatelessWidget {

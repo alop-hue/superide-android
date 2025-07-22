@@ -155,11 +155,13 @@ class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeCrafterController codeController;
   final FocusNode? focusNode;
+  final LspConfig? lspConfig;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.filePath,
-    this.focusNode
+    this.focusNode,
+    this.lspConfig
     }
   );
 
@@ -207,6 +209,7 @@ class _CodeEditorState extends State<CodeEditor> {
                 textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
                 controller: codeController,
                 focusNode: widget.focusNode,
+                lspConfig: widget.lspConfig,
               );
             },
           )

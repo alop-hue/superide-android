@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_pty/flutter_pty.dart';
-import 'package:vsdroid/terminal/rcfile.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
+import 'rcfile.dart';
 
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
@@ -26,13 +26,19 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
   Future<void> setupTerminal() async {
     const String runtimeDir = '/data/data/com.vsdroid/runtimes';
+    Directory rcDir = Directory('/data/data/com.vsdroid/rc');
     final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
-    if (!workDir.existsSync()) {
+    if(!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
-    final bashrcFile = File('${workDir.path}/.bashrc');
-    await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
+    if(!rcDir.existsSync()){
+      await rcDir.create(recursive: true);
+    }
+    final bashrcFile = File('${rcDir.path}/rc.sh');
+    if(!bashrcFile.existsSync()){
+      await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
+    }
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
@@ -45,7 +51,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       enVars,
       args: [
         "--rcfile",
-        "${workDir.path}/.bashrc",
+        "${rcDir.path}/rc.sh",
         ...widget.args
       ]
     );
