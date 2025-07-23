@@ -32,9 +32,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       await workDir.create(recursive: true);
     }
     final bashrcFile = File('${workDir.path}/.bashrc');
-    if(!bashrcFile.existsSync()){
-      await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
-    }
+    await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",

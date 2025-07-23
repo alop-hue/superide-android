@@ -715,7 +715,7 @@ final pyright = Extension(
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/pyright.zip",
   icon: SvgPicture.asset("assets/icons/pyright.svg", width: 35, height: 35),
   fileExtension: "py",
-  serverFile: "/data/data/com.vsdroid/extensions/pyright/dist/pyright-langserver.js"
+  serverFile: "/data/data/com.vsdroid/extensions/pyright/langserver.index.js"
 );
 
 final List<Extension> extensions = [

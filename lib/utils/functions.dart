@@ -289,17 +289,23 @@ Future<LspConfig?> startLspServer({
     required List<String> args,
     required String filePath,
     required String workspacePath,
-    required String langId
+    required String langId,
+    Map<String, String>? environment
   }) async{
   if(executable == null) return null;
   if(extensions.any((item) => item.fileExtension == ext)){
     try {
+      final String sharedPath = await NativeChannel.getLibraryPath();
       final config = await LspStdioConfig.start(
         executable: executable,
         args: [
           extensions.singleWhere((item) => item.fileExtension == ext).serverFile,
-          ...args
+          ...args,
         ],
+        environment: {
+          ...environment ?? {},
+          'LD_LIBRARY_PATH': 'data/data/com.vsdroid/runtimes/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+        },
         filePath: filePath,
         workspacePath: workspacePath,
         languageId: langId,
