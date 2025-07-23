@@ -7,16 +7,6 @@ alias la="ls -a"
 export LD_LIBRARY_PATH=$runtimeDir/node/lib:$sharedPath:\$LD_LIBRARY_PATH
 export NODE_OPTIONS="--require $runtimeDir/node/error_handler.js"
 
-if [ ! -d /data/data/com.vsdroid/bin ]; then
-  mkdir /data/data/com.vsdroid/bin
-fi
-ln -sf $sharedPath/libbash.so /data/data/com.vsdroid/bin/bash
-ln -sf $sharedPath/libbash.so /data/data/com.vsdroid/bin/sh
-
-if [ -d $runtimeDir/node ]; then
-  ln -sf $sharedPath/libnodelauncher.so \$VSDROID_BIN_PATH/node
-fi
-
 export PATH=/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/node_modules/bin:\$PATH
 
 run_java_tool() {
@@ -194,11 +184,11 @@ if [ ! -f $runtimeDir/python/bin/pip3 ]; then
 fi
 
 pip() {
-  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip "\$@"
+  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin python -m pip "\$@"
 }
 
 pip3() {
-  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin $sharedPath/libpythonlauncher.so -m pip "\$@"
+  LD_LIBRARY_PATH=$runtimeDir/python/lib:\$LD_LIBRARY_PATH PYTHONHOME=$runtimeDir/python PATH=$runtimeDir/python/bin python -m pip "\$@"
 }
 
 npm() {

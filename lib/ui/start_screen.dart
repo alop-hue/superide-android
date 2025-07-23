@@ -13,14 +13,24 @@ class StartScreen extends StatelessWidget {
       body: FutureBuilder(
         future: Future.wait([
           (() async{
-            final dir = Directory("/data/data/com.vsdroid/runtimes");
-            if (await dir.exists()) {
-              for (final file in dir.listSync()) {
+            final runTimedir = Directory("/data/data/com.vsdroid/runtimes");
+            final binDir = Directory("/data/data/com.vsdroid/bin");
+            if(!binDir.existsSync()){
+              await binDir.create(recursive: true);
+            }
+            if (await runTimedir.exists()) {
+              for (final file in runTimedir.listSync()) {
                 if (file is File && file.path.endsWith('.zip')) {
                   await file.delete();
                 }
               }
             }
+          })(),
+          (() async{
+            final String sharedPath = await NativeChannel.getLibraryPath();
+            await Process.run("ln", ["-sf", "$sharedPath/libbash.so", "/data/data/com.vsdroid/bin/bash"]);
+            await Process.run("ln", ["-sf", "$sharedPath/libbash.so", "/data/data/com.vsdroid/bin/sh"]);
+            await Process.run("ln", ["-sf", "$sharedPath/libnodelauncher.so", "/data/data/com.vsdroid/bin/node"]);
           })(),
           getPermission()
         ]) ,
