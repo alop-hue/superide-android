@@ -1293,7 +1293,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.kt':
-                              final String compileCommand = 'kotlinc ${filePath.path} -d ${tempDir.path}';
+                              final String compileCommand = 'echo "Compiling..." && kotlinc ${filePath.path} -d ${tempDir.path}';
                               final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
@@ -1305,7 +1305,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 pageBuilder: (context, animation, scondaryAnimation) =>
                                   SetupTerminal(
                                     projectDir: widget.rootDir,
-                                    args: ["-c", "source ~/.bashrc; $command ${filePath.path}"]
+                                    args: ["-c", "$command ${filePath.path}"]
                                   ),
                                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                   return SizeTransition(sizeFactor: animation, child: child);
@@ -1317,10 +1317,20 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                         icon: const Icon(Icons.play_arrow)),
                       IconButton(
                         onPressed: () {
-                          Navigator.of(context).push(MaterialPageRoute(
+                          Navigator.of(context).push(PageRouteBuilder(
+                              pageBuilder: (context, animation, scondaryAnimation) =>
+                                SetupTerminal(
+                                  projectDir: widget.rootDir,
+                                ),
+                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                return SizeTransition(sizeFactor: animation, child: child);
+                              },
+                            )
+                          );
+                          /* Navigator.of(context).push(MaterialPageRoute(
                             builder: (context) => SetupTerminal(
                               projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path
-                            )));
+                            ))); */
                         },
                         icon: const Icon(Icons.terminal))
                   ],

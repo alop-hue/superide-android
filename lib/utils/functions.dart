@@ -274,7 +274,7 @@ void runCode(BuildContext context, String compileCommand, String runCommand, Str
       projectDir: rootDir,
       args: [
         "-c",
-        "source ~/.bashrc; $compileCommand && $runCommand"
+        "$compileCommand && $runCommand"
       ]
     ),
     transitionsBuilder: (context ,animation, secondaryAnimation, child){

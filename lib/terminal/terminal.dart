@@ -5,7 +5,6 @@ import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
-import 'rcfile.dart';
 
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
@@ -25,29 +24,23 @@ class _SetupTerminalState extends State<SetupTerminal> {
   final terminalController = TerminalController(selectionMode: SelectionMode.block);
 
   Future<void> setupTerminal() async {
-    const String runtimeDir = '/data/data/com.vsdroid/runtimes';
     final sharedPath = await NativeChannel.getLibraryPath();
     final workDir = Directory(widget.projectDir);
     if(!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
-    final bashrcFile = File('${workDir.path}/.bashrc');
-    await bashrcFile.writeAsString(createRcFile(runtimeDir, sharedPath));
+    
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
-      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin',
+      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin:/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/node_modules/bin:\$PATH',
       'VSDROID_SHARED_PATH': sharedPath,
       'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
     };
     _startPty(
       "$sharedPath/libbash.so",
       enVars,
-      args: [
-        "--rcfile",
-        "${workDir.path}/.bashrc",
-        ...widget.args
-      ]
+      args: widget.args
     );
   }
 
