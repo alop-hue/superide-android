@@ -304,6 +304,7 @@ Future<LspConfig?> startLspServer({
         ],
         environment: {
           ...environment ?? {},
+          'VSDROID_SHARED_PATH': sharedPath,
           'LD_LIBRARY_PATH': 'data/data/com.vsdroid/runtimes/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
         },
         filePath: filePath,
