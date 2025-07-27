@@ -50,6 +50,11 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => DownloadProgressBloc()),
+        BlocProvider(create: (_) => GeneralBloc(
+          {
+            "autoSave": jsonDecode(codeCrafterConfig)['autoSave'] as bool,
+          }
+        )),
         BlocProvider(create: (_) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeCrafterConfig)['isAIEnabled'] as bool,

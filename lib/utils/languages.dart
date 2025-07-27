@@ -59,6 +59,7 @@ class Language {
   final Mode? language;
   final dynamic icon;
   final String? command, type, lspExecutable;
+  final List<String>? args;
   Language({
     required this.name,
     required this.extension,
@@ -68,13 +69,14 @@ class Language {
     this.icon,
     this.command,
     this.type,
-    this.lspExecutable
+    this.lspExecutable,
+    this.args
   });
 }
 
 class RunTime{
   final String name, details, url, archiveName, parentName;
-  final double archiveSize;
+  final int archiveSize;
   final String? version;
   final dynamic icon;
 
@@ -124,7 +126,8 @@ final langpython = Language(
   command: 'python',
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
   type: 'interpreted',
-  lspExecutable: "/data/data/com.vsdroid/bin/node"
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  args: ["--stdio"]
 );
 final langjavascript = Language(
   name: 'Javascript',
@@ -134,7 +137,21 @@ final langjavascript = Language(
   helloWorld: 'console.log("Hello, World!");',
   command: 'node',
   icon: SvgPicture.asset('assets/material_icons/javascript.svg',height: 35,width: 35),
-  type: 'interpreted'
+  type: 'interpreted',
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  args: ["--stdio"]
+);
+final langtypescript = Language(
+    name: 'Typescript',
+    extension: 'ts',
+    details: 'A statically typed superset of JavaScript.',
+    language: typescript,
+    helloWorld: 'console.log("Hello, World!");',
+    command: 'tsc',
+    icon: SvgPicture.asset('assets/material_icons/typescript.svg',height: 35,width: 35),
+    type: 'interpreted',
+    lspExecutable: "/data/data/com.vsdroid/bin/node",
+    args: ["--stdio"]
 );
 final langjava = Language(
   name: 'Java',
@@ -154,7 +171,8 @@ final langc = Language(
   helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
   command: 'clang',
   icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
-  type: 'compiled'
+  type: 'compiled',
+  // lspExecutable: "/data/data/com.vsdroid/bin/clangd",
 );
 final langcpp = Language(
   name: 'C++',
@@ -164,7 +182,8 @@ final langcpp = Language(
   helloWorld:'#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
   command: 'clang++',
   icon: SvgPicture.asset('assets/material_icons/cpp.svg',height: 35,width: 35),
-  type: 'compiled'
+  type: 'compiled',
+  // lspExecutable: "/data/data/com.vsdroid/bin/clangd",
 );
 final langdart = Language(
   name: 'Dart',
@@ -219,15 +238,6 @@ final langless = Language(
   helloWorld: '/* Hello, World! */',
   icon: SvgPicture.asset('assets/material_icons/less.svg',height: 35,width: 35),
 );
-final langtypescript = Language(
-    name: 'Typescript',
-    extension: 'ts',
-    details: 'A statically typed superset of JavaScript.',
-    language: typescript,
-    helloWorld: 'console.log("Hello, World!");',
-    command: 'tsc',
-    icon: SvgPicture.asset('assets/material_icons/typescript.svg',height: 35,width: 35),
-    type: 'interpreted');
 final langphp = Language(
     name: 'PHP',
     extension: 'php',
@@ -592,23 +602,23 @@ List<Language> languages = [
   langtxt,
   langpython,
   langjavascript,
+  langtypescript,
   langjava,
   langc,
   langcpp,
   langdart,
   langhtml,
   langcss,
+  langkotlin,
+  langrust,
+  langgo,
+  langcsharp,
   langscss,
   langless,
-  langtypescript,
   langphp,
   langsql,
   langxml,
   langswift,
-  langkotlin,
-  langcsharp,
-  langrust,
-  langgo,
   langruby,
   langjson,
   langmarkdown,
@@ -645,22 +655,22 @@ List<Language> languages = [
 
 final pythonRunTime = RunTime(
   name: "Python",
-  details: "The python interpreter.\nOpen the terminal to auto install pip.",
+  details: "The python interpreter.\nDownload the pyright extension for LSP support.",
   version: "3.13.5",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.zip",
   archiveName: "python.zip",
-  archiveSize: 77.5,
+  archiveSize: 78,
   parentName: "python",
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35, width: 35),
 );
 
 final nodeRunTime = RunTime(
   name: "Node JS",
-  details: "The node js runtime\nNote: Required by VSdroid itself for code completion and suggestion.",
+  details: "The node js runtime.\nTypescript runtime and LSP server are included with this bundle.",
   version: "24.4.1",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.zip",
   archiveName: "node.zip",
-  archiveSize: 46.4,
+  archiveSize: 51,
   parentName: "node",
   icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
 );
@@ -671,7 +681,7 @@ final clangRunTime = RunTime(
   version: "20.1.7",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
   archiveName: "clang.zip",
-  archiveSize: 88.8,
+  archiveSize: 89,
   parentName: "clang",
   icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
 );
@@ -692,7 +702,7 @@ final kotlinRunTime = RunTime(
   details: "The Kotlin runtime.\nNote: OpenJDK installation is required",
   archiveName: "kotlin.zip",
   parentName: "kotlin",
-  archiveSize: 74.1,
+  archiveSize: 74,
   version: "2.2.0",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/kotlin.zip",
   icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35, width: 35)
@@ -708,7 +718,7 @@ final List<RunTime> runtimes = [
 
 final pyright = Extension(
   name: "Pyright",
-  details: "Langauge server for python.\nRequired for code completion and suggestions",
+  details: "Langauge server for python.\nNote: Node JS runtime is required.",
   archiveName: "pyright.zip",
   parentName: "pyright",
   archiveSize: 5.7,
@@ -718,6 +728,7 @@ final pyright = Extension(
   serverFile: "/data/data/com.vsdroid/extensions/pyright/langserver.index.js"
 );
 
+
 final List<Extension> extensions = [
-  pyright
+  pyright,
 ];

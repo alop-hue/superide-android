@@ -122,3 +122,9 @@ class DownloadProgressEvent extends UiEvent{
 
   DownloadProgressEvent(this.downloadProgress);
 }
+
+class GeneralEvent extends UiEvent {
+  final Map<String, dynamic> generalSettings; 
+
+  GeneralEvent({required this.generalSettings});
+}

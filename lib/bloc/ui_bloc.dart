@@ -29,6 +29,13 @@ class ThemeBloc extends Bloc<UiEvent, ThemeState>{
   }
 }
 
+class GeneralBloc extends Bloc<GeneralEvent, GeneralState> {
+  final Map<String, dynamic> generalSettings;
+  GeneralBloc(this.generalSettings) : super(GeneralState(generalSettings: generalSettings)) {
+    on<GeneralEvent>((event, emit) => emit(GeneralState(generalSettings: event.generalSettings)));
+  }
+}
+
 class MenuSearchBloc extends Bloc<Search, MenuSearchState>{
   MenuSearchBloc():super(const MenuSearchState(searchedLangs: <Card>[])){
     on<Search>((event, emit)=>emit(MenuSearchState(searchedLangs: event.searchedLangs)));

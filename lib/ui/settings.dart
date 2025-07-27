@@ -82,6 +82,41 @@ int main() {
                   child: ListView(
                     controller: scrollController,
                     children: [
+                      settingsType("General"),
+                      settingsTile(
+                        null,
+                        "Auto Save",
+                        Icon(Icons.save, color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
+                        appThemeState.appTheme.isDark,
+                        trailing: SizedBox(
+                          height: 30,
+                          width: 55,
+                          child: BlocBuilder<GeneralBloc, GeneralState>(
+                            builder: (context, generalState) {
+                              return FlutterSwitch(
+                                toggleColor: Color(0xff002b6e),
+                                inactiveToggleColor: Colors.white,
+                                activeColor: Color(0xffb0c6fe),
+                                value: generalState.generalSettings['autoSave'] ?? true,
+                                onToggle: (value) async{
+                                  final prefs = await SharedPreferences.getInstance();
+                                  final currentState = themeState.codeCrafterConfig;
+                                  currentState['autoSave'] = value;
+                                  await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                  prefs.setInt("fontSize", value ? 20 : 15);
+                                  if(context.mounted) {
+                                    final currentval = context.read<GeneralBloc>().state.generalSettings;
+                                    currentval['autoSave'] = value;
+                                    context.read<GeneralBloc>().add(GeneralEvent(generalSettings: currentval));
+                                  }
+                                }
+                              );
+                            },
+                          ),
+                        ),
+                        subTitle: themeState.fontSize > 15 ? "Large" : "Normal"
+                      ),
+                      settingsDivider,
                       settingsType("Appearance"),
                       settingsTile(
                         null,
@@ -344,7 +379,7 @@ int main() {
                             )),
                             enableRulerLines: isIndentEnabled,
                             controller: CodeCrafterController()
-                              ..language = languages[4].language,
+                              ..language = languages[6].language,
                             editorTheme: highlightThemes[theme],
                             textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
                             initialText: demoCode,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,40 +9,65 @@ import '../bloc/ui_bloc.dart';
 import '../utils/themes.dart';
 
 Widget drawerButtons(
-  VoidCallback onPressed, dynamic icon,
-  { 
-    Color color = const Color(0xff6d6d6d),
-    Color bgColor = Colors.transparent,
-    EdgeInsets? padding
-  }
-  ) {
+  VoidCallback onPressed,
+  dynamic icon, {
+  Color color = const Color(0xff6d6d6d),
+  Color bgColor = Colors.transparent,
+  EdgeInsets? padding,
+}) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 15),
     child: Container(
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: const BorderRadius.all(Radius.circular(10))),
-      padding: padding ?? EdgeInsets.symmetric(
-        horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType) ? 2.5 : icon.runtimeType == IconDataSolid ? 5 : 4,
-        vertical:![IconData, IconDataSolid].contains(icon.runtimeType) ? 8 : 5),
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+      ),
+      padding:
+          padding ??
+          EdgeInsets.symmetric(
+            horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType)
+                ? 2.5
+                : icon.runtimeType == IconDataSolid
+                ? 5
+                : 4,
+            vertical: ![IconData, IconDataSolid].contains(icon.runtimeType)
+                ? 8
+                : 5,
+          ),
       child: IconButton(
         onPressed: onPressed,
         icon: ![IconData, IconDataSolid].contains(icon.runtimeType)
-          ? icon : Icon(icon,color: color,size: icon.runtimeType == IconDataSolid ? 35 : 38)),
+            ? icon
+            : Icon(
+                icon,
+                color: color,
+                size: icon.runtimeType == IconDataSolid ? 35 : 38,
+              ),
+      ),
     ),
   );
 }
 
-Widget fileTiles(VoidCallback onPressed, String text, dynamic icon, bool isDark,
-    {double val = 0}) {
+Widget fileTiles(
+  VoidCallback onPressed,
+  String text,
+  dynamic icon,
+  bool isDark, {
+  double val = 0,
+}) {
   return Padding(
     padding: const EdgeInsets.only(left: 15),
     child: ListTile(
       onTap: onPressed,
-      title: Text(text,
-          style: TextStyle(
-              color: isDark ? const Color.fromARGB(255, 118, 180, 234) : const Color.fromARGB(255, 20, 107, 183),
-              fontWeight: isDark? FontWeight.w300 : FontWeight.w400)),
+      title: Text(
+        text,
+        style: TextStyle(
+          color: isDark
+              ? const Color.fromARGB(255, 118, 180, 234)
+              : const Color.fromARGB(255, 20, 107, 183),
+          fontWeight: isDark ? FontWeight.w300 : FontWeight.w400,
+        ),
+      ),
       leading: Padding(
         child: icon,
         padding: EdgeInsets.only(left: val),
@@ -60,21 +86,18 @@ Widget settingsDivider = Divider(
 
 Widget settingsType(String type) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-  child: Text(
-      type, 
-      style: TextStyle(
-        color: Color(0xffacc3fc)
-      )
-    ),
+  child: Text(type, style: TextStyle(color: Color(0xffacc3fc))),
 );
 
 dynamic settingsTile(
-    VoidCallback? onPressed,
-    String title,
-    dynamic icon,
-    bool isDark,
-    {String? subTitle, Widget? trailing, bool isEnabled = true}
-  ) {
+  VoidCallback? onPressed,
+  String title,
+  dynamic icon,
+  bool isDark, {
+  String? subTitle,
+  Widget? trailing,
+  bool isEnabled = true,
+}) {
   return ListTile(
     enabled: isEnabled,
     minVerticalPadding: 13,
@@ -87,17 +110,23 @@ dynamic settingsTile(
       style: TextStyle(
         fontSize: 17.5,
         fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
-        color: isDark ? Colors.grey[400] : const Color.fromARGB(255, 93, 93, 93),
+        color: isDark
+            ? Colors.grey[400]
+            : const Color.fromARGB(255, 93, 93, 93),
       ),
     ),
-    subtitle: subTitle != null ? Text(
-      subTitle,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
-        color: isDark ? Colors.grey[400] : const Color.fromARGB(255, 93, 93, 93),
-      ),
-    ) : null,
+    subtitle: subTitle != null
+        ? Text(
+            subTitle,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
+              color: isDark
+                  ? Colors.grey[400]
+                  : const Color.fromARGB(255, 93, 93, 93),
+            ),
+          )
+        : null,
   );
 }
 
@@ -105,14 +134,22 @@ Widget drawerTile(VoidCallback onPressed, String title, dynamic icon) {
   return ListTile(onTap: onPressed, title: Text(title), leading: icon);
 }
 
-Widget projectTile(String projectName, String projectDetails, icon, Color cardBg, VoidCallback onTap, ) {
+Widget projectTile(
+  String projectName,
+  String projectDetails,
+  icon,
+  Color cardBg,
+  VoidCallback onTap,
+) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
     child: Card(
       color: cardBg,
       child: ListTile(
         onTap: onTap,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+        ),
         leading: icon,
         title: Text(projectName),
         subtitle: Text(
@@ -124,26 +161,32 @@ Widget projectTile(String projectName, String projectDetails, icon, Color cardBg
   );
 }
 
-Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed){
+Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
   return SizedBox(
     height: 37,
     width: 75,
     child: IconButton(
       highlightColor: Colors.lightBlue.withAlpha(160),
       style: ButtonStyle(
-        shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10))
-        ))
+        shape: WidgetStateProperty.all(
+          const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+          ),
+        ),
       ),
       padding: EdgeInsets.zero,
-      onPressed: (){
+      onPressed: () {
         try {
           onPressed.call();
-        } catch (e) {/**/}
+        } catch (e) {
+          /**/
+        }
       },
       icon: Icon(
         iconData,
-        color: !isDark ? const Color.fromARGB(255, 40, 40, 40): const Color.fromARGB(255, 194, 194, 194),
+        color: !isDark
+            ? const Color.fromARGB(255, 40, 40, 40)
+            : const Color.fromARGB(255, 194, 194, 194),
       ),
     ),
   );
@@ -161,9 +204,8 @@ class CodeEditor extends StatefulWidget {
     required this.codeController,
     required this.filePath,
     this.focusNode,
-    this.lspConfig
-    }
-  );
+    this.lspConfig,
+  });
 
   @override
   State<CodeEditor> createState() => _CodeEditorState();
@@ -172,53 +214,86 @@ class CodeEditor extends StatefulWidget {
 class _CodeEditorState extends State<CodeEditor> {
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
+  Timer? _saveTimer; // Add this
 
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final CodeCrafterController codeController = widget.codeController;
-    return BlocBuilder<ThemeBloc, ThemeState>(
-      builder: (context, state) {
-        return GestureDetector(
-          onScaleStart: (details) {
-            if(details.pointerCount == 2){
-              _initialFontSize = state.fontSize;
-            }
+    return BlocBuilder<GeneralBloc, GeneralState>(
+      builder: (context, generalState) {
+        return BlocBuilder<ThemeBloc, ThemeState>(
+          builder: (context, themeState) {
+            return GestureDetector(
+              onScaleStart: (details) {
+                if (details.pointerCount == 2) {
+                  _initialFontSize = themeState.fontSize;
+                }
+              },
+              onScaleUpdate: (details) {
+                if (details.pointerCount == 2) {
+                  _currentScale = details.scale;
+                  double newFontSize = _initialFontSize * _currentScale;
+                  newFontSize = newFontSize.clamp(8.0, 48.0);
+                  context.read<ThemeBloc>().add(
+                    SetFontSize(fontSize: newFontSize),
+                  );
+                }
+              },
+              child: BlocBuilder<AIBloc, AIState>(
+                builder: (context, aiState) {
+                  return CodeCrafter(
+                    filePath: widget.filePath.path,
+                    aiCompletion: aiState.completionModel != null
+                        ? AiCompletion(
+                            completionType: aiState.showSuggestionOntap
+                                ? CompletionType.manual
+                                : CompletionType.mixed,
+                            enableCompletion: aiState.isEnabled,
+                            model: aiState.completionModel!,
+                          )
+                        : null,
+                    enableRulerLines:
+                        themeState.codeCrafterConfig['indentLineStatus'],
+                    selectionColor: Colors.blueAccent.withAlpha(80),
+                    selectionHandleColor: Colors.blue,
+                    editorTheme:
+                        highlightThemes[themeState.codeCrafterConfig['theme']],
+                    textStyle: TextStyle(
+                      fontFamily: themeState.codeCrafterConfig['fontFamily'],
+                      fontSize: themeState.fontSize,
+                    ),
+                    controller: codeController,
+                    focusNode: widget.focusNode,
+                    lspConfig: widget.lspConfig,
+                    editorField: EditorField(
+                      onChanged: (p0) {
+                        if(generalState.generalSettings['autoSave'] ?? true) {
+                          _saveTimer?.cancel();
+                          _saveTimer = Timer(
+                            const Duration(milliseconds: 85),
+                            () {
+                              widget.filePath.writeAsStringSync(p0);
+                            },
+                          );
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+            );
           },
-          onScaleUpdate: (details) {
-            if (details.pointerCount == 2) {
-              _currentScale = details.scale;
-              double newFontSize = _initialFontSize * _currentScale;
-              newFontSize = newFontSize.clamp(8.0, 48.0);
-              context.read<ThemeBloc>().add(SetFontSize(fontSize: newFontSize));
-            }
-          },
-          child: BlocBuilder<AIBloc, AIState>(
-            builder: (context, aiState) {
-              return CodeCrafter(
-                filePath: widget.filePath.path,
-                aiCompletion: aiState.completionModel != null ? AiCompletion(
-                  completionType: aiState.showSuggestionOntap ? CompletionType.manual : CompletionType.mixed,
-                  enableCompletion: aiState.isEnabled,
-                  model: aiState.completionModel!,
-                ): null,
-                enableRulerLines: state.codeCrafterConfig['indentLineStatus'],
-                selectionColor: Colors.blueAccent.withAlpha(80),
-                selectionHandleColor: Colors.blue,
-                editorTheme: highlightThemes[state.codeCrafterConfig['theme']],
-                textStyle: TextStyle(fontFamily: state.codeCrafterConfig['fontFamily'], fontSize: state.fontSize),
-                controller: codeController,
-                focusNode: widget.focusNode,
-                lspConfig: widget.lspConfig,
-              );
-            },
-          )
         );
       },
     );
   }
 }
-
 
 //-----------------------DirectoryTreeViewer--------------------------
 
@@ -321,21 +396,26 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             children: [
               isUnfolded(directory.path)
                   ? widget.folderStyle?.folderOpenedicon ??
-                      FolderStyle().folderOpenedicon
+                        FolderStyle().folderOpenedicon
                   : widget.folderStyle?.folderClosedicon ??
-                      FolderStyle().folderClosedicon,
+                        FolderStyle().folderClosedicon,
               const SizedBox(width: 8),
-              Text(path.basename(directory.path),
-                  style: widget.folderStyle?.folderNameStyle ??
-                      FolderStyle().folderNameStyle),
+              Text(
+                path.basename(directory.path),
+                style:
+                    widget.folderStyle?.folderNameStyle ??
+                    FolderStyle().folderNameStyle,
+              ),
               SizedBox(
-                  width: widget.folderStyle?.itemGap ?? FolderStyle().itemGap),
+                width: widget.folderStyle?.itemGap ?? FolderStyle().itemGap,
+              ),
               if (widget.enableCreateFileOption &&
                   isUnfolded(directory.path) &&
                   currentDir == directory.path)
                 IconButton(
                   onPressed: () => startCreating(directory.path, false),
-                  icon: widget.folderStyle?.iconForCreateFile ??
+                  icon:
+                      widget.folderStyle?.iconForCreateFile ??
                       FolderStyle().iconForCreateFile,
                 ),
               if (widget.enableCreateFolderOption &&
@@ -343,7 +423,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                   currentDir == directory.path)
                 IconButton(
                   onPressed: () => startCreating(directory.path, true),
-                  icon: widget.folderStyle?.iconForCreateFolder ??
+                  icon:
+                      widget.folderStyle?.iconForCreateFolder ??
                       FolderStyle().iconForCreateFolder,
                 ),
               if (widget.enableDeleteFolderOption &&
@@ -362,13 +443,15 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         ),
         if (isUnfolded(directory.path))
           Padding(
-            padding: const EdgeInsets.only(left: 16.0,right: 7.0),
+            padding: const EdgeInsets.only(left: 16.0, right: 7.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...entries.map((entry) => entry is Directory
-                    ? _buildDirectoryTree(entry)
-                    : _buildFileItem(entry as File)),
+                ...entries.map(
+                  (entry) => entry is Directory
+                      ? _buildDirectoryTree(entry)
+                      : _buildFileItem(entry as File),
+                ),
                 if (newEntryPath == directory.path)
                   _buildNewEntryField(directory),
               ],
@@ -383,9 +466,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       children: [
         isFolderCreation
             ? widget.editingFieldStyle?.folderIcon ??
-                EditingFieldStyle().folderIcon
+                  EditingFieldStyle().folderIcon
             : widget.editingFieldStyle?.fileIcon ??
-                EditingFieldStyle().fileIcon,
+                  EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -399,7 +482,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration: widget.editingFieldStyle?.textfieldDecoration ??
+              decoration:
+                  widget.editingFieldStyle?.textfieldDecoration ??
                   EditingFieldStyle().textfieldDecoration,
               controller: _controller,
               onSubmitted: (_) => createEntry(parent),
@@ -407,14 +491,16 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           ),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.doneIcon ??
+          icon:
+              widget.editingFieldStyle?.doneIcon ??
               EditingFieldStyle().doneIcon,
-          onPressed: () => createEntry(parent)
+          onPressed: () => createEntry(parent),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.cancelIcon ??
+          icon:
+              widget.editingFieldStyle?.cancelIcon ??
               EditingFieldStyle().cancelIcon,
-          onPressed: stopCreating
+          onPressed: stopCreating,
         ),
       ],
     );
@@ -427,11 +513,16 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            widget.fileIconBuilder ?.call(path.extension(file.path).toLowerCase()) ??
-                widget.fileStyle?.fileIcon ?? FileStyle().fileIcon,
+            widget.fileIconBuilder?.call(
+                  path.extension(file.path).toLowerCase(),
+                ) ??
+                widget.fileStyle?.fileIcon ??
+                FileStyle().fileIcon,
             const SizedBox(width: 8),
-            Text(path.basename(file.path),
-                style:widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
+            Text(
+              path.basename(file.path),
+              style:
+                  widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
             ),
             if (widget.enableDeleteFileOption)
               IconButton(
@@ -439,7 +530,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                   file.deleteSync();
                   setState(() {});
                 },
-                icon: widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+                icon:
+                    widget.fileStyle?.iconForDeleteFile ??
+                    FileStyle().iconForDeleteFile,
               ),
             ...widget.fileActions ?? [],
           ],

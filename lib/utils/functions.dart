@@ -207,7 +207,7 @@ Future<String> getCodeCrafterConfig() async{
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('codeCrafterConfig');
   return config ?? 
-    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true, "manualCompletion" : true}';
+    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true, "manualCompletion": true, "autoSave": true}';
 }
 
 Future<String> getAiConfig() async{
@@ -293,19 +293,26 @@ Future<LspConfig?> startLspServer({
     Map<String, String>? environment
   }) async{
   if(executable == null) return null;
-  if(extensions.any((item) => item.fileExtension == ext)){
     try {
       final String sharedPath = await NativeChannel.getLibraryPath();
+      final String runtimeDir = '/data/data/com.vsdroid/runtimes';
       final config = await LspStdioConfig.start(
         executable: executable,
-        args: [
-          extensions.singleWhere((item) => item.fileExtension == ext).serverFile,
-          ...args,
-        ],
+        args: ((){
+          if (ext == 'ts' || ext == 'js') {
+            return [
+              "/data/data/com.vsdroid/runtimes/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+              ...args,
+            ];
+          } else if(ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++'){
+            return null;
+          }
+          return [extensions.singleWhere((item) => item.fileExtension == ext).serverFile, ...args];
+        })(),
         environment: {
           ...environment ?? {},
           'VSDROID_SHARED_PATH': sharedPath,
-          'LD_LIBRARY_PATH': 'data/data/com.vsdroid/runtimes/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+          'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
         },
         filePath: filePath,
         workspacePath: workspacePath,
@@ -316,7 +323,6 @@ Future<LspConfig?> startLspServer({
     } catch (e) {
       debugPrint('LSP Initialization failed: $e');
     }
-  }
   return null;
 }
 

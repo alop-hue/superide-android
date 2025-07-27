@@ -21,7 +21,10 @@ class MenuScreen extends StatelessWidget {
           subtitle: Text(e.details),
           onTap: () => Navigator.of(context).push(PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                EditorPage(languageDetails: e, rootDir: '/storage/emulated/0/VSdroid/Temps'),
+                EditorPage(
+                  languageDetails: e,
+                  rootDir: '/storage/emulated/0/VSdroid/Temps'
+                ),
               transitionsBuilder:(context, animation, secondaryAnimation, child) {
                 return FadeTransition(
                   opacity: animation,

@@ -77,12 +77,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
     return FutureBuilder(
       future: Future.wait([
-        widget.filePath == null? setTempFile(widget.languageDetails.extension):(()async{
-          if(!widget.filePath!.existsSync()){
-            await widget.filePath!.create(recursive: true);
-          }
-          return widget.filePath;
-        })(),
+        widget.filePath == null
+        ? setTempFile(widget.languageDetails.extension)
+        : Future.value(widget.filePath),
         (() async {
           final prefs = await SharedPreferences.getInstance();
           List<dynamic> storedData = jsonDecode(await getRecent());
@@ -1297,6 +1294,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
+                            case '.ts':
+                              final String compileCommand = "tsc ${filePath.path} --outDir ${tempDir.path}";
+                              final String runCommand = "node ${tempDir.path}/${path.basenameWithoutExtension(filePath.path)}.js";
+                              runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
                             default:
                               final String command = languages.firstWhere((language) =>
                                 language.extension == path.extension(filePath.path).replaceFirst(".", ""),
@@ -1344,7 +1346,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                       : startLspServer(
                         ext: editorState.activeEditors[index].languageDetails.extension,
                         executable: editorState.activeEditors[index].languageDetails.lspExecutable,
-                        args: ["--stdio"],
+                        args: editorState.activeEditors[index].languageDetails.args ?? [],
                         filePath: editorState.activeEditors[index].filePath.path,
                         workspacePath: editorState.activeEditors[index].filePath.parent.path,
                         langId: editorState.activeEditors[index].languageDetails.name.toLowerCase()

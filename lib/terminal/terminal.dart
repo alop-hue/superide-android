@@ -33,7 +33,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
-      'PATH': '/bin:/usr/bin:/sbin:/usr/sbin:/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/node_modules/bin:\$PATH',
+      'PATH': '/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'VSDROID_SHARED_PATH': sharedPath,
       'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
     };

@@ -23,6 +23,11 @@ class ThemeState {
   }
 }
 
+class GeneralState{
+  final Map<String, dynamic> generalSettings;
+  GeneralState({required this.generalSettings});
+}
+
 class MenuSearchState {
   final List<Card> searchedLangs;
   const MenuSearchState({required this.searchedLangs});
