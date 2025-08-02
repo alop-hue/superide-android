@@ -307,12 +307,27 @@ Future<LspConfig?> startLspServer({
           } else if(ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++'){
             return null;
           }
+          else if(ext == 'java'){
+            return [
+              '-Dlog.protocol=true',
+              '-Dlog.level=ALL',
+              "-jar",
+              "/data/data/com.vsdroid/extensions/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
+              "-configuration",
+              "/data/data/com.vsdroid/extensions/JDT-LS/config_linux_arm",
+              "-data",
+              workspacePath,
+              ...args
+            ];
+          }
+
           return [extensions.singleWhere((item) => item.fileExtension == ext).serverFile, ...args];
         })(),
         environment: {
           ...environment ?? {},
           'VSDROID_SHARED_PATH': sharedPath,
           'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+          'JAVA_HOME': '/data/data/com.vsdroid/runtimes/java-17-openjdk',
         },
         filePath: filePath,
         workspacePath: workspacePath,

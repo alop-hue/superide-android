@@ -36,6 +36,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PATH': '/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'VSDROID_SHARED_PATH': sharedPath,
       'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
+      'JAVA_HOME': '/data/data/com.vsdroid/runtimes/java-17-openjdk',
     };
     _startPty(
       "$sharedPath/libbash.so",

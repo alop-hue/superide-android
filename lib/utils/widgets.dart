@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/utils/languages.dart';
 import '../bloc/ui_bloc.dart';
 import '../utils/themes.dart';
 
@@ -273,7 +274,7 @@ class _CodeEditorState extends State<CodeEditor> {
                     lspConfig: widget.lspConfig,
                     editorField: EditorField(
                       onChanged: (p0) {
-                        if(generalState.generalSettings['autoSave'] ?? true) {
+                        if (generalState.generalSettings['autoSave'] ?? true) {
                           _saveTimer?.cancel();
                           _saveTimer = Timer(
                             const Duration(milliseconds: 85),
@@ -555,61 +556,110 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 }
 
-/* class DownloadButton extends StatefulWidget {
-  final double progress;
-  const DownloadButton({
-    super.key,
-    required this.progress
+//-----------------------AIChat--------------------------
+
+class AIChat extends StatelessWidget {
+  final String filePath;
+  const AIChat({
+    required this.filePath,
+    super.key
   });
 
   @override
-  State<DownloadButton> createState() => _DownloadButtonState();
-}
-
-class _DownloadButtonState extends State<DownloadButton> {
-  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 130,
-      width: 100,
-      child: Stack(
-        children: [
-          FractionallySizedBox(
-            widthFactor: widget.progress,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: const BorderRadius.all(Radius.circular(10)),
-              ),
+    return BlocBuilder<AppThemeBloc, AppThemeState>(
+      builder: (context, themeState) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10, top: 10, left: 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "AI CHAT",
+                      style: TextStyle(
+                        fontWeight: themeState.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                        color: themeState.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: Icon(
+                        Icons.attach_file,
+                        color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: (){},
+                      icon: Icon(
+                        Icons.history,
+                        color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                      )
+                    ),
+                  ],
+                ),
+                TextField(
+                  cursorColor: themeState.appTheme.selectScreenCardTextColor,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: TextStyle(
+                    color: themeState.appTheme.selectScreenCardTextColor,
+                  ),
+                  maxLines: null,
+                  decoration: InputDecoration(
+                    focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                    suffix: IconButton(
+                      onPressed: () {},
+                      icon: Icon(
+                        Icons.send,
+                        color: themeState.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    labelText: 'Ask AI',
+                    labelStyle: TextStyle(
+                      color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, right: 2.5),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: languages.singleWhere((item) => item.extension == path.extension(filePath).substring(1)).icon
+                      ),
+                      SizedBox(width: 3),
+                      Text(
+                        path.basename(filePath),
+                        style: TextStyle(
+                          color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                        )
+                      ),
+                    ],
+                  ),
+                )
+              ],
             ),
           ),
-          ElevatedButton(
-            style: ButtonStyle(
-              backgroundColor: WidgetStatePropertyAll(Colors.transparent),
-              shadowColor: WidgetStatePropertyAll(Colors.transparent),
-              side: WidgetStatePropertyAll(BorderSide(
-                color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
-                width: 1.5
-              ))
-            ),
-            onPressed: (){},
-            child: widget.progress == 0.0 ? Icon(
-              Icons.download,
-              size: 22,
-              color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor
-            ) : Text(
-              widget.progress < 1.0
-                ? "${(widget.progress * 100).toInt()}%"
-                : "Done",
-                style: TextStyle(
-                  color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          )
-        ],
-      ),
+        );
+      },
     );
   }
-} */
+}

@@ -131,6 +131,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             builder: (context, editorState) {
               _updateTabController(editorState.activeEditors.length);
               return Scaffold(
+                resizeToAvoidBottomInset: true,
                 onDrawerChanged: (isOpened) => codeFocus.unfocus(),
                 drawer: BlocBuilder<StackBloc, StackState>(
                   buildWhen: (previous, current) => current != previous,
@@ -836,9 +837,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     },
                                   ),
                                 ),
-                                Center(
-                                  child: Text("AI is not configured"),
-                                ),
+                                AIChat(filePath: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path),
                                 Padding(
                                   padding: const EdgeInsets.only(top: 45),
                                   child: Column(
@@ -922,53 +921,61 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       showDialog(context: context, builder: (context)=>
                                       BlocProvider<ThemeBloc>.value(
                                         value: uiBloc,
-                                        child: BlocBuilder<ThemeBloc,ThemeState>(builder: (context,state){
-                                          final String currentFont = state.codeCrafterConfig['fontFamily'];
-                                          return AlertDialog(
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                                            insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
-                                            titlePadding: const EdgeInsets.all(15),
-                                            backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                                            title: Card(
-                                            color: const Color.fromARGB(255, 37, 37, 37),
-                                            child: ListTile(
-                                              leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
-                                              title: const Text(" Select a font   "),
-                                              subtitle: Text("   ${fonts.length} fonts available"),
-                                              titleTextStyle: const TextStyle(fontSize: 25),
-                                              subtitleTextStyle: const TextStyle(color: Colors.grey),
-                                            ),
-                                          ),
-                                          content:Scrollbar(
-                                            thumbVisibility: true,
-                                            child:Padding(
-                                              padding: const EdgeInsets.only(bottom: 20),
-                                              child: SingleChildScrollView(
-                                                child: Column(
-                                                  children: fonts.map(
-                                                (e)=>Card(
-                                                  color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                                  elevation: 0,
-                                                  child:
-                                                  ListTile(
-                                                    onTap: () async{
-                                                      final prefs = await SharedPreferences.getInstance();
-                                                      final currentState = state.codeCrafterConfig;
-                                                      currentState['theme'] = e;
-                                                      await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
-                                                      if (context.mounted) {
-                                                        context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                                                        Navigator.of(context).pop();
-                                                      }
-                                                    },
-                                                    iconColor: Colors.grey,
-                                                    leading: e==currentFont?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
-                                                    title: Text(e.capitalize(),style: TextStyle(color: Colors.grey[400]))
-                                                    ))).toList()
+                                        child: BlocBuilder<ThemeBloc,ThemeState>(
+                                          builder: (context, themeState){
+                                            final String currentFont = themeState.codeCrafterConfig['fontFamily'];
+                                            return AlertDialog(
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                                              insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
+                                              titlePadding: const EdgeInsets.all(15),
+                                              backgroundColor: const Color.fromARGB(255, 61, 61, 61),
+                                              title: Card(
+                                                color: const Color.fromARGB(255, 37, 37, 37),
+                                                child: ListTile(
+                                                  leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
+                                                  title: const Text(" Select a font   "),
+                                                  subtitle: Text("   ${fonts.length} fonts available"),
+                                                  titleTextStyle: const TextStyle(fontSize: 25),
+                                                  subtitleTextStyle: const TextStyle(color: Colors.grey),
                                                 ),
                                               ),
-                                            )));
-                                        }),
+                                              content:Scrollbar(
+                                                thumbVisibility: true,
+                                                child:Padding(
+                                                  padding: const EdgeInsets.only(bottom: 20),
+                                                  child: SingleChildScrollView(
+                                                    child: Column(
+                                                      children: fonts.map(
+                                                        (e) => Card(
+                                                          color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
+                                                          elevation: 0,
+                                                          child:
+                                                          ListTile(
+                                                            onTap: () async{
+                                                              final currentState = themeState.codeCrafterConfig;
+                                                              currentState['fontFamily'] = e;
+                                                              final prefs = await SharedPreferences.getInstance();
+                                                              await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                                              if (context.mounted) {
+                                                                context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                                                Navigator.of(context).pop();
+                                                              }
+                                                            },
+                                                            iconColor: Colors.grey,
+                                                            leading: e == currentFont ? 
+                                                              const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
+                                                              const Icon(Icons.radio_button_off_sharp),
+                                                            title: Text(e.capitalize(), style: TextStyle(color: appTheme.selectScreenCardTextColor))
+                                                          )
+                                                        )
+                                                      ).toList()
+                                                    ),
+                                                  ),
+                                                )
+                                              )
+                                            );  
+                                          }
+                                        ),
                                       ));
                                     }, "Fonts", Icon(
                                       FontAwesomeIcons.font,
