@@ -289,8 +289,7 @@ final langcsharp = Language(
   details: 'A modern, object-oriented language for Windows apps and games.',
   language: cs,
   helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
-  //TODO: FIX it
-  command: 'mono --gc-params=nursery-size=64m \$MONO_OPTIONS /data/data/com.vsdroid/runtimes/mono/mono/4.5/csc.exe "\$@"',
+  command: 'csc',
   icon: SvgPicture.asset('assets/material_icons/csharp.svg',height: 35,width: 35),
   type: 'compiled'
 );
@@ -713,7 +712,7 @@ final kotlinRunTime = RunTime(
 final rubyRunTime = RunTime(
   name: "Ruby",
   details: "The Ruby interpreter.",
-  version: "3.4.0",
+  version: "3.4.1",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/ruby.zip",
   parentName: "ruby",
   archiveName: "ruby.zip",

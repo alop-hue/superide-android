@@ -5,7 +5,33 @@ import '../ui/home.dart';
 import '../utils/functions.dart';
 
 const List<String> javaTools = [
-  'jar','jarsigner','java','javac','javadoc','javap','jcmd','jconsole','jdb','jdeprscan','jdeps','jfr','jhsdb','jimage','jinfo','jlink','jmap','jmod','jpackage','jps','jrunscript','jstack','jstat','jstatd','keytool','rmiregistry','serialver'
+  'jar',
+  'jarsigner',
+  'java',
+  'javac',
+  'javadoc',
+  'javap',
+  'jcmd',
+  'jconsole',
+  'jdb',
+  'jdeprscan',
+  'jdeps',
+  'jfr',
+  'jhsdb',
+  'jimage',
+  'jinfo',
+  'jlink',
+  'jmap',
+  'jmod',
+  'jpackage',
+  'jps',
+  'jrunscript',
+  'jstack',
+  'jstat',
+  'jstatd',
+  'keytool',
+  'rmiregistry',
+  'serialver'
 ];
 
 class StartScreen extends StatefulWidget {
@@ -26,11 +52,10 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   Future<void> _initializeApp() async {
-   final runTimedir = Directory("/data/data/com.vsdroid/runtimes");
+    final runTimedir = Directory("/data/data/com.vsdroid/runtimes");
     final bin = "/data/data/com.vsdroid/bin";
     final binDir = Directory(bin);
 
-    // Step 1: Cleanup zip files and create bin dir if needed
     if (!binDir.existsSync()) {
       await binDir.create(recursive: true);
     }
@@ -43,26 +68,23 @@ class _StartScreenState extends State<StartScreen> {
     }
 
     final String sharedPath = await NativeChannel.getLibraryPath();
-    final List<Map<String, dynamic>> symlinks = [
+
+    Map<String, dynamic> loader(String name, {String? loader, Map<String, String>? env}) => {
+      'src': '$sharedPath/${loader ?? "libloader.so"}',
+      'dst': '$bin/$name',
+      if (env != null) 'env': env,
+    };
+
+    final loaderTools = [
+      'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'mono', 'csc', 'kotlinc'
+    ];
+
+    final symlinks = [
       {'src': '$sharedPath/libbash.so', 'dst': '$bin/bash'},
       {'src': '$sharedPath/libbash.so', 'dst': '$bin/sh'},
-      {'src': '$sharedPath/libclanglauncher.so', 'dst': '$bin/clang'},
-      {'src': '$sharedPath/libclang++launcher.so', 'dst': '$bin/clang++'},
-      {'src': '$sharedPath/libclangloaderlauncher.so', 'dst': '$bin/clangloader'},
-      {'src': '$sharedPath/libnodeloader.so', 'dst': '$bin/node', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libpythonloader.so', 'dst': '$bin/python', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libpythonloader.so', 'dst': '$bin/python3', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libnpmloader.so', 'dst': '$bin/npm', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libnpxloader.so', 'dst': '$bin/npx', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libpiploader.so', 'dst': '$bin/pip', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libpiploader.so', 'dst': '$bin/pip3', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libtsloader.so', 'dst': '$bin/tsc'},
-      {'src': '$sharedPath/libclangd.so', 'dst': '$bin/clangd', 'env': {'LD_LIBRARY_PATH': "$sharedPath:$runTimedir/clang"}},
-      {'src': '$sharedPath/libruby.so', 'dst': '$bin/ruby', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      {'src': '$sharedPath/libmono.so', 'dst': '$bin/mono', 'env': {'VSDROID_SHARED_PATH': sharedPath}},
-      for (final tool in javaTools)
-        {'src': '$sharedPath/libjava_tool_loader.so', 'dst': '$bin/$tool'},
-      {'src': '$sharedPath/libkotlinloader.so', 'dst': '$bin/kotlinc'},
+      ...loaderTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
+      ...javaTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
     ];
 
     final totalLinks = symlinks.length;
@@ -74,7 +96,6 @@ class _StartScreenState extends State<StartScreen> {
         ["-sf", link['src'], link['dst']],
         environment: link['env'] as Map<String, String>?,
       );
-
       completedLinks++;
       setState(() {
         progress = completedLinks / totalLinks;
@@ -99,7 +120,7 @@ class _StartScreenState extends State<StartScreen> {
     });
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(

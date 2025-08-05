@@ -38,9 +38,6 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'LD_LIBRARY_PATH': '$sharedPath:/data/data/com.vsdroid/lib:/data/data/com.vsdroid/runtimes/ruby:/data/data/com.vsdroid/runtimes/mono',
       'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
       'JAVA_HOME': '/data/data/com.vsdroid/runtimes/java-17-openjdk',
-      'GEM_HOME': '/data/data/com.vsdroid/runtimes/ruby/lib/ruby/gems',
-      'GEM_PATH': '/data/data/com.vsdroid/runtimes/ruby/lib/ruby/gems',
-      'RUBYLIB': '/data/data/com.vsdroid/runtimes/ruby/lib/ruby/3.4.0:/data/data/com.vsdroid/runtimes/ruby/lib/ruby/3.4.0/aarch64-linux-android',
       'MONO_PATH': '/data/data/com.vsdroid/runtimes/mono/mono/4.5',
     };
     _startPty(
