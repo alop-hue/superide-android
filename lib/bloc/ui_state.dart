@@ -123,7 +123,6 @@ class AIState {
           case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
           case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
         }
-        return Gemini(apiKey: "");
       })(),
       chatModel = (() {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['chat'] == null || config[modelSelected['chat']] == null) {
@@ -144,7 +143,6 @@ class AIState {
           case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
           case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
         }
-        return Gemini(apiKey: "");
       })();
 
   AIState copyWith({
