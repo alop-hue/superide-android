@@ -478,3 +478,12 @@ class CodeCrafterDemoKey {
     isDark,
   );
 }
+
+class AIConversation{
+  final String userRequest;
+  String? modelResponse;
+
+  AIConversation(this.userRequest, this.modelResponse);
+
+  AIConversation copyWith({String? modelResponse}) =>  AIConversation(userRequest, modelResponse);
+}

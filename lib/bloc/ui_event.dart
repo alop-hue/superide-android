@@ -128,3 +128,9 @@ class GeneralEvent extends UiEvent {
 
   GeneralEvent({required this.generalSettings});
 }
+
+class AIChatEvent extends UiEvent{
+  final List<AIConversation> aiConversation;
+
+  AIChatEvent(this.aiConversation);
+}

@@ -165,3 +165,9 @@ class DownloadProgressState{
 
   DownloadProgressState(this.downloadProgress);
 }
+
+class AIChatState{
+  final List<AIConversation> aiConversation;
+
+  AIChatState(this.aiConversation);
+}

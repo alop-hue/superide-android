@@ -162,7 +162,7 @@ final langjava = Language(
   icon: SvgPicture.asset('assets/material_icons/java.svg',height: 35,width: 35),
   command: 'javac',
   type: 'compiled',
-  lspExecutable: "/data/data/com.vsdroid/bin/java",
+  // lspExecutable: "/data/data/com.vsdroid/bin/java",
 );
 final langc = Language(
   name: 'C',
@@ -726,7 +726,7 @@ final monoRunTime = RunTime(
   version: "6.12.0",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/mono.zip",
   archiveName: "mono.zip",
-  archiveSize: 14,
+  archiveSize: 16,
   parentName: "mono",
   icon: SvgPicture.asset('assets/material_icons/csharp.svg',height: 35,width: 35)
 );
@@ -753,19 +753,6 @@ final pyright = Extension(
   serverFile: "/data/data/com.vsdroid/extensions/pyright/langserver.index.js"
 );
 
-final jdtls = Extension(
-  name: "JDT Language Server",
-  details: "Language server for Java.\nNote: Java 17 runtime is required.",
-  archiveName: "JDT-LS.zip",
-  parentName: "JDT-LS",
-  archiveSize: 46.9,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/JDT-LS.zip",
-  icon: SvgPicture.asset("assets/icons/eclipse.svg", width: 35, height: 35),
-  fileExtension: "java",
-  serverFile: "/data/data/com.vsdroid/extensions/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar"
-);
-
 final List<Extension> extensions = [
   pyright,
-  jdtls
 ];

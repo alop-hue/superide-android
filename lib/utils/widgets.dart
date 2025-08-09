@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_code_crafter/code_crafter.dart';
+import 'package:http/http.dart' as http;
+import 'package:markdown_widget/config/configs.dart';
+import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
 import '../bloc/ui_bloc.dart';
 import '../utils/themes.dart';
@@ -198,13 +203,11 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
 class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeCrafterController codeController;
-  final FocusNode? focusNode;
   final LspConfig? lspConfig;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.filePath,
-    this.focusNode,
     this.lspConfig,
   });
 
@@ -215,7 +218,7 @@ class CodeEditor extends StatefulWidget {
 class _CodeEditorState extends State<CodeEditor> {
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
-  Timer? _saveTimer; // Add this
+  Timer? _saveTimer;
 
   @override
   void dispose() {
@@ -231,6 +234,7 @@ class _CodeEditorState extends State<CodeEditor> {
         return BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, themeState) {
             return GestureDetector(
+              behavior: HitTestBehavior.translucent,
               onScaleStart: (details) {
                 if (details.pointerCount == 2) {
                   _initialFontSize = themeState.fontSize;
@@ -270,9 +274,9 @@ class _CodeEditorState extends State<CodeEditor> {
                       fontSize: themeState.fontSize,
                     ),
                     controller: codeController,
-                    focusNode: widget.focusNode,
                     lspConfig: widget.lspConfig,
                     editorField: EditorField(
+                      enableInteractiveSelection: true,
                       onChanged: (p0) {
                         if (generalState.generalSettings['autoSave'] ?? true) {
                           _saveTimer?.cancel();
@@ -558,7 +562,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 
 //-----------------------AIChat--------------------------
 
-class AIChat extends StatelessWidget {
+class AIChat extends StatefulWidget {
   final String filePath;
   const AIChat({
     required this.filePath,
@@ -566,98 +570,326 @@ class AIChat extends StatelessWidget {
   });
 
   @override
+  State<AIChat> createState() => _AIChatState();
+}
+
+class _AIChatState extends State<AIChat> {
+  final TextEditingController _promptController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _sendPrompt(Models chatModel, List<AIConversation> currentList) async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) return;
+
+    final aiChatBloc = context.read<AIChatBloc>();
+
+    final newList = currentList
+        .map((c) => AIConversation(c.userRequest, c.modelResponse))
+        .toList();
+    newList.add(AIConversation(prompt, null));
+    aiChatBloc.add(AIChatEvent(newList));
+
+    final int index = newList.length - 1;
+    _promptController.clear();
+
+    final url = Uri.parse(chatModel.url);
+    final client = http.Client();
+    final request = http.Request('POST', url);
+    request.headers.addAll(chatModel.headers);
+    request.body = jsonEncode((() {
+      switch (chatModel) {
+        case Gemini(): return {
+          "contents": [
+            {
+              "parts": [
+                {"text": prompt},
+              ],
+            },
+          ],
+          "generationConfig": {
+            "stopSequences": ["Title"],
+            "temperature": 1.0,
+            "maxOutputTokens": 800,
+            "topP": 0.8,
+            "topK": 10,
+          },
+        };
+        case OpenAI(): return {"model": chatModel.model, "input": prompt};
+        case Claude(): return {
+          "model": chatModel.model,
+          "max_tokens": 1024,
+          "messages": [
+            {"role": "user", "content": prompt},
+          ],
+        };
+        case Grok():
+        case DeepSeek():
+        case Gorq():
+        case TogetherAi():
+        case Sonar():
+        case OpenRouter():
+        case FireWorks(): return {
+          "model": chatModel.model,
+          "messages": [
+            {"role": "user", "content": prompt},
+          ],
+        };
+        case CustomModel():;
+      }
+    })());
+
+    try {
+      //TODO: Convert to Stream
+      //TODO: Preserver model memory/history
+      StringBuffer responseBuffer = StringBuffer();
+      final streamedResponse = await client.send(request);
+      streamedResponse.stream.transform(utf8.decoder).listen((chunk) {
+        responseBuffer.write(chunk);
+        /* String parsed;
+        try {
+          print(chunk);
+          parsed = chatModel.responseParser(jsonDecode(chunk));
+          print("\n****************\n");
+          print(parsed);
+        } catch (e) {
+          print(chunk);
+          print(e);
+          parsed = chatModel.responseParser(jsonDecode(chunk));
+        }
+
+        final updated = aiChatBloc.state.aiConversation
+            .map((c) => AIConversation(c.userRequest, c.modelResponse))
+            .toList();
+
+        if (index < updated.length) {
+          updated[index] = updated[index].copyWith(modelResponse: parsed);
+          aiChatBloc.add(AIChatEvent(updated));
+        }
+      }, onError: (err) {
+        final updated = aiChatBloc.state.aiConversation
+            .map((c) => AIConversation(c.userRequest, c.modelResponse))
+            .toList();
+        if (index < updated.length) {
+          updated[index] =
+              updated[index].copyWith(modelResponse: 'Error: ${err.toString()}');
+          aiChatBloc.add(AIChatEvent(updated));
+        } */
+      }, onDone: () {
+        try {
+          final json = jsonDecode(responseBuffer.toString());
+          final parsed = chatModel.responseParser(json);
+           final updated = aiChatBloc.state.aiConversation
+            .map((c) => AIConversation(c.userRequest, c.modelResponse))
+            .toList();
+
+          if (index < updated.length) {
+            updated[index] = updated[index].copyWith(modelResponse: parsed);
+            aiChatBloc.add(AIChatEvent(updated));
+          }
+        } catch (e) {
+          //
+        }
+        client.close();
+      });
+    } catch (e) {
+      final updated = aiChatBloc.state.aiConversation
+          .map((c) => AIConversation(c.userRequest, c.modelResponse))
+          .toList();
+      if (index < updated.length) {
+        updated[index] = updated[index].copyWith(
+            modelResponse: 'Failed to send request: ${e.toString()}');
+        aiChatBloc.add(AIChatEvent(updated));
+      }
+      client.close();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, themeState) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10, top: 10, left: 10),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "AI CHAT",
-                      style: TextStyle(
-                        fontWeight: themeState.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
-                        color: themeState.appTheme.selectScreenCardTextColor,
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: Icon(
-                        Icons.attach_file,
-                        color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: (){},
-                      icon: Icon(
-                        Icons.history,
-                        color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
-                      )
-                    ),
-                  ],
-                ),
-                TextField(
-                  cursorColor: themeState.appTheme.selectScreenCardTextColor,
-                  textAlignVertical: TextAlignVertical.top,
+        return BlocBuilder<AIBloc, AIState>(
+          builder: (context, aiState) {
+            final Models? chatModel = aiState.chatModel;
+            if (
+              aiState.config.isEmpty ||
+              aiState.modelSelected.isEmpty ||
+              aiState.modelSelected['chat'] == null ||
+              aiState.config[aiState.modelSelected['chat']] == null
+            ) {
+              return Center(
+                child: Text(
+                  "Chat Model is not configured. Go to the settings and create one.",
                   style: TextStyle(
                     color: themeState.appTheme.selectScreenCardTextColor,
-                  ),
-                  maxLines: null,
-                  decoration: InputDecoration(
-                    focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
-                    suffix: IconButton(
-                      onPressed: () {},
-                      icon: Icon(
-                        Icons.send,
-                        color: themeState.appTheme.selectScreenCardTextColor,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    labelText: 'Ask AI',
-                    labelStyle: TextStyle(
-                      color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, right: 2.5),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: languages.singleWhere((item) => item.extension == path.extension(filePath).substring(1)).icon
-                      ),
-                      SizedBox(width: 3),
-                      Text(
-                        path.basename(filePath),
-                        style: TextStyle(
-                          color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                        )
-                      ),
-                    ],
+                    fontSize: 22
                   ),
                 )
-              ],
-            ),
-          ),
+              );
+            }
+            return BlocBuilder<AIChatBloc, AIChatState>(
+              builder: (context, aiChatState) {
+                return SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10, top: 10, left: 10),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "AI CHAT",
+                              style: TextStyle(
+                                fontWeight: themeState.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                                color: themeState.appTheme.selectScreenCardTextColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              onPressed: () {},
+                              icon: Icon(
+                                Icons.attach_file,
+                                color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: (){},
+                              icon: Icon(
+                                Icons.history,
+                                color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                              )
+                            ),
+                          ],
+                        ),
+                        TextField(
+                          controller: _promptController,
+                          cursorColor: themeState.appTheme.selectScreenCardTextColor,
+                          textAlignVertical: TextAlignVertical.top,
+                          style: TextStyle(
+                            color: themeState.appTheme.selectScreenCardTextColor,
+                          ),
+                          maxLines: null,
+                          decoration: InputDecoration(
+                            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                            suffix: IconButton(
+                              onPressed: () async{
+                                final List<AIConversation> currentAIChatState = List.from(aiChatState.aiConversation);
+                                _sendPrompt(chatModel!, currentAIChatState);
+                                _promptController.clear();
+                              },
+                              icon: Icon(
+                                Icons.send,
+                                color: themeState.appTheme.selectScreenCardTextColor,
+                              ),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            labelText: 'Ask AI',
+                            labelStyle: TextStyle(
+                              color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, right: 2.5),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: languages.singleWhere((item) => item.extension == path.extension(widget.filePath).substring(1)).icon
+                              ),
+                              SizedBox(width: 3),
+                              Text(
+                                path.basename(widget.filePath),
+                                style: TextStyle(
+                                  color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                )
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: aiChatState.aiConversation.length,
+                            itemBuilder: (context, index) {
+                              final isDark = themeState.appTheme.isDark;
+                              final config = isDark
+                                  ? MarkdownConfig(configs: [
+                                    PConfig(
+                                      textStyle: TextStyle(
+                                        color: themeState.appTheme.selectScreenCardTextColor
+                                      )
+                                    )
+                                  ])
+                                  : MarkdownConfig.defaultConfig;
+                              final conv = aiChatState.aiConversation[index];
+                              final hasResponse = conv.modelResponse != null && conv.modelResponse!.isNotEmpty;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Column(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueAccent.withAlpha(200),
+                                            borderRadius: BorderRadius.only(
+                                               topLeft: Radius.circular(16),
+                                                topRight: Radius.zero,
+                                                bottomLeft: Radius.circular(16),
+                                                bottomRight: Radius.circular(16),
+                                            )
+                                          ),
+                                          child: Text(
+                                            aiChatState.aiConversation[index].userRequest,
+                                            style: TextStyle(
+                                              color: Colors.white
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: hasResponse
+                                          ? MarkdownBlock(
+                                              data: aiChatState.aiConversation[index].modelResponse!,
+                                              config: config
+                                            )
+                                          : const LinearProgressIndicator(),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );

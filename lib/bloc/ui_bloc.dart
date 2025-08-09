@@ -118,3 +118,9 @@ class DownloadProgressBloc extends Bloc<DownloadProgressEvent, DownloadProgressS
     on<DownloadProgressEvent>((event, emit) => emit(DownloadProgressState(event.downloadProgress)));
   }
 }
+
+class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
+  AIChatBloc():super(AIChatState([])){
+    on<AIChatEvent>((event, emit) => emit(AIChatState(event.aiConversation)));
+  }
+}

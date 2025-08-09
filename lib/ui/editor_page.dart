@@ -34,7 +34,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
   late final TabController apiTabController, paramTabController;
-  late final FocusNode codeFocus;
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
 
@@ -44,7 +43,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
     apiUrlController = TextEditingController();
-    codeFocus = FocusNode();
     trasnformationController.value = Matrix4.identity()..scale(1.45);
     apiTabController =  TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
@@ -106,7 +104,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
       ]),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          //TODO: Lottie animation
           return const Center(child: CircularProgressIndicator());
         }
         final target = snapshot.data?[0];
@@ -118,12 +115,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => FindWordBloc()),
             BlocProvider(create: (_) => ApiBloc()),
             BlocProvider(create: (_) => FolderBloc()),
+            BlocProvider(create: (_) => AIChatBloc()),
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(
                 filePath: target!,
                 controller: codeController,
                 languageDetails: widget.languageDetails,
-                isActive: true
+                isActive: true,
               )
             )),
           ],
@@ -132,7 +130,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
               _updateTabController(editorState.activeEditors.length);
               return Scaffold(
                 resizeToAvoidBottomInset: true,
-                onDrawerChanged: (isOpened) => codeFocus.unfocus(),
                 drawer: BlocBuilder<StackBloc, StackState>(
                   buildWhen: (previous, current) => current != previous,
                   builder: (context, state) { 
@@ -1070,7 +1067,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                         ),
                       );
                     })
-                    
                   ),
                   actions: [
                     PopupMenuButton(
@@ -1359,8 +1355,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                         langId: editorState.activeEditors[index].languageDetails.name.toLowerCase()
                       ),
                       builder: (context, editorSnapshot) {
-                        if(editorSnapshot.connectionState == ConnectionState.waiting){
-                          return const CircularProgressIndicator();
+                        if( 
+                          editorState.activeEditors[index].languageDetails.lspExecutable != null &&
+                          editorSnapshot.connectionState == ConnectionState.waiting
+                        ){
+                          return SizedBox(
+                            height: 30,
+                            width: 30,
+                            child: Center(
+                              child: const CircularProgressIndicator()
+                            )
+                          );
                         }
                         return Column(
                           children: [
@@ -1372,7 +1377,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   return CodeEditor(
                                     codeController: editorState.activeEditors[index].controller,
                                     filePath: editorState.activeEditors[index].filePath,
-                                    focusNode: codeFocus,
                                     lspConfig: editorSnapshot.data,
                                   );
                                 },
