@@ -4,10 +4,10 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.9.0
 
 dependencies:
-  android_intent_plus: ^5.3.0
+  android_intent_plus: ^5.3.1
   bloc: ^9.0.0
   file_icon: ^1.0.0
   file_picker: ^10.2.0
@@ -16,23 +16,27 @@ dependencies:
     sdk: flutter
   flutter_archive: ^6.0.3
   flutter_bloc: ^9.1.1
-  flutter_code_crafter: ^0.2.5
+  flutter_code_crafter: ^0.2.7
+  # flutter_code_crafter:
+  #   git:
+  #     url: https://github.com/heckmon/flutter_code_crafter.git
+  #     ref: 0b59fd8796506142034a036514514e001c0cd5c2
   flutter_downloader: ^1.12.0
   flutter_highlight: ^0.7.0
   flutter_inappwebview: ^6.1.5
-  flutter_json: ^0.0.4
+  flutter_json: ^0.0.5
   flutter_pty: ^0.4.1
   flutter_svg: ^2.2.0
   flutter_switch: ^0.3.2
-  font_awesome_flutter: ^10.8.0
+  font_awesome_flutter: ^10.10.0
   highlight: ^0.7.0
   http: ^1.2.2
   markdown_widget: ^2.3.2+8
   path: ^1.9.0
   percent_indicator: ^4.2.5
-  permission_handler: ^12.0.0+1
+  permission_handler: ^12.0.1
   shared_preferences: ^2.5.3
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.2
   xterm: ^4.0.0
 
 dev_dependencies:
