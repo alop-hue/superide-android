@@ -90,9 +90,9 @@ Widget settingsDivider = Divider(
   color: Colors.grey,
 );
 
-Widget settingsType(String type) => Padding(
+Widget settingsType(String type, bool isDark) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-  child: Text(type, style: TextStyle(color: Color(0xffacc3fc))),
+  child: Text(type, style: TextStyle(color: Color(isDark ? 0xffacc3fc : 0xff181a26))),
 );
 
 dynamic settingsTile(

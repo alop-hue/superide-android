@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/terminal/terminal.dart';
+import 'package:vsdroid/ui/contribute.dart';
+import 'about.dart';
 import 'donation_page.dart';
 import 'folder_page.dart';
 import 'editor_page.dart';
@@ -56,10 +58,15 @@ class _SelectTypeState extends State<SelectType> {
                 Padding(
                   padding: const EdgeInsets.only(left: 1.5),
                   child: drawerTile(
-                    () {},
-                    "Github",
+                    () {
+                      Navigator.of(context).push(PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => const ContributePage(),
+                        transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                      ));
+                    },
+                    "Contribute/Source code",
                     Icon(
-                      FontAwesomeIcons.github,
+                      FontAwesomeIcons.githubAlt,
                       color: appThemestate.appTheme.isDark?Colors.grey:const Color.fromARGB(255, 36, 36, 36),
                       size: 26.5,
                     )
@@ -68,7 +75,12 @@ class _SelectTypeState extends State<SelectType> {
                 Padding(
                   padding: const EdgeInsets.only(left: 2),
                   child: drawerTile(
-                    () {},
+                    () {
+                      Navigator.of(context).push(PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => const AboutPage(),
+                        transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
+                      ));
+                    },
                     "About",
                     Image.asset(
                       'assets/icons/about-512.png',

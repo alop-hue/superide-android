@@ -207,7 +207,7 @@ Future<String> getCodeCrafterConfig() async{
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('codeCrafterConfig');
   return config ?? 
-    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "monospace", "isAIEnabled" : true, "manualCompletion": true, "autoSave": true}';
+    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "jetBrainsMono", "isAIEnabled" : true, "manualCompletion": true, "autoSave": true}';
 }
 
 Future<String> getAiConfig() async{

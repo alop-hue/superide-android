@@ -23,6 +23,7 @@ class _SettingsState extends State<Settings> {
   final TextEditingController modelNameController = TextEditingController();
   final TextEditingController modelIdController = TextEditingController();
   final ScrollController scrollController = ScrollController();
+  final themeScroll = ScrollController(), fontScroll = ScrollController();
   final _formKey = GlobalKey<FormState>();
   final String demoCode =
 '''
@@ -51,6 +52,13 @@ int main() {
     "OpenRouter",
     "FireWorks",
     ];
+  
+  @override void dispose() {
+    scrollController.dispose();
+    themeScroll.dispose();
+    fontScroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +90,7 @@ int main() {
                   child: ListView(
                     controller: scrollController,
                     children: [
-                      settingsType("General"),
+                      settingsType("General", appThemeState.appTheme.isDark),
                       settingsTile(
                         null,
                         "Auto Save",
@@ -117,7 +125,7 @@ int main() {
                         subTitle: themeState.fontSize > 15 ? "Large" : "Normal"
                       ),
                       settingsDivider,
-                      settingsType("Appearance"),
+                      settingsType("Appearance", appThemeState.appTheme.isDark),
                       settingsTile(
                         null,
                         "App Theme",
@@ -157,6 +165,10 @@ int main() {
                       settingsTile(() {
                         showDialog(context: context, builder: (context) {
                         final String currentTheme = theme;
+                          WidgetsBinding.instance.addPostFrameCallback((_){
+                            final selectedIndex = highlightThemes.keys.toList().indexOf(currentTheme);
+                            themeScroll.jumpTo(selectedIndex * 58);
+                          });
                           return AlertDialog(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                             insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -174,29 +186,31 @@ int main() {
                             backgroundColor: const Color.fromARGB(255, 61, 61, 61),
                             content: 
                             Scrollbar(
+                              controller: themeScroll,
                               thumbVisibility: true,
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 20),
                                 child: SingleChildScrollView(
+                                  controller: themeScroll,
                                   child: Column(
                                     children: highlightThemes.keys.toList().map((e)=>Card(
-                                elevation: 0,
-                                color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                child: ListTile(
-                                  iconColor: Colors.grey,
-                                  leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
-                                  onTap: () async{
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final currentState = themeState.codeCrafterConfig;
-                                    currentState['theme'] = e;
-                                    await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
-                                    if (context.mounted) {
-                                      context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                  title: Text(e.capitalize())),
-                                )).toList()
+                                      elevation: 0,
+                                      color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
+                                      child: ListTile(
+                                        iconColor: Colors.grey,
+                                        leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
+                                        onTap: () async{
+                                          final prefs = await SharedPreferences.getInstance();
+                                          final currentState = themeState.codeCrafterConfig;
+                                          currentState['theme'] = e;
+                                          await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                          if (context.mounted) {
+                                            context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                            Navigator.of(context).pop();
+                                          }
+                                        },
+                                        title: Text(e.capitalize())
+                                      ))).toList()
                                   ),
                                 ),
                               )
@@ -214,6 +228,10 @@ int main() {
                         (){
                           showDialog(context: context, builder: (context) {
                             final String currentFont = themeState.codeCrafterConfig['fontFamily'];
+                            WidgetsBinding.instance.addPostFrameCallback((_){
+                              final selectedIndex = fonts.indexOf(currentFont);
+                              fontScroll.jumpTo(selectedIndex * 58);
+                            });
                             return AlertDialog(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                               insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -230,10 +248,12 @@ int main() {
                                 ),
                               ),
                               content:Scrollbar(
+                                controller: fontScroll,
                                 thumbVisibility: true,
                                 child:Padding(
                                   padding: const EdgeInsets.only(bottom: 20),
                                   child: SingleChildScrollView(
+                                    controller: fontScroll,
                                     child: Column(
                                       children: fonts.map(
                                         (e) => Card(
@@ -390,7 +410,7 @@ int main() {
                       const SizedBox(height: 35),
                       settingsDivider,
                       const SizedBox(height: 20),
-                      settingsType("AI Configuration"),
+                      settingsType("AI Configuration", appThemeState.appTheme.isDark),
                       BlocBuilder<AIBloc, AIState>(
                         builder: (context, aiState) {
                           return Column(
@@ -839,29 +859,35 @@ int main() {
                                         content: SizedBox(
                                           height: 300,
                                           width: 250,
-                                          child: ListView(
-                                            children: List.generate(aiState.config.length, (index){
-                                              return RadioListTile(
-                                                activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
-                                                title: Text(aiState.config.entries.elementAt(index).key),
-                                                value: aiState.config.entries.elementAt(index).key,
-                                                groupValue: aiState.modelSelected['code'] ?? "",
-                                                onChanged: (val) async{
-                                                  final currentState = aiState.modelSelected;
-                                                  currentState['code'] = val!;
-                                                  final prefs = await SharedPreferences.getInstance();
-                                                  prefs.setString('modelSelected', jsonEncode(currentState));
-                                                  if(context.mounted) {
-                                                    context.read<AIBloc>().add(ModelSelectEvent(currentState));
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text("Successfully selected model $val"))
-                                                    );
-                                                    Navigator.of(context).pop(true);
-                                                  }
-                                                },
-                                              );
-                                            }),
+                                          child: RadioGroup<String>(
+                                            groupValue: aiState.modelSelected['code'] ?? "",
+                                            onChanged: (val) async {
+                                              final currentState = aiState.modelSelected;
+                                              currentState['code'] = val!;
+                                              final prefs = await SharedPreferences.getInstance();
+                                              prefs.setString('modelSelected', jsonEncode(currentState));
+
+                                              if (context.mounted) {
+                                                context.read<AIBloc>().add(ModelSelectEvent(currentState));
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text("Successfully selected model $val")),
+                                                );
+                                                Navigator.of(context).pop(true);
+                                              }
+                                            },
+                                            child: ListView(
+                                              children: List.generate(aiState.config.length, (index) {
+                                                return RadioListTile<String>(
+                                                  value: aiState.config.entries.elementAt(index).key,
+                                                  title: Text(aiState.config.entries.elementAt(index).key),
+                                                  activeColor: appThemeState.appTheme.isDark
+                                                      ? const Color(0xffb0c6fe)
+                                                      : const Color(0xff181a26),
+                                                );
+                                              }),
+                                            ),
                                           ),
+
                                         ),
                                       )
                                     );
@@ -909,29 +935,35 @@ int main() {
                                         content: SizedBox(
                                           height: 300,
                                           width: 250,
-                                          child: ListView(
-                                            children: List.generate(aiState.config.length, (index){
-                                              return RadioListTile(
-                                                activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
-                                                title: Text(aiState.config.entries.elementAt(index).key),
-                                                value: aiState.config.entries.elementAt(index).key,
-                                                groupValue: aiState.modelSelected['chat'] ?? "",
-                                                onChanged: (val) async{
-                                                  final prefs = await SharedPreferences.getInstance();
-                                                  final currentState = aiState.modelSelected;
-                                                  currentState['chat'] = val!;
-                                                  prefs.setString('modelSelected', jsonEncode(currentState));
-                                                  if(context.mounted) {
-                                                    context.read<AIBloc>().add(ModelSelectEvent(currentState));
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text("Successfully selected model $val"))
-                                                    );
-                                                    Navigator.of(context).pop(true);
-                                                  }
-                                                },
-                                              );
-                                            }),
+                                          child: RadioGroup<String>(
+                                            groupValue: aiState.modelSelected['chat'] ?? "",
+                                            onChanged: (val) async {
+                                              final prefs = await SharedPreferences.getInstance();
+                                              final currentState = aiState.modelSelected;
+                                              currentState['chat'] = val!;
+                                              prefs.setString('modelSelected', jsonEncode(currentState));
+
+                                              if (context.mounted) {
+                                                context.read<AIBloc>().add(ModelSelectEvent(currentState));
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text("Successfully selected model $val")),
+                                                );
+                                                Navigator.of(context).pop(true);
+                                              }
+                                            },
+                                            child: ListView(
+                                              children: List.generate(aiState.config.length, (index) {
+                                                return RadioListTile<String>(
+                                                  value: aiState.config.entries.elementAt(index).key,
+                                                  title: Text(aiState.config.entries.elementAt(index).key),
+                                                  activeColor: appThemeState.appTheme.isDark
+                                                      ? const Color(0xffb0c6fe)
+                                                      : const Color(0xff181a26),
+                                                );
+                                              }),
+                                            ),
                                           ),
+
                                         ),
                                       )
                                     );

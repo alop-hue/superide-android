@@ -16,11 +16,7 @@ dependencies:
     sdk: flutter
   flutter_archive: ^6.0.3
   flutter_bloc: ^9.1.1
-  flutter_code_crafter: ^0.2.7
-  # flutter_code_crafter:
-  #   git:
-  #     url: https://github.com/heckmon/flutter_code_crafter.git
-  #     ref: 0b59fd8796506142034a036514514e001c0cd5c2
+  flutter_code_crafter: ^0.3.0
   flutter_downloader: ^1.12.0
   flutter_highlight: ^0.7.0
   flutter_inappwebview: ^6.1.5

@@ -38,11 +38,11 @@ class BuyMeCoffee extends StatelessWidget {
         return Scaffold(
           backgroundColor: appThemeState.appTheme.scaffoldBg,
           appBar: AppBar(
-            iconTheme: IconThemeData(color: Colors.white),
-            title: const Text(
+            iconTheme: IconThemeData(color: appThemeState.appTheme.selectScreenCardTextColor),
+            title: Text(
               'Support the Developer',
               style: TextStyle(
-                color: Colors.white,
+                color: appThemeState.appTheme.selectScreenCardTextColor,
                 fontWeight: FontWeight.bold
               ),
             ),
