@@ -16,8 +16,8 @@ class SetFontSize extends UiEvent{
 }
 
 class ChangeConfigEvent extends UiEvent{
-  final Map<String, dynamic> codeCrafterConfig;
-  ChangeConfigEvent(this.codeCrafterConfig);
+  final Map<String, dynamic> codeForgeConfig;
+  ChangeConfigEvent(this.codeForgeConfig);
 }
 
 class Search extends UiEvent {

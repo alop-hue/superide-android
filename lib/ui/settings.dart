@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,11 +64,11 @@ int main() {
   Widget build(BuildContext context) {
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
-        final theme = themeState.codeCrafterConfig['theme'];
-        final fontFamily = themeState.codeCrafterConfig['fontFamily'];
-        final isIndentEnabled = themeState.codeCrafterConfig['indentLineStatus'];
-        final lineWrap = themeState.codeCrafterConfig['lineWrap'];
-        final enableFolding = themeState.codeCrafterConfig['enableFolding'];
+        final theme = themeState.codeForgeConfig['theme'];
+        final fontFamily = themeState.codeForgeConfig['fontFamily'];
+        final isIndentEnabled = themeState.codeForgeConfig['indentLineStatus'];
+        final lineWrap = themeState.codeForgeConfig['lineWrap'];
+        final enableFolding = themeState.codeForgeConfig['enableFolding'];
         return BlocBuilder<AppThemeBloc, AppThemeState>(
           builder: (context, appThemeState) {
             return Scaffold(
@@ -108,9 +108,9 @@ int main() {
                                 value: generalState.generalSettings['autoSave'] ?? true,
                                 onToggle: (value) async{
                                   final prefs = await SharedPreferences.getInstance();
-                                  final currentState = themeState.codeCrafterConfig;
+                                  final currentState = themeState.codeForgeConfig;
                                   currentState['autoSave'] = value;
-                                  await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                  await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                   prefs.setInt("fontSize", value ? 20 : 15);
                                   if(context.mounted) {
                                     final currentval = context.read<GeneralBloc>().state.generalSettings;
@@ -201,9 +201,9 @@ int main() {
                                         leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
                                         onTap: () async{
                                           final prefs = await SharedPreferences.getInstance();
-                                          final currentState = themeState.codeCrafterConfig;
+                                          final currentState = themeState.codeForgeConfig;
                                           currentState['theme'] = e;
-                                          await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                          await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                           if (context.mounted) {
                                             context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                             Navigator.of(context).pop();
@@ -227,7 +227,7 @@ int main() {
                       settingsTile(
                         (){
                           showDialog(context: context, builder: (context) {
-                            final String currentFont = themeState.codeCrafterConfig['fontFamily'];
+                            final String currentFont = themeState.codeForgeConfig['fontFamily'];
                             WidgetsBinding.instance.addPostFrameCallback((_){
                               final selectedIndex = fonts.indexOf(currentFont);
                               fontScroll.jumpTo(selectedIndex * 58);
@@ -262,10 +262,10 @@ int main() {
                                           child:
                                           ListTile(
                                             onTap: () async{
-                                              final currentState = themeState.codeCrafterConfig;
+                                              final currentState = themeState.codeForgeConfig;
                                               currentState['fontFamily'] = e;
                                               final prefs = await SharedPreferences.getInstance();
-                                              await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                              await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                               if (context.mounted) {
                                                 context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                                 Navigator.of(context).pop();
@@ -310,10 +310,10 @@ int main() {
                             value: isIndentEnabled, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeCrafterConfig;
+                              final currentState = themeState.codeForgeConfig;
                               currentState['indentLineStatus'] = value;
                               if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeCrafterConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
                         ),
@@ -338,10 +338,10 @@ int main() {
                             value: lineWrap, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeCrafterConfig;
+                              final currentState = themeState.codeForgeConfig;
                               currentState['lineWrap'] = value;
                               if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeCrafterConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
                         ),
@@ -366,10 +366,10 @@ int main() {
                             value: enableFolding, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeCrafterConfig;
+                              final currentState = themeState.codeForgeConfig;
                               currentState['enableFolding'] = value;
                               if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeCrafterConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
                         ),
@@ -383,12 +383,14 @@ int main() {
                             maxHeight: 320,
                             maxWidth: 365
                           ),
-                          child: CodeCrafter(
-                            wrapLines: lineWrap,
+                          child: CodeForge(
+                            lineWrap: lineWrap,
                             enableFolding: enableFolding,
-                            selectionColor: Colors.blueAccent.withAlpha(80),
-                            selectionHandleColor: Colors.blue,
-                            key: ValueKey(CodeCrafterDemoKey(
+                            selectionStyle: CodeSelectionStyle(
+                              selectionColor: Colors.blueAccent.withAlpha(80),
+                              cursorBubbleColor: Colors.blue,
+                            ),
+                            key: ValueKey(CodeForgeDemoKey(
                               theme: theme,
                               fontFamily: fontFamily,
                               indentLineStatus: isIndentEnabled,
@@ -397,9 +399,8 @@ int main() {
                               isDark: appThemeState.appTheme.isDark,
                               
                             )),
-                            enableRulerLines: isIndentEnabled,
-                            controller: CodeCrafterController()
-                              ..language = languages[6].language,
+                            enableGuideLines: isIndentEnabled,
+                            language: languages[6].language,
                             editorTheme: highlightThemes[theme],
                             textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
                             initialText: demoCode,
@@ -774,9 +775,9 @@ int main() {
                                       if(aiState.config.isNotEmpty){
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
-                                          final currentValue = themeState.codeCrafterConfig;
+                                          final currentValue = themeState.codeForgeConfig;
                                           currentValue['isAIEnabled'] = value;
-                                          prefs.setString('codeCrafterConfig', jsonEncode(currentValue));
+                                          prefs.setString('codeForgeConfig', jsonEncode(currentValue));
                                           context.read<AIBloc>().add(AIEnableEvent(value));
                                         }
                                       }
@@ -810,9 +811,9 @@ int main() {
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
                                           context.read<AIBloc>().add(AIModeEvent(val));
-                                          final currentState = themeState.codeCrafterConfig;
+                                          final currentState = themeState.codeForgeConfig;
                                           currentState['manualCompletion'] = val;
-                                          prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                          prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                         }
                                       }
                                       else{
@@ -983,6 +984,10 @@ int main() {
                           );
                         },
                       ),
+                      const SizedBox(height: 35),
+                      settingsDivider,
+                      const SizedBox(height: 20),
+                      settingsType("LSP Configuration", appThemeState.appTheme.isDark),
                     ],
                   ),
                 ),

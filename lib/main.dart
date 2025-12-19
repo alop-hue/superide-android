@@ -11,7 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
-  final codeCrafterConfig = await getCodeCrafterConfig();
+  final codeForgeConfig = await getCodeForgeConfig();
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
   await FlutterDownloader.initialize();
@@ -19,7 +19,7 @@ void main() async {
     MainApp(
       recent: recent,
       appTheme: appTheme,
-      codeCrafterConfig: codeCrafterConfig,
+      codeForgeConfig: codeForgeConfig,
       aiConfig: aiConfig,
       modelSelected: modelSelected,
     )
@@ -27,12 +27,12 @@ void main() async {
 }
 
 class MainApp extends StatelessWidget {
-  final String recent, appTheme, codeCrafterConfig, aiConfig, modelSelected;
+  final String recent, appTheme, codeForgeConfig, aiConfig, modelSelected;
   const MainApp({
       super.key,
       required this.recent,
       required this.appTheme,
-      required this.codeCrafterConfig,
+      required this.codeForgeConfig,
       required this.aiConfig,
       required this.modelSelected
     });
@@ -42,7 +42,7 @@ class MainApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => ThemeBloc(
-          codeCrafterConfig: jsonDecode(codeCrafterConfig)
+          codeForgeConfig: jsonDecode(codeForgeConfig)
         )),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
@@ -50,16 +50,17 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => DownloadProgressBloc()),
+          BlocProvider(create: (_) => DownloadPortBloc()),
         BlocProvider(create: (_) => GeneralBloc(
           {
-            "autoSave": jsonDecode(codeCrafterConfig)['autoSave'] as bool,
+            "autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool,
           }
         )),
         BlocProvider(create: (_) => AIBloc(
           jsonDecode(aiConfig),
-          jsonDecode(codeCrafterConfig)['isAIEnabled'] as bool,
+          jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,
           jsonDecode(modelSelected),
-          jsonDecode(codeCrafterConfig)['manualCompletion'] as bool
+          jsonDecode(codeForgeConfig)['manualCompletion'] as bool
         )),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(

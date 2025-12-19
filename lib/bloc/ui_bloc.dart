@@ -1,6 +1,9 @@
+import 'dart:isolate';
+import 'dart:ui';
+
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_code_crafter/code_crafter.dart';
+import 'package:code_forge/code_forge.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';
 
@@ -14,18 +17,18 @@ class StackBloc extends Bloc<StackIndexChange, StackState> {
 }
 
 class ThemeBloc extends Bloc<UiEvent, ThemeState>{
-  final Map<String, dynamic> codeCrafterConfig;
+  final Map<String, dynamic> codeForgeConfig;
   ThemeBloc({
-    required this.codeCrafterConfig
+    required this.codeForgeConfig
   })
     :super(
       ThemeState(
         fontSize: 15,
-        codeCrafterConfig: codeCrafterConfig
+        codeForgeConfig: codeForgeConfig
       )
     ){
     on<SetFontSize>((event, emit)=>emit(state.copyWith(fontSize: event.fontSize)));
-    on<ChangeConfigEvent>((event, emit) => emit(state.copyWith(codeCrafterConfig: event.codeCrafterConfig)));
+    on<ChangeConfigEvent>((event, emit) => emit(state.copyWith(codeForgeConfig: event.codeForgeConfig)));
   }
 }
 
@@ -122,5 +125,33 @@ class DownloadProgressBloc extends Bloc<DownloadProgressEvent, DownloadProgressS
 class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
   AIChatBloc():super(AIChatState([])){
     on<AIChatEvent>((event, emit) => emit(AIChatState(event.aiConversation)));
+  }
+}
+
+class DownloadPortBloc extends Cubit<ReceivePort?> {
+  static const String portName = 'downloader_send_port';
+  late final Stream<dynamic> broadcastStream;
+
+  DownloadPortBloc() : super(null) {
+    final rp = ReceivePort();
+    // Register the SendPort globally so background isolate can find it
+    IsolateNameServer.registerPortWithName(rp.sendPort, portName);
+    // Create a single broadcast stream from the ReceivePort so multiple listeners
+    // (e.g. navigating back to the downloads page) can subscribe safely.
+    broadcastStream = rp.asBroadcastStream();
+    emit(rp);
+  }
+
+  ReceivePort? get port => state;
+
+  Stream<dynamic> get downloadStream => broadcastStream;
+
+  @override
+  Future<void> close() {
+    if (state != null) {
+      IsolateNameServer.removePortNameMapping(portName);
+      state!.close();
+    }
+    return super.close();
   }
 }

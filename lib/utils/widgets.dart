@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_code_crafter/code_crafter.dart';
+import 'package:code_forge/code_forge.dart';
 import 'package:http/http.dart' as http;
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
@@ -92,7 +92,10 @@ Widget settingsDivider = Divider(
 
 Widget settingsType(String type, bool isDark) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
-  child: Text(type, style: TextStyle(color: Color(isDark ? 0xffacc3fc : 0xff181a26))),
+  child: Text(
+    type,
+    style: TextStyle(color: Color(isDark ? 0xffacc3fc : 0xff181a26)),
+  ),
 );
 
 dynamic settingsTile(
@@ -202,12 +205,16 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
 
 class CodeEditor extends StatefulWidget {
   final File filePath;
-  final CodeCrafterController codeController;
+  final CodeForgeController codeController;
+  final UndoRedoController undoRedoController;
   final LspConfig? lspConfig;
+  final Language language;
   const CodeEditor({
     super.key,
     required this.codeController,
+    required this.undoRedoController,
     required this.filePath,
+    required this.language,
     this.lspConfig,
   });
 
@@ -221,6 +228,27 @@ class _CodeEditorState extends State<CodeEditor> {
   Timer? _saveTimer;
 
   @override
+  void initState() {
+    super.initState();
+    final controller = widget.codeController;
+    controller.addListener(() {
+        BlocListener<GeneralBloc, GeneralState>(
+          listener: (context, generalState) {
+            if (generalState.generalSettings['autoSave'] ?? true) {
+              _saveTimer?.cancel();
+              _saveTimer = Timer(
+                const Duration(milliseconds: 85),
+                () {
+                  controller.saveFile();     
+                },
+              );
+            }
+        }
+      );
+    });
+  }
+
+  @override
   void dispose() {
     _saveTimer?.cancel();
     super.dispose();
@@ -228,7 +256,7 @@ class _CodeEditorState extends State<CodeEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final CodeCrafterController codeController = widget.codeController;
+    final codeController = widget.codeController;
     return BlocBuilder<GeneralBloc, GeneralState>(
       builder: (context, generalState) {
         return BlocBuilder<ThemeBloc, ThemeState>(
@@ -252,7 +280,8 @@ class _CodeEditorState extends State<CodeEditor> {
               },
               child: BlocBuilder<AIBloc, AIState>(
                 builder: (context, aiState) {
-                  return CodeCrafter(
+                  return CodeForge(
+                    language: widget.language.language,
                     filePath: widget.filePath.path,
                     aiCompletion: aiState.completionModel != null
                         ? AiCompletion(
@@ -263,19 +292,21 @@ class _CodeEditorState extends State<CodeEditor> {
                             model: aiState.completionModel!,
                           )
                         : null,
-                    enableRulerLines:
-                        themeState.codeCrafterConfig['indentLineStatus'],
-                    selectionColor: Colors.blueAccent.withAlpha(80),
-                    selectionHandleColor: Colors.blue,
+                    enableGuideLines:
+                        themeState.codeForgeConfig['indentLineStatus'],
+                    selectionStyle: CodeSelectionStyle(
+                      selectionColor: Colors.blueAccent.withAlpha(80),
+                      cursorBubbleColor: Colors.blue,
+                    ),
                     editorTheme:
-                        highlightThemes[themeState.codeCrafterConfig['theme']],
+                        highlightThemes[themeState.codeForgeConfig['theme']],
                     textStyle: TextStyle(
-                      fontFamily: themeState.codeCrafterConfig['fontFamily'],
+                      fontFamily: themeState.codeForgeConfig['fontFamily'],
                       fontSize: themeState.fontSize,
                     ),
                     controller: codeController,
                     lspConfig: widget.lspConfig,
-                    editorField: EditorField(
+                    /* editorField: EditorField(
                       enableInteractiveSelection: true,
                       onChanged: (p0) {
                         if (generalState.generalSettings['autoSave'] ?? true) {
@@ -288,7 +319,7 @@ class _CodeEditorState extends State<CodeEditor> {
                           );
                         }
                       },
-                    ),
+                    ), */
                   );
                 },
               ),
@@ -564,10 +595,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 
 class AIChat extends StatefulWidget {
   final String filePath;
-  const AIChat({
-    required this.filePath,
-    super.key
-  });
+  const AIChat({required this.filePath, super.key});
 
   @override
   State<AIChat> createState() => _AIChatState();
@@ -600,56 +628,66 @@ class _AIChatState extends State<AIChat> {
     final client = http.Client();
     final request = http.Request('POST', url);
     request.headers.addAll(chatModel.headers);
-    request.body = jsonEncode((() {
-      switch (chatModel) {
-        case Gemini(): return {
-          "contents": [
-            {
-              "parts": [
-                {"text": prompt},
+    request.body = jsonEncode(
+      (() {
+        switch (chatModel) {
+          case Gemini():
+            return {
+              "contents": [
+                {
+                  "parts": [
+                    {"text": prompt},
+                  ],
+                },
               ],
-            },
-          ],
-          "generationConfig": {
-            "stopSequences": ["Title"],
-            "temperature": 1.0,
-            "maxOutputTokens": 800,
-            "topP": 0.8,
-            "topK": 10,
-          },
-        };
-        case OpenAI(): return {"model": chatModel.model, "input": prompt};
-        case Claude(): return {
-          "model": chatModel.model,
-          "max_tokens": 1024,
-          "messages": [
-            {"role": "user", "content": prompt},
-          ],
-        };
-        case Grok():
-        case DeepSeek():
-        case Gorq():
-        case TogetherAi():
-        case Sonar():
-        case OpenRouter():
-        case FireWorks(): return {
-          "model": chatModel.model,
-          "messages": [
-            {"role": "user", "content": prompt},
-          ],
-        };
-        case CustomModel():;
-      }
-    })());
+              "generationConfig": {
+                "stopSequences": ["Title"],
+                "temperature": 1.0,
+                "maxOutputTokens": 800,
+                "topP": 0.8,
+                "topK": 10,
+              },
+            };
+          case OpenAI():
+            return {"model": chatModel.model, "input": prompt};
+          case Claude():
+            return {
+              "model": chatModel.model,
+              "max_tokens": 1024,
+              "messages": [
+                {"role": "user", "content": prompt},
+              ],
+            };
+          case Grok():
+          case DeepSeek():
+          case Gorq():
+          case TogetherAi():
+          case Sonar():
+          case OpenRouter():
+          case FireWorks():
+            return {
+              "model": chatModel.model,
+              "messages": [
+                {"role": "user", "content": prompt},
+              ],
+            };
+          case CustomModel():
+            ;
+        }
+      })(),
+    );
 
     try {
       //TODO: Convert to Stream
       //TODO: Preserver model memory/history
       StringBuffer responseBuffer = StringBuffer();
       final streamedResponse = await client.send(request);
-      streamedResponse.stream.transform(utf8.decoder).listen((chunk) {
-        responseBuffer.write(chunk);
-        /* String parsed;
+      streamedResponse.stream
+          .transform(utf8.decoder)
+          .listen(
+            (chunk) {
+              responseBuffer.write(chunk);
+              /* String parsed;
         try {
           print(chunk);
           parsed = chatModel.responseParser(jsonDecode(chunk));
@@ -678,30 +716,35 @@ class _AIChatState extends State<AIChat> {
               updated[index].copyWith(modelResponse: 'Error: ${err.toString()}');
           aiChatBloc.add(AIChatEvent(updated));
         } */
-      }, onDone: () {
-        try {
-          final json = jsonDecode(responseBuffer.toString());
-          final parsed = chatModel.responseParser(json);
-           final updated = aiChatBloc.state.aiConversation
-            .map((c) => AIConversation(c.userRequest, c.modelResponse))
-            .toList();
+            },
+            onDone: () {
+              try {
+                final json = jsonDecode(responseBuffer.toString());
+                final parsed = chatModel.responseParser(json);
+                final updated = aiChatBloc.state.aiConversation
+                    .map((c) => AIConversation(c.userRequest, c.modelResponse))
+                    .toList();
 
-          if (index < updated.length) {
-            updated[index] = updated[index].copyWith(modelResponse: parsed);
-            aiChatBloc.add(AIChatEvent(updated));
-          }
-        } catch (e) {
-          //
-        }
-        client.close();
-      });
+                if (index < updated.length) {
+                  updated[index] = updated[index].copyWith(
+                    modelResponse: parsed,
+                  );
+                  aiChatBloc.add(AIChatEvent(updated));
+                }
+              } catch (e) {
+                //
+              }
+              client.close();
+            },
+          );
     } catch (e) {
       final updated = aiChatBloc.state.aiConversation
           .map((c) => AIConversation(c.userRequest, c.modelResponse))
           .toList();
       if (index < updated.length) {
         updated[index] = updated[index].copyWith(
-            modelResponse: 'Failed to send request: ${e.toString()}');
+          modelResponse: 'Failed to send request: ${e.toString()}',
+        );
         aiChatBloc.add(AIChatEvent(updated));
       }
       client.close();
@@ -715,20 +758,18 @@ class _AIChatState extends State<AIChat> {
         return BlocBuilder<AIBloc, AIState>(
           builder: (context, aiState) {
             final Models? chatModel = aiState.chatModel;
-            if (
-              aiState.config.isEmpty ||
-              aiState.modelSelected.isEmpty ||
-              aiState.modelSelected['chat'] == null ||
-              aiState.config[aiState.modelSelected['chat']] == null
-            ) {
+            if (aiState.config.isEmpty ||
+                aiState.modelSelected.isEmpty ||
+                aiState.modelSelected['chat'] == null ||
+                aiState.config[aiState.modelSelected['chat']] == null) {
               return Center(
                 child: Text(
                   "Chat Model is not configured. Go to the settings and create one.",
                   style: TextStyle(
                     color: themeState.appTheme.selectScreenCardTextColor,
-                    fontSize: 22
+                    fontSize: 22,
                   ),
-                )
+                ),
               );
             }
             return BlocBuilder<AIChatBloc, AIChatState>(
@@ -739,14 +780,22 @@ class _AIChatState extends State<AIChat> {
                     child: Column(
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 10, top: 10, left: 10),
+                          padding: const EdgeInsets.only(
+                            bottom: 10,
+                            top: 10,
+                            left: 10,
+                          ),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
                               "AI CHAT",
                               style: TextStyle(
-                                fontWeight: themeState.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
-                                color: themeState.appTheme.selectScreenCardTextColor,
+                                fontWeight: themeState.appTheme.isDark
+                                    ? FontWeight.w300
+                                    : FontWeight.w500,
+                                color: themeState
+                                    .appTheme
+                                    .selectScreenCardTextColor,
                               ),
                             ),
                           ),
@@ -758,37 +807,50 @@ class _AIChatState extends State<AIChat> {
                               onPressed: () {},
                               icon: Icon(
                                 Icons.attach_file,
-                                color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                                color: themeState
+                                    .appTheme
+                                    .selectScreenCardTextColor
+                                    .withAlpha(200),
                               ),
                             ),
                             IconButton(
-                              onPressed: (){},
+                              onPressed: () {},
                               icon: Icon(
                                 Icons.history,
-                                color: themeState.appTheme.selectScreenCardTextColor.withAlpha(200),
-                              )
+                                color: themeState
+                                    .appTheme
+                                    .selectScreenCardTextColor
+                                    .withAlpha(200),
+                              ),
                             ),
                           ],
                         ),
                         TextField(
                           controller: _promptController,
-                          cursorColor: themeState.appTheme.selectScreenCardTextColor,
+                          cursorColor:
+                              themeState.appTheme.selectScreenCardTextColor,
                           textAlignVertical: TextAlignVertical.top,
                           style: TextStyle(
-                            color: themeState.appTheme.selectScreenCardTextColor,
+                            color:
+                                themeState.appTheme.selectScreenCardTextColor,
                           ),
                           maxLines: null,
                           decoration: InputDecoration(
-                            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xff0178b9)),
+                            ),
                             suffix: IconButton(
-                              onPressed: () async{
-                                final List<AIConversation> currentAIChatState = List.from(aiChatState.aiConversation);
+                              onPressed: () async {
+                                final List<AIConversation> currentAIChatState =
+                                    List.from(aiChatState.aiConversation);
                                 _sendPrompt(chatModel!, currentAIChatState);
                                 _promptController.clear();
                               },
                               icon: Icon(
                                 Icons.send,
-                                color: themeState.appTheme.selectScreenCardTextColor,
+                                color: themeState
+                                    .appTheme
+                                    .selectScreenCardTextColor,
                               ),
                             ),
                             contentPadding: EdgeInsets.symmetric(
@@ -797,7 +859,10 @@ class _AIChatState extends State<AIChat> {
                             ),
                             labelText: 'Ask AI',
                             labelStyle: TextStyle(
-                              color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                              color: themeState
+                                  .appTheme
+                                  .selectScreenCardTextColor
+                                  .withAlpha(150),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -812,14 +877,25 @@ class _AIChatState extends State<AIChat> {
                               SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: languages.singleWhere((item) => item.extension == path.extension(widget.filePath).substring(1)).icon
+                                child: languages
+                                    .singleWhere(
+                                      (item) =>
+                                          item.extension ==
+                                          path
+                                              .extension(widget.filePath)
+                                              .substring(1),
+                                    )
+                                    .icon,
                               ),
                               SizedBox(width: 3),
                               Text(
                                 path.basename(widget.filePath),
                                 style: TextStyle(
-                                  color: themeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                )
+                                  color: themeState
+                                      .appTheme
+                                      .selectScreenCardTextColor
+                                      .withAlpha(150),
+                                ),
                               ),
                             ],
                           ),
@@ -830,16 +906,22 @@ class _AIChatState extends State<AIChat> {
                             itemBuilder: (context, index) {
                               final isDark = themeState.appTheme.isDark;
                               final config = isDark
-                                  ? MarkdownConfig(configs: [
-                                    PConfig(
-                                      textStyle: TextStyle(
-                                        color: themeState.appTheme.selectScreenCardTextColor
-                                      )
+                                  ? MarkdownConfig(
+                                      configs: [
+                                        PConfig(
+                                          textStyle: TextStyle(
+                                            color: themeState
+                                                .appTheme
+                                                .selectScreenCardTextColor,
+                                          ),
+                                        ),
+                                      ],
                                     )
-                                  ])
                                   : MarkdownConfig.defaultConfig;
                               final conv = aiChatState.aiConversation[index];
-                              final hasResponse = conv.modelResponse != null && conv.modelResponse!.isNotEmpty;
+                              final hasResponse =
+                                  conv.modelResponse != null &&
+                                  conv.modelResponse!.isNotEmpty;
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Column(
@@ -847,22 +929,31 @@ class _AIChatState extends State<AIChat> {
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6.5),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 6.5,
+                                        ),
                                         child: Container(
-                                          padding: EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 5,
+                                            horizontal: 8,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: Colors.blueAccent.withAlpha(200),
+                                            color: Colors.blueAccent.withAlpha(
+                                              200,
+                                            ),
                                             borderRadius: BorderRadius.only(
-                                               topLeft: Radius.circular(16),
-                                                topRight: Radius.zero,
-                                                bottomLeft: Radius.circular(16),
-                                                bottomRight: Radius.circular(16),
-                                            )
+                                              topLeft: Radius.circular(16),
+                                              topRight: Radius.zero,
+                                              bottomLeft: Radius.circular(16),
+                                              bottomRight: Radius.circular(16),
+                                            ),
                                           ),
                                           child: Text(
-                                            aiChatState.aiConversation[index].userRequest,
+                                            aiChatState
+                                                .aiConversation[index]
+                                                .userRequest,
                                             style: TextStyle(
-                                              color: Colors.white
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ),
@@ -872,8 +963,10 @@ class _AIChatState extends State<AIChat> {
                                       alignment: Alignment.centerLeft,
                                       child: hasResponse
                                           ? MarkdownBlock(
-                                              data: aiChatState.aiConversation[index].modelResponse!,
-                                              config: config
+                                              data: aiChatState
+                                                  .aiConversation[index]
+                                                  .modelResponse!,
+                                              config: config,
                                             )
                                           : const LinearProgressIndicator(),
                                     ),
@@ -882,7 +975,7 @@ class _AIChatState extends State<AIChat> {
                               );
                             },
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:code_forge/code_forge.dart';
 import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -106,9 +106,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        final initialController = CodeForgeController();
+        final initalUndoController = UndoRedoController();
         final target = snapshot.data?[0];
-        final codeController = CodeCrafterController();
-        codeController.language = widget.languageDetails.language;
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => StackBloc()),
@@ -119,8 +119,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(
                 filePath: target!,
-                controller: codeController,
+                controller: initialController,
                 languageDetails: widget.languageDetails,
+                undoRedoController: initalUndoController,
                 isActive: true,
               )
             )),
@@ -288,15 +289,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                               for(ActiveEditors item in currentState){
                                                 item.isActive = false;
                                               }
-                                              final controller = CodeCrafterController();
-                                              controller.language = languages.firstWhere(
-                                                  (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                                  orElse: () =>languages[0]).language;
                                               currentState.add(
                                                 ActiveEditors(
+                                                  controller: CodeForgeController(),
+                                                  undoRedoController: UndoRedoController(),
                                                   filePath: f,
                                                   isActive: true,
-                                                  controller: controller,
                                                   languageDetails: languages.firstWhere(
                                                     (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
                                                     orElse: () =>languages[0])
@@ -375,7 +373,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                 );
                                                 await editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.writeAsString(newData);
                                                 WidgetsBinding.instance.addPostFrameCallback((_){
-                                                  editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
+                                                  //TODO: Implement efficient replace
+                                                  // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
                                                 });
                                                 if(context.mounted) {
                                                   context.read<FindWordBloc>().add(FindWord(word: ""));
@@ -857,7 +856,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                           value: uiBloc,
                                           child: BlocBuilder<ThemeBloc, ThemeState>(
                                             builder: (context, themeState) {
-                                              final String currentTheme = themeState.codeCrafterConfig['theme'];
+                                              final String currentTheme = themeState.codeForgeConfig['theme'];
                                               return AlertDialog(
                                                 contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                                 insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -888,9 +887,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                               leading: e==currentTheme? const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
                                                               onTap: () async{
                                                                 final prefs = await SharedPreferences.getInstance();
-                                                                final currentState = themeState.codeCrafterConfig;
+                                                                final currentState = themeState.codeForgeConfig;
                                                                 currentState['theme'] = e;
-                                                                await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                                                await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                                                 if (context.mounted) {
                                                                   context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                                                   Navigator.of(context).pop();
@@ -920,7 +919,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         value: uiBloc,
                                         child: BlocBuilder<ThemeBloc,ThemeState>(
                                           builder: (context, themeState){
-                                            final String currentFont = themeState.codeCrafterConfig['fontFamily'];
+                                            final String currentFont = themeState.codeForgeConfig['fontFamily'];
                                             return AlertDialog(
                                               contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                                               insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -949,10 +948,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                           child:
                                                           ListTile(
                                                             onTap: () async{
-                                                              final currentState = themeState.codeCrafterConfig;
+                                                              final currentState = themeState.codeForgeConfig;
                                                               currentState['fontFamily'] = e;
                                                               final prefs = await SharedPreferences.getInstance();
-                                                              await prefs.setString('codeCrafterConfig', jsonEncode(currentState));
+                                                              await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                                               if (context.mounted) {
                                                                 context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
                                                                 Navigator.of(context).pop();
@@ -1343,6 +1342,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 body: TabBarView(
                   controller: tabController,
                   children: List.generate(editorState.activeEditors.length, (index){
+                    final editor = editorState.activeEditors[index];
+                    final controller = editor.controller;
+                    final undoRedoController = editor.undoRedoController;
+                    final language = editor.languageDetails;
                     return FutureBuilder<LspConfig?>(
                       future: editorState.activeEditors[index].languageDetails.lspExecutable == null ? 
                       (()async=>null)()
@@ -1355,27 +1358,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                         langId: editorState.activeEditors[index].languageDetails.name.toLowerCase()
                       ),
                       builder: (context, editorSnapshot) {
-                        if( 
-                          editorState.activeEditors[index].languageDetails.lspExecutable != null &&
-                          editorSnapshot.connectionState == ConnectionState.waiting
-                        ){
-                          return SizedBox(
-                            height: 30,
-                            width: 30,
-                            child: Center(
-                              child: const CircularProgressIndicator()
-                            )
-                          );
-                        }
-                        return Column(
+                        final pageContent = Column(
                           children: [
                             Expanded(
                               child: BlocBuilder<FindWordBloc, FindWordState>(
                                 builder: (context, wordState) {
                                   //TODO: Implement advanced word finding and highlighting
-                                  editorState.activeEditors[index].controller.findWord(wordState.word);
+                                  controller.findWord(wordState.word);
                                   return CodeEditor(
-                                    codeController: editorState.activeEditors[index].controller,
+                                    language: language,
+                                    undoRedoController: undoRedoController,
+                                    codeController: controller,
                                     filePath: editorState.activeEditors[index].filePath,
                                     lspConfig: editorSnapshot.data,
                                   );
@@ -1416,38 +1409,28 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         ),
                                       ),
                                       ),
-                                      bottomTool(appTheme.isDark, Icons.undo, (){}),
-                                      bottomTool(appTheme.isDark, Icons.redo, (){}),
+                                      bottomTool(
+                                        undoRedoController.canUndo && appTheme.isDark,
+                                        Icons.undo,
+                                        (){
+                                          if(undoRedoController.canUndo){
+                                            undoRedoController.undo();
+                                          }
+                                        }
+                                      ),
+                                      bottomTool(
+                                        undoRedoController.canRedo && appTheme.isDark,
+                                        Icons.redo,
+                                        (){
+                                          if(undoRedoController.canRedo){
+                                            undoRedoController.redo();
+                                          }
+                                        }
+                                      ),
                                       bottomTool(
                                         appTheme.isDark,
                                         Icons.arrow_upward,
-                                        () {
-                                          final fileContent = editorState.activeEditors[index].filePath.readAsStringSync();
-                                          final lines = fileContent.split('\n');
-                                          final currentOffset = editorState.activeEditors[index].controller.selection.baseOffset;
-                                          int charCount = 0;
-                                          int currentLine = 0;
-                                          int currentColumn = 0;
-                                          for (int i = 0; i < lines.length; i++) {
-                                            final lineLength = lines[i].length + 1;
-                                            if (currentOffset < charCount + lineLength) {
-                                              currentLine = i;
-                                              currentColumn = currentOffset - charCount;
-                                              break;
-                                            }
-                                            charCount += lineLength;
-                                          }
-                                          if (currentLine > 0) {
-                                            final prevLine = lines[currentLine - 1];
-                                            final targetColumn = currentColumn.clamp(0, prevLine.length);
-                                            int newOffset = 0;
-                                            for (int i = 0; i < currentLine - 1; i++) {
-                                              newOffset += lines[i].length + 1;
-                                            }
-                                            newOffset += targetColumn;
-                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: newOffset);
-                                          }
-                                        },
+                                        controller.pressUpArrowKey,
                                       ),
                                       SizedBox(
                                         height: 37,
@@ -1463,7 +1446,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                           onPressed: (){
                                             final codeModel = context.read<AIBloc>().state.modelSelected['code'];
                                             if(codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled){
-                                              editorState.activeEditors[index].controller.getManualAiSuggestion();
+                                              controller.manualAiCompletion?.call();
                                             }
                                             else{
                                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1504,48 +1487,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       bottomTool(
                                         appTheme.isDark,
                                         Icons.arrow_back,
-                                        (){
-                                          int currOffset = editorState.activeEditors[index].controller.selection.baseOffset;
-                                          if(currOffset > 0){
-                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: --currOffset);
-                                          }
-                                        }
+                                        controller.pressLetfArrowKey
                                       ),
                                       bottomTool(
                                         appTheme.isDark,
                                         Icons.arrow_downward,
-                                        () {
-                                          final fileContent = editorState.activeEditors[index].filePath.readAsStringSync();
-                                          final lines = fileContent.split('\n');
-                                          final currentOffset = editorState.activeEditors[index].controller.selection.baseOffset;
-                                          int currentLine = 0;
-                                          int currentColumn = 0;
-                                          int charCount = 0;
-                                          for (int i = 0; i < lines.length; i++) {
-                                            if (currentOffset <= charCount + lines[i].length) {
-                                              currentLine = i;
-                                              currentColumn = currentOffset - charCount;
-                                              break;
-                                            }
-                                            charCount += lines[i].length + 1;
-                                          }
-                                          if (currentLine < lines.length - 1) {
-                                            final newLine = currentLine + 1;
-                                            final newColumn = currentColumn.clamp(0, lines[newLine].length);
-                                            final newOffset = charCount + lines[currentLine].length + 1 + newColumn;
-                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: newOffset);
-                                          }
-                                        },
+                                        controller.pressDownArrowKey,
                                       ),
                                       bottomTool(
                                         appTheme.isDark,
                                         Icons.arrow_forward,
-                                        (){
-                                          int currOffset = editorState.activeEditors[index].controller.selection.baseOffset;
-                                          if(currOffset < (widget.filePath!.readAsStringSync().length)) {
-                                            editorState.activeEditors[index].controller.selection = TextSelection.collapsed(offset: ++currOffset);
-                                          }
-                                        },
+                                        controller.pressRightArrowKey,
                                       ),
                                     ],
                                   )
@@ -1554,6 +1506,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             )
                           ],
                         );
+                        if( 
+                          editorState.activeEditors[index].languageDetails.lspExecutable != null &&
+                          editorSnapshot.connectionState == ConnectionState.waiting
+                        ){
+                          //FIXME
+                          // return pageContent;
+                          return SizedBox(
+                            height: 30,
+                            width: 30,
+                            child: Center(
+                              child: const CircularProgressIndicator()
+                            )
+                          );
+                        }
+                        return pageContent;
                       }
                     );
                   })

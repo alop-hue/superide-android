@@ -7,18 +7,18 @@ class StackState {
 
 class ThemeState {
   final double fontSize;
-  final Map<String, dynamic> codeCrafterConfig;
+  final Map<String, dynamic> codeForgeConfig;
   const ThemeState({
     required this.fontSize,
-    required this.codeCrafterConfig
+    required this.codeForgeConfig
   });
   ThemeState copyWith({
     double? fontSize,
-    Map<String, dynamic>? codeCrafterConfig
+    Map<String, dynamic>? codeForgeConfig
   }){
     return ThemeState(
       fontSize: fontSize ?? this.fontSize,
-      codeCrafterConfig: codeCrafterConfig ?? this.codeCrafterConfig
+      codeForgeConfig: codeForgeConfig ?? this.codeForgeConfig
     );
   }
 }

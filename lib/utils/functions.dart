@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'package:android_intent_plus/android_intent.dart';
+import 'package:code_forge/code_forge.dart';
 import 'package:file_icon/src/data.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
-import 'package:flutter_code_crafter/code_crafter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,20 +20,6 @@ Future<bool> getPermission() async {
     await Permission.manageExternalStorage.request();
   }
   return await Permission.manageExternalStorage.status.isGranted;
-}
-
-Future<void> startTermuxActivity() async{
-  const intent = AndroidIntent(
-    componentName: 'com.termux.app.TermuxActivity',
-    package: 'com.termux',
-  );
-  const intent2 = AndroidIntent(
-    componentName: 'com.vsdroid.MainActivity',
-    package: 'com.vsdroid',
-  );
-  await intent.launch();
-  await Future.delayed(const Duration(milliseconds: 200));
-  await intent2.launch();
 }
 
 Future<Directory> setupProjectDir() async {
@@ -203,9 +188,9 @@ Future<String> getAppTheme() async{
   return savedAppTheme ?? "dark";
 }
 
-Future<String> getCodeCrafterConfig() async{
+Future<String> getCodeForgeConfig() async{
   final prefs = await SharedPreferences.getInstance();
-  final config = prefs.getString('codeCrafterConfig');
+  final config = prefs.getString('CodeForgeConfig');
   return config ?? 
     '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "jetBrainsMono", "isAIEnabled" : true, "manualCompletion": true, "autoSave": true}';
 }
@@ -428,25 +413,28 @@ class NativeChannel {
   }
 }
 
-class ActiveEditors{
+class ActiveEditors {
   final File filePath;
-  final CodeCrafterController controller;
+  final CodeForgeController controller;
   final Language languageDetails;
+  final UndoRedoController undoRedoController;
   bool isActive;
+
 
   ActiveEditors({
     required this.filePath,
     required this.controller,
     required this.languageDetails,
-    this.isActive = false,
+    required this.undoRedoController,
+    required this.isActive,
   });
 }
 
-class CodeCrafterDemoKey {
+class CodeForgeDemoKey {
   final bool indentLineStatus, lineWrap, enableFolding, isDark;
   final String theme, fontFamily;
 
-  CodeCrafterDemoKey({
+  CodeForgeDemoKey({
     required this.indentLineStatus,
     required this.lineWrap,
     required this.enableFolding,
@@ -458,7 +446,7 @@ class CodeCrafterDemoKey {
   @override
   bool operator ==(Object other) {
     return identical(this, other) || 
-      other is CodeCrafterDemoKey &&
+      other is CodeForgeDemoKey &&
       runtimeType == other.runtimeType &&
       indentLineStatus == other.indentLineStatus &&
       lineWrap == other.lineWrap &&

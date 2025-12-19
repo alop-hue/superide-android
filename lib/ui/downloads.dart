@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -24,7 +25,7 @@ class DownloadManager extends StatefulWidget {
 }
 
 class _DownloadManagerState extends State<DownloadManager> {
-  final ReceivePort _port = ReceivePort();
+  StreamSubscription<dynamic>? _portSubscription;
   final Map<String, String> archiveNameMap = {};
   final Map<int, String> taskIdMap = {};
   final Set<int> loadingIndexes = {};
@@ -35,14 +36,14 @@ class _DownloadManagerState extends State<DownloadManager> {
   void initState() {
     FlutterDownloader.registerCallback(downloadCallback);
     appThemeState = context.read<AppThemeBloc>().state;
-    IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
     const String runTimesdir = "/data/data/com.vsdroid/runtimes";
     const String extensionDir = "/data/data/com.vsdroid/extensions";
-    _port.listen((data) async {
+    final stream = context.read<DownloadPortBloc>().downloadStream;
+    _portSubscription = stream.listen((data) async {
       final id = data[0] as String;
       final progress = data[2] as int;
       final status = DownloadTaskStatus.fromInt(data[1]);
-      if (status.name == 'complete') {
+      if (status.name == 'complete' && mounted) {
         final archiveName = archiveNameMap[id];
         final isExtension = extensions.any((ext) => ext.archiveName == archiveName);
         final extractDir = isExtension ? extensionDir : runTimesdir;
@@ -72,8 +73,7 @@ class _DownloadManagerState extends State<DownloadManager> {
 
   @override
   void dispose() {
-    IsolateNameServer.removePortNameMapping('downloader_send_port');
-    _port.close();
+    _portSubscription?.cancel();
     super.dispose();
   }
 
