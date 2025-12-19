@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
 
@@ -134,10 +135,7 @@ class DownloadPortBloc extends Cubit<ReceivePort?> {
 
   DownloadPortBloc() : super(null) {
     final rp = ReceivePort();
-    // Register the SendPort globally so background isolate can find it
     IsolateNameServer.registerPortWithName(rp.sendPort, portName);
-    // Create a single broadcast stream from the ReceivePort so multiple listeners
-    // (e.g. navigating back to the downloads page) can subscribe safely.
     broadcastStream = rp.asBroadcastStream();
     emit(rp);
   }

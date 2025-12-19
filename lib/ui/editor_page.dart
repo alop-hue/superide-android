@@ -34,6 +34,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
   late final TabController apiTabController, paramTabController;
+  final Map<String, Future<LspConfig?>?> _lspCache = {};
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
 
@@ -73,7 +74,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
-    return FutureBuilder(
+        return FutureBuilder(
       future: Future.wait([
         widget.filePath == null
         ? setTempFile(widget.languageDetails.extension)
@@ -127,7 +128,41 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             )),
           ],
           child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
+            buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
             builder: (context, editorState) {
+              for (final openedFile in editorState.activeEditors) {
+                final key = path.extension(openedFile.filePath.path);
+                if (openedFile.languageDetails.lspExecutable == null) {
+                  _lspCache.putIfAbsent(key, () => Future<LspConfig?>.value(null));
+                  continue;
+                }
+
+                if (!_lspCache.containsKey(key)) {
+                  _lspCache[key] = startLspServer(
+                    ext: openedFile.languageDetails.extension,
+                    executable: openedFile.languageDetails.lspExecutable,
+                    args: openedFile.languageDetails.args ?? [],
+                    filePath: openedFile.filePath.path,
+                    workspacePath: openedFile.filePath.parent.path,
+                    langId: openedFile.languageDetails.name.toLowerCase(),
+                  );
+                } else {
+                  final existing = _lspCache[key]!;
+                  _lspCache[key] = existing.then((value) {
+                    if (value == null) {
+                      return startLspServer(
+                        ext: openedFile.languageDetails.extension,
+                        executable: openedFile.languageDetails.lspExecutable,
+                        args: openedFile.languageDetails.args ?? [],
+                        filePath: openedFile.filePath.path,
+                        workspacePath: openedFile.filePath.parent.path,
+                        langId: openedFile.languageDetails.name.toLowerCase(),
+                      );
+                    }
+                    return Future<LspConfig?>.value(value);
+                  }).then((maybe) => maybe);
+                }
+              }
               _updateTabController(editorState.activeEditors.length);
               return Scaffold(
                 resizeToAvoidBottomInset: true,
@@ -367,11 +402,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             onTap: () async{
                                               if (findWordController.text.isNotEmpty) {
                                                 final currentState = context.read<FindWordBloc>().state;
-                                                final data = await editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.readAsString();
-                                                final newData = data.replaceAll(
-                                                  currentState.word, replaceWordController.text
-                                                );
-                                                await editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.writeAsString(newData);
+                                                final activeEditor = tabController != null
+                                                    ? editorState.activeEditors[tabController!.index]
+                                                    : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                                                final data = await activeEditor.filePath.readAsString();
+                                                  final newData = data.replaceAll(
+                                                    currentState.word, replaceWordController.text
+                                                  );
+                                                  await activeEditor.filePath.writeAsString(newData);
                                                 WidgetsBinding.instance.addPostFrameCallback((_){
                                                   //TODO: Implement efficient replace
                                                   // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
@@ -833,7 +871,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     },
                                   ),
                                 ),
-                                AIChat(filePath: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path),
+                                AIChat(filePath: editorState.activeEditors.isNotEmpty
+                                  ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.path
+                                  : ''),
                                 Padding(
                                   padding: const EdgeInsets.only(top: 45),
                                   child: Column(
@@ -993,10 +1033,23 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 appBar: AppBar(
                   title: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: Text(
-                        path.basename(editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.path),
-                        style: TextStyle(color: appTheme.selectScreenCardTextColor)
-                      )),
+                      child: tabController == null
+                          ? Text(
+                              editorState.activeEditors.isNotEmpty
+                                  ? path.basename(editorState.activeEditors[0].filePath.path)
+                                  : '',
+                              style: TextStyle(color: appTheme.selectScreenCardTextColor))
+                          : AnimatedBuilder(
+                              animation: tabController!,
+                              builder: (context, _) {
+                                int idx = tabController!.index;
+                                if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
+                                final fileName = editorState.activeEditors.isNotEmpty
+                                    ? path.basename(editorState.activeEditors[idx].filePath.path)
+                                    : '';
+                                return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
+                              },
+                            )),
                   bottom: TabBar(
                     labelPadding: EdgeInsets.zero,
                     padding: EdgeInsets.zero,
@@ -1023,11 +1076,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
                     onTap: (value) {
-                      final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
-                      for(int i=0; i < currentState.length; i++){
-                        currentState[i].isActive = i == value;
+                      if (tabController != null && tabController!.index != value) {
+                        tabController!.animateTo(value);
                       }
-                      context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
                     },
                     tabs: List.generate(editorState.activeEditors.length, (index){
                       return Tab(
@@ -1059,6 +1110,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   }
                                 }
                                 context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  final newIndex = currentState.indexWhere((item) => item.isActive == true);
+                                  if (tabController != null && newIndex >= 0 && newIndex < tabController!.length) {
+                                    tabController!.animateTo(newIndex);
+                                  }
+                                });
+
                               }, 
                               icon: Icon(Icons.close, size: 20)
                             )
@@ -1185,10 +1243,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 PopupMenuItem(
                                   child: TextButton(onPressed: () async{
                                     if(context.mounted){
+                                      final activeEditorForSave = tabController != null
+                                          ? editorState.activeEditors[tabController!.index]
+                                          : editorState.activeEditors.firstWhere((item) => item.isActive == true);
                                       final savedPlace = await selectDir(
                                         dialogeTitle: "Save file as...",
                                         initialDirectory: widget.rootDir,
-                                        bytes: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.readAsBytesSync()
+                                        bytes: activeEditorForSave.filePath.readAsBytesSync()
                                       );
                                       if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
                                         showDialog(context: context, builder: (context)=> AlertDialog(
@@ -1238,7 +1299,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
                                           ElevatedButton(
                                             onPressed: () {
-                                              editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.writeAsString('');
+                                              final activeEditorForClear = tabController != null
+                                                  ? editorState.activeEditors[tabController!.index]
+                                                  : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                                              activeEditorForClear.filePath.writeAsString('');
                                               Navigator.of(context).pop();
                                               setState(() {});
                                             },
@@ -1261,7 +1325,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             if(!tempDir.existsSync()){
                               tempDir.createSync(recursive: true);
                             }
-                          final File filePath = editorState.activeEditors.where((item)=> item.isActive == true).first.filePath;
+                            final activeEditorForRun = tabController != null
+                              ? editorState.activeEditors[tabController!.index]
+                              : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                            final File filePath = activeEditorForRun.filePath;
                           final String extention = path.extension(filePath.path);
                           switch (extention) {
                             case '.html':
@@ -1333,7 +1400,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                           );
                           /* Navigator.of(context).push(MaterialPageRoute(
                             builder: (context) => SetupTerminal(
-                              projectDir: editorState.activeEditors.where((item)=> item.isActive == true).first.filePath.parent.path
+                              projectDir: editorState.activeEditors.isNotEmpty
+                                ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.parent.path
+                                : widget.rootDir
                             ))); */
                         },
                         icon: const Icon(Icons.terminal))
@@ -1346,17 +1415,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                     final controller = editor.controller;
                     final undoRedoController = editor.undoRedoController;
                     final language = editor.languageDetails;
+                    final filePath = editor.filePath;
+                    final ext = path.extension(filePath.path);
                     return FutureBuilder<LspConfig?>(
-                      future: editorState.activeEditors[index].languageDetails.lspExecutable == null ? 
-                      (()async=>null)()
-                      : startLspServer(
-                        ext: editorState.activeEditors[index].languageDetails.extension,
-                        executable: editorState.activeEditors[index].languageDetails.lspExecutable,
-                        args: editorState.activeEditors[index].languageDetails.args ?? [],
-                        filePath: editorState.activeEditors[index].filePath.path,
-                        workspacePath: editorState.activeEditors[index].filePath.parent.path,
-                        langId: editorState.activeEditors[index].languageDetails.name.toLowerCase()
-                      ),
+                      key: ValueKey(filePath.path),
+                      future: _lspCache[ext] ?? Future<LspConfig?>.value(null),
                       builder: (context, editorSnapshot) {
                         final pageContent = Column(
                           children: [
@@ -1510,8 +1573,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                           editorState.activeEditors[index].languageDetails.lspExecutable != null &&
                           editorSnapshot.connectionState == ConnectionState.waiting
                         ){
-                          //FIXME
-                          // return pageContent;
                           return SizedBox(
                             height: 30,
                             width: 30,

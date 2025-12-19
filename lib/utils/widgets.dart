@@ -222,7 +222,7 @@ class CodeEditor extends StatefulWidget {
   State<CodeEditor> createState() => _CodeEditorState();
 }
 
-class _CodeEditorState extends State<CodeEditor> {
+class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMixin{
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
   Timer? _saveTimer;
@@ -256,6 +256,7 @@ class _CodeEditorState extends State<CodeEditor> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final codeController = widget.codeController;
     return BlocBuilder<GeneralBloc, GeneralState>(
       builder: (context, generalState) {
@@ -329,6 +330,9 @@ class _CodeEditorState extends State<CodeEditor> {
       },
     );
   }
+  
+  @override
+  bool get wantKeepAlive => true;
 }
 
 //-----------------------DirectoryTreeViewer--------------------------
