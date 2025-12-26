@@ -34,12 +34,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
   late final TabController apiTabController, paramTabController;
-  final Map<String, Future<LspConfig?>?> _lspCache = {};
+  late List<int> mruOrder;
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
 
   @override 
   void initState(){
+    mruOrder = [0];
     createFileController = TextEditingController();
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
@@ -47,7 +48,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     trasnformationController.value = Matrix4.identity()..scale(1.45);
     apiTabController =  TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
-    setTempFile(widget.languageDetails.extension);
     
     super.initState();
   }
@@ -77,12 +77,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
         return FutureBuilder(
       future: Future.wait([
         widget.filePath == null
-        ? setTempFile(widget.languageDetails.extension)
+        ? setTempFile(widget.languageDetails.extension[0])
         : Future.value(widget.filePath),
         (() async {
           final prefs = await SharedPreferences.getInstance();
           List<dynamic> storedData = jsonDecode(await getRecent());
-          final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension);
+          final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension[0]);
           final dataToInsert = {file.path: widget.rootDir};
           final Set<String> uniquePaths = {};
           storedData.insert(0, dataToInsert);
@@ -101,15 +101,24 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             context.read<RecentBloc>().add(RecentEvent(recent: uniqueData));
           }
           prefs.setString('recent', jsonEncode(uniqueData));
-      })()
+      })(),
+      startLspServer(
+        ext: widget.languageDetails.extension[0],
+        executable: widget.languageDetails.lspExecutable,
+        args: widget.languageDetails.args ?? [],
+        workspacePath: widget.rootDir,
+        langId: widget.languageDetails.name
+      )
       ]),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final initialController = CodeForgeController();
+        final initialController = CodeForgeController(
+          lspConfig: snapshot.data?[2] as LspConfig?
+        );
         final initalUndoController = UndoRedoController();
-        final target = snapshot.data?[0];
+        final target = snapshot.data![0] as File;
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => StackBloc()),
@@ -119,7 +128,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => AIChatBloc()),
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(
-                filePath: target!,
+                filePath: target,
                 controller: initialController,
                 languageDetails: widget.languageDetails,
                 undoRedoController: initalUndoController,
@@ -130,39 +139,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
           child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
             buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
             builder: (context, editorState) {
-              for (final openedFile in editorState.activeEditors) {
-                final key = path.extension(openedFile.filePath.path);
-                if (openedFile.languageDetails.lspExecutable == null) {
-                  _lspCache.putIfAbsent(key, () => Future<LspConfig?>.value(null));
-                  continue;
-                }
-
-                if (!_lspCache.containsKey(key)) {
-                  _lspCache[key] = startLspServer(
-                    ext: openedFile.languageDetails.extension,
-                    executable: openedFile.languageDetails.lspExecutable,
-                    args: openedFile.languageDetails.args ?? [],
-                    filePath: openedFile.filePath.path,
-                    workspacePath: openedFile.filePath.parent.path,
-                    langId: openedFile.languageDetails.name.toLowerCase(),
-                  );
-                } else {
-                  final existing = _lspCache[key]!;
-                  _lspCache[key] = existing.then((value) {
-                    if (value == null) {
-                      return startLspServer(
-                        ext: openedFile.languageDetails.extension,
-                        executable: openedFile.languageDetails.lspExecutable,
-                        args: openedFile.languageDetails.args ?? [],
-                        filePath: openedFile.filePath.path,
-                        workspacePath: openedFile.filePath.parent.path,
-                        langId: openedFile.languageDetails.name.toLowerCase(),
-                      );
-                    }
-                    return Future<LspConfig?>.value(value);
-                  }).then((maybe) => maybe);
-                }
-              }
               _updateTabController(editorState.activeEditors.length);
               return Scaffold(
                 resizeToAvoidBottomInset: true,
@@ -258,9 +234,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             enableCreateFolderOption: true,
                                             editingFieldStyle: EditingFieldStyle(
                                               textFieldWidth: MediaQuery.of(context).size.width,
-                                              textStyle: const TextStyle(
-                                                color: Colors.grey,
-                                              ),
+                                              textStyle: const TextStyle(color: Colors.grey,),
                                               cursorColor: Colors.grey,
                                               cursorHeight: 19,
                                               verticalTextAlign: TextAlignVertical.top,
@@ -286,7 +260,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                 height: 25,
                                                 width: 25,
                                                 child:languages.firstWhere(
-                                                  (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                                                  (lang)=>lang.extension.contains(ext.replaceFirst(".", "")),
                                                   orElse: () => languages[0],
                                                 ).icon??FileIcon(ext)
                                               );
@@ -319,22 +293,34 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                 height: 2,
                                               ),
                                             ),
-                                            onFileTap: (f) {
+                                            onFileTap: (f) async{
                                               final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
                                               for(ActiveEditors item in currentState){
                                                 item.isActive = false;
                                               }
+                                              final lang = languages.firstWhere(
+                                                (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
+                                                orElse: () =>languages[0]
+                                              );
+                                              final lspConfig = await startLspServer(
+                                                ext: lang.extension[0],
+                                                executable: lang.lspExecutable,
+                                                args: lang.args ?? [],
+                                                workspacePath: f.parent.path,
+                                                langId: lang.name
+                                              );
                                               currentState.add(
                                                 ActiveEditors(
-                                                  controller: CodeForgeController(),
+                                                  controller: CodeForgeController(
+                                                    lspConfig: lspConfig
+                                                  ),
                                                   undoRedoController: UndoRedoController(),
                                                   filePath: f,
                                                   isActive: true,
-                                                  languageDetails: languages.firstWhere(
-                                                    (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
-                                                    orElse: () =>languages[0])
+                                                  languageDetails: lang
                                                 )
                                               );
+                                              mruOrder.insert(0, currentState.length - 1);
                                               if(context.mounted) {
                                                 context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
                                                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -351,101 +337,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 35,horizontal: 5),
-                                  child: SizedBox(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(left: 17),
-                                          child: Text(
-                                            "SEARCH",
-                                            style: TextStyle(
-                                              fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
-                                              color: appTheme.selectScreenCardTextColor,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 15),
-                                        ListTile(
-                                          title: SizedBox(
-                                            height: 47,
-                                            child: BlocListener<FindWordBloc, FindWordState>(
-                                              listener: (context, wordState) {
-                                                if (findWordController.text != wordState.word) {
-                                                  findWordController.text = wordState.word;
-                                                  findWordController.selection = TextSelection.collapsed(offset: wordState.word.length);
-                                                }
-                                              },
-                                              child: TextField(
-                                                controller: findWordController,
-                                                onChanged: (word) {
-                                                  final String currWord = context.read<FindWordBloc>().state.word;
-                                                  context.read<FindWordBloc>().add(FindWord(word: currWord.isEmpty ? word.trim() : word));
-                                                },
-                                                cursorColor: Colors.grey,
-                                                style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                                decoration: InputDecoration(
-                                                  hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                                  hintText: "Find word",
-                                                  border: const OutlineInputBorder(),
-                                                  focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 1),
-                                        ListTile(
-                                          trailing: InkWell(
-                                            onTap: () async{
-                                              if (findWordController.text.isNotEmpty) {
-                                                final currentState = context.read<FindWordBloc>().state;
-                                                final activeEditor = tabController != null
-                                                    ? editorState.activeEditors[tabController!.index]
-                                                    : editorState.activeEditors.firstWhere((item) => item.isActive == true);
-                                                final data = await activeEditor.filePath.readAsString();
-                                                  final newData = data.replaceAll(
-                                                    currentState.word, replaceWordController.text
-                                                  );
-                                                  await activeEditor.filePath.writeAsString(newData);
-                                                WidgetsBinding.instance.addPostFrameCallback((_){
-                                                  //TODO: Implement efficient replace
-                                                  // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
-                                                });
-                                                if(context.mounted) {
-                                                  context.read<FindWordBloc>().add(FindWord(word: ""));
-                                                }
-                                              }
-                                            },
-                                            child: Container(
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xff0e639c),
-                                                borderRadius: BorderRadius.all(Radius.circular(25))
-                                              ),
-                                              height: 45,
-                                              width: 45,
-                                              child: const Icon(Icons.find_replace_sharp,color: Colors.white)),
-                                          ),
-                                          title: SizedBox(
-                                            height: 47,
-                                            child: TextField(
-                                              controller: replaceWordController,
-                                              cursorColor: Colors.grey,
-                                              style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                              decoration: InputDecoration(
-                                                hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                                hintText: "Replace",
-                                                border: const OutlineInputBorder(),
-                                                focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                FindWordWidget(
+                                  appTheme: appTheme,
+                                  findWordController: findWordController,
+                                  editorState: editorState,
+                                  replaceWordController: replaceWordController,
+                                  tabController: tabController
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.only(top: 25,left: 10),
@@ -1034,22 +931,24 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                   title: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: tabController == null
-                          ? Text(
-                              editorState.activeEditors.isNotEmpty
-                                  ? path.basename(editorState.activeEditors[0].filePath.path)
-                                  : '',
-                              style: TextStyle(color: appTheme.selectScreenCardTextColor))
-                          : AnimatedBuilder(
-                              animation: tabController!,
-                              builder: (context, _) {
-                                int idx = tabController!.index;
-                                if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
-                                final fileName = editorState.activeEditors.isNotEmpty
-                                    ? path.basename(editorState.activeEditors[idx].filePath.path)
-                                    : '';
-                                return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
-                              },
-                            )),
+                        ? Text(
+                            editorState.activeEditors.isNotEmpty
+                              ? path.basename(editorState.activeEditors[0].filePath.path)
+                              : '',
+                            style: TextStyle(color: appTheme.selectScreenCardTextColor)
+                          )
+                        : AnimatedBuilder(
+                            animation: tabController!,
+                            builder: (context, _) {
+                              int idx = tabController!.index;
+                              if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
+                              final fileName = editorState.activeEditors.isNotEmpty
+                                ? path.basename(editorState.activeEditors[idx].filePath.path)
+                                : '';
+                              return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
+                            },
+                          )
+                    ),
                   bottom: TabBar(
                     labelPadding: EdgeInsets.zero,
                     padding: EdgeInsets.zero,
@@ -1076,6 +975,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
                     onTap: (value) {
+                      mruOrder.remove(value);
+                      mruOrder.insert(0, value);
                       if (tabController != null && tabController!.index != value) {
                         tabController!.animateTo(value);
                       }
@@ -1103,8 +1004,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 }
                                 final wasActive = currentState[index].isActive;
                                 currentState.removeAt(index);
+                                mruOrder.remove(index);
+                                mruOrder = mruOrder.map((i) => i > index ? i - 1 : i).toList();
                                 if (currentState.isNotEmpty && wasActive) {
-                                  int newActive = index > 0 ? index - 1 : 0;
+                                  int newActive = mruOrder.isNotEmpty ? mruOrder[0] : 0;
                                   for (int i = 0; i < currentState.length; i++) {
                                     currentState[i].isActive = i == newActive;
                                   }
@@ -1116,7 +1019,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     tabController!.animateTo(newIndex);
                                   }
                                 });
-
                               }, 
                               icon: Icon(Icons.close, size: 20)
                             )
@@ -1370,7 +1272,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               break;
                             default:
                               final String command = languages.firstWhere((language) =>
-                                language.extension == path.extension(filePath.path).replaceFirst(".", ""),
+                                language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
                               ).command ?? '';
                               Navigator.of(context).push(PageRouteBuilder(
                                 pageBuilder: (context, animation, scondaryAnimation) =>
@@ -1410,181 +1312,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 ),
                 body: TabBarView(
                   controller: tabController,
-                  children: List.generate(editorState.activeEditors.length, (index){
-                    final editor = editorState.activeEditors[index];
-                    final controller = editor.controller;
-                    final undoRedoController = editor.undoRedoController;
-                    final language = editor.languageDetails;
-                    final filePath = editor.filePath;
-                    final ext = path.extension(filePath.path);
-                    return FutureBuilder<LspConfig?>(
-                      key: ValueKey(filePath.path),
-                      future: _lspCache[ext] ?? Future<LspConfig?>.value(null),
-                      builder: (context, editorSnapshot) {
-                        final pageContent = Column(
-                          children: [
-                            Expanded(
-                              child: BlocBuilder<FindWordBloc, FindWordState>(
-                                builder: (context, wordState) {
-                                  //TODO: Implement advanced word finding and highlighting
-                                  controller.findWord(wordState.word);
-                                  return CodeEditor(
-                                    language: language,
-                                    undoRedoController: undoRedoController,
-                                    codeController: controller,
-                                    filePath: editorState.activeEditors[index].filePath,
-                                    lspConfig: editorSnapshot.data,
-                                  );
-                                },
-                              )),
-                            Container(
-                              height: 78,
-                              color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      SizedBox(
-                                        height: 37,
-                                        width: 75,
-                                        child: IconButton(
-                                          highlightColor: Colors.lightBlue.withAlpha(160),
-                                          style: ButtonStyle(
-                                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(10))
-                                            ))
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          onPressed: (){
-                                
-                                          },
-                                          icon: SvgPicture.asset(
-                                            "assets/icons/tab.svg",
-                                            height: 25,
-                                            width: 25,
-                                            colorFilter: ColorFilter.mode(
-                                              appTheme.isDark ? 
-                                                const Color.fromARGB(255, 194, 194, 194) : 
-                                                const Color.fromARGB(255, 40, 40, 40),
-                                              BlendMode.srcIn
-                                            ),
-                                        ),
-                                      ),
-                                      ),
-                                      bottomTool(
-                                        undoRedoController.canUndo && appTheme.isDark,
-                                        Icons.undo,
-                                        (){
-                                          if(undoRedoController.canUndo){
-                                            undoRedoController.undo();
-                                          }
-                                        }
-                                      ),
-                                      bottomTool(
-                                        undoRedoController.canRedo && appTheme.isDark,
-                                        Icons.redo,
-                                        (){
-                                          if(undoRedoController.canRedo){
-                                            undoRedoController.redo();
-                                          }
-                                        }
-                                      ),
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.arrow_upward,
-                                        controller.pressUpArrowKey,
-                                      ),
-                                      SizedBox(
-                                        height: 37,
-                                        width: 75,
-                                        child: IconButton(
-                                          highlightColor: Colors.lightBlue.withAlpha(160),
-                                          style: ButtonStyle(
-                                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(10))
-                                            ))
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          onPressed: (){
-                                            final codeModel = context.read<AIBloc>().state.modelSelected['code'];
-                                            if(codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled){
-                                              controller.manualAiCompletion?.call();
-                                            }
-                                            else{
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: const Text("No completion model found. Configure one in the settings"),
-                                                  duration: const Duration(seconds: 2),
-                                                )
-                                              );
-                                            }
-                                          },
-                                          icon: SvgPicture.asset(
-                                            "assets/icons/ai.svg",
-                                            height: 25,
-                                            width: 25,
-                                          )
-                                        )),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.zoom_in,
-                                        (){
-                                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
-                                        }
-                                      ),
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.zoom_out,
-                                        (){
-                                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
-                                        }
-                                      ),
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.arrow_back,
-                                        controller.pressLetfArrowKey
-                                      ),
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.arrow_downward,
-                                        controller.pressDownArrowKey,
-                                      ),
-                                      bottomTool(
-                                        appTheme.isDark,
-                                        Icons.arrow_forward,
-                                        controller.pressRightArrowKey,
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
-                            )
-                          ],
-                        );
-                        if( 
-                          editorState.activeEditors[index].languageDetails.lspExecutable != null &&
-                          editorSnapshot.connectionState == ConnectionState.waiting
-                        ){
-                          return SizedBox(
-                            height: 30,
-                            width: 30,
-                            child: Center(
-                              child: const CircularProgressIndicator()
-                            )
-                          );
-                        }
-                        return pageContent;
-                      }
-                    );
-                  })
+                  children: editorState.activeEditors.map((editor)=> EditorArea(
+                    key: ValueKey(editor.filePath.path),
+                    editor: editor,
+                    appTheme: appTheme
+                  )).toList()
                 )
               );
             },

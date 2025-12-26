@@ -65,7 +65,7 @@ class FolderPage extends StatelessWidget {
                     height: 25,
                     width: 25,
                     child:languages.firstWhere(
-                      (lang)=>lang.extension == ext.replaceFirst(".", ""),
+                      (lang)=>lang.extension.contains(ext.replaceFirst(".", "")),
                       orElse: () => languages[0],
                     ).icon??FileIcon(ext)
                   );
@@ -85,7 +85,7 @@ class FolderPage extends StatelessWidget {
                 onFileTap: (f) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
                     builder: (context) => EditorPage(languageDetails: (() =>languages.firstWhere(
-                      (language) =>language.extension == path.extension(f.path).replaceFirst(".", ""),
+                      (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
                       orElse: () =>languages[0]))(),filePath: f,rootDir: dir.path)));
                 },
               ),

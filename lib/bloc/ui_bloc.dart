@@ -47,8 +47,22 @@ class MenuSearchBloc extends Bloc<Search, MenuSearchState>{
 }
 
 class FindWordBloc extends Bloc<FindWord, FindWordState>{
-  FindWordBloc():super(const FindWordState(word: '')){
-    on<FindWord>((event, emit)=>emit(FindWordState(word: event.word)));
+  FindWordBloc():super(
+    const FindWordState(
+      word: '',
+      matchCase: false,
+      matchWholeWord: false,
+      isRegex: false
+    )
+  ){
+    on<FindWord>((event, emit)=>emit(
+      FindWordState(
+        word: event.word,
+        matchCase: event.matchCase,
+        matchWholeWord: event.matchWholeWord,
+        isRegex: event.isRegex
+      )
+    ));
   }
 }
 

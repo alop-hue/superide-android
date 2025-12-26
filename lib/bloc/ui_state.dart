@@ -35,7 +35,13 @@ class MenuSearchState {
 
 class FindWordState {
   final String word;
-  const FindWordState({required this.word});
+  final bool matchCase, matchWholeWord, isRegex;
+  const FindWordState({
+    required this.word,
+    required this.matchCase,
+    required this.matchWholeWord,
+    required this.isRegex
+  });
 }
 
 class WebViewState{
@@ -52,7 +58,14 @@ class ApiState{
   final String? url;
   final Map<String,dynamic>? data;
   final Map<String,String> params, headers, body;
-  const ApiState({required this.method, this.data, this.url, required this.params, required this.headers, required this.body});
+  const ApiState({
+    required this.method,
+    required this.params,
+    required this.headers,
+    required this.body,
+    this.data,
+    this.url
+  });
   ApiState copyWith({
     String? method,
     String? url,

@@ -7,7 +7,8 @@ final txt = Mode();
 final unknown = Mode();
 
 class Language {
-  final String name, extension, details, helloWorld;
+  final String name, details, helloWorld;
+  final List<String> extension;
   final Mode? language;
   final dynamic icon;
   final String? command, type, lspExecutable;
@@ -63,7 +64,7 @@ class Extension{
 
 final langtxt = Language(
   name: 'Text File',
-  extension: 'txt',
+  extension: ['txt'],
   details: 'A normal text file.',
   language: txt,
   helloWorld: 'Hello World',
@@ -71,7 +72,7 @@ final langtxt = Language(
 );
 final langpython = Language(
   name: 'Python',
-  extension: 'py',
+  extension: ['py'],
   details: 'A popular language known for simplicity and versatility.',
   language: builtinAllLanguages['python'],
   helloWorld: 'print("Hello, World!")',
@@ -83,7 +84,7 @@ final langpython = Language(
 );
 final langjavascript = Language(
   name: 'Javascript',
-  extension: 'js',
+  extension: ['js','mjs','cjs'],
   details: 'A versatile scripting language for dynamic web development.',
   language: builtinAllLanguages['javascript'],
   helloWorld: 'console.log("Hello, World!");',
@@ -95,7 +96,7 @@ final langjavascript = Language(
 );
 final langtypescript = Language(
     name: 'Typescript',
-    extension: 'ts',
+    extension: ['ts','tsx'],
     details: 'A statically typed superset of JavaScript.',
   language: builtinAllLanguages['typescript'],
     helloWorld: 'console.log("Hello, World!");',
@@ -107,7 +108,7 @@ final langtypescript = Language(
 );
 final langjava = Language(
   name: 'Java',
-  extension: 'java',
+  extension: ['java'],
   details: 'A platform-independent language for enterprise and web apps.',
   language: builtinAllLanguages['java'],
   helloWorld:'public class tempCode{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
@@ -118,7 +119,7 @@ final langjava = Language(
 );
 final langc = Language(
   name: 'C',
-  extension: 'c',
+  extension: ['c'],
   details:'A powerful, low-level language widely used in system programming.',
   language: builtinAllLanguages['c'],
   helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
@@ -129,7 +130,7 @@ final langc = Language(
 );
 final langcpp = Language(
   name: 'C++',
-  extension: 'cpp',
+  extension: ['cpp','c++','cc'],
   details:'A high-performance language used for system programming and games.',
   language: builtinAllLanguages['cpp'],
   helloWorld:'#include <iostream> \n\nint main(){\n  std::cout << "Hello, World!" << std::endl;\n  return 0; }',
@@ -140,7 +141,7 @@ final langcpp = Language(
 );
 final langdart = Language(
   name: 'Dart',
-  extension: 'dart',
+  extension: ['dart'],
   details:'Optimized for building fast, multi-platform apps, often with Flutter.',
   language: builtinAllLanguages['dart'],
   helloWorld: 'void main(){\n print("Hello, World!");\n}',
@@ -150,7 +151,7 @@ final langdart = Language(
 );
 final langhtml = Language(
   name: 'HTML',
-  extension: 'html',
+  extension: ['html','htm'],
   details: 'The standard markup language for creating web pages.',
   language: builtinAllLanguages['xml'],
   helloWorld:'''
@@ -169,7 +170,7 @@ final langhtml = Language(
 );
 final langcss = Language(
   name: 'CSS',
-  extension: 'css',
+  extension: ['css'],
   details: 'Used to style and format web pages.',
   language: builtinAllLanguages['css'],
   helloWorld: '/* Hello, World! */',
@@ -177,7 +178,7 @@ final langcss = Language(
 );
 final langscss = Language(
   name: 'SCSS',
-  extension: 'scss',
+  extension: ['scss'],
   details: 'Enhances CSS with features like variables and nesting.',
   language: builtinAllLanguages['scss'],
   helloWorld: '/* Hello, World! */',
@@ -185,7 +186,7 @@ final langscss = Language(
 );
 final langless = Language(
   name: 'Less',
-  extension: 'less',
+  extension: ['less'],
   details: 'A CSS pre-processor with a more dynamic syntax.',
   language: builtinAllLanguages['less'],
   helloWorld: '/* Hello, World! */',
@@ -193,7 +194,7 @@ final langless = Language(
 );
 final langphp = Language(
     name: 'PHP',
-    extension: 'php',
+    extension: ['php'],
     details: 'A server-side language for dynamic web development.',
     language: builtinAllLanguages['php'],
     helloWorld: '<?php echo "Hello, World!"; ?>',
@@ -201,7 +202,7 @@ final langphp = Language(
     command: 'php');
 final langsql = Language(
   name: 'SQL',
-  extension: 'sql',
+  extension: ['sql'],
   details: 'Used for querying and managing relational databases.',
   language: builtinAllLanguages['sql'],
   icon: SvgPicture.asset('assets/material_icons/database.svg',height: 35,width: 35),
@@ -209,7 +210,7 @@ final langsql = Language(
 );
 final langxml = Language(
   name: 'XML',
-  extension: 'xml',
+  extension: ['xml'],
   details:'Markup language primarily used to store and transport structured data.',
   language: builtinAllLanguages['xml'],
   icon: SvgPicture.asset('assets/material_icons/xml.svg',height: 35,width: 35),
@@ -217,7 +218,7 @@ final langxml = Language(
 );
 final langswift = Language(
   name: 'Swift',
-  extension: 'swift',
+  extension: ['swift'],
   details: 'Apple\'s language for iOS and macOS apps.',
   language: builtinAllLanguages['swift'],
   helloWorld: 'print("Hello, World!")',
@@ -227,7 +228,7 @@ final langswift = Language(
 );
 final langkotlin = Language(
   name: 'Kotlin',
-  extension: 'kt',
+  extension: ['kt'],
   details: 'Modern JVM language, popular for Android development.',
   language: builtinAllLanguages['kotlin'],
   helloWorld: 'fun main(){\n println("Hello, World!")\n}',
@@ -237,7 +238,7 @@ final langkotlin = Language(
 );
 final langcsharp = Language(
   name: 'C#',
-  extension: 'cs',
+  extension: ['cs'],
   details: 'A modern, object-oriented language for Windows apps and games.',
   language: builtinAllLanguages['csharp'],
   helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
@@ -247,7 +248,7 @@ final langcsharp = Language(
 );
 final langrust = Language(
   name: 'Rust',
-  extension: 'rs',
+  extension: ['rs'],
   details: 'Focused on performance, safety, and concurrency.',
   language: builtinAllLanguages['rust'],
   helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
@@ -257,7 +258,7 @@ final langrust = Language(
 );
 final langgo = Language(
   name: 'Go',
-  extension: 'go',
+  extension: ['go'],
   details:'Known for simplicity and performance, ideal for concurrent programming.',
   language: builtinAllLanguages['go'],
   helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
@@ -267,7 +268,7 @@ final langgo = Language(
 );
 final langruby = Language(
   name: 'Ruby',
-  extension: 'rb',
+  extension: ['rb'],
   details: 'Dynamic language, often used with the Rails framework.',
   language: builtinAllLanguages['ruby'],
   helloWorld: 'puts "Hello, World!"',
@@ -277,7 +278,7 @@ final langruby = Language(
 );
 final langjson = Language(
   name: 'Json',
-  extension: 'json',
+  extension: ['json'],
   details: 'A lightweight format for data interchange.',
   language: builtinAllLanguages['json'],
   icon: SvgPicture.asset('assets/material_icons/json.svg',height: 35,width: 35),
@@ -285,7 +286,7 @@ final langjson = Language(
 );
 final langmarkdown = Language(
   name: 'Markdown',
-  extension: 'md',
+  extension: ['md','markdown'],
   details: 'A markup language for formatting plain text.',
   language: builtinAllLanguages['markdown'],
   icon: SvgPicture.asset('assets/material_icons/markdown.svg',height: 35,width: 35),
@@ -293,7 +294,7 @@ final langmarkdown = Language(
 );
 final langyaml = Language(
   name: 'Yaml',
-  extension: 'yml',
+  extension: ['yml','yaml'],
   details: 'A readable data serialization format.',
   language: builtinAllLanguages['yaml'],
   icon: SvgPicture.asset('assets/material_icons/yaml.svg',height: 35,width: 35),
@@ -301,7 +302,7 @@ final langyaml = Language(
 );
 final langr = Language(
   name: 'R',
-  extension: 'r',
+  extension: ['r'],
   details: 'Used for statistical computing and data visualization.',
   language: builtinAllLanguages['r'],
   icon: SvgPicture.asset('assets/material_icons/r.svg',height: 35,width: 35),
@@ -310,7 +311,7 @@ final langr = Language(
 );
 final langscala = Language(
   name: 'Scala',
-  extension: 'scala',
+  extension: ['scala'],
   details: 'Combines functional and object-oriented programming.',
   language: builtinAllLanguages['scala'],
   command: 'scalac',
@@ -320,7 +321,7 @@ final langscala = Language(
 );
 final langlua = Language(
   name: 'Lua',
-  extension: 'lua',
+  extension: ['lua'],
   details:'A lightweight scripting language often used in game development.',
   language: builtinAllLanguages['lua'],
   command: 'lua',
@@ -330,7 +331,7 @@ final langlua = Language(
 );
 final langbash = Language(
   name: 'Bash',
-  extension: 'sh',
+  extension: ['sh','bash'],
   details: 'A shell scripting language for automating Unix-based tasks.',
   language: builtinAllLanguages['bash'],
   helloWorld: 'echo "Hello, World!"',
@@ -340,7 +341,7 @@ final langbash = Language(
 );
 final langhaskell = Language(
   name: 'Haskell',
-  extension: 'hs',
+  extension: ['hs'],
   details: 'A purely functional language with strong static typing.',
   language: builtinAllLanguages['haskell'],
   helloWorld: 'main = putStrLn "Hello, World!"',
@@ -348,7 +349,7 @@ final langhaskell = Language(
 );
 final langelixir = Language(
   name: 'Elixir',
-  extension: 'ex',
+  extension: ['ex','exs'],
   details: 'A functional language for building scalable applications.',
   language: builtinAllLanguages['elixir'],
   helloWorld: 'IO.puts "Hello, World!"',
@@ -358,7 +359,7 @@ final langelixir = Language(
 );
 final langobjectivec = Language(
   name: 'Objective C',
-  extension: 'm',
+  extension: ['m','mm'],
   details: 'Used for macOS and iOS development.',
   language: builtinAllLanguages['objectivec'],
   helloWorld:'#import <Foundation/Foundation.h> \nint main() {\n NSLog(@"Hello, World!");\n return 0;\n}',
@@ -368,7 +369,7 @@ final langobjectivec = Language(
 );
 final langfsharp = Language(
   name: 'Fsharp',
-  extension: 'fsx',
+  extension: ['fsx','fs'],
   details: 'A functional-first language for .NET applications.',
   language: builtinAllLanguages['fsharp'],
   helloWorld: 'printfn "Hello, World!"',
@@ -378,7 +379,7 @@ final langfsharp = Language(
 );
 final langperl = Language(
   name: 'Perl',
-  extension: 'pl',
+  extension: ['pl'],
   details: 'Known for text processing and system scripting.',
   language: builtinAllLanguages['perl'],
   helloWorld: 'print "Hello, World!";',
@@ -388,7 +389,7 @@ final langperl = Language(
 ); 
 final langclojure = Language(
   name: 'Clojure',
-  extension: 'clj',
+  extension: ['clj','cljs'],
   details:'A functional language running on the JVM, known for immutability.',
   language: builtinAllLanguages['clojure'],
   helloWorld: '(println "Hello, World!")',
@@ -397,7 +398,7 @@ final langclojure = Language(
 );
 final langarduino = Language(
   name: 'Arduino',
-  extension: 'ino',
+  extension: ['ino'],
   details:
       'Used to program Arduino microcontrollers for interactive devices.',
   language: builtinAllLanguages['arduino'],
@@ -411,7 +412,7 @@ final langarduino = Language(
 );
 final langx86asm = Language(
   name: 'x86 assembly',
-  extension: 'asm',
+  extension: ['asm'],
   details: 'Low-level language for x86 processors.',
   language: builtinAllLanguages['x86asm'],
   helloWorld:'mov eax, 0 \nmov ebx, 4 \nmov ecx, msg \nmov edx, 13 \nint 0x80 \nret \nmsg db "Hello, World!", 0',
@@ -419,7 +420,7 @@ final langx86asm = Language(
 );
 final langarmasm = Language(
   name: 'ARM assembly',
-  extension: 's',
+  extension: ['s','S'],
   details:'Low-level language for ARM processors, common in embedded systems.',
   language: builtinAllLanguages['armasm'],
   helloWorld:'.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldr r0, =msg \nmov r7, #4 \nsvc #0',
@@ -427,7 +428,7 @@ final langarmasm = Language(
 );
 final langavrasm = Language(
   name: 'AVR assembly',
-  extension: 'asm',
+  extension: ['asm'],
   details: 'Assembly language for AVR microcontrollers in embedded systems.',
   language: builtinAllLanguages['avrasm'],
   helloWorld:'.section .data \nmsg: .asciz "Hello, World!" \n.section .text \n.global _start \n_start: \nldi r16, low(msg) \nout 0x20, r16 \nldi r16, high(msg) \nout 0x21, r16',
@@ -435,7 +436,7 @@ final langavrasm = Language(
 );
 final langcoffeescript = Language(
     name: 'Coffeescript',
-    extension: 'coffee',
+  extension: ['coffee'],
     details: 'Compiles to JavaScript, offering a cleaner syntax.',
     language: builtinAllLanguages['coffeescript'],
     helloWorld: 'console.log "Hello, World!"',
@@ -443,7 +444,7 @@ final langcoffeescript = Language(
     type: 'interpreted');
 final langaccesslog = Language(
   name: 'Access Log',
-  extension: 'log',
+  extension: ['log'],
   details: 'Common format for logging web server requests.',
   language: builtinAllLanguages['accesslog'],
   helloWorld: '# Placeholder for Hello, World!',
@@ -451,7 +452,7 @@ final langaccesslog = Language(
 );
 final langada = Language(
   name: 'Ada',
-  extension: 'ada',
+  extension: ['ada'],
   details: 'A structured, statically typed, high-level language.',
   language: builtinAllLanguages['ada'],
   helloWorld: 'with Ada.Text_IO; use Ada.Text_IO;\nbegin\n  Put_Line("Hello, World!");\nend;',
@@ -459,7 +460,7 @@ final langada = Language(
 );
 final langangelscript = Language(
   name: 'AngelScript',
-  extension: 'as',
+  extension: ['as'],
   details: 'A scripting language designed for game development.',
   language: builtinAllLanguages['angelscript'],
   helloWorld: 'void main() {\n print("Hello, World!");\n}',
@@ -472,7 +473,7 @@ final langangelscript = Language(
 );
 final langbrainfuck = Language(
   name: 'Brainfuck',
-  extension: 'bf',
+  extension: ['bf'],
   details: 'A minimalist, esoteric programming language.',
   language: builtinAllLanguages['brainfuck'],
   helloWorld: '++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+<<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.',
@@ -480,7 +481,7 @@ final langbrainfuck = Language(
 );
 final langcmake = Language(
   name: 'CMake',
-  extension: 'cmake',
+  extension: ['cmake'],
   details: 'Cross-platform build system.',
   language: builtinAllLanguages['cmake'],
   helloWorld: '# Placeholder for Hello, World!',
@@ -488,7 +489,7 @@ final langcmake = Language(
 );
 final langd = Language(
   name: 'D',
-  extension: 'd',
+  extension: ['d'],
   details: 'A system programming language with C-like syntax and features.',
   language: builtinAllLanguages['d'],
   helloWorld: 'import std.stdio; void main() { writeln("Hello, World!"); }',
@@ -496,7 +497,7 @@ final langd = Language(
 );
 final langerlang = Language(
   name: 'Erlang',
-  extension: 'erl',
+  extension: ['erl'],
   details: 'A language for building scalable, fault-tolerant systems.',
   language: builtinAllLanguages['erlang'],
   helloWorld: 'io:format("Hello, World!~n").',
@@ -504,7 +505,7 @@ final langerlang = Language(
 );
 final langfortran = Language(
   name: 'Fortran',
-  extension: 'f90',
+  extension: ['f90'],
   details: 'A language for numerical and scientific computing.',
   language: builtinAllLanguages['fortran'],
   helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
@@ -512,7 +513,7 @@ final langfortran = Language(
 );
 final langgradle = Language(
   name: 'Gradle',
-  extension: 'gradle',
+  extension: ['gradle'],
   details: 'Configuration file used for Android development.',
   language: builtinAllLanguages['gradle'],
   helloWorld: 'program hello\n  print *, "Hello, World!"\nend program hello',
@@ -520,7 +521,7 @@ final langgradle = Language(
 );
 final langgroovy = Language(
   name: 'Groovy',
-  extension: 'groovy',
+  extension: ['groovy'],
   details: 'A language for the JVM with dynamic and static features.',
   language: builtinAllLanguages['groovy'],
   helloWorld: 'println "Hello, World!"',
@@ -528,7 +529,7 @@ final langgroovy = Language(
 );
 final langjulia = Language(
   name: 'Julia',
-  extension: 'jl',
+  extension: ['jl'],
   details: 'A high-performance language for technical computing.',
   language: builtinAllLanguages['julia'],
   helloWorld: 'println("Hello, World!")',
@@ -536,7 +537,7 @@ final langjulia = Language(
 );
 final langlisp = Language(
   name: 'Lisp',
-  extension: 'lisp',
+  extension: ['lisp'],
   details: 'A family of functional, symbolic programming languages.',
   language: builtinAllLanguages['lisp'],
   helloWorld: '(print "Hello, World!")',
@@ -544,7 +545,7 @@ final langlisp = Language(
 );
 final langverilog = Language(
   name: 'Verilog',
-  extension: 'v',
+  extension: ['v'],
   details: 'A hardware description language used in digital design.',
   language: builtinAllLanguages['verilog'],
   helloWorld: 'module hello;\ninitial begin\n  \$display("Hello, World!");\nend\nendmodule',

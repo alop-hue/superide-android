@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:code_forge/code_forge.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
@@ -207,7 +208,6 @@ class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeForgeController codeController;
   final UndoRedoController undoRedoController;
-  final LspConfig? lspConfig;
   final Language language;
   const CodeEditor({
     super.key,
@@ -215,7 +215,6 @@ class CodeEditor extends StatefulWidget {
     required this.undoRedoController,
     required this.filePath,
     required this.language,
-    this.lspConfig,
   });
 
   @override
@@ -306,7 +305,6 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                       fontSize: themeState.fontSize,
                     ),
                     controller: codeController,
-                    lspConfig: widget.lspConfig,
                     /* editorField: EditorField(
                       enableInteractiveSelection: true,
                       onChanged: (p0) {
@@ -329,6 +327,206 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
         );
       },
     );
+  }
+  
+  @override
+  bool get wantKeepAlive => true;
+}
+
+//-----------------------Editor Page----------------------------------
+
+class EditorArea extends StatefulWidget {
+  final ActiveEditors editor;
+  final  AppTheme appTheme;
+  const EditorArea({
+    super.key,
+    required this.editor,
+    required this.appTheme
+  });
+
+  @override
+  State<EditorArea> createState() => _EditorPageState();
+}
+
+class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMixin{
+  late final ActiveEditors editor;
+  late final AppTheme appTheme;
+  late final CodeForgeController controller;
+  late final UndoRedoController undoRedoController;
+  late final Language language;
+  late final File filePath;
+  late final String ext;
+
+  @override void initState() {
+    editor = widget.editor;
+    appTheme = widget.appTheme;
+    controller = editor.controller;
+    undoRedoController = editor.undoRedoController;
+    language = editor.languageDetails;
+    filePath = editor.filePath;
+    ext = path.extension(filePath.path);
+    super.initState();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+        final pageContent = Column(
+          children: [
+            Expanded(
+              child: BlocListener<FindWordBloc, FindWordState>(
+                listener: (context, wordState) {
+                  if(wordState.isRegex){
+                    controller.findRegex(RegExp(wordState.word), null);
+                  } else {
+                    controller.findWord(
+                      wordState.word,
+                      matchCase: wordState.matchCase,
+                      matchWholeWord: wordState.matchWholeWord
+                    );
+                  }
+                },
+                child: CodeEditor(
+                  language: language,
+                  undoRedoController: undoRedoController,
+                  codeController: controller,
+                  filePath: editor.filePath,
+                ),
+              )
+            ),
+            Container(
+              height: 78,
+              color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      SizedBox(
+                        height: 37,
+                        width: 75,
+                        child: IconButton(
+                          highlightColor: Colors.lightBlue.withAlpha(160),
+                          style: ButtonStyle(
+                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(10))
+                            ))
+                          ),
+                          padding: EdgeInsets.zero,
+                          onPressed: (){
+                
+                          },
+                          icon: SvgPicture.asset(
+                            "assets/icons/tab.svg",
+                            height: 25,
+                            width: 25,
+                            colorFilter: ColorFilter.mode(
+                              appTheme.isDark ? 
+                                const Color.fromARGB(255, 194, 194, 194) : 
+                                const Color.fromARGB(255, 40, 40, 40),
+                              BlendMode.srcIn
+                            ),
+                        ),
+                      ),
+                      ),
+                      bottomTool(
+                        undoRedoController.canUndo && appTheme.isDark,
+                        Icons.undo,
+                        (){
+                          if(undoRedoController.canUndo){
+                            undoRedoController.undo();
+                          }
+                        }
+                      ),
+                      bottomTool(
+                        undoRedoController.canRedo && appTheme.isDark,
+                        Icons.redo,
+                        (){
+                          if(undoRedoController.canRedo){
+                            undoRedoController.redo();
+                          }
+                        }
+                      ),
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.arrow_upward,
+                        controller.pressUpArrowKey,
+                      ),
+                      SizedBox(
+                        height: 37,
+                        width: 75,
+                        child: IconButton(
+                          highlightColor: Colors.lightBlue.withAlpha(160),
+                          style: ButtonStyle(
+                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(10))
+                            ))
+                          ),
+                          padding: EdgeInsets.zero,
+                          onPressed: (){
+                            final codeModel = context.read<AIBloc>().state.modelSelected['code'];
+                            if(codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled){
+                              controller.manualAiCompletion?.call();
+                            }
+                            else{
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text("No completion model found. Configure one in the settings"),
+                                  duration: const Duration(seconds: 2),
+                                )
+                              );
+                            }
+                          },
+                          icon: SvgPicture.asset(
+                            "assets/icons/ai.svg",
+                            height: 25,
+                            width: 25,
+                          )
+                        )),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.zoom_in,
+                        (){
+                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
+                        }
+                      ),
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.zoom_out,
+                        (){
+                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
+                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
+                        }
+                      ),
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.arrow_back,
+                        controller.pressLetfArrowKey
+                      ),
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.arrow_downward,
+                        controller.pressDownArrowKey,
+                      ),
+                      bottomTool(
+                        appTheme.isDark,
+                        Icons.arrow_forward,
+                        controller.pressRightArrowKey,
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            )
+          ],
+        );
+        return pageContent;
   }
   
   @override
@@ -592,6 +790,237 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         return _buildDirectoryTree(rootDirectory);
       },
     );
+  }
+}
+
+//-----------------------SEARCH--------------------------
+
+class FindWordWidget extends StatefulWidget {
+  final AppTheme appTheme;
+  final TextEditingController findWordController, replaceWordController;
+  final ActiveEditorsState editorState;
+  final TabController? tabController;
+  const FindWordWidget({
+    super.key,
+    required this.appTheme,
+    required this.findWordController,
+    required this.editorState,
+    required this.replaceWordController,
+    required this.tabController
+  });
+
+  @override
+  State<FindWordWidget> createState() => _FindWordWidgetState();
+}
+
+class _FindWordWidgetState extends State<FindWordWidget> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 5),
+        child: SizedBox(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 17),
+                child: Text(
+                  "SEARCH",
+                  style: TextStyle(
+                    fontWeight: widget.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+              BlocBuilder<FindWordBloc, FindWordState>(
+                builder: (context, wordState) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStatePropertyAll(wordState.matchCase ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                            side: BorderSide(
+                              width: 0.5,
+                              color: wordState.matchCase ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                            ),
+                            borderRadius: BorderRadiusGeometry.circular(5),
+                          ))
+                        ),
+                        tooltip: "Match case",
+                        onPressed: () {
+                          context.read<FindWordBloc>().add(FindWord(
+                            word: wordState.word,
+                            matchCase: !wordState.matchCase,
+                            matchWholeWord: wordState.matchWholeWord,
+                            isRegex: wordState.isRegex,
+                          ));
+                        },
+                        icon: Text('Aa', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
+                      ),
+                      IconButton(
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStatePropertyAll(wordState.matchWholeWord ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                            side: BorderSide(
+                              width: 0.5,
+                              color: wordState.matchWholeWord ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                            ),
+                            borderRadius: BorderRadiusGeometry.circular(5),
+                          ))
+                        ),
+                        tooltip: "Match word",
+                        onPressed: () {
+                          context.read<FindWordBloc>().add(FindWord(
+                            word: wordState.word,
+                            matchCase: wordState.matchCase,
+                            matchWholeWord: !wordState.matchWholeWord,
+                            isRegex: wordState.isRegex,
+                          ));
+                        },
+                        icon: Text(
+                          'ab',
+                          style: TextStyle(
+                            decoration: TextDecoration.underline,
+                            decorationColor: widget.appTheme.selectScreenCardTextColor,
+                            color: widget.appTheme.selectScreenCardTextColor
+                          )
+                        )
+                      ),
+                      IconButton(
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStatePropertyAll(wordState.isRegex ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
+                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                            side: BorderSide(
+                              width: 0.5,
+                              color: wordState.isRegex ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                            ),
+                            borderRadius: BorderRadiusGeometry.circular(5),
+                          ))
+                        ),
+                        tooltip: "Use Regular Expression",
+                        onPressed: () {
+                          context.read<FindWordBloc>().add(FindWord(
+                            word: wordState.word,
+                            matchCase: wordState.matchCase,
+                            matchWholeWord: wordState.matchWholeWord,
+                            isRegex: !wordState.isRegex
+                          ));
+                        },
+                        icon: Text(
+                          '.\u2731',
+                          style: TextStyle(
+                            fontSize: 16,
+                            decorationColor: widget.appTheme.selectScreenCardTextColor,
+                            color: widget.appTheme.selectScreenCardTextColor
+                          )
+                        )
+                      )
+                    ],
+                  );
+                },
+              ),
+              ListTile(
+                title: SizedBox(
+                  height: 47,
+                  child: BlocListener<FindWordBloc, FindWordState>(
+                    listener: (context, wordState) {
+                      if (widget.findWordController.text != wordState.word) {
+                        widget.findWordController.text = wordState.word;
+                        widget.findWordController.selection = TextSelection.collapsed(offset: wordState.word.length);
+                      }
+                    },
+                    child: TextField(
+                      controller: widget.findWordController,
+                      onChanged: (word) {
+                        final String currWord = context.read<FindWordBloc>().state.word;
+                        context.read<FindWordBloc>().add(
+                          FindWord(
+                            word: currWord.isEmpty ? word.trim() : word,
+                            matchCase: context.read<FindWordBloc>().state.matchCase,
+                            matchWholeWord: context.read<FindWordBloc>().state.matchWholeWord,
+                            isRegex: context.read<FindWordBloc>().state.isRegex
+                          )
+                        );
+                      },
+                      cursorColor: Colors.grey,
+                      style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                      decoration: InputDecoration(
+                        hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                        hintText: "Find word",
+                        border: const OutlineInputBorder(),
+                        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 1),
+              ListTile(
+                trailing: InkWell(
+                  onTap: () async {
+                    if (widget.findWordController.text.isNotEmpty) {
+                      final currentState = context.read<FindWordBloc>().state;
+                      final activeEditor = widget.tabController != null
+                          ? widget.editorState.activeEditors[widget.tabController!.index]
+                          : widget.editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                      final data = await activeEditor.filePath.readAsString();
+                      final newData = data.replaceAll(
+                        currentState.word, widget.replaceWordController.text
+                      );
+                      await activeEditor.filePath.writeAsString(newData);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        //TODO: Implement efficient replace
+                        // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
+                      });
+                      if (context.mounted) {
+                        //TODO: Remember user preference.
+                        context.read<FindWordBloc>().add(
+                          FindWord(
+                            word: "",
+                            matchCase: currentState.matchCase,
+                            matchWholeWord: currentState.matchWholeWord,
+                            isRegex: currentState.isRegex
+                          )
+                        );
+                      }
+                    }
+                  },
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xff0e639c),
+                      borderRadius: BorderRadius.all(Radius.circular(25))
+                    ),
+                    height: 45,
+                    width: 45,
+                    child: const Icon(Icons.find_replace_sharp, color: Colors.white)),
+                ),
+                title: SizedBox(
+                  height: 47,
+                  child: TextField(
+                    controller: widget.replaceWordController,
+                    cursorColor: Colors.grey,
+                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                    decoration: InputDecoration(
+                      hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                      hintText: "Replace",
+                      border: const OutlineInputBorder(),
+                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
   }
 }
 
@@ -881,15 +1310,7 @@ class _AIChatState extends State<AIChat> {
                               SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: languages
-                                    .singleWhere(
-                                      (item) =>
-                                          item.extension ==
-                                          path
-                                              .extension(widget.filePath)
-                                              .substring(1),
-                                    )
-                                    .icon,
+                                child: languages.singleWhere((item) => item.extension.contains(path.extension(widget.filePath).substring(1))).icon,
                               ),
                               SizedBox(width: 3),
                               Text(

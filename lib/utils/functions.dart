@@ -59,7 +59,7 @@ Future<File> setTempFile(String extension) async {
       await target.create(recursive: true);
       await target.writeAsString(
         languages.firstWhere(
-          (lang)=> lang.extension == path.extension(target.path).replaceFirst(".", ""),
+          (lang)=> lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
           orElse: () =>languages[0]
         ).helloWorld
       );
@@ -108,7 +108,7 @@ Future<File?> pickFiles(BuildContext context, bool isDark) async {
             }
             key ??= '.txt';
             return FilesystemPickerFileListFileTypesThemeItem(
-              extensions: [languages[index].extension],
+              extensions: languages[index].extension,
               icon: IconData(iconSetMap[key]!.codePoint,fontFamily: 'Seti', fontPackage: 'file_icon'));
         }))),
         fileIconColor: Colors.grey),
@@ -272,7 +272,6 @@ Future<LspConfig?> startLspServer({
     required String ext,
     required String? executable,
     required List<String> args,
-    required String filePath,
     required String workspacePath,
     required String langId,
     Map<String, String>? environment

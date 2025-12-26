@@ -27,7 +27,13 @@ class Search extends UiEvent {
 
 class FindWord extends UiEvent {
   final String word;
-  FindWord({required this.word});
+  final bool matchCase, matchWholeWord, isRegex;
+  FindWord({
+    required this.word,
+    required this.matchCase,
+    required this.matchWholeWord,
+    required this.isRegex
+  });
 }
 
 class SetViewPort extends UiEvent{

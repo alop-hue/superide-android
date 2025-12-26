@@ -235,7 +235,7 @@ class _SelectTypeState extends State<SelectType> {
                                     Navigator.of(context).push(
                                       PageRouteBuilder(
                                         pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
-                                        .firstWhere((language) =>language.extension ==path.extension(file.path).replaceFirst(".", ""))),
+                                        .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")))),
                                         transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                           return SizeTransition(sizeFactor: animation, child: child);
                                         }
@@ -256,7 +256,7 @@ class _SelectTypeState extends State<SelectType> {
                     final file = await pickFiles(context, appThemestate.appTheme.isDark);
                     if (file != null) {
                       final language = languages.firstWhere(
-                          (language) =>language.extension == path.extension(file.path).replaceFirst(".", ""),
+                          (language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
                           orElse: () => languages[0]);
                           if(context.mounted) {
                             Navigator.of(context).push(
@@ -471,12 +471,12 @@ class _SelectTypeState extends State<SelectType> {
                                               rootDir: recentData[index][recentData[index].keys.toList()[0]],
                                               languageDetails:((){
                                                 final matchingLang = languages.where((lang)=>
-                                                  lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")
+                                                  lang.extension.contains(path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", ""))
                                                 ).toList();
                                                 if(matchingLang.isNotEmpty) return matchingLang[0];
                                                 return Language(
                                                   name: "Unknown",
-                                                  extension: "null",
+                                                  extension: ["null"],
                                                   details: "Unknown language",
                                                   language: unknown,
                                                   helloWorld: "Unknown type of file"
@@ -505,7 +505,7 @@ class _SelectTypeState extends State<SelectType> {
                                         )), 
                                       leading: ((){
                                         final matchingLang = languages.where((lang)=>
-                                        lang.extension == path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", "")).toList();
+                                        lang.extension.contains(path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", ""))).toList();
                                         if(matchingLang.isNotEmpty) return matchingLang[0].icon;
                                         return FileIcon(recentData[index].keys.toList()[0]);
                                       })(),
