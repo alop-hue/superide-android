@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
+import 'package:crypto/crypto.dart';
 import 'package:file_icon/src/data.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
+import 'package:git2dart/git2dart.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,6 +77,89 @@ Future<File> setTempFile(String extension) async {
           ?File('/storage/emulated/0/VSdroid/Temps/script.js')
           :File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
 }
+
+//TODO
+/* void cloneRepo() {
+  // Use app-private directory
+  final appDir = Directory("/data/data/com.vsdroid/files");
+  final repoPath = '${appDir.path}/my-repo';
+  final repo = Repository.clone(
+    url: 'https://github.com/user/repo.git',
+    localPath: repoPath,
+  );
+} */
+
+String searchForRepo(String path, String ceilingDir) {
+  try {
+    return Repository.discover(startPath: path, ceilingDirs: ceilingDir);
+  } catch (e) {
+    if(e.toString() == "error: git_error_t.GIT_ERROR_REPOSITORY: could not find repository at '$path'"){
+      return "No git repo found.";
+    }
+    return e.toString();
+  }
+}
+
+Future<Repository> initRepo(String workspacePath) async {
+  final appDir = Directory('/data/data/com.vsdroid/files/git_work');
+  if (!appDir.existsSync()) {
+    appDir.createSync(recursive: true);
+  }
+
+  final repoByte = utf8.encode(workspacePath);
+  final repoName = sha256.convert(repoByte).toString();
+  final privateRepoPath = path.join(appDir.path, repoName);
+
+  final privateDir = Directory(privateRepoPath);
+
+  if (privateDir.existsSync()) {
+    privateDir.deleteSync(recursive: true);
+  }
+
+  privateDir.createSync(recursive: true);
+
+  await _copyDirectory(
+    Directory(workspacePath),
+    privateDir,
+    skipGit: true,
+  );
+
+  final repo = Repository.init(path: privateRepoPath);
+
+  final gitDir = Directory(path.join(privateRepoPath, '.git'));
+  final targetGitDir = Directory(path.join(workspacePath, '.git'));
+
+  if (targetGitDir.existsSync()) {
+    targetGitDir.deleteSync(recursive: true);
+  }
+
+  await _copyDirectory(gitDir, targetGitDir);
+
+  return repo;
+}
+
+Future<void> _copyDirectory(
+  Directory source,
+  Directory destination, {
+  bool skipGit = false,
+}) async {
+  await for (final entity in source.list(recursive: false)) {
+    final newPath = path.join(destination.path, path.basename(entity.path));
+
+    if (skipGit && path.basename(entity.path) == '.git') {
+      continue;
+    }
+
+    if (entity is Directory) {
+      final newDir = Directory(newPath);
+      newDir.createSync(recursive: true);
+      await _copyDirectory(entity, newDir, skipGit: skipGit);
+    } else if (entity is File) {
+      await entity.copy(newPath);
+    }
+  }
+}
+
 
 Future<File?> pickFiles(BuildContext context, bool isDark) async {
   final result = await FilesystemPicker.open(

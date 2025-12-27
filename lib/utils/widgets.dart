@@ -4,12 +4,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:code_forge/code_forge.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
 import '../bloc/ui_bloc.dart';
@@ -230,20 +233,18 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     final controller = widget.codeController;
+     final generalState = context.read<GeneralBloc>().state;
     controller.addListener(() {
-        BlocListener<GeneralBloc, GeneralState>(
-          listener: (context, generalState) {
-            if (generalState.generalSettings['autoSave'] ?? true) {
-              _saveTimer?.cancel();
-              _saveTimer = Timer(
-                const Duration(milliseconds: 85),
-                () {
-                  controller.saveFile();     
-                },
-              );
-            }
-        }
-      );
+      if (generalState.generalSettings['autoSave'] ?? true) {
+        _saveTimer?.cancel();
+        _saveTimer = Timer(
+          const Duration(milliseconds: 85),
+          () {
+            controller.saveFile();     
+          },
+        );
+      }
+        
     });
   }
 
@@ -542,6 +543,8 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
   final bool enableCreateFileOption;
   final bool enableDeleteFolderOption;
   final bool enableDeleteFileOption;
+  final bool enableRenameFolderOption;
+  final bool enableRenameFileOption;
   final FolderStyle? folderStyle;
   final FileStyle? fileStyle;
   final EditingFieldStyle? editingFieldStyle;
@@ -549,10 +552,12 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
   final List<Widget>? folderActions;
   final List<Widget>? fileActions;
   final Widget Function(String fileExtension)? fileIconBuilder;
+  final AppTheme appTheme;
 
   const DirectoryTreeViewerCustom({
     super.key,
     required this.rootPath,
+    required this.appTheme,
     this.onFileTap,
     this.folderActions,
     this.fileActions,
@@ -564,6 +569,8 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
     this.enableCreateFolderOption = false,
     this.enableDeleteFileOption = false,
     this.enableDeleteFolderOption = false,
+    this.enableRenameFolderOption = false,
+    this.enableRenameFileOption = false,
     this.fileIconBuilder,
   });
 
@@ -572,14 +579,16 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
 }
 
 class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
-  String? currentDir;
   String? newEntryPath;
+  String? renamingPath;
   bool isFolderCreation = false;
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _renameController = TextEditingController();
 
   @override
   void dispose() {
     _controller.dispose();
+    _renameController.dispose();
     super.dispose();
   }
 
@@ -593,12 +602,28 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       newEntryPath = parentPath;
       isFolderCreation = isFolder;
       _controller.clear();
+      renamingPath = null;
     });
   }
 
   void stopCreating() {
     setState(() {
       newEntryPath = null;
+    });
+  }
+
+  void startRenaming(String entityPath) {
+    setState(() {
+      renamingPath = entityPath;
+      _renameController.text = path.basename(entityPath);
+      newEntryPath = null;
+    });
+  }
+
+  void stopRenaming() {
+    setState(() {
+      renamingPath = null;
+      _renameController.clear();
     });
   }
 
@@ -615,6 +640,179 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     stopCreating();
   }
 
+  void renameEntry(String oldPath, bool isFolder) {
+    final value = _renameController.text.trim();
+    if (value.isNotEmpty && value != path.basename(oldPath)) {
+      final parentDir = path.dirname(oldPath);
+      final newPath = path.join(parentDir, value);
+      try {
+        if (isFolder) {
+          Directory(oldPath).renameSync(newPath);
+        } else {
+          File(oldPath).renameSync(newPath);
+        }
+      } catch (e) {
+        // Handle rename error if needed
+        print('Error renaming: $e');
+      }
+    }
+    stopRenaming();
+  }
+
+  void _showFolderContextMenu(BuildContext context, Directory directory, Offset tapPosition) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        tapPosition & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (widget.enableCreateFileOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                widget.folderStyle?.iconForCreateFile ?? FolderStyle().iconForCreateFile,
+                const SizedBox(width: 15),
+                Text(
+                  'New File',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => startCreating(directory.path, false),
+            ),
+          ),
+        if (widget.enableCreateFolderOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                widget.folderStyle?.iconForCreateFolder ?? FolderStyle().iconForCreateFolder,
+                const SizedBox(width: 11),
+                Text(
+                  'New Folder',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => startCreating(directory.path, true),
+            ),
+          ),
+        if (widget.enableRenameFolderOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Rename Folder',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => startRenaming(directory.path),
+            ),
+          ),
+        if (widget.enableDeleteFolderOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.delete, size: 25, color: Colors.red[300]),
+                const SizedBox(width: 8),
+                Text(
+                  'Delete Folder',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () {
+                Directory(directory.path).delete(recursive: true);
+                setState(() {});
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showFileContextMenu(BuildContext context, File file, Offset tapPosition) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        tapPosition & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (widget.enableRenameFileOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Rename File',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => startRenaming(file.path),
+            ),
+          ),
+        if (widget.enableDeleteFileOption)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+                const SizedBox(width: 8),
+                Text(
+                  'Delete File',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () {
+                file.deleteSync();
+                setState(() {});
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildDirectoryTree(Directory directory) {
     final entries = directory.listSync();
     entries.sort((a, b) {
@@ -623,59 +821,36 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return a.path.compareTo(b.path);
     });
 
+    // Check if this folder is being renamed
+    if (renamingPath == directory.path) {
+      return _buildRenameField(directory.path, true);
+    }
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        InkWell(
-          onTap: () {
-            toggleFolder(directory.path);
-            currentDir = directory.path;
-          },
+        GestureDetector(
+          onTap: () => toggleFolder(directory.path),
+          onLongPressStart: (details) => _showFolderContextMenu(
+            context,
+            directory,
+            details.globalPosition,
+          ),
           child: Row(
             children: [
               isUnfolded(directory.path)
-                  ? widget.folderStyle?.folderOpenedicon ??
-                        FolderStyle().folderOpenedicon
-                  : widget.folderStyle?.folderClosedicon ??
-                        FolderStyle().folderClosedicon,
+                  ? widget.folderStyle?.folderOpenedicon ?? FolderStyle().folderOpenedicon
+                  : widget.folderStyle?.folderClosedicon ?? FolderStyle().folderClosedicon,
               const SizedBox(width: 8),
-              Text(
-                path.basename(directory.path),
-                style:
-                    widget.folderStyle?.folderNameStyle ??
-                    FolderStyle().folderNameStyle,
+              Expanded(
+                child: Text(
+                  path.basename(directory.path),
+                  style: widget.folderStyle?.folderNameStyle ?? FolderStyle().folderNameStyle,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-              SizedBox(
-                width: widget.folderStyle?.itemGap ?? FolderStyle().itemGap,
-              ),
-              if (widget.enableCreateFileOption &&
-                  isUnfolded(directory.path) &&
-                  currentDir == directory.path)
-                IconButton(
-                  onPressed: () => startCreating(directory.path, false),
-                  icon:
-                      widget.folderStyle?.iconForCreateFile ??
-                      FolderStyle().iconForCreateFile,
-                ),
-              if (widget.enableCreateFolderOption &&
-                  isUnfolded(directory.path) &&
-                  currentDir == directory.path)
-                IconButton(
-                  onPressed: () => startCreating(directory.path, true),
-                  icon:
-                      widget.folderStyle?.iconForCreateFolder ??
-                      FolderStyle().iconForCreateFolder,
-                ),
-              if (widget.enableDeleteFolderOption &&
-                  isUnfolded(directory.path) &&
-                  currentDir == directory.path)
-                IconButton(
-                  onPressed: () {
-                    Directory(directory.path).delete(recursive: true);
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.delete),
-                ),
-              ...widget.folderActions ?? [],
+              if (widget.folderActions != null) ...widget.folderActions!,
             ],
           ),
         ),
@@ -703,15 +878,12 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return Row(
       children: [
         isFolderCreation
-            ? widget.editingFieldStyle?.folderIcon ??
-                  EditingFieldStyle().folderIcon
-            : widget.editingFieldStyle?.fileIcon ??
-                  EditingFieldStyle().fileIcon,
+            ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
+            : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
             height: widget.editingFieldStyle?.textFieldHeight,
-            width: widget.editingFieldStyle?.textFieldWidth,
             child: TextField(
               style: widget.editingFieldStyle?.textStyle,
               textAlignVertical: widget.editingFieldStyle?.verticalTextAlign,
@@ -720,61 +892,93 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration:
-                  widget.editingFieldStyle?.textfieldDecoration ??
-                  EditingFieldStyle().textfieldDecoration,
+              decoration: widget.editingFieldStyle?.textfieldDecoration ?? EditingFieldStyle().textfieldDecoration,
               controller: _controller,
               onSubmitted: (_) => createEntry(parent),
             ),
           ),
         ),
         IconButton(
-          icon:
-              widget.editingFieldStyle?.doneIcon ??
-              EditingFieldStyle().doneIcon,
+          icon: widget.editingFieldStyle?.doneIcon ?? EditingFieldStyle().doneIcon,
           onPressed: () => createEntry(parent),
         ),
         IconButton(
-          icon:
-              widget.editingFieldStyle?.cancelIcon ??
-              EditingFieldStyle().cancelIcon,
+          icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon,
           onPressed: stopCreating,
         ),
       ],
     );
   }
 
-  Widget _buildFileItem(File file) {
-    return InkWell(
-      onTap: () => widget.onFileTap?.call(file),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            widget.fileIconBuilder?.call(
-                  path.extension(file.path).toLowerCase(),
-                ) ??
-                widget.fileStyle?.fileIcon ??
-                FileStyle().fileIcon,
-            const SizedBox(width: 8),
-            Text(
-              path.basename(file.path),
-              style:
-                  widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
-            ),
-            if (widget.enableDeleteFileOption)
-              IconButton(
-                onPressed: () {
-                  file.deleteSync();
-                  setState(() {});
-                },
-                icon:
-                    widget.fileStyle?.iconForDeleteFile ??
-                    FileStyle().iconForDeleteFile,
+  Widget _buildRenameField(String entityPath, bool isFolder) {
+    return Row(
+      children: [
+        isFolder
+            ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
+            : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
+        const SizedBox(width: 8),
+        Expanded(
+          child: SizedBox(
+            height: widget.editingFieldStyle?.textFieldHeight,
+            child: TextField(
+              style: widget.editingFieldStyle?.textStyle,
+              textAlignVertical: widget.editingFieldStyle?.verticalTextAlign,
+              cursorRadius: widget.editingFieldStyle?.cursorRadius,
+              cursorWidth: widget.editingFieldStyle?.cursorWidth ?? 2.0,
+              cursorHeight: widget.editingFieldStyle?.cursorHeight,
+              cursorColor: widget.editingFieldStyle?.cursorColor,
+              autofocus: true,
+              decoration: (widget.editingFieldStyle?.textfieldDecoration ?? EditingFieldStyle().textfieldDecoration).copyWith(
+                hintText: path.basename(entityPath),
               ),
-            ...widget.fileActions ?? [],
-          ],
+              controller: _renameController,
+              onSubmitted: (_) => renameEntry(entityPath, isFolder),
+            ),
+          ),
         ),
+        IconButton(
+          icon: widget.editingFieldStyle?.doneIcon ?? EditingFieldStyle().doneIcon,
+          onPressed: () => renameEntry(entityPath, isFolder),
+        ),
+        IconButton(
+          icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon,
+          onPressed: stopRenaming,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileItem(File file) {
+    // Check if this file is being renamed
+    if (renamingPath == file.path) {
+      return _buildRenameField(file.path, false);
+    }
+
+    return GestureDetector(
+      onTap: () => widget.onFileTap?.call(file),
+      onLongPressStart: (details) => _showFileContextMenu(
+        context,
+        file,
+        details.globalPosition,
+      ),
+      child: Row(
+        children: [
+          widget.fileIconBuilder?.call(
+                path.extension(file.path).toLowerCase(),
+              ) ??
+              widget.fileStyle?.fileIcon ??
+              FileStyle().fileIcon,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              path.basename(file.path),
+              style: widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          if (widget.fileActions != null) ...widget.fileActions!,
+        ],
       ),
     );
   }
@@ -787,7 +991,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     }
     return BlocBuilder<FolderBloc, FolderState>(
       builder: (context, state) {
-        return _buildDirectoryTree(rootDirectory);
+        return SingleChildScrollView(
+          child: _buildDirectoryTree(rootDirectory),
+        );
       },
     );
   }
@@ -795,7 +1001,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 
 //-----------------------SEARCH--------------------------
 
-class FindWordWidget extends StatefulWidget {
+class FindWordWidget extends StatelessWidget {
   final AppTheme appTheme;
   final TextEditingController findWordController, replaceWordController;
   final ActiveEditorsState editorState;
@@ -810,16 +1016,6 @@ class FindWordWidget extends StatefulWidget {
   });
 
   @override
-  State<FindWordWidget> createState() => _FindWordWidgetState();
-}
-
-class _FindWordWidgetState extends State<FindWordWidget> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Padding(
         padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 5),
@@ -832,8 +1028,8 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 child: Text(
                   "SEARCH",
                   style: TextStyle(
-                    fontWeight: widget.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                    color: appTheme.selectScreenCardTextColor,
                   ),
                 ),
               ),
@@ -849,7 +1045,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                           shape: WidgetStatePropertyAll(RoundedRectangleBorder(
                             side: BorderSide(
                               width: 0.5,
-                              color: wordState.matchCase ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                              color: wordState.matchCase ? appTheme.selectScreenCardTextColor : Colors.transparent
                             ),
                             borderRadius: BorderRadiusGeometry.circular(5),
                           ))
@@ -863,7 +1059,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                             isRegex: wordState.isRegex,
                           ));
                         },
-                        icon: Text('Aa', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
+                        icon: Text('Aa', style: TextStyle(color: appTheme.selectScreenCardTextColor))
                       ),
                       IconButton(
                         style: ButtonStyle(
@@ -871,7 +1067,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                           shape: WidgetStatePropertyAll(RoundedRectangleBorder(
                             side: BorderSide(
                               width: 0.5,
-                              color: wordState.matchWholeWord ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                              color: wordState.matchWholeWord ? appTheme.selectScreenCardTextColor : Colors.transparent
                             ),
                             borderRadius: BorderRadiusGeometry.circular(5),
                           ))
@@ -889,8 +1085,8 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                           'ab',
                           style: TextStyle(
                             decoration: TextDecoration.underline,
-                            decorationColor: widget.appTheme.selectScreenCardTextColor,
-                            color: widget.appTheme.selectScreenCardTextColor
+                            decorationColor: appTheme.selectScreenCardTextColor,
+                            color: appTheme.selectScreenCardTextColor
                           )
                         )
                       ),
@@ -900,7 +1096,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                           shape: WidgetStatePropertyAll(RoundedRectangleBorder(
                             side: BorderSide(
                               width: 0.5,
-                              color: wordState.isRegex ? widget.appTheme.selectScreenCardTextColor : Colors.transparent
+                              color: wordState.isRegex ? appTheme.selectScreenCardTextColor : Colors.transparent
                             ),
                             borderRadius: BorderRadiusGeometry.circular(5),
                           ))
@@ -915,11 +1111,11 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                           ));
                         },
                         icon: Text(
-                          '.\u2731',
+                          '\u2022\u2731',
                           style: TextStyle(
                             fontSize: 16,
-                            decorationColor: widget.appTheme.selectScreenCardTextColor,
-                            color: widget.appTheme.selectScreenCardTextColor
+                            decorationColor: appTheme.selectScreenCardTextColor,
+                            color: appTheme.selectScreenCardTextColor
                           )
                         )
                       )
@@ -932,13 +1128,13 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   height: 47,
                   child: BlocListener<FindWordBloc, FindWordState>(
                     listener: (context, wordState) {
-                      if (widget.findWordController.text != wordState.word) {
-                        widget.findWordController.text = wordState.word;
-                        widget.findWordController.selection = TextSelection.collapsed(offset: wordState.word.length);
+                      if (findWordController.text != wordState.word) {
+                        findWordController.text = wordState.word;
+                        findWordController.selection = TextSelection.collapsed(offset: wordState.word.length);
                       }
                     },
                     child: TextField(
-                      controller: widget.findWordController,
+                      controller: findWordController,
                       onChanged: (word) {
                         final String currWord = context.read<FindWordBloc>().state.word;
                         context.read<FindWordBloc>().add(
@@ -951,9 +1147,9 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                         );
                       },
                       cursorColor: Colors.grey,
-                      style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                      style: TextStyle(color: appTheme.selectScreenCardTextColor),
                       decoration: InputDecoration(
-                        hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                        hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
                         hintText: "Find word",
                         border: const OutlineInputBorder(),
                         focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
@@ -966,14 +1162,14 @@ class _FindWordWidgetState extends State<FindWordWidget> {
               ListTile(
                 trailing: InkWell(
                   onTap: () async {
-                    if (widget.findWordController.text.isNotEmpty) {
+                    if (findWordController.text.isNotEmpty) {
                       final currentState = context.read<FindWordBloc>().state;
-                      final activeEditor = widget.tabController != null
-                          ? widget.editorState.activeEditors[widget.tabController!.index]
-                          : widget.editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                      final activeEditor = tabController != null
+                          ? editorState.activeEditors[tabController!.index]
+                          : editorState.activeEditors.firstWhere((item) => item.isActive == true);
                       final data = await activeEditor.filePath.readAsString();
                       final newData = data.replaceAll(
-                        currentState.word, widget.replaceWordController.text
+                        currentState.word, replaceWordController.text
                       );
                       await activeEditor.filePath.writeAsString(newData);
                       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1005,11 +1201,11 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 title: SizedBox(
                   height: 47,
                   child: TextField(
-                    controller: widget.replaceWordController,
+                    controller: replaceWordController,
                     cursorColor: Colors.grey,
-                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                    style: TextStyle(color: appTheme.selectScreenCardTextColor),
                     decoration: InputDecoration(
-                      hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                      hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
                       hintText: "Replace",
                       border: const OutlineInputBorder(),
                       focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
@@ -1021,6 +1217,597 @@ class _FindWordWidgetState extends State<FindWordWidget> {
           ),
         ),
       );
+  }
+}
+
+//-----------------------Source Control------------------
+
+class SourceControl extends StatelessWidget {
+  final AppTheme appTheme;
+  final String workSpace;
+  final bool isRepoThere;
+  const SourceControl({
+    super.key,
+    required this.appTheme,
+    required this.workSpace,
+    required this.isRepoThere
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    bool isTemp = workSpace == "/storage/emulated/0/VSdroid/Temps";
+    final List<Widget> noRepoFound = [
+            Text(
+              "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
+              textAlign: TextAlign.start,
+              style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: (){
+                initRepo(workSpace);
+              },
+              style:  ButtonStyle(
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(5))
+                  )),
+                backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+                foregroundColor: WidgetStatePropertyAll(Colors.white),
+                textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
+              ),
+              child: const Text("Initialize Repository")),
+            const SizedBox(height: 13.5),
+            Text(
+              "You can directly publish this\nfolder to a GitHub repository.\nOnce published, you'll have\naccess to source control featured\npowered by Git and GitHub",
+              textAlign: TextAlign.start,
+              style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
+            ),
+            const SizedBox(height: 13.5),
+            SizedBox(
+              width: 200,
+              child: ElevatedButton(
+                onPressed: (){},
+                style: const ButtonStyle(
+                  shape: WidgetStatePropertyAll(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(5))
+                    )),
+                  backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+                  foregroundColor: WidgetStatePropertyAll(Colors.white),
+                  textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
+                ),
+                child:  const Row(
+                  children: [
+                    Icon(FontAwesomeIcons.github,color: Colors.white),
+                    SizedBox(width: 8),
+                    Text("Publish to Github"),
+                  ],
+                )),
+            )];
+    return !isTemp ? Padding(
+      padding: const EdgeInsets.only(top: 25,left: 10),
+      child: SizedBox(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.topLeft,
+              child: Text("SOURCE CONTROL",
+                style: TextStyle(
+                  fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                  color: appTheme.selectScreenCardTextColor,
+                ),
+              )
+            ),
+            const SizedBox(height: 13.5),
+            if(!isRepoThere) ...noRepoFound,
+            if(isRepoThere) ...[
+              SizedBox(
+                height: 50,
+                width: 250,
+                child: TextField(
+                  keyboardType: TextInputType.url,
+                  style: const TextStyle(color: Colors.grey),
+                  cursorColor: Colors.grey,
+                  onChanged: (val){
+                    context.read<ApiBloc>().add(GetUrl(url: val));
+                  },
+                  decoration: InputDecoration(
+                    suffixIcon: IconButton(
+                      onPressed: (){},
+                      icon: SvgPicture.asset(
+                        'assets/icons/ai.svg',
+                        height: 20,
+                        width: 20,
+                      ),
+                    ), 
+                    hintText: "Commit message",
+                    hintStyle: TextStyle(
+                      color: appTheme.selectScreenCardTextColor.withAlpha(120)
+                    ),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xff0e639c))
+                    )
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: 250,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: const ButtonStyle(
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadiusGeometry.only(
+                                topRight: Radius.zero,
+                                bottomRight: Radius.zero,
+                                topLeft: Radius.circular(6),
+                                bottomLeft: Radius.circular(6),
+                              )
+                            )),
+                          backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+                          foregroundColor: WidgetStatePropertyAll(Colors.white),
+                          textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
+                        onPressed: (){},
+                        child: Text("\u2713 Commit")
+                      ),
+                    ),
+                    SizedBox(
+                      width: 50,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: BorderDirectional(start: BorderSide(color: Colors.white, width: 0.5)),
+                          color: Color(0xff0e639c),
+                          borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(6),
+                            bottomRight: Radius.circular(6)
+                          ),
+                        ),
+                        child: DropdownMenu(
+                          trailingIcon: Icon(
+                            FontAwesomeIcons.caretDown,
+                            color: appTheme.selectScreenCardTextColor,
+                            size: 14,
+                          ),
+                          selectedTrailingIcon: Icon(
+                            FontAwesomeIcons.caretUp,
+                            color: appTheme.selectScreenCardTextColor,
+                            size: 14,
+                          ),
+                          inputDecorationTheme: InputDecorationTheme(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            constraints: BoxConstraints.tight(const 
+                            Size.fromHeight(40)),
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide.none,
+                              borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(6),
+                                bottomRight: Radius.circular(6)
+                              ),
+                            ),
+                          ),
+                          menuStyle: MenuStyle(
+                            backgroundColor: WidgetStatePropertyAll(appTheme.cardTheme.color),
+                          ),
+                          dropdownMenuEntries: [
+                            DropdownMenuEntry(
+                              style: ButtonStyle(
+                                foregroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardTextColor)
+                              ),
+                              value: "Commit and Push", label: "Commit and Push"
+                            ),
+                            DropdownMenuEntry(
+                              style: ButtonStyle(
+                                foregroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardTextColor)
+                              ),
+                              value: "Commit and Sync", label: "Commit and Sync",
+                            )
+                        ]),
+                      ),
+                    )
+                  ],
+                ),
+              )
+            ]
+          ],
+        ),
+      ),
+    ) : Center(
+          child: Text(
+            "Cannot initalize a git repository in the temp directory.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: appTheme.selectScreenCardTextColor
+            ),
+          )
+        );
+  }
+}
+
+//-----------------------API Testing---------------------
+
+class APITesting extends StatelessWidget {
+  final Map<String, String> params, headers;
+  final TextEditingController apiUrlController;
+  final AppTheme appTheme;
+  final TabController paramTabController, apiTabController;
+  const APITesting({
+    super.key,
+    required this.params,
+    required this.headers,
+    required this.apiUrlController,
+    required this.appTheme,
+    required this.paramTabController,
+    required this.apiTabController
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28,horizontal: 15),
+      child: BlocBuilder<ApiBloc, ApiState>(
+        builder: (context, webState) {
+          Map<TextEditingController,TextEditingController> paramControllers = {
+            for (int _ in Iterable.generate(webState.params.length + 1)) 
+              TextEditingController() : TextEditingController()
+          };
+          Map<TextEditingController,TextEditingController> headerControllers = {
+            for (int _ in Iterable.generate(webState.headers.length + 1)) 
+              TextEditingController() : TextEditingController()
+          };
+          if(webState.params.isNotEmpty){
+            for(int index = 0; index < webState.params.length; index++){
+              paramControllers.keys.toList()[index].text = webState.params.keys.toList()[index];
+              paramControllers.values.toList()[index].text = webState.params.values.toList()[index];
+              params[webState.params.keys.toList()[index]] = webState.params.values.toList()[index];
+            }
+          }
+          if(webState.headers.isNotEmpty){
+            for(int index = 0; index < webState.headers.length; index++){
+              headerControllers.keys.toList()[index].text = webState.headers.keys.toList()[index];
+              headerControllers.values.toList()[index].text = webState.headers.values.toList()[index];
+              headers[webState.headers.keys.toList()[index]] = webState.headers.values.toList()[index];
+            }
+          }
+          apiUrlController.text = webState.url ?? "Enter URL";
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 15),
+              Text(
+                "API TESTING",
+                style: TextStyle(
+                  color: appTheme.selectScreenCardTextColor,
+                  fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                )
+              ),
+              const SizedBox(height: 15),
+              DropdownButtonHideUnderline(
+                child: DropdownButton(
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  value: webState.method,
+                  dropdownColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 241, 241, 241),
+                  items: [  
+                    DropdownMenuItem(
+                      value: "POST",
+                      child: Text(
+                        "POST",
+                        style: TextStyle(
+                          color: const Color(0xffe0790b),
+                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: "GET",
+                      child: Text(
+                        "GET",
+                        style: TextStyle(
+                          color: const Color(0xff26cda3),
+                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: "PUT",
+                      child: Text(
+                        "PUT",
+                        style: TextStyle(
+                          color: const Color(0xff097bed),
+                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: "DELETE",
+                      child: Text(
+                        "DELETE",
+                        style: TextStyle(
+                          color: const Color(0xfff22814),
+                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) async{
+                    context.read<ApiBloc>().add(ApiEvent(method: value!));
+                  }),
+              ),
+              SizedBox(
+                height: 50,
+                width: 250,
+                child: TextField(
+                  controller: apiUrlController,
+                  keyboardType: TextInputType.url,
+                  style: const TextStyle(color: Colors.grey),
+                  cursorColor: Colors.grey,
+                  onChanged: (val){
+                    context.read<ApiBloc>().add(GetUrl(url: val));
+                  },
+                  decoration: const InputDecoration(
+                    hintText: "Enter Url",
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xff0e639c))
+                    )
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TabBar(
+                labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                controller: paramTabController,
+                dividerColor: appTheme.isDark? 
+                    const Color.fromARGB(255, 61, 61, 61) :
+                    const Color.fromARGB(255, 182, 182, 182),
+                dividerHeight: 1.5,
+                unselectedLabelColor: appTheme.isDark ? 
+                    Colors.grey : 
+                    const Color.fromARGB(255, 102, 102, 102),
+                labelColor: const Color.fromARGB(255, 62, 142, 195),
+                indicatorColor: const Color(0xff0e639c),
+                indicatorWeight: 2.5,
+                tabs: const[
+                Tab(text: "Params"),
+                Tab(text: "Headers"),
+                Tab(text: "Body")
+              ]),
+              const SizedBox(height: 15),
+              SizedBox(
+                height: 60 * (((){
+                    if(webState.params.isEmpty && webState.headers.isEmpty){
+                      return 1.0;
+                    }
+                    if(webState.params.length > webState.headers.length){
+                      return webState.params.length.toDouble() + 1.0;
+                    }
+                    return webState.headers.length.toDouble() + 1.0;
+                  })()),
+                child: TabBarView(
+                  controller: paramTabController,
+                  children:  [
+                    Column(
+                      children: List.generate(
+                        webState.params.length + 1,
+                        (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Row(children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                cursorColor: Colors.grey,
+                                style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                                controller: paramControllers.keys.toList()[index],
+                                textAlignVertical: TextAlignVertical.top,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                                  ),
+                                  border: OutlineInputBorder()
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              flex: 5,
+                              child: TextField(
+                                cursorColor: Colors.grey,
+                                style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                                controller: paramControllers.values.toList()[index],
+                                textAlignVertical: TextAlignVertical.top,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                                  ),
+                                  border: OutlineInputBorder()
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                if (index == webState.params.length) {
+                                  if (paramControllers.keys.toList()[index].text.isNotEmpty &&
+                                      paramControllers.values.toList()[index].text.isNotEmpty) {
+                                    params.addEntries({
+                                      paramControllers.keys.toList()[index].text:
+                                          paramControllers.values.toList()[index].text
+                                    }.entries);
+                                  }
+                                } else {
+                                  params.remove(paramControllers.keys.toList()[index].text);
+                                }
+                                context.read<ApiBloc>().add(GetParams(params: params));
+                                String baseUrl = apiUrlController.text.split('?')[0];
+                                String queryString = '';
+                                if (params.isNotEmpty) {
+                                  queryString = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+                                }
+                                String newUrl = queryString.isNotEmpty ? '$baseUrl?$queryString' : baseUrl;
+                                apiUrlController.value = apiUrlController.value.copyWith(
+                                  text: newUrl,
+                                  selection: TextSelection.collapsed(offset: newUrl.length),
+                                );
+                                context.read<ApiBloc>().add(GetUrl(url: newUrl));
+                              },
+                              icon: Icon(
+                                index == webState.params.length ? Icons.add : Icons.remove,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            ]),
+                          );
+                        })),
+                    Column(
+                      children: List.generate(
+                        webState.headers.length + 1,
+                        (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Row(children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextField(
+                                cursorColor: Colors.grey,
+                                style: const TextStyle(color: Colors.grey),
+                                controller: headerControllers.keys.toList()[index],
+                                textAlignVertical: TextAlignVertical.top,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                                  ),
+                                  border: OutlineInputBorder()
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              flex: 5,
+                              child: TextField(
+                                cursorColor: Colors.grey,
+                                style: const TextStyle(color: Colors.grey),
+                                controller: headerControllers.values.toList()[index],
+                                textAlignVertical: TextAlignVertical.top,
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                                  ),
+                                  border: OutlineInputBorder()
+                                ),
+                              ),
+                            ),
+                            IconButton(onPressed: (){
+                              if(index == webState.headers.length){
+                                if(headerControllers.keys.toList()[index].text.isNotEmpty && headerControllers.values.toList()[index].text.isNotEmpty) {
+                                  headers.addEntries({headerControllers.keys.toList()[index].text:headerControllers.values.toList()[index].text}.entries);
+                                }
+                              }
+                              else{
+                                headers.remove(headerControllers.keys.toList()[index].text);
+                              }
+                              context.read<ApiBloc>().add(GetHeaders(headers: headers));
+                            }, icon: Icon(index == webState.headers.length? Icons.add : Icons.remove,color: Colors.grey))
+                            ]),
+                          );
+                        })),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 7),
+                      child: TextField(
+                        textAlignVertical: TextAlignVertical.top,
+                        cursorColor: Colors.grey,
+                        style: TextStyle(color: Colors.grey),
+                        maxLines: null,
+                        minLines: null,
+                        decoration: InputDecoration(
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xff0e639c))
+                          ),
+                          border: OutlineInputBorder()
+                        ),
+                        expands: true,
+                      ),
+                    )
+                  ]
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: ElevatedButton(
+                  onPressed: () async{
+                    Map<String,dynamic> data = 
+                      await sendRequest(
+                        url: apiUrlController.text,
+                        method: webState.method,
+                        headers: webState.headers
+                      );
+                    if(context.mounted) {
+                      context.read<ApiBloc>().add(GotApiData(data: data));
+                    }
+                  }, 
+                    style: const ButtonStyle(
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8)))),
+                    backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+                    foregroundColor: WidgetStatePropertyAll(Colors.white),
+                    textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
+                  child: const Text("Send")),
+              ),
+              webState.data == null 
+                ? const SizedBox.shrink()
+                : Align(
+                  alignment: Alignment.bottomCenter,
+                  child: TabBar(
+                    controller: apiTabController,
+                    dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                    dividerHeight: 1.5,
+                    unselectedLabelColor: Colors.grey,
+                    labelColor: const Color.fromARGB(255, 62, 142, 195),
+                    indicatorColor: const Color(0xff0e639c),
+                    indicatorWeight: 2.5,
+                    tabs: const [
+                      Tab(child: Text("{ }",style: TextStyle(fontSize: 22))), 
+                      Tab(icon: Icon(FontAwesomeIcons.html5)),
+                      Tab(icon: Icon(Icons.raw_on_sharp,size: 35))
+                    ]),
+                ),
+              const SizedBox(height: 20),
+              webState.data == null 
+                ? const SizedBox.shrink()
+                : Expanded(
+                  child: TabBarView(
+                    controller: apiTabController,
+                    children: [
+                      JsonWidget(
+                        expandIcon: const Icon(Icons.keyboard_arrow_down_sharp, color: Colors.grey),
+                        collapseIcon: const Icon(Icons.keyboard_arrow_right_sharp, color: Colors.grey),
+                        json: webState.data!
+                      ),
+                      InAppWebView(
+                        onWebViewCreated: (InAppWebViewController webViewController) {
+                          webViewController.loadData(data: webState.data!['body']);
+                        },
+                      ),
+                      SingleChildScrollView(child: 
+                        Text(webState.data!.toString(),style: const TextStyle(color: Colors.grey)))
+                    ]
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -1198,9 +1985,9 @@ class _AIChatState extends State<AIChat> {
               return Center(
                 child: Text(
                   "Chat Model is not configured. Go to the settings and create one.",
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: themeState.appTheme.selectScreenCardTextColor,
-                    fontSize: 22,
                   ),
                 ),
               );
@@ -1410,6 +2197,170 @@ class _AIChatState extends State<AIChat> {
           },
         );
       },
+    );
+  }
+}
+
+//------------------------Settings--------------------
+
+class SettingsTab extends StatelessWidget {
+  final AppTheme appTheme;
+  final ThemeBloc uiBloc;
+  const SettingsTab({
+    super.key,
+    required this.appTheme,
+    required this.uiBloc
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 45),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Text(
+              "SETTINGS",
+              style: TextStyle(
+                fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                color: appTheme.selectScreenCardTextColor
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          settingsTile(() {
+            showDialog(context: context, builder: (context)=>
+            BlocProvider<ThemeBloc>.value(
+              value: uiBloc,
+              child: BlocBuilder<ThemeBloc, ThemeState>(
+                builder: (context, themeState) {
+                  final String currentTheme = themeState.codeForgeConfig['theme'];
+                  return AlertDialog(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                    insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
+                    titlePadding: const EdgeInsets.all(15),
+                    title: Card(
+                      color: const Color.fromARGB(255, 37, 37, 37),
+                      child: ListTile(
+                        leading: const Icon(Icons.color_lens,color: Colors.white,size: 30),
+                        title: const Text("Select a theme"),
+                        subtitle: Text("${highlightThemes.length} themes available"),
+                        titleTextStyle: const TextStyle(fontSize: 25),
+                        subtitleTextStyle: const TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                    backgroundColor: const Color.fromARGB(255, 61, 61, 61),
+                    content: 
+                    Scrollbar(
+                      thumbVisibility: true,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: highlightThemes.keys.toList().map((e)=>Card(
+                              elevation: 0,
+                              color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
+                                child: ListTile(
+                                  iconColor: Colors.grey,
+                                  leading: e==currentTheme? const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
+                                  onTap: () async{
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final currentState = themeState.codeForgeConfig;
+                                    currentState['theme'] = e;
+                                    await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                    if (context.mounted) {
+                                      context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                      Navigator.of(context).pop();
+                                    }
+                                  },
+                                  title: Text(e.capitalize(),style: TextStyle(color: Colors.grey[400]))),
+                                )).toList()
+                          ),
+                        ),
+                      )
+                    )
+                  );
+                },
+              ),
+            )
+            );
+          }, 'Themes',
+            Icon(
+              Icons.color_lens, 
+              size: 24,
+              color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100)
+            ), appTheme.isDark
+          ),
+          settingsTile((){
+          showDialog(context: context, builder: (context)=>
+          BlocProvider<ThemeBloc>.value(
+            value: uiBloc,
+            child: BlocBuilder<ThemeBloc,ThemeState>(
+              builder: (context, themeState){
+                final String currentFont = themeState.codeForgeConfig['fontFamily'];
+                return AlertDialog(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+                  insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
+                  titlePadding: const EdgeInsets.all(15),
+                  backgroundColor: const Color.fromARGB(255, 61, 61, 61),
+                  title: Card(
+                    color: const Color.fromARGB(255, 37, 37, 37),
+                    child: ListTile(
+                      leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
+                      title: const Text(" Select a font   "),
+                      subtitle: Text("   ${fonts.length} fonts available"),
+                      titleTextStyle: const TextStyle(fontSize: 25),
+                      subtitleTextStyle: const TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                  content:Scrollbar(
+                    thumbVisibility: true,
+                    child:Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: fonts.map(
+                            (e) => Card(
+                              color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
+                              elevation: 0,
+                              child:
+                              ListTile(
+                                onTap: () async{
+                                  final currentState = themeState.codeForgeConfig;
+                                  currentState['fontFamily'] = e;
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                  if (context.mounted) {
+                                    context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                iconColor: Colors.grey,
+                                leading: e == currentFont ? 
+                                  const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
+                                  const Icon(Icons.radio_button_off_sharp),
+                                title: Text(e.capitalize(), style: TextStyle(color: appTheme.selectScreenCardTextColor))
+                              )
+                            )
+                          ).toList()
+                        ),
+                      ),
+                    )
+                  )
+                );  
+              }
+            ),
+          ));
+        }, "Fonts", Icon(
+          FontAwesomeIcons.font,
+          color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100),
+          size: 21
+        ),appTheme.isDark
+      )
+      ],
+      ),
     );
   }
 }

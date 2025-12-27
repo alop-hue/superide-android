@@ -15,6 +15,7 @@ dependencies:
   #     ref: 35f1cee396c91ebc9d44b5da39c29b675578b5df
   code_forge:
     path: /home/athul/Projects/code_forge
+  crypto: ^3.0.7
   file_icon: ^1.0.0
   file_picker: ^10.2.0
   filesystem_picker: ^4.1.0
@@ -29,6 +30,7 @@ dependencies:
   flutter_svg: ^2.2.0
   flutter_switch: ^0.3.2
   font_awesome_flutter: ^10.10.0
+  git2dart: ^0.4.0
   http: ^1.2.2
   markdown_widget: ^2.3.2+8
   path: ^1.9.0
