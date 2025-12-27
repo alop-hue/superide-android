@@ -10,23 +10,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
 import 'package:git2dart/git2dart.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/terminal/terminal.dart';
 import '../utils/languages.dart';
 
-Future<bool> getPermission() async {
-  final externalStatus = await Permission.manageExternalStorage.status;
-  if (!externalStatus.isGranted) {
-    await Permission.manageExternalStorage.request();
+Future<Directory> setupProjectDir() async {
+  final target = Directory('/data/data/com.vsdroid/VSdroid/Projects');
+  if (!target.existsSync()) {
+    await target.create(recursive: true);
   }
-  return await Permission.manageExternalStorage.status.isGranted;
+  return target;
 }
 
-Future<Directory> setupProjectDir() async {
-  final target = Directory('/storage/emulated/0/VSdroid/Projects');
+Future<Directory> setupFilesDir() async{
+  final target = Directory('/data/data/com.vsdroid/VSdroid/Files');
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
@@ -34,7 +33,7 @@ Future<Directory> setupProjectDir() async {
 }
 
 Future<Directory> setupTempDir() async {
-  final target = Directory('/storage/emulated/0/VSdroid/Temps');
+  final target = Directory('/data/data/com.vsdroid/VSdroid/Templates');
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
@@ -42,21 +41,20 @@ Future<Directory> setupTempDir() async {
 }
 
 Future<File> setTempFile(String extension) async {
-  await getPermission();
   final dir = await setupTempDir();
   File target;
   if (dir.existsSync()) {
     if(extension == 'html'){
-      target = File('/storage/emulated/0/VSdroid/Temps/index.html');  
+      target = File('${dir.path}/index.html');  
     }
     else if(extension == 'css'){
-      target = File('/storage/emulated/0/VSdroid/Temps/style.css');  
+      target = File('${dir.path}/style.css');  
     }
     else if(extension == 'js'){
-      target = File('/storage/emulated/0/VSdroid/Temps/script.js');  
+      target = File('${dir.path}/script.js');  
     }
     else{
-      target = File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+      target = File('${dir.path}/tempCode.$extension');
     }
     if (!target.existsSync() || (target.existsSync() && target.readAsStringSync().isEmpty)) {
       await target.create(recursive: true);
@@ -69,13 +67,7 @@ Future<File> setTempFile(String extension) async {
       return target;
     }
   }
-  return extension=='html' 
-      ?File('/storage/emulated/0/VSdroid/Temps/index.html')
-      :extension == 'css'
-        ?File('/storage/emulated/0/VSdroid/Temps/style.css')
-        :extension == 'js'
-          ?File('/storage/emulated/0/VSdroid/Temps/script.js')
-          :File('/storage/emulated/0/VSdroid/Temps/tempCode.$extension');
+  throw PathNotFoundException(dir.path, OSError("Failed to create the `Templates` directory."));
 }
 
 //TODO
@@ -163,7 +155,7 @@ Future<void> _copyDirectory(
 
 Future<File?> pickFiles(BuildContext context, bool isDark) async {
   final result = await FilesystemPicker.open(
-    requestPermission: () => getPermission(),
+    /* requestPermission: () => getPermission(), *///TODO
     permissionText: "Permission denied",
     fsType: FilesystemType.file,
     fileTileSelectMode: FileTileSelectMode.wholeTile,
@@ -222,7 +214,6 @@ Future<String?> selectDir({String? dialogeTitle, String? initialDirectory, Uint8
 }
 
 Future<File?> createFile(String filename, String dirPath, BuildContext context) async {
-  await getPermission();
   final fileDir = Directory(dirPath);
   if (!fileDir.existsSync()) {
     await fileDir.create(recursive: true);

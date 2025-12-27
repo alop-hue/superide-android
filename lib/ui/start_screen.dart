@@ -66,6 +66,8 @@ class _StartScreenState extends State<StartScreen> {
         }
       }
     }
+    
+    await setupFilesDir();
 
     final String sharedPath = await NativeChannel.getLibraryPath();
 
@@ -101,8 +103,6 @@ class _StartScreenState extends State<StartScreen> {
         progress = completedLinks / totalLinks;
       });
     }
-
-    await getPermission();
 
     setState(() {
       isDone = true;

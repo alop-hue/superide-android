@@ -86,7 +86,7 @@ class ProjectScreen extends StatelessWidget {
                                 width: 100,
                                 child: ElevatedButton(
                                 onPressed: () async {
-                                  final actualProjectDir = Directory("/storage/emulated/0/VSdroid/Projects/${projectNameController.text}");
+                                  final actualProjectDir = Directory("/data/data/com.vsdroid/VSdroid/Projects/${projectNameController.text}");
                                   if (!actualProjectDir.existsSync()) {
                                     await actualProjectDir.create(recursive: true);
                                   }

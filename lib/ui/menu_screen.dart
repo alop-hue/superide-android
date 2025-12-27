@@ -23,7 +23,7 @@ class MenuScreen extends StatelessWidget {
               pageBuilder: (context, animation, secondaryAnimation) =>
                 EditorPage(
                   languageDetails: e,
-                  rootDir: '/storage/emulated/0/VSdroid/Temps'
+                  rootDir: '/data/data/com.vsdroid/VSdroid/Templates'
                 ),
               transitionsBuilder:(context, animation, secondaryAnimation, child) {
                 return FadeTransition(
@@ -74,7 +74,7 @@ class MenuScreen extends StatelessWidget {
                             onTap: () => Navigator.of(context).push(
                               PageRouteBuilder(
                                 pageBuilder: (context, animation, secondaryAnimation) =>
-                                  EditorPage(languageDetails: e, rootDir: '/storage/emulated/0/VSdroid/Temps'),
+                                  EditorPage(languageDetails: e, rootDir: '/data/data/com.vsdroid/VSdroid/Templates'),
                                 transitionsBuilder:(context, animation, secondaryAnimation, child) {
                                   return SizeTransition(
                                     sizeFactor: animation,

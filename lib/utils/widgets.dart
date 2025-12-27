@@ -652,8 +652,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           File(oldPath).renameSync(newPath);
         }
       } catch (e) {
-        // Handle rename error if needed
-        print('Error renaming: $e');
+        //
       }
     }
     stopRenaming();
@@ -1235,7 +1234,7 @@ class SourceControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isTemp = workSpace == "/storage/emulated/0/VSdroid/Temps";
+    bool isTemp = workSpace == "/data/data/com.vsdroid/VSdroid/Templates";
     final List<Widget> noRepoFound = [
             Text(
               "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",

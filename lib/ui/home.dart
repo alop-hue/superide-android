@@ -227,7 +227,7 @@ class _SelectTypeState extends State<SelectType> {
                                 if (createFileController.text.isNotEmpty) {
                                   final file = await createFile(
                                     createFileController.text,
-                                    "/storage/emulated/0/VSdroid/files",
+                                    "/data/data/com.vsdroid/VSdroid/Files",
                                     context
                                   );
                                   if (context.mounted && file != null) {
