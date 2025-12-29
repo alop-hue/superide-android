@@ -7,6 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:path/path.dart' as path;
 import '../bloc/ui_bloc.dart';
 import '../ui/editor_page.dart';
+import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
 import '../utils/widgets.dart';
@@ -18,6 +19,8 @@ class FolderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appTheme = context.read<AppThemeBloc>().state.appTheme;
+    final gitRepo = searchForRepo(dir.path, dir.path);
+    final isRepoThere = gitRepo != "No git repo found.";
     return  Scaffold(
       appBar: AppBar(
         title: Text(path.basename(dir.path),style: const TextStyle(color: Colors.grey)),
@@ -29,7 +32,29 @@ class FolderPage extends StatelessWidget {
             Text("Open a file to Edit",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20)),
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: Text("No version control (.git) found on this folder/project",style: TextStyle(color: Colors.grey[appTheme.isDark ? 500 : 600])),
+              child: Column(
+                children: [
+                  Text(
+                    isRepoThere 
+                      ? "Version control (.git) found \u2713"
+                      : "No version control (.git) found on this folder/project",
+                      style: TextStyle(color: Colors.grey[appTheme.isDark ? 500 : 600]),
+                  ),
+                  Card(
+                    child: Wrap(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 15, top: 8, bottom: 8),
+                          child: Text(
+                            "Note: This is a clone of the selected folder in VSDroid's private directory. Modifications here will not affect the original folder.",
+                            style: TextStyle(color: Colors.grey[appTheme.isDark ? 500 : 600]),
+                          ),
+                        )
+                      ]
+                    ),
+                  )
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.only(left: 15),
@@ -39,6 +64,10 @@ class FolderPage extends StatelessWidget {
                 rootPath: dir.path,
                 enableCreateFileOption: true,
                 enableCreateFolderOption: true,
+                enableDeleteFileOption: true,
+                enableDeleteFolderOption: true,
+                enableRenameFileOption: true,
+                enableRenameFolderOption: true,
                 editingFieldStyle: EditingFieldStyle(
                   textStyle: const TextStyle(
                     color: Colors.grey,
@@ -81,7 +110,13 @@ class FolderPage extends StatelessWidget {
                   folderNameStyle: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20),
                 ),
                 fileStyle: FileStyle(
-                  fileNameStyle: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 20,height: 2),
+                  iconForDeleteFile: Icon(Icons.delete, size: 25, color: Colors.red[300]),
+                  fileNameStyle: TextStyle(
+                    color: appTheme.selectScreenCardTextColor,
+                    fontSize: 20,
+                    fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                    height: 2,
+                  ),
                 ),
                 onFileTap: (f) {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(

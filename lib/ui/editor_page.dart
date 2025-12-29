@@ -550,7 +550,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               PopupMenuItem(
                                 child: TextButton(onPressed: () async{
                                   if (context.mounted) {
-                                    final file = await pickFiles(context, appTheme.isDark);
+                                    final file = await pickFile();
                                     if (file != null) {
                                     } else {
                                       if(context.mounted) {

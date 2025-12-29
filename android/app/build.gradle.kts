@@ -39,6 +39,11 @@ android {
     }
 }
 
+dependencies {
+    implementation("androidx.documentfile:documentfile:1.0.1")  // For DocumentFile and SAF support
+}
+
+
 flutter {
     source = "../.."
 }

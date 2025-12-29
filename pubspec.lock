@@ -63,7 +63,7 @@ packages:
       path: "/home/athul/Projects/code_forge"
       relative: false
     source: path
-    version: "2.2.0"
+    version: "4.0.0"
   collection:
     dependency: transitive
     description:
@@ -89,7 +89,7 @@ packages:
     source: hosted
     version: "0.3.5+1"
   crypto:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -152,14 +152,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.3.8"
-  filesystem_picker:
-    dependency: "direct main"
-    description:
-      name: filesystem_picker
-      sha256: cc2bfe7e5a4ce21afd5b1b03824c0e6e5386a981ed6cce7bda062b1af805cf62
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.1.0"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -265,10 +257,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_json
-      sha256: "0ccb73403286b97a18a5a58d9068f3a1e61d0f39ff54f30e048af594768683ea"
+      sha256: "2848c69365a2db142746186aba676cc9954c3f968c97d0a19d9526a496a1d43a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.5"
+    version: "0.0.6"
   flutter_lints:
     dependency: "direct dev"
     description:

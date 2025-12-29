@@ -233,18 +233,17 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     final controller = widget.codeController;
-     final generalState = context.read<GeneralBloc>().state;
+    final generalState = context.read<GeneralBloc>().state;
     controller.addListener(() {
       if (generalState.generalSettings['autoSave'] ?? true) {
         _saveTimer?.cancel();
         _saveTimer = Timer(
           const Duration(milliseconds: 85),
           () {
-            controller.saveFile();     
+            controller.saveFile();
           },
         );
       }
-        
     });
   }
 
@@ -306,20 +305,6 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                       fontSize: themeState.fontSize,
                     ),
                     controller: codeController,
-                    /* editorField: EditorField(
-                      enableInteractiveSelection: true,
-                      onChanged: (p0) {
-                        if (generalState.generalSettings['autoSave'] ?? true) {
-                          _saveTimer?.cancel();
-                          _saveTimer = Timer(
-                            const Duration(milliseconds: 85),
-                            () {
-                              widget.filePath.writeAsStringSync(p0);
-                            },
-                          );
-                        }
-                      },
-                    ), */
                   );
                 },
               ),
@@ -378,7 +363,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
               child: BlocListener<FindWordBloc, FindWordState>(
                 listener: (context, wordState) {
                   if(wordState.isRegex){
-                    controller.findRegex(RegExp(wordState.word), null);
+                    controller.findRegex(RegExp(wordState.word));
                   } else {
                     controller.findWord(
                       wordState.word,
@@ -948,7 +933,6 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 
   Widget _buildFileItem(File file) {
-    // Check if this file is being renamed
     if (renamingPath == file.path) {
       return _buildRenameField(file.path, false);
     }
@@ -1221,7 +1205,7 @@ class FindWordWidget extends StatelessWidget {
 
 //-----------------------Source Control------------------
 
-class SourceControl extends StatelessWidget {
+class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
   final String workSpace;
   final bool isRepoThere;
@@ -1233,18 +1217,35 @@ class SourceControl extends StatelessWidget {
   });
 
   @override
+  State<SourceControl> createState() => _SourceControlState();
+}
+
+class _SourceControlState extends State<SourceControl> {
+  bool _isARepo = false;
+
+  @override
+  void initState() {
+    //TODO: Handle file deletion
+    _isARepo = widget.isRepoThere;
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    bool isTemp = workSpace == "/data/data/com.vsdroid/VSdroid/Templates";
+    bool isTemp = widget.workSpace == "/data/data/com.vsdroid/VSdroid/Templates";
     final List<Widget> noRepoFound = [
             Text(
               "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
               textAlign: TextAlign.start,
-              style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
+              style: TextStyle(color: widget.appTheme.isDark ?Colors.grey[400] : widget.appTheme.selectScreenCardTextColor),
             ),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: (){
-                initRepo(workSpace);
+                initRepo(widget.workSpace);
+                setState(() {
+                  _isARepo = true;
+                });
               },
               style:  ButtonStyle(
                 shape: WidgetStatePropertyAll(
@@ -1260,7 +1261,7 @@ class SourceControl extends StatelessWidget {
             Text(
               "You can directly publish this\nfolder to a GitHub repository.\nOnce published, you'll have\naccess to source control featured\npowered by Git and GitHub",
               textAlign: TextAlign.start,
-              style: TextStyle(color: appTheme.isDark ?Colors.grey[400] : appTheme.selectScreenCardTextColor),
+              style: TextStyle(color: widget.appTheme.isDark ?Colors.grey[400] : widget.appTheme.selectScreenCardTextColor),
             ),
             const SizedBox(height: 13.5),
             SizedBox(
@@ -1294,14 +1295,14 @@ class SourceControl extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: Text("SOURCE CONTROL",
                 style: TextStyle(
-                  fontWeight: appTheme.isDark? FontWeight.w300 : FontWeight.w500,
-                  color: appTheme.selectScreenCardTextColor,
+                  fontWeight: widget.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
+                  color: widget.appTheme.selectScreenCardTextColor,
                 ),
               )
             ),
             const SizedBox(height: 13.5),
-            if(!isRepoThere) ...noRepoFound,
-            if(isRepoThere) ...[
+            if(!_isARepo) ...noRepoFound,
+            if(_isARepo) ...[
               SizedBox(
                 height: 50,
                 width: 250,
@@ -1323,7 +1324,7 @@ class SourceControl extends StatelessWidget {
                     ), 
                     hintText: "Commit message",
                     hintStyle: TextStyle(
-                      color: appTheme.selectScreenCardTextColor.withAlpha(120)
+                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(120)
                     ),
                     border: OutlineInputBorder(),
                     focusedBorder: OutlineInputBorder(
@@ -1371,12 +1372,12 @@ class SourceControl extends StatelessWidget {
                         child: DropdownMenu(
                           trailingIcon: Icon(
                             FontAwesomeIcons.caretDown,
-                            color: appTheme.selectScreenCardTextColor,
+                            color: widget.appTheme.selectScreenCardTextColor,
                             size: 14,
                           ),
                           selectedTrailingIcon: Icon(
                             FontAwesomeIcons.caretUp,
-                            color: appTheme.selectScreenCardTextColor,
+                            color: widget.appTheme.selectScreenCardTextColor,
                             size: 14,
                           ),
                           inputDecorationTheme: InputDecorationTheme(
@@ -1393,18 +1394,18 @@ class SourceControl extends StatelessWidget {
                             ),
                           ),
                           menuStyle: MenuStyle(
-                            backgroundColor: WidgetStatePropertyAll(appTheme.cardTheme.color),
+                            backgroundColor: WidgetStatePropertyAll(widget.appTheme.cardTheme.color),
                           ),
                           dropdownMenuEntries: [
                             DropdownMenuEntry(
                               style: ButtonStyle(
-                                foregroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardTextColor)
+                                foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
                               ),
                               value: "Commit and Push", label: "Commit and Push"
                             ),
                             DropdownMenuEntry(
                               style: ButtonStyle(
-                                foregroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardTextColor)
+                                foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
                               ),
                               value: "Commit and Sync", label: "Commit and Sync",
                             )
@@ -1413,6 +1414,26 @@ class SourceControl extends StatelessWidget {
                     )
                   ],
                 ),
+              ),
+              Builder(
+                builder: (_){
+                  final data = getRepoStatus(widget.workSpace);
+                  print("\n");
+                  print(data);
+                  print("\n");
+                  return SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      itemCount: data.length,
+                      itemBuilder: (_, index) => ListTile(
+                        title: Text(data.keys.toList()[index]),
+                        trailing: Row(
+                          children: data[data.keys.toList()[index]]!.map((item) => gitFileStatus[item]!).toList(),
+                        ),
+                      )
+                    ),
+                  );
+                }
               )
             ]
           ],
@@ -1423,7 +1444,7 @@ class SourceControl extends StatelessWidget {
             "Cannot initalize a git repository in the temp directory.",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: appTheme.selectScreenCardTextColor
+              color: widget.appTheme.selectScreenCardTextColor
             ),
           )
         );

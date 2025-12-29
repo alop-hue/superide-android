@@ -253,7 +253,7 @@ class _SelectTypeState extends State<SelectType> {
                 ),
                 fileTiles(() async {
                   if (context.mounted) {
-                    final file = await pickFiles(context, appThemestate.appTheme.isDark);
+                    final file = await pickFile();
                     if (file != null) {
                       final language = languages.firstWhere(
                           (language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
@@ -297,9 +297,8 @@ class _SelectTypeState extends State<SelectType> {
                   appThemestate.appTheme.isDark
                 ),
                 fileTiles(() async {
-                  final dirPath = await pickDir();
-                  if (dirPath != null) {
-                    final dir = Directory(dirPath);
+                  final dir = await pickDir();
+                  if (dir != null) {
                     if (dir.existsSync()) {
                       if(context.mounted){
                         Navigator.of(context).push(
@@ -463,6 +462,10 @@ class _SelectTypeState extends State<SelectType> {
                                       textColor: appThemestate.appTheme.selectScreenCardTextColor,
                                       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
                                       onTap: (){
+                                        if(!(File(recentData[index].keys.toList()[0]).existsSync())){
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("File Not found !")));
+                                          return;
+                                        }
                                         Navigator.of(context).push(
                                           PageRouteBuilder(
                                             pageBuilder: (context ,animation, secondaryAnimation) => 

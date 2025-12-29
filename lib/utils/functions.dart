@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
-import 'package:crypto/crypto.dart';
-import 'package:file_icon/src/data.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
@@ -29,6 +26,39 @@ Future<Directory> setupFilesDir() async{
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
+
+  final currentFiles = File('${target.path}/.current_files.json');
+
+  if (!await currentFiles.exists()) {
+    await currentFiles.writeAsString(jsonEncode({}));
+    return target;
+  }
+
+  try {
+    final raw = await currentFiles.readAsString();
+    if (raw.trim().isEmpty) {
+      await currentFiles.writeAsString(jsonEncode({}));
+      return target;
+    }
+
+    final Map<String, dynamic> data = jsonDecode(raw);
+    final Map<String, String> cleaned = {};
+
+    for (final entry in data.entries) {
+      final filePath = '${target.path}/${entry.key}';
+      if (await File(filePath).exists()) {
+        cleaned[entry.key] = entry.value.toString();
+      }
+    }
+
+    await currentFiles.writeAsString(
+      jsonEncode(cleaned),
+      flush: true,
+    );
+  } catch (e) {
+    await currentFiles.writeAsString(jsonEncode({}), flush: true);
+  }
+
   return target;
 }
 
@@ -92,118 +122,82 @@ String searchForRepo(String path, String ceilingDir) {
   }
 }
 
-Future<Repository> initRepo(String workspacePath) async {
-  final appDir = Directory('/data/data/com.vsdroid/files/git_work');
-  if (!appDir.existsSync()) {
-    appDir.createSync(recursive: true);
-  }
-
-  final repoByte = utf8.encode(workspacePath);
-  final repoName = sha256.convert(repoByte).toString();
-  final privateRepoPath = path.join(appDir.path, repoName);
-
-  final privateDir = Directory(privateRepoPath);
-
-  if (privateDir.existsSync()) {
-    privateDir.deleteSync(recursive: true);
-  }
-
-  privateDir.createSync(recursive: true);
-
-  await _copyDirectory(
-    Directory(workspacePath),
-    privateDir,
-    skipGit: true,
-  );
-
-  final repo = Repository.init(path: privateRepoPath);
-
-  final gitDir = Directory(path.join(privateRepoPath, '.git'));
-  final targetGitDir = Directory(path.join(workspacePath, '.git'));
-
-  if (targetGitDir.existsSync()) {
-    targetGitDir.deleteSync(recursive: true);
-  }
-
-  await _copyDirectory(gitDir, targetGitDir);
-
+Repository initRepo(String workspacePath) {
+  final repo =  Repository.init(path: workspacePath);
   return repo;
 }
 
-Future<void> _copyDirectory(
-  Directory source,
-  Directory destination, {
-  bool skipGit = false,
-}) async {
-  await for (final entity in source.list(recursive: false)) {
-    final newPath = path.join(destination.path, path.basename(entity.path));
+Map<String, Set<GitStatus>> getRepoStatus(String workspacePath) {
+  final repo = Repository.open(workspacePath);
+  //TODO
+  print("\n");
+  print("\n");
+  print(repo.status);
+  return repo.status;
+}
 
-    if (skipGit && path.basename(entity.path) == '.git') {
-      continue;
-    }
+Future<File?> pickFile() async {
+  final result = await FilePicker.platform.pickFiles(
+    allowMultiple: false,
+    type: FileType.custom,
+  );
 
-    if (entity is Directory) {
-      final newDir = Directory(newPath);
-      newDir.createSync(recursive: true);
-      await _copyDirectory(entity, newDir, skipGit: skipGit);
-    } else if (entity is File) {
-      await entity.copy(newPath);
-    }
+  if (result == null || result.files.isEmpty) return null;
+
+  final picked = result.files.first;
+
+  if (picked.path == null && picked.bytes == null) {
+    return null;
   }
-}
 
+  final projectDir = await setupFilesDir();
+  final currentFiles = File('${projectDir.path}/.current_files.json');
 
-Future<File?> pickFiles(BuildContext context, bool isDark) async {
-  final result = await FilesystemPicker.open(
-    /* requestPermission: () => getPermission(), *///TODO
-    permissionText: "Permission denied",
-    fsType: FilesystemType.file,
-    fileTileSelectMode: FileTileSelectMode.wholeTile,
-    title: "Select a file",
-    folderIconColor: Colors.grey,
-    showGoUp: true,
-    context: context,
-    rootDirectory: Directory('/storage/emulated/0'),
-    rootName: "Storage",
-    theme: FilesystemPickerTheme(
-      fileList: FilesystemPickerFileListThemeData(
-        fileTypes: FilesystemPickerFileListFileTypesTheme(
-          List.generate(languages.length, ((index) {
-            String? key;
-            final fileName = 'file.${languages[index].extension}';
-            if (iconSetMap.containsKey(fileName)) {
-              key = fileName;
-            } else {
-              var chunks = fileName.split('.').sublist(1);
-              while (chunks.isNotEmpty) {
-                var k = '.${chunks.join()}';
-                if (iconSetMap.containsKey(k)) {
-                  key = k;
-                  break;
-                }
-                chunks = chunks.sublist(1);
-              }
-            }
-            key ??= '.txt';
-            return FilesystemPickerFileListFileTypesThemeItem(
-              extensions: languages[index].extension,
-              icon: IconData(iconSetMap[key]!.codePoint,fontFamily: 'Seti', fontPackage: 'file_icon'));
-        }))),
-        fileIconColor: Colors.grey),
-    topBar: FilesystemPickerTopBarThemeData(
-        foregroundColor: Colors.grey[isDark ? 300 : 800],
-        backgroundColor: Color(isDark ? 0xff4b5365 : 0xffd3d3d3)),
-    backgroundColor: Color(isDark ? 0xff282c35 : 0xffffffff)));
-  if (result != null && File(result).existsSync()) {
-    final file = File(result);
-    return file;
+  Map<String, String> fileMap = {};
+
+  if (currentFiles.existsSync() && currentFiles.lengthSync() > 0) {
+    fileMap = Map<String, String>.from(
+      jsonDecode(currentFiles.readAsStringSync()),
+    );
   }
-  return null;
+
+  if (picked.identifier != null) {
+    fileMap[picked.name] = picked.identifier!;
+  }
+
+  await currentFiles.writeAsString(
+    jsonEncode(fileMap),
+    flush: true,
+  );
+
+  final targetFile = File('${projectDir.path}/${picked.name}');
+
+  if (picked.bytes != null) {
+    await targetFile.writeAsBytes(picked.bytes!, flush: true);
+  } else {
+    final tempFile = File(picked.path!);
+    await tempFile.copy(targetFile.path);
+  }
+
+  return targetFile;
 }
 
-Future<String?> pickDir() async {
-  return await FilePicker.platform.getDirectoryPath();
+
+Future<Directory?> pickDir() async {
+  const MethodChannel saf = MethodChannel('vsdroid/saf');
+  final String? treeUri =
+      await saf.invokeMethod<String>('pickSafDir');
+
+  if (treeUri == null) return null;
+
+  final projectPath = await saf.invokeMethod<String>(
+    'cloneSafDir',
+    {'uri': treeUri},
+  );
+  if(projectPath == null) return null;
+  return Directory(projectPath);
 }
+
 
 Future<String?> selectDir({String? dialogeTitle, String? initialDirectory, Uint8List? bytes}) async{
   return await FilePicker.platform.saveFile(
@@ -550,3 +544,10 @@ class AIConversation{
 
   AIConversation copyWith({String? modelResponse}) =>  AIConversation(userRequest, modelResponse);
 }
+
+Map<GitStatus, Text> gitFileStatus = {
+  GitStatus.wtModified : Text('M', style: TextStyle(color: Color(0xffaf9672))),
+  GitStatus.wtDeleted : Text('D', style: TextStyle(color: Colors.red[300]!)),
+  GitStatus.wtNew : Text('U', style: TextStyle(color: Colors.green[800]!)),
+  GitStatus.wtRenamed : Text('U', style: TextStyle(color: Colors.green[800]!)),
+};
