@@ -1429,7 +1429,6 @@ class _SourceControlState extends State<SourceControl> {
                       return <String>[];
                     }
                   })();
-                  print(data);
                   return SizedBox(
                     height: 500,
                     child: ListView.builder(
@@ -1443,18 +1442,14 @@ class _SourceControlState extends State<SourceControl> {
                           width: 25,
                           child: ((){
                             try {
-                              return languages.singleWhere((lang) {
-                                print(path.basename(fileName));
-                                //TODO: Directory error
-                                return lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''));
-                              }).icon;
+                              return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
                             } catch (e) {
                               debugPrint(e.toString());
                               return SizedBox.shrink();
                             }
                           })()
                         ),
-                        title: Text(path.basenameWithoutExtension(fileName)),
+                        title: Text(path.basename(fileName)),
                         subtitle: Text(fileName),
                         trailing: Text(repoIndicator.$1),
                         leadingAndTrailingTextStyle: TextStyle(

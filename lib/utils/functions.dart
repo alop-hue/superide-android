@@ -127,7 +127,7 @@ Future<ProcessResult> getRepoStatus(String workspacePath) async{
   final sharedPath = await NativeChannel.getLibraryPath();
   return await Process.run(
     "$binDir/git",
-    ["status", "--porcelain=v1"],
+    ["status", "--porcelain=v1", "-uall"],
     workingDirectory: workspacePath,
     environment: {
       'VSDROID_SHARED_PATH': sharedPath
