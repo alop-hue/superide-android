@@ -5,10 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/terminal/terminal.dart';
-import 'package:vsdroid/ui/contribute.dart';
 import 'about.dart';
 import 'donation_page.dart';
 import 'folder_page.dart';
@@ -17,6 +14,10 @@ import 'menu_screen.dart';
 import 'project_screen.dart';
 import 'downloads.dart';
 import 'settings.dart';
+import '../bloc/ui_bloc.dart';
+import '../terminal/terminal.dart';
+import '../ui/contribute.dart';
+import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
@@ -127,14 +128,14 @@ class _SelectTypeState extends State<SelectType> {
             ),
             IconButton(
               onPressed: (){
-                final homeDir = Directory('/data/data/com.vsdroid/home');
-                if(!homeDir.existsSync()){
-                  homeDir.createSync(recursive: true);
+                final home = Directory(homeDir);
+                if(!home.existsSync()){
+                  home.createSync(recursive: true);
                 }
                 Navigator.of(context).push(
                   PageRouteBuilder(
                     pageBuilder: (context ,animation, secondaryAnimation) => SetupTerminal(
-                      projectDir: homeDir.path,
+                      projectDir: home.path,
                     ),
                       transitionsBuilder: (context ,animation, secondaryAnimation, child){
                         return SizeTransition(sizeFactor: animation, child: child);
@@ -227,7 +228,7 @@ class _SelectTypeState extends State<SelectType> {
                                 if (createFileController.text.isNotEmpty) {
                                   final file = await createFile(
                                     createFileController.text,
-                                    "/data/data/com.vsdroid/VSdroid/Files",
+                                    filesDir,
                                     context
                                   );
                                   if (context.mounted && file != null) {

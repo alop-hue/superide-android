@@ -28,7 +28,6 @@ dependencies:
   flutter_svg: ^2.2.0
   flutter_switch: ^0.3.2
   font_awesome_flutter: ^10.10.0
-  git2dart: ^0.4.0
   http: ^1.2.2
   markdown_widget: ^2.3.2+8
   path: ^1.9.0

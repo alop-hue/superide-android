@@ -319,22 +319,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.12.0"
-  git2dart:
-    dependency: "direct main"
-    description:
-      name: git2dart
-      sha256: ed158fa233a17bef2b06e0e8d0082951411475f05e85244e61926829480ee190
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0"
-  git2dart_binaries:
-    dependency: transitive
-    description:
-      name: git2dart_binaries
-      sha256: "1184ebe1e357142e0656e6cb0d3b58a7b3bf6b84d40eb34afa9734542a6c2849"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.10.3"
   highlight:
     dependency: transitive
     description:
@@ -455,30 +439,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
-  path_provider:
-    dependency: transitive
-    description:
-      name: path_provider
-      sha256: "50c5dd5b6e1aaf6fb3a78b33f6aa3afca52bf903a8a5298f53101fdaee55bbcd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.5"
-  path_provider_android:
-    dependency: transitive
-    description:
-      name: path_provider_android
-      sha256: f2c65e21139ce2c3dad46922be8272bb5963516045659e71bb16e151c93b580e
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.22"
-  path_provider_foundation:
-    dependency: transitive
-    description:
-      name: path_provider_foundation
-      sha256: "6d13aece7b3f5c5a9731eaf553ff9dcbc2eff41087fd2df587fd0fed9a3eb0c4"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.5.1"
   path_provider_linux:
     dependency: transitive
     description:
@@ -543,14 +503,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5+1"
-  pub_semver:
-    dependency: transitive
-    description:
-      name: pub_semver
-      sha256: "5bfcf68ca79ef689f8990d1160781b4bad40a3bd5e5218ad4076ddb7f4081585"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
   quiver:
     dependency: transitive
     description:

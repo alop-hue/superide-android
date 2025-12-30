@@ -5,16 +5,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
-import 'package:git2dart/git2dart.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/terminal/terminal.dart';
+import '../terminal/terminal.dart';
+import '../utils/constants.dart';
 import '../utils/languages.dart';
 
 Future<Directory> setupProjectDir() async {
-  final target = Directory('/data/data/com.vsdroid/VSdroid/Projects');
+  final target = Directory(projectDir);
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
@@ -22,7 +22,7 @@ Future<Directory> setupProjectDir() async {
 }
 
 Future<Directory> setupFilesDir() async{
-  final target = Directory('/data/data/com.vsdroid/VSdroid/Files');
+  final target = Directory(filesDir);
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
@@ -63,7 +63,7 @@ Future<Directory> setupFilesDir() async{
 }
 
 Future<Directory> setupTempDir() async {
-  final target = Directory('/data/data/com.vsdroid/VSdroid/Templates');
+  final target = Directory(templateDir);
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
@@ -111,29 +111,28 @@ Future<File> setTempFile(String extension) async {
   );
 } */
 
-String searchForRepo(String path, String ceilingDir) {
-  try {
-    return Repository.discover(startPath: path, ceilingDirs: ceilingDir);
-  } catch (e) {
-    if(e.toString() == "error: git_error_t.GIT_ERROR_REPOSITORY: could not find repository at '$path'"){
-      return "No git repo found.";
+Future<void> initRepo(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["init"],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
     }
-    return e.toString();
-  }
+  );
 }
 
-Repository initRepo(String workspacePath) {
-  final repo =  Repository.init(path: workspacePath);
-  return repo;
-}
-
-Map<String, Set<GitStatus>> getRepoStatus(String workspacePath) {
-  final repo = Repository.open(workspacePath);
-  //TODO
-  print("\n");
-  print("\n");
-  print(repo.status);
-  return repo.status;
+Future<ProcessResult> getRepoStatus(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["status", "--porcelain=v1"],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
 }
 
 Future<File?> pickFile() async {
@@ -350,13 +349,13 @@ Future<LspConfig?> startLspServer({
   if(executable == null) return null;
     try {
       final String sharedPath = await NativeChannel.getLibraryPath();
-      final String runtimeDir = '/data/data/com.vsdroid/runtimes';
+      final String runtimeDir = runtimesDir;
       final config = await LspStdioConfig.start(
         executable: executable,
         args: ((){
           if (ext == 'ts' || ext == 'js') {
             return [
-              "/data/data/com.vsdroid/runtimes/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+              "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
               ...args,
             ];
           } else if(ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++'){
@@ -367,9 +366,9 @@ Future<LspConfig?> startLspServer({
               '-Dlog.protocol=true',
               '-Dlog.level=ALL',
               "-jar",
-              "/data/data/com.vsdroid/extensions/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
+              "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
               "-configuration",
-              "/data/data/com.vsdroid/extensions/JDT-LS/config_linux_arm",
+              "$extensionDir/JDT-LS/config_linux_arm",
               "-data",
               workspacePath,
               ...args
@@ -382,7 +381,7 @@ Future<LspConfig?> startLspServer({
           ...environment ?? {},
           'VSDROID_SHARED_PATH': sharedPath,
           'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
-          'JAVA_HOME': '/data/data/com.vsdroid/runtimes/java-17-openjdk',
+          'JAVA_HOME': '$runtimeDir/java-17-openjdk',
         },
         workspacePath: workspacePath,
         languageId: langId,
@@ -545,9 +544,9 @@ class AIConversation{
   AIConversation copyWith({String? modelResponse}) =>  AIConversation(userRequest, modelResponse);
 }
 
-Map<GitStatus, Text> gitFileStatus = {
-  GitStatus.wtModified : Text('M', style: TextStyle(color: Color(0xffaf9672))),
-  GitStatus.wtDeleted : Text('D', style: TextStyle(color: Colors.red[300]!)),
-  GitStatus.wtNew : Text('U', style: TextStyle(color: Colors.green[800]!)),
-  GitStatus.wtRenamed : Text('U', style: TextStyle(color: Colors.green[800]!)),
+Map<String, (String, Color)> gitFileStatus = {
+  "M" : ('M',  Color(0xffaf9672)),
+  "D" : ('D',  Colors.red[300]!),
+  "UU" : ('C', Colors.red[300]!),
+  "??" : ('U', Colors.green[700]!),
 };

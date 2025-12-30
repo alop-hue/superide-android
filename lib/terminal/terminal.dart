@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
 import 'package:xterm/xterm.dart';
@@ -33,12 +34,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
     final enVars = <String, String>{
       'HOME': workDir.path,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
-      'PATH': '/data/data/com.vsdroid/bin:/data/data/com.vsdroid/runtimes/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
+      'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'VSDROID_SHARED_PATH': sharedPath,
-      'LD_LIBRARY_PATH': '$sharedPath:/data/data/com.vsdroid/lib:/data/data/com.vsdroid/runtimes/ruby:/data/data/com.vsdroid/runtimes/mono',
-      'VSDROID_BIN_PATH': '/data/data/com.vsdroid/bin',
-      'JAVA_HOME': '/data/data/com.vsdroid/runtimes/java-17-openjdk',
-      'MONO_PATH': '/data/data/com.vsdroid/runtimes/mono/mono/4.5',
+      'LD_LIBRARY_PATH': '$sharedPath:/data/data/com.vsdroid/lib$runtimesDir/ruby:$runtimesDir/mono',
+      'VSDROID_BIN_PATH': binDir,
+      'JAVA_HOME': '$runtimesDir/java-17-openjdk',
+      'MONO_PATH': '$runtimesDir/mono/mono/4.5',
     };
     _startPty(
       "$sharedPath/libbash.so",

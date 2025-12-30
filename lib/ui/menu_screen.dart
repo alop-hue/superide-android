@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_icon/file_icon.dart';
 import '../bloc/ui_bloc.dart';
 import '../ui/editor_page.dart';
+import '../utils/constants.dart';
 import '../utils/languages.dart';
 
 class MenuScreen extends StatelessWidget {
@@ -23,7 +24,7 @@ class MenuScreen extends StatelessWidget {
               pageBuilder: (context, animation, secondaryAnimation) =>
                 EditorPage(
                   languageDetails: e,
-                  rootDir: '/data/data/com.vsdroid/VSdroid/Templates'
+                  rootDir: templateDir
                 ),
               transitionsBuilder:(context, animation, secondaryAnimation, child) {
                 return FadeTransition(
@@ -74,7 +75,7 @@ class MenuScreen extends StatelessWidget {
                             onTap: () => Navigator.of(context).push(
                               PageRouteBuilder(
                                 pageBuilder: (context, animation, secondaryAnimation) =>
-                                  EditorPage(languageDetails: e, rootDir: '/data/data/com.vsdroid/VSdroid/Templates'),
+                                  EditorPage(languageDetails: e, rootDir: templateDir),
                                 transitionsBuilder:(context, animation, secondaryAnimation, child) {
                                   return SizeTransition(
                                     sizeFactor: animation,

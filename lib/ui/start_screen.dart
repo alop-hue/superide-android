@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:vsdroid/utils/constants.dart';
 import '../ui/home.dart';
 import '../utils/functions.dart';
 
@@ -52,12 +53,12 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   Future<void> _initializeApp() async {
-    final runTimedir = Directory("/data/data/com.vsdroid/runtimes");
-    final bin = "/data/data/com.vsdroid/bin";
-    final binDir = Directory(bin);
+    final runTimedir = Directory(runtimesDir);
+    final bin = binDir;
+    final binDirectory = Directory(binDir);
 
-    if (!binDir.existsSync()) {
-      await binDir.create(recursive: true);
+    if (!binDirectory.existsSync()) {
+      await binDirectory.create(recursive: true);
     }
     if (await runTimedir.exists()) {
       for (final file in runTimedir.listSync()) {
@@ -79,7 +80,7 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'mono', 'csc', 'kotlinc'
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'mono', 'csc', 'kotlinc', 'git'
     ];
 
     final symlinks = [

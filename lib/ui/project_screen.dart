@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import '../bloc/ui_bloc.dart';
 import '../ui/folder_page.dart';
+import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/widgets.dart';
 
@@ -86,7 +87,7 @@ class ProjectScreen extends StatelessWidget {
                                 width: 100,
                                 child: ElevatedButton(
                                 onPressed: () async {
-                                  final actualProjectDir = Directory("/data/data/com.vsdroid/VSdroid/Projects/${projectNameController.text}");
+                                  final actualProjectDir = Directory("$projectDir/${projectNameController.text}");
                                   if (!actualProjectDir.existsSync()) {
                                     await actualProjectDir.create(recursive: true);
                                   }

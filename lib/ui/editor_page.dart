@@ -115,8 +115,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
         final initialController = CodeForgeController(
           lspConfig: snapshot.data?[2] as LspConfig?
         );
-        final gitRepo = searchForRepo(widget.rootDir, widget.rootDir);
-        final isRepoThere = gitRepo != "No git repo found.";
+        final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
         final initalUndoController = UndoRedoController();
         final target = snapshot.data![0] as File;
         return MultiBlocProvider(

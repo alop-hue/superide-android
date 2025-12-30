@@ -13,6 +13,7 @@ import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/languages.dart';
 import '../bloc/ui_bloc.dart';
@@ -1225,14 +1226,13 @@ class _SourceControlState extends State<SourceControl> {
 
   @override
   void initState() {
-    //TODO: Handle file deletion
-    _isARepo = widget.isRepoThere;
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isTemp = widget.workSpace == "/data/data/com.vsdroid/VSdroid/Templates";
+    bool isTemp = widget.workSpace == templateDir;
+    _isARepo = Directory(path.join(widget.workSpace, '.git')).existsSync();
     final List<Widget> noRepoFound = [
             Text(
               "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
@@ -1241,8 +1241,8 @@ class _SourceControlState extends State<SourceControl> {
             ),
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: (){
-                initRepo(widget.workSpace);
+              onPressed: () async{
+                await initRepo(widget.workSpace);
                 setState(() {
                   _isARepo = true;
                 });
@@ -1415,27 +1415,59 @@ class _SourceControlState extends State<SourceControl> {
                   ],
                 ),
               ),
-              Builder(
-                builder: (_){
-                  final data = getRepoStatus(widget.workSpace);
-                  print("\n");
+              FutureBuilder<ProcessResult>(
+                future: getRepoStatus(widget.workSpace),
+                builder: (_, repoSnap){
+                  if(repoSnap.connectionState == ConnectionState.waiting){
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final data = ((){
+                    try {
+                      return repoSnap.data!.stdout.toString().trim().split('\n');
+                    } catch (e) {
+                      debugPrint(e.toString());
+                      return <String>[];
+                    }
+                  })();
                   print(data);
-                  print("\n");
                   return SizedBox(
-                    height: 100,
+                    height: 500,
                     child: ListView.builder(
                       itemCount: data.length,
-                      itemBuilder: (_, index) => ListTile(
-                        title: Text(data.keys.toList()[index]),
-                        trailing: Row(
-                          children: data[data.keys.toList()[index]]!.map((item) => gitFileStatus[item]!).toList(),
+                      itemBuilder: (_, index) {
+                        final fileName = data[index].substring(2).trim();
+                        final (String, Color) repoIndicator = gitFileStatus[data[index].substring(0,2).trim()]!;
+                        return ListTile(
+                        leading: SizedBox(
+                          height: 25,
+                          width: 25,
+                          child: ((){
+                            try {
+                              return languages.singleWhere((lang) {
+                                print(path.basename(fileName));
+                                //TODO: Directory error
+                                return lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''));
+                              }).icon;
+                            } catch (e) {
+                              debugPrint(e.toString());
+                              return SizedBox.shrink();
+                            }
+                          })()
                         ),
-                      )
+                        title: Text(path.basenameWithoutExtension(fileName)),
+                        subtitle: Text(fileName),
+                        trailing: Text(repoIndicator.$1),
+                        leadingAndTrailingTextStyle: TextStyle(
+                          color: repoIndicator.$2,
+                          fontWeight: FontWeight.bold
+                        ),
+                      );
+                      }
                     ),
                   );
                 }
               )
-            ]
+            ],
           ],
         ),
       ),

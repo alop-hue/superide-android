@@ -7,7 +7,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:path/path.dart' as path;
 import '../bloc/ui_bloc.dart';
 import '../ui/editor_page.dart';
-import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
 import '../utils/widgets.dart';
@@ -19,8 +18,7 @@ class FolderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appTheme = context.read<AppThemeBloc>().state.appTheme;
-    final gitRepo = searchForRepo(dir.path, dir.path);
-    final isRepoThere = gitRepo != "No git repo found.";
+    final isRepoThere = Directory(path.join(dir.path, ".git")).existsSync();
     return  Scaffold(
       appBar: AppBar(
         title: Text(path.basename(dir.path),style: const TextStyle(color: Colors.grey)),

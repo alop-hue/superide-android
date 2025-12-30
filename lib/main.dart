@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
-import 'package:git2dart/git2dart.dart';
 import '../bloc/ui_bloc.dart';
 import '../ui/start_screen.dart';
 import '../utils/functions.dart';
@@ -10,7 +9,6 @@ import '../utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await PlatformSpecific.androidInitialize();
   await FlutterDownloader.initialize();
   final recent = await getRecent();
   final appTheme = await getAppTheme();

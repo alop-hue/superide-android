@@ -8,6 +8,7 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:vsdroid/bloc/ui_bloc.dart';
+import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
 import '../utils/languages.dart';
 
@@ -36,8 +37,6 @@ class _DownloadManagerState extends State<DownloadManager> {
   void initState() {
     FlutterDownloader.registerCallback(downloadCallback);
     appThemeState = context.read<AppThemeBloc>().state;
-    const String runTimesdir = "/data/data/com.vsdroid/runtimes";
-    const String extensionDir = "/data/data/com.vsdroid/extensions";
     final stream = context.read<DownloadPortBloc>().downloadStream;
     _portSubscription = stream.listen((data) async {
       final id = data[0] as String;
@@ -46,10 +45,10 @@ class _DownloadManagerState extends State<DownloadManager> {
       if (status.name == 'complete' && mounted) {
         final archiveName = archiveNameMap[id];
         final isExtension = extensions.any((ext) => ext.archiveName == archiveName);
-        final extractDir = isExtension ? extensionDir : runTimesdir;
+        final extractDir = isExtension ? extensionDir : runtimesDir;
         final archivePath = isExtension
             ? "$extensionDir/$archiveName"
-            : "$runTimesdir/$archiveName";
+            : "$runtimesDir/$archiveName";
         await Extractor.extractZip(
           context,
           archivePath,
@@ -150,8 +149,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                           child: BlocBuilder<DownloadProgressBloc, DownloadProgressState>(
                             builder: (context, downloadState) {
                               double? percent = downloadState.downloadProgress?[taskIdMap[index]] ?? 0;
-                              final File archiveFile = File("/data/data/com.vsdroid/runtimes/${runtimes[index].archiveName}");
-                              final Directory parentDir = Directory("/data/data/com.vsdroid/runtimes/${runtimes[index].parentName}");
+                              final File archiveFile = File("$runtimesDir/${runtimes[index].archiveName}");
+                              final Directory parentDir = Directory("$runtimesDir/${runtimes[index].parentName}");
                               if((
                                 percent / 100).clamp(0.0, 1.0) == 1.0 ||
                                 (archiveFile.existsSync() && ((archiveFile.lengthSync() / (1024 * 1024)).toInt() == (runtimes[index].archiveSize).toInt())) ||
@@ -243,7 +242,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   setState(() {
                                     loadingIndexes.add(index);
                                   });
-                                  final dir = "/data/data/com.vsdroid/runtimes";
+                                  final dir = runtimesDir;
                                   if(!(await Directory(dir).exists())){
                                     await Directory(dir).create(recursive: true);
                                   }
@@ -321,8 +320,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                           child: BlocBuilder<DownloadProgressBloc, DownloadProgressState>(
                             builder: (context, downloadState) {
                               double? percent = downloadState.downloadProgress?[taskIdMap[index]] ?? 0;
-                              final File archiveFile = File("/data/data/com.vsdroid/extensions/${extensions[index].archiveName}");
-                              final Directory parentDir = Directory("/data/data/com.vsdroid/extensions/${extensions[index].parentName}");
+                              final File archiveFile = File("$extensionDir/${extensions[index].archiveName}");
+                              final Directory parentDir = Directory("$extensionDir/${extensions[index].parentName}");
                               if ((percent / 100).clamp(0.0, 1.0) == 1.0 ||
                                   (archiveFile.existsSync() && ((archiveFile.lengthSync() / (1024 * 1024)).toInt() == (exten.archiveSize).toInt())) ||
                                   parentDir.existsSync()) {
@@ -412,7 +411,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   setState(() {
                                     loadingIndexes.add(index);
                                   });
-                                  final dir = "/data/data/com.vsdroid/extensions";
+                                  final dir = extensionDir;
                                   if (!(await Directory(dir).exists())) {
                                     await Directory(dir).create(recursive: true);
                                   }
