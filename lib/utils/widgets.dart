@@ -607,6 +607,29 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     super.dispose();
   }
 
+  (Color, String?) _getFileColor(File file, RepoStatusState repoState) {
+    const defaultColor = Colors.white;
+    if (repoState is! RepoStatusLoaded) return (defaultColor, null);
+    final relativePath = path.relative(file.path, from: widget.rootPath);
+    for (final line in repoState.staged) {
+      final trimmed = line.trim();
+      if (trimmed.endsWith(relativePath)) {
+        final status = trimmed.substring(0, 2).trim();
+        final indicator = gitFileStatus[status];
+        return (indicator?.$2 ?? defaultColor, indicator?.$1);
+      }
+    }
+    for (final line in repoState.unstaged) {
+      final trimmed = line.trim();
+      if (trimmed.endsWith(relativePath)) {
+        final status = trimmed.substring(0, 2).trim();
+        final indicator = gitFileStatus[status];
+        return (indicator?.$2 ?? defaultColor, indicator?.$1);
+      }
+    }
+    return (defaultColor, null);
+  }
+
   bool isUnfolded(String dirPath) =>
       context.read<FolderBloc>().state.folderStates[dirPath] ?? false;
   void toggleFolder(String dirPath) =>
@@ -619,6 +642,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       _controller.clear();
       renamingPath = null;
     });
+    if (!isUnfolded(parentPath)) {
+      toggleFolder(parentPath);
+    }
   }
 
   void stopCreating() {
@@ -839,7 +865,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  Widget _buildDirectoryTree(Directory directory) {
+  Widget _buildDirectoryTree(Directory directory, RepoStatusState repoState) {
     final entries = directory.listSync();
     entries.sort((a, b) {
       if (a is Directory && b is File) return -1;
@@ -847,7 +873,6 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return a.path.compareTo(b.path);
     });
 
-    // Check if this folder is being renamed
     if (renamingPath == directory.path) {
       return _buildRenameField(directory.path, true);
     }
@@ -888,8 +913,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               children: [
                 ...entries.map(
                   (entry) => entry is Directory
-                      ? _buildDirectoryTree(entry)
-                      : _buildFileItem(entry as File),
+                      ? _buildDirectoryTree(entry, repoState)
+                      : _buildFileItem(entry as File, repoState),
                 ),
                 if (newEntryPath == directory.path)
                   _buildNewEntryField(directory),
@@ -974,18 +999,22 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  Widget _buildFileItem(File file) {
+  Widget _buildFileItem(File file, RepoStatusState repoState) {
     if (renamingPath == file.path) {
       return _buildRenameField(file.path, false);
     }
 
-    return GestureDetector(
+    final (color, letter) = _getFileColor(file, repoState);
+    final baseStyle = widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle ?? const TextStyle();
+    final key = GlobalKey();
+    return InkWell(
+      key: key,
       onTap: () => widget.onFileTap?.call(file),
-      onLongPressStart: (details) => _showFileContextMenu(
-        context,
-        file,
-        details.globalPosition,
-      ),
+      onLongPress: () {
+        final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+        final position = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+        _showFileContextMenu(context, file, position);
+      },
       child: Row(
         children: [
           widget.fileIconBuilder?.call(
@@ -997,9 +1026,16 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           Expanded(
             child: Text(
               path.basename(file.path),
-              style: widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle,
+              style: baseStyle.copyWith(color: color),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
+            ),
+          ),
+          if(letter != null) Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text(
+              letter,
+              style: baseStyle.copyWith(color: color, fontSize: 15),
             ),
           ),
           if (widget.fileActions != null) ...widget.fileActions!,
@@ -1014,10 +1050,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     if (!rootDirectory.existsSync()) {
       return const Center(child: Text('Directory does not exist'));
     }
-    return BlocBuilder<FolderBloc, FolderState>(
-      builder: (context, state) {
-        return SingleChildScrollView(
-          child: _buildDirectoryTree(rootDirectory),
+    return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+      builder: (context, repoState) {
+        return BlocBuilder<FolderBloc, FolderState>(
+          builder: (context, folderState) {
+            return SingleChildScrollView(
+              child: _buildDirectoryTree(rootDirectory, repoState),
+            );
+          },
         );
       },
     );
@@ -1192,16 +1232,10 @@ class FindWordWidget extends StatelessWidget {
                       final activeEditor = tabController != null
                           ? editorState.activeEditors[tabController!.index]
                           : editorState.activeEditors.firstWhere((item) => item.isActive == true);
-                      final data = await activeEditor.filePath.readAsString();
-                      final newData = data.replaceAll(
-                        currentState.word, replaceWordController.text
-                      );
-                      await activeEditor.filePath.writeAsString(newData);
-                      try { _refreshRepoStatusForFile(context, activeEditor.filePath); } catch(_) {}
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        //TODO: Implement efficient replace
-                        // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
-                      });
+                          //TODO: FindController based replace.
+                      try {
+                         _refreshRepoStatusForFile(context, activeEditor.filePath);
+                         } catch(_) {}
                       if (context.mounted) {
                         //TODO: Remember user preference.
                         context.read<FindWordBloc>().add(
@@ -1267,7 +1301,6 @@ class _SourceControlState extends State<SourceControl> {
   bool _isARepo = false;
   late final TextEditingController _commitController;
   late final StreamSubscription<GitCommitState> _commitSub;
-  // use the RepoStatusBloc provided higher in the widget tree (MultiBlocProvider)
 
   @override
   void initState() {
@@ -1740,7 +1773,7 @@ class _SourceControlState extends State<SourceControl> {
                                           },
                                           icon: Icon(
                                             FontAwesomeIcons.arrowRotateLeft,
-                                            size: 15,
+                                            size: 13.5,
                                             color: widget.appTheme.selectScreenCardTextColor.withAlpha(180)
                                           )
                                         ),
