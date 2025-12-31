@@ -135,8 +135,14 @@ class GeneralEvent extends UiEvent {
   GeneralEvent({required this.generalSettings});
 }
 
-class AIChatEvent extends UiEvent{
+class AIChatEvent extends UiEvent {
   final List<AIConversation> aiConversation;
 
   AIChatEvent(this.aiConversation);
+}
+
+class GitCommitEvent extends UiEvent {
+  final String commitMessage;
+
+  GitCommitEvent({required this.commitMessage});
 }

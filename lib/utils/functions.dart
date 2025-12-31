@@ -121,6 +121,24 @@ Future<void> initRepo(String workspacePath) async{
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
+  
+  await Process.run(
+    "$binDir/git",
+    ["config", "--local", "user.name", "VSdroid user"],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
+  
+  await Process.run(
+    "$binDir/git",
+    ["config", "--local", "user.email", "vsdroid@local"],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
 }
 
 Future<ProcessResult> getRepoStatus(String workspacePath) async{
@@ -132,6 +150,85 @@ Future<ProcessResult> getRepoStatus(String workspacePath) async{
     environment: {
       'VSDROID_SHARED_PATH': sharedPath
     }
+  );
+}
+
+Future<void> stageChange(String fileName, String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["add", fileName],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
+}
+
+Future<void> stageAll(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["add", "--all"],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
+}
+
+Future<void> unstageChange(String fileName, String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["restore", "--staged", fileName],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
+}
+
+Future<void> unstageAll(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["restore", "--staged", "."],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath
+    }
+  );
+}
+
+Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all = false, bool amend = false}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['commit'];
+  if (amend) args.add('--amend');
+  if (all) args.add('-a');
+  args.addAll(['-m', message]);
+
+  final result = await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath,
+    },
+  );
+
+  return result;
+}
+
+Future<void> gitRestoreFile(String fileName, String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["restore", fileName],
+    workingDirectory: workspacePath,
+    environment: {
+      'VSDROID_SHARED_PATH': sharedPath,
+    },
   );
 }
 
@@ -549,4 +646,5 @@ Map<String, (String, Color)> gitFileStatus = {
   "D" : ('D',  Colors.red[300]!),
   "UU" : ('C', Colors.red[300]!),
   "??" : ('U', Colors.green[700]!),
+  "A" : ('U', Colors.green[700]!),
 };

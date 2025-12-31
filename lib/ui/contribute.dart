@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:vsdroid/bloc/ui_bloc.dart';
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 
 class ContributePage extends StatelessWidget {
   final String repoUrl = 'https://github.com/heckmon/vsdroid';

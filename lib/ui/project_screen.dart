@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import '../bloc/ui_bloc.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
 import '../ui/folder_page.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';

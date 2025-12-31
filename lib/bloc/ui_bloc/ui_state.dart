@@ -173,14 +173,20 @@ class AIState {
   }
 }
 
-class DownloadProgressState{
+class DownloadProgressState {
   final Map<String, double>? downloadProgress;
 
   DownloadProgressState(this.downloadProgress);
 }
 
-class AIChatState{
+class AIChatState {
   final List<AIConversation> aiConversation;
 
   AIChatState(this.aiConversation);
+}
+
+class GitCommitState {
+  final String commitMessage;
+
+  GitCommitState({required this.commitMessage});
 }

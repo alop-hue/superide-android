@@ -8,8 +8,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'webview.dart';
-import '../bloc/ui_bloc.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
 import '../utils/languages.dart';
 import '../utils/functions.dart';
@@ -125,6 +126,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => ApiBloc()),
             BlocProvider(create: (_) => FolderBloc()),
             BlocProvider(create: (_) => AIChatBloc()),
+            BlocProvider(create: (_) => GitCommitBloc()),
+            BlocProvider(create: (_) => RepoStatusBloc()..add(LoadRepoStatus(widget.rootDir))),
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(
                 filePath: target,
@@ -649,7 +652,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                   : editorState.activeEditors.firstWhere((item) => item.isActive == true);
                                               activeEditorForClear.filePath.writeAsString('');
                                               Navigator.of(context).pop();
-                                              setState(() {});
+                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
                                             },
                                             child: const Text("OK"))
                                         ],

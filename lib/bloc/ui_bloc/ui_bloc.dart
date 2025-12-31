@@ -5,8 +5,8 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:code_forge/code_forge.dart';
-import '../utils/functions.dart';
-import '../utils/themes.dart';
+import '../../utils/functions.dart';
+import '../../utils/themes.dart';
 
 part 'ui_event.dart';
 part 'ui_state.dart';
@@ -165,5 +165,11 @@ class DownloadPortBloc extends Cubit<ReceivePort?> {
       state!.close();
     }
     return super.close();
+  }
+}
+
+class GitCommitBloc extends Bloc<GitCommitEvent, GitCommitState>{
+  GitCommitBloc(): super(GitCommitState(commitMessage: '')){
+    on<GitCommitEvent>((event, emit) => emit(GitCommitState(commitMessage: event.commitMessage)));
   }
 }

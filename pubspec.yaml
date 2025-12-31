@@ -15,6 +15,7 @@ dependencies:
   #     ref: 35f1cee396c91ebc9d44b5da39c29b675578b5df
   code_forge:
     path: /home/athul/Projects/code_forge
+  equatable: ^2.0.7
   file_icon: ^1.0.0
   file_picker: ^10.2.0
   flutter:

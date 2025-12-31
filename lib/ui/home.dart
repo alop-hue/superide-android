@@ -14,7 +14,7 @@ import 'menu_screen.dart';
 import 'project_screen.dart';
 import 'downloads.dart';
 import 'settings.dart';
-import '../bloc/ui_bloc.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
 import '../ui/contribute.dart';
 import '../utils/constants.dart';

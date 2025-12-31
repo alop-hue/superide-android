@@ -13,11 +13,31 @@ import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/languages.dart';
-import '../bloc/ui_bloc.dart';
+import '../bloc/repo_bloc/repo_bloc.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
+import '../utils/functions.dart';
+import '../utils/languages.dart';
 import '../utils/themes.dart';
+import '../utils/constants.dart';
+
+Directory? _findRepoRoot(File file) {
+  try {
+    Directory dir = file.parent;
+    while (true) {
+      if (Directory(path.join(dir.path, '.git')).existsSync()) return dir;
+      if (dir.parent.path == dir.path) break;
+      dir = dir.parent;
+    }
+  } catch (_) {}
+  return null;
+}
+
+void _refreshRepoStatusForFile(BuildContext context, File file) {
+  try {
+    final root = _findRepoRoot(file);
+    if (root != null) context.read<RepoStatusBloc>().add(LoadRepoStatus(root.path));
+  } catch (_) {}
+}
 
 Widget drawerButtons(
   VoidCallback onPressed,
@@ -228,7 +248,7 @@ class CodeEditor extends StatefulWidget {
 class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMixin{
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
-  Timer? _saveTimer;
+  Timer? _saveTimer, _statusRefreshTimer;
 
   @override
   void initState() {
@@ -241,7 +261,15 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
         _saveTimer = Timer(
           const Duration(milliseconds: 85),
           () {
-            controller.saveFile();
+            try {
+              controller.saveFile();
+            } catch (_) {}
+            _statusRefreshTimer?.cancel();
+            _statusRefreshTimer = Timer(const Duration(milliseconds: 400), () {
+              if(context.mounted && mounted){
+                _refreshRepoStatusForFile(context, widget.filePath);
+              }
+            });
           },
         );
       }
@@ -251,6 +279,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   @override
   void dispose() {
     _saveTimer?.cancel();
+    _statusRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -624,6 +653,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       }
     }
     stopCreating();
+    try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath)); } catch (_) {}
   }
 
   void renameEntry(String oldPath, bool isFolder) {
@@ -642,6 +672,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       }
     }
     stopRenaming();
+    try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath)); } catch (_) {}
   }
 
   void _showFolderContextMenu(BuildContext context, Directory directory, Offset tapPosition) {
@@ -734,6 +765,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               () {
                 Directory(directory.path).delete(recursive: true);
                 setState(() {});
+                if(context.mounted){
+                  try {
+                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+                  } catch (_) {}
+                }
               },
             ),
           ),
@@ -791,6 +827,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               () {
                 file.deleteSync();
                 setState(() {});
+                if(context.mounted){
+                  try {
+                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+                  } catch (_) {}
+                }
               },
             ),
           ),
@@ -1156,6 +1197,7 @@ class FindWordWidget extends StatelessWidget {
                         currentState.word, replaceWordController.text
                       );
                       await activeEditor.filePath.writeAsString(newData);
+                      try { _refreshRepoStatusForFile(context, activeEditor.filePath); } catch(_) {}
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         //TODO: Implement efficient replace
                         // editorState.activeEditors.where((item)=> item.isActive == true).first.controller.text = newData;
@@ -1223,10 +1265,44 @@ class SourceControl extends StatefulWidget {
 
 class _SourceControlState extends State<SourceControl> {
   bool _isARepo = false;
+  late final TextEditingController _commitController;
+  late final StreamSubscription<GitCommitState> _commitSub;
+  // use the RepoStatusBloc provided higher in the widget tree (MultiBlocProvider)
 
   @override
   void initState() {
+    _commitController = TextEditingController(
+      text: context.read<GitCommitBloc>().state.commitMessage,
+    );
+
+    _commitSub = context.read<GitCommitBloc>().stream.listen((s) {
+      final newText = s.commitMessage;
+      if (newText != _commitController.text) {
+        _commitController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: newText.length),
+        );
+      }
+    });
+
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _commitSub.cancel();
+    _commitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant SourceControl oldWidget) {
+    if (oldWidget.workSpace != widget.workSpace) {
+      try {
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      } catch (_) {}
+    }
+    super.didUpdateWidget(oldWidget);
   }
 
   @override
@@ -1303,162 +1379,399 @@ class _SourceControlState extends State<SourceControl> {
             const SizedBox(height: 13.5),
             if(!_isARepo) ...noRepoFound,
             if(_isARepo) ...[
-              SizedBox(
-                height: 50,
-                width: 250,
-                child: TextField(
-                  keyboardType: TextInputType.url,
-                  style: const TextStyle(color: Colors.grey),
-                  cursorColor: Colors.grey,
-                  onChanged: (val){
-                    context.read<ApiBloc>().add(GetUrl(url: val));
-                  },
-                  decoration: InputDecoration(
-                    suffixIcon: IconButton(
-                      onPressed: (){},
-                      icon: SvgPicture.asset(
-                        'assets/icons/ai.svg',
-                        height: 20,
-                        width: 20,
+              BlocBuilder<GitCommitBloc, GitCommitState>(
+                builder: (context, commitState) {
+                  return SizedBox(
+                    height: 50,
+                    width: 250,
+                    child: TextField(
+                      controller: _commitController,
+                      keyboardType: TextInputType.url,
+                      style: const TextStyle(color: Colors.grey),
+                      cursorColor: Colors.grey,
+                      onChanged: (val){
+                        context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: val));
+                      },
+                      decoration: InputDecoration(
+                        suffixIcon: IconButton(
+                          onPressed: (){},
+                          icon: SvgPicture.asset(
+                            'assets/icons/ai.svg',
+                            height: 20,
+                            width: 20,
+                          ),
+                        ), 
+                        hintText: "Commit message",
+                        hintStyle: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor.withAlpha(120)
+                        ),
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xff0e639c))
+                        )
                       ),
-                    ), 
-                    hintText: "Commit message",
-                    hintStyle: TextStyle(
-                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(120)
                     ),
-                    border: OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xff0e639c))
-                    )
-                  ),
-                ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: 250,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        style: const ButtonStyle(
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadiusGeometry.only(
-                                topRight: Radius.zero,
-                                bottomRight: Radius.zero,
-                                topLeft: Radius.circular(6),
-                                bottomLeft: Radius.circular(6),
-                              )
-                            )),
-                          backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
-                          foregroundColor: WidgetStatePropertyAll(Colors.white),
-                          textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
-                        onPressed: (){},
-                        child: Text("\u2713 Commit")
-                      ),
-                    ),
-                    SizedBox(
-                      width: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: BorderDirectional(start: BorderSide(color: Colors.white, width: 0.5)),
-                          color: Color(0xff0e639c),
-                          borderRadius: BorderRadius.only(
-                            topRight: Radius.circular(6),
-                            bottomRight: Radius.circular(6)
-                          ),
-                        ),
-                        child: DropdownMenu(
-                          trailingIcon: Icon(
-                            FontAwesomeIcons.caretDown,
-                            color: widget.appTheme.selectScreenCardTextColor,
-                            size: 14,
-                          ),
-                          selectedTrailingIcon: Icon(
-                            FontAwesomeIcons.caretUp,
-                            color: widget.appTheme.selectScreenCardTextColor,
-                            size: 14,
-                          ),
-                          inputDecorationTheme: InputDecorationTheme(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                            constraints: BoxConstraints.tight(const 
-                            Size.fromHeight(40)),
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide.none,
-                              borderRadius: BorderRadius.only(
-                                topRight: Radius.circular(6),
-                                bottomRight: Radius.circular(6)
-                              ),
-                            ),
-                          ),
-                          menuStyle: MenuStyle(
-                            backgroundColor: WidgetStatePropertyAll(widget.appTheme.cardTheme.color),
-                          ),
-                          dropdownMenuEntries: [
-                            DropdownMenuEntry(
-                              style: ButtonStyle(
-                                foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
-                              ),
-                              value: "Commit and Push", label: "Commit and Push"
-                            ),
-                            DropdownMenuEntry(
-                              style: ButtonStyle(
-                                foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
-                              ),
-                              value: "Commit and Sync", label: "Commit and Sync",
-                            )
-                        ]),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-              FutureBuilder<ProcessResult>(
-                future: getRepoStatus(widget.workSpace),
-                builder: (_, repoSnap){
-                  if(repoSnap.connectionState == ConnectionState.waiting){
-                    return const Center(child: CircularProgressIndicator());
+              BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                builder: (_, repoState){
+                  final bool stagedEmpty;
+                  final bool unstagedEmpty;
+                  if (repoState is RepoStatusLoaded) {
+                    stagedEmpty = repoState.staged.isEmpty;
+                    unstagedEmpty = repoState.unstaged.isEmpty;
+                  } else {
+                    stagedEmpty = true;
+                    unstagedEmpty = true;
                   }
-                  final data = ((){
-                    try {
-                      return repoSnap.data!.stdout.toString().trim().split('\n');
-                    } catch (e) {
-                      debugPrint(e.toString());
-                      return <String>[];
-                    }
-                  })();
-                  return SizedBox(
-                    height: 500,
-                    child: ListView.builder(
-                      itemCount: data.length,
-                      itemBuilder: (_, index) {
-                        final fileName = data[index].substring(2).trim();
-                        final (String, Color) repoIndicator = gitFileStatus[data[index].substring(0,2).trim()]!;
-                        return ListTile(
-                        leading: SizedBox(
-                          height: 25,
-                          width: 25,
-                          child: ((){
-                            try {
-                              return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
-                            } catch (e) {
-                              debugPrint(e.toString());
-                              return SizedBox.shrink();
-                            }
-                          })()
+                  return Column(
+                    children: [
+                      SizedBox(
+                        width: 250,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ButtonStyle(
+                                  shape: const WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadiusGeometry.only(
+                                        topRight: Radius.zero,
+                                        bottomRight: Radius.zero,
+                                        topLeft: Radius.circular(6),
+                                        bottomLeft: Radius.circular(6),
+                                      )
+                                    )
+                                  ),
+                                  backgroundColor: WidgetStatePropertyAll(!(stagedEmpty && unstagedEmpty) ? Color(0xff0e639c) : Color.fromARGB(255, 15, 61, 92)),
+                                  foregroundColor: WidgetStatePropertyAll(!(stagedEmpty && unstagedEmpty) ? Colors.white: Colors.grey),
+                                  textStyle: const WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
+                                ),
+                                onPressed: () async {
+                                  if(stagedEmpty && unstagedEmpty) return;
+                                  final commitMessage = context.read<GitCommitBloc>().state.commitMessage;
+                                  if(commitMessage.isEmpty){
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title:  Text("Commit message cannot be empty.", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                        backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                        icon: const Icon(Icons.info_outline, size: 35),
+                                        iconColor: Colors.red,
+                                        actionsAlignment: MainAxisAlignment.center,
+                                          actions: [
+                                            ElevatedButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: const Text("OK")
+                                            ),
+                                          ],
+                                      ),
+                                    );
+                                    return;
+                                  }
+                        
+                                  if(!stagedEmpty) {
+                                    await gitCommit(widget.workSpace, commitMessage);
+                                    if(context.mounted){
+                                      context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
+                                      try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
+                                    }
+                                  } else if(!unstagedEmpty){
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title:  Text("Changes aren't staged", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                        backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                        icon: const Icon(Icons.warning_amber_outlined,size: 35),
+                                        iconColor: Colors.amber,
+                                        actionsAlignment: MainAxisAlignment.center,
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: Text("Cancel", style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
+                                            ),
+                        
+                                            TextButton(
+                                              onPressed: () async{
+                                                await gitCommit(widget.workSpace, commitMessage, all: true);
+                                                if(context.mounted) Navigator.of(context).pop();
+                                                if(context.mounted){
+                                                  context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
+                                                  try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
+                                                }
+                                              },
+                                              child: const Text("Stage all and Commit", style: TextStyle(color: Colors.blue)),
+                                            )
+                                          ],
+                                      ),
+                                    );
+                                    return;
+                                  } else {
+                                    return;
+                                  }
+                                },
+                                child: Text("\u2713 Commit")
+                              )
+                                    
+                            ),
+                            SizedBox(
+                              width: 50,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: BorderDirectional(start: BorderSide(color: Colors.white, width: 0.5)),
+                                  color: !(stagedEmpty && unstagedEmpty) ? Color(0xff0e639c) : Color.fromARGB(255, 15, 61, 92),
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6)
+                                  ),
+                                ),
+                                child: DropdownMenu(
+                                  enabled: !(unstagedEmpty && stagedEmpty),
+                                  trailingIcon: Icon(
+                                    FontAwesomeIcons.caretDown,
+                                    color: widget.appTheme.selectScreenCardTextColor,
+                                    size: 14,
+                                  ),
+                                  selectedTrailingIcon: Icon(
+                                    FontAwesomeIcons.caretUp,
+                                    color: widget.appTheme.selectScreenCardTextColor,
+                                    size: 14,
+                                  ),
+                                  inputDecorationTheme: InputDecorationTheme(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                    constraints: BoxConstraints.tight(const 
+                                    Size.fromHeight(40)),
+                                    border: OutlineInputBorder(
+                                      borderSide: BorderSide.none,
+                                      borderRadius: BorderRadius.only(
+                                        topRight: Radius.circular(6),
+                                        bottomRight: Radius.circular(6)
+                                      ),
+                                    ),
+                                  ),
+                                  menuStyle: MenuStyle(
+                                    backgroundColor: WidgetStatePropertyAll(widget.appTheme.cardTheme.color),
+                                  ),
+                                  dropdownMenuEntries: [
+                                    DropdownMenuEntry(
+                                      style: ButtonStyle(
+                                        foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
+                                      ),
+                                      value: "Commit and Push", label: "Commit and Push"
+                                    ),
+                                    DropdownMenuEntry(
+                                      style: ButtonStyle(
+                                        foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
+                                      ),
+                                      value: "Commit and Sync", label: "Commit and Sync",
+                                    )
+                                ]),
+                              ),
+                            )
+                          ],
                         ),
-                        title: Text(path.basename(fileName)),
-                        subtitle: Text(fileName),
-                        trailing: Text(repoIndicator.$1),
-                        leadingAndTrailingTextStyle: TextStyle(
-                          color: repoIndicator.$2,
-                          fontWeight: FontWeight.bold
-                        ),
-                      );
-                      }
-                    ),
+                      ),
+                      if (repoState is RepoStatusLoading || repoState is RepoStatusInitial) ...[
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 20),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      ] else if (repoState is RepoStatusError) ...[
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text('Error: ${repoState.message}', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)),
+                        )
+                      ] else if (repoState is RepoStatusLoaded) ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if(repoState.staged.isNotEmpty) Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4),
+                              child: Row(
+                                children: [
+                                  Text("Staged Changes", style: TextStyle(
+                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)
+                                  )),
+                                  const Expanded(child: SizedBox()),
+                                  Tooltip(
+                                    message: "Unstage All Changes",
+                                      child: IconButton(
+                                      onPressed: () async {
+                                        await unstageAll(widget.workSpace);
+                                        try { 
+                                          if(context.mounted) {
+                                            context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                          }
+                                        } catch (_) {}
+                                      },
+                                      icon: Text(
+                                        "—",
+                                        style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
+                                      )
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                            ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: repoState.staged.length,
+                              itemBuilder: (_, index) {
+                                final fileName = repoState.staged[index].substring(2).trim();
+                                final (String, Color) repoIndicator = gitFileStatus[repoState.staged[index].substring(0,2).trim()]!;
+                                return ListTile(
+                                  visualDensity: VisualDensity(vertical: -4),
+                                  leading: SizedBox(
+                                    height: 21,
+                                    width: 21,
+                                    child: ((){
+                                      try {
+                                        return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
+                                      } catch (e) {
+                                        debugPrint(e.toString());
+                                        return SizedBox.shrink();
+                                      }
+                                    })()
+                                  ),
+                                  title: Text(path.basename(fileName)),
+                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11)),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: "Unstage Changes",
+                                        child: IconButton(
+                                          onPressed: () async {
+                                            await unstageChange(fileName, widget.workSpace);
+                                            if(context.mounted){
+                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
+                                            }
+                                          },
+                                          icon: Text(
+                                            "—",
+                                            style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
+                                          )
+                                        ),
+                                      ),
+                                      Text(repoIndicator.$1),
+                                    ],
+                                  ),
+                                  titleTextStyle: TextStyle(fontSize: 14, color: repoIndicator.$2),
+                                  leadingAndTrailingTextStyle: TextStyle(
+                                    color: repoIndicator.$2,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                );
+                              }
+                            ),
+                            if (repoState.unstaged.isNotEmpty) Padding(
+                              padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4),
+                              child: Row(
+                                children: [
+                                  Text("Unstaged Changes", style: TextStyle(
+                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)
+                                  )),
+                                  const Expanded(child: SizedBox()),
+                                  Tooltip(
+                                    message: "Stage All Changes",
+                                      child: IconButton(
+                                      onPressed: () async{
+                                        await stageAll(widget.workSpace);
+                                        if(context.mounted){
+                                          try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
+                                        }
+                                      },
+                                      icon: Icon(
+                                        Icons.add,
+                                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                      )
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                            ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: repoState.unstaged.length,
+                              itemBuilder: (_, index) {
+                                final fileName = repoState.unstaged[index].substring(2).trim();
+                                final (String, Color) repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0,2).trim()]!;
+                                return ListTile(
+                                  visualDensity: VisualDensity(vertical: -4),
+                                  leading: SizedBox(
+                                    height: 21,
+                                    width: 21,
+                                    child: ((){
+                                      try {
+                                        return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
+                                      } catch (e) {
+                                        debugPrint(e.toString());
+                                        return SizedBox.shrink();
+                                      }
+                                    })()
+                                  ),
+                                  title: Text(path.basename(fileName)),
+                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11)),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: "Discard Change",
+                                        child: IconButton(
+                                          onPressed: () async {
+                                            await gitRestoreFile(fileName, widget.workSpace);
+                                            if (context.mounted) {
+                                              try {
+                                                context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                              } catch (_) {}
+                                            }
+                                          },
+                                          icon: Icon(
+                                            FontAwesomeIcons.arrowRotateLeft,
+                                            size: 15,
+                                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(180)
+                                          )
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: "Stage Changes",
+                                        child: IconButton(
+                                          onPressed: () async{
+                                            await stageChange(fileName, widget.workSpace);
+                                            if(context.mounted){
+                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}    
+                                            }
+                                          },
+                                          icon: Icon(Icons.add, color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
+                                        ),
+                                      ),
+                                      Text(repoIndicator.$1),
+                                    ],
+                                  ),
+                                  titleTextStyle: TextStyle(fontSize: 14, color: repoIndicator.$2),
+                                  leadingAndTrailingTextStyle: TextStyle(
+                                    color: repoIndicator.$2,
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                );
+                              }
+                            ),
+                          ],
+                        )
+                      ]
+                    ],
                   );
                 }
               )

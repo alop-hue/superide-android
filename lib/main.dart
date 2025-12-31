@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
-import '../bloc/ui_bloc.dart';
+import 'bloc/ui_bloc/ui_bloc.dart';
 import '../ui/start_screen.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';

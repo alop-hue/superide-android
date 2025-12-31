@@ -5,7 +5,7 @@ import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/ui_bloc.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
