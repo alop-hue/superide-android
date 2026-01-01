@@ -45,6 +45,7 @@ class MainApp extends StatelessWidget {
           codeForgeConfig: jsonDecode(codeForgeConfig)
         )),
         BlocProvider(create: (_) => FolderBloc()),
+        BlocProvider(create: (_) => GitCommitBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),

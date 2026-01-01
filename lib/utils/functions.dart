@@ -100,16 +100,40 @@ Future<File> setTempFile(String extension) async {
   throw PathNotFoundException(dir.path, OSError("Failed to create the `Templates` directory."));
 }
 
-//TODO
-/* void cloneRepo() {
-  // Use app-private directory
-  final appDir = Directory("/data/data/com.vsdroid/files");
-  final repoPath = '${appDir.path}/my-repo';
-  final repo = Repository.clone(
-    url: 'https://github.com/user/repo.git',
-    localPath: repoPath,
+Future<void> cloneRepo(
+  String location,
+  String url,
+  void Function(double progress) onProgress,
+) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final process = await Process.start(
+    '$binDir/git',
+    ['clone', url],
+    workingDirectory: location,
+    environment: {
+      'PATH': '$binDir:/bin:/usr/bin',
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
+      'VSDROID_SHARED_PATH': sharedPath
+    }
   );
-} */
+
+  process.stderr
+      .transform(SystemEncoding().decoder)
+      .listen((line) {
+        print(line);
+    final match = RegExp(r'Receiving objects:\s+(\d+)%')
+        .firstMatch(line);
+
+    if (match != null) {
+      final percent = double.parse(match.group(1)!);
+      onProgress(percent / 100);
+    }
+  });
+
+  await process.exitCode;
+}
 
 Future<void> initRepo(String workspacePath) async{
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -118,6 +142,9 @@ Future<void> initRepo(String workspacePath) async{
     ["init"],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -127,6 +154,9 @@ Future<void> initRepo(String workspacePath) async{
     ["config", "--local", "user.name", "VSdroid user"],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -136,6 +166,9 @@ Future<void> initRepo(String workspacePath) async{
     ["config", "--local", "user.email", "vsdroid@local"],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -148,6 +181,9 @@ Future<ProcessResult> getRepoStatus(String workspacePath) async{
     ["status", "--porcelain=v1", "-uall"],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -160,6 +196,9 @@ Future<void> stageChange(String fileName, String workspacePath) async {
     ["add", fileName],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -172,6 +211,9 @@ Future<void> stageAll(String workspacePath) async {
     ["add", "--all"],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -184,6 +226,9 @@ Future<void> unstageChange(String fileName, String workspacePath) async {
     ["restore", "--staged", fileName],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -196,6 +241,9 @@ Future<void> unstageAll(String workspacePath) async{
     ["restore", "--staged", "."],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath
     }
   );
@@ -213,11 +261,53 @@ Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all 
     args,
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath,
     },
   );
 
   return result;
+}
+
+Future<List<CommitNode>> getGraph(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["log", "--all", "--pretty=format:%H%x01%P%x01%an%x01%s"],
+    workingDirectory: workspacePath,
+    environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
+      'VSDROID_SHARED_PATH': sharedPath,
+    },
+  );
+  
+  final List<CommitNode> commits = [];
+  final lines = result.stdout.toString().split('\n');
+  
+  for (final line in lines) {
+    if (line.trim().isEmpty) continue;
+    
+    final parts = line.split('\x01');
+    if (parts.length >= 4) {
+      final hash = parts[0];
+      final parentHashes = parts[1].isEmpty ? <String>[] : parts[1].split(' ');
+      final author = parts[2];
+      final message = parts[3];
+      
+      commits.add(CommitNode(
+        hash: hash,
+        parents: parentHashes,
+        author: author,
+        message: message,
+      ));
+    }
+  }
+  
+  return commits;
 }
 
 Future<void> gitRestoreFile(String fileName, String workspacePath) async{
@@ -227,9 +317,24 @@ Future<void> gitRestoreFile(String fileName, String workspacePath) async{
     ["restore", fileName],
     workingDirectory: workspacePath,
     environment: {
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
       'VSDROID_SHARED_PATH': sharedPath,
     },
   );
+}
+
+String extractRepoName(String url) {
+  url = url.replaceFirst(RegExp(r'^(https?://|git@)'), '');
+  final parts = url.split(RegExp(r'[:/]'));
+  if (parts.isEmpty) return '';
+  String repoName = parts.last;
+  if (repoName.endsWith('.git')) {
+    repoName = repoName.substring(0, repoName.length - 4);
+  }
+  
+  return repoName;
 }
 
 Future<File?> pickFile() async {
@@ -639,6 +744,41 @@ class AIConversation{
   AIConversation(this.userRequest, this.modelResponse);
 
   AIConversation copyWith({String? modelResponse}) =>  AIConversation(userRequest, modelResponse);
+}
+
+class CommitNode {
+  final String hash;
+  final List<String> parents;
+  final String author;
+  final String message;
+  int lane;
+
+  CommitNode({
+    required this.hash,
+    required this.parents,
+    required this.author,
+    required this.message,
+    this.lane = -1,
+  });
+}
+
+void assignLanes(List<CommitNode> commits) {
+  final Map<String, int> activeLanes = {};
+  int nextLane = 0;
+
+  for (final commit in commits) {
+    if (activeLanes.containsKey(commit.hash)) {
+      commit.lane = activeLanes[commit.hash]!;
+    } else {
+      commit.lane = nextLane++;
+    }
+
+    for (final parent in commit.parents) {
+      activeLanes[parent] = commit.lane;
+    }
+
+    activeLanes.remove(commit.hash);
+  }
 }
 
 Map<String, (String, Color)> gitFileStatus = {

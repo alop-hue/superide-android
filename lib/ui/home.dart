@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'about.dart';
@@ -32,6 +33,7 @@ class SelectType extends StatefulWidget {
 class _SelectTypeState extends State<SelectType> {
   final createFileController = TextEditingController();
   final _createFileKey = GlobalKey<FormState>();
+  final _cloneRepoKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -210,7 +212,8 @@ class _SelectTypeState extends State<SelectType> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius:BorderRadius.all(Radius.circular(25)),
                                 borderSide:BorderSide(color: Color(0xff5090c8))),
-                              border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))),
+                              border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))
+                          ),
                             ),
                           ),
                           actions: [
@@ -286,7 +289,8 @@ class _SelectTypeState extends State<SelectType> {
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                 },
-                                child: const Text("OK"))
+                                child: const Text("OK")
+                              )
                             ],
                         ),
                       );
@@ -309,7 +313,7 @@ class _SelectTypeState extends State<SelectType> {
                               return SizeTransition(sizeFactor: animation,child: child);
                             }
                           )
-                          );
+                        );
                       }
                     }
                   }
@@ -340,7 +344,111 @@ class _SelectTypeState extends State<SelectType> {
                   appThemestate.appTheme.isDark
                 ),
                 fileTiles(
-                  () {},
+                  () {
+                    showDialog(
+                      context: context,
+                      builder: (_) {
+                        final cloneController = TextEditingController();
+                        return AlertDialog(
+                          icon: Icon(Icons.file_download_outlined, size: 30),
+                          iconColor: appThemestate.appTheme.selectScreenCardTextColor,
+                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                          content: Form(
+                            key: _cloneRepoKey,
+                            child: TextFormField(
+                              style: TextStyle(
+                                color: appThemestate.appTheme.selectScreenCardTextColor,
+                              ),
+                              cursorColor: Color(0xff5090c8),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return "Please enter a valid filename";
+                                }
+                                return null;
+                              },
+                              decoration: const InputDecoration(
+                                hintStyle: TextStyle(color: Colors.grey),
+                                hintText: " Clone repo",
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius:BorderRadius.all(Radius.circular(25)),
+                                  borderSide:BorderSide(color: Color(0xff5090c8))),
+                                border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))
+                              ),
+                              controller: cloneController,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text("Cancel", style: TextStyle(color: Colors.red))
+                            ),
+                            TextButton(
+                              onPressed: () async{
+                                try {
+                                  final repoUrl = cloneController.text.trim();
+                                  final repoName = extractRepoName(repoUrl);
+                                  await cloneRepo(
+                                    projectDir,
+                                    repoUrl,
+                                    (progress){
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: LinearPercentIndicator(
+                                          percent: progress,
+                                          progressColor: Colors.greenAccent,
+                                          backgroundColor: Colors.white24,
+                                          barRadius: const Radius.circular(20),
+                                          lineHeight: 8,
+                                          trailing: Padding(
+                                            padding: const EdgeInsets.only(left: 10),
+                                            child: Text(
+                                              "${(progress * 100).toStringAsFixed(1)}%",
+                                              style: const TextStyle(color: Colors.white70),
+                                            ),
+                                          ),
+                                        ))
+                                      );
+                                    }
+                                  );
+                                  if(context.mounted) {
+                                    Navigator.of(context).push(
+                                      PageRouteBuilder(
+                                        pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: Directory("$projectDir/$repoName")),
+                                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                          return SizeTransition(sizeFactor: animation,child: child);
+                                        }
+                                      )
+                                    );
+                                  }
+                                } catch (e) {
+                                  debugPrint(e.toString());
+                                  if(context.mounted){
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        icon: Icon(Icons.info_outline),
+                                        backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                        iconColor: Colors.red,
+                                        title: Text("Failed to clone the repo."),
+                                        actions: [
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                            },
+                                            child: const Text("OK")
+                                          )
+                                        ],
+                                      )
+                                    );
+                                  }
+                                }
+                              },
+                              child: const Text("Clone", style: TextStyle(color: Color(0xff5090c8)))
+                            )
+                          ],
+                      );
+                      }
+                    );
+                  },
                   val: 4,
                   "Open Repository...",
                   SvgPicture.asset(

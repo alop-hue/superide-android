@@ -256,6 +256,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
     final controller = widget.codeController;
     final generalState = context.read<GeneralBloc>().state;
     controller.addListener(() {
+      if (!mounted) return;
       if (generalState.generalSettings['autoSave'] ?? true) {
         _saveTimer?.cancel();
         _saveTimer = Timer(
@@ -266,7 +267,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
             } catch (_) {}
             _statusRefreshTimer?.cancel();
             _statusRefreshTimer = Timer(const Duration(milliseconds: 400), () {
-              if(context.mounted && mounted){
+              if (mounted) {
                 _refreshRepoStatusForFile(context, widget.filePath);
               }
             });
@@ -1515,34 +1516,44 @@ class _SourceControlState extends State<SourceControl> {
                                       try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
                                     }
                                   } else if(!unstagedEmpty){
+                                    final repoBloc = context.read<RepoStatusBloc>();
+                                    final gitBloc = context.read<GitCommitBloc>();
                                     showDialog(
                                       context: context,
-                                      builder: (context) => AlertDialog(
-                                        title:  Text("Changes aren't staged", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                        backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                        icon: const Icon(Icons.warning_amber_outlined,size: 35),
-                                        iconColor: Colors.amber,
-                                        actionsAlignment: MainAxisAlignment.center,
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: Text("Cancel", style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
-                                            ),
-                        
-                                            TextButton(
-                                              onPressed: () async{
-                                                await gitCommit(widget.workSpace, commitMessage, all: true);
-                                                if(context.mounted) Navigator.of(context).pop();
-                                                if(context.mounted){
-                                                  context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
-                                                  try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
-                                                }
-                                              },
-                                              child: const Text("Stage all and Commit", style: TextStyle(color: Colors.blue)),
-                                            )
-                                          ],
+                                      builder: (context) => BlocProvider.value(
+                                        value: repoBloc,
+                                        child: BlocProvider.value(
+                                          value: gitBloc,
+                                          child: AlertDialog(
+                                            title:  Text("Changes aren't staged", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                            backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                            icon: const Icon(Icons.warning_amber_outlined,size: 35),
+                                            iconColor: Colors.amber,
+                                            actionsAlignment: MainAxisAlignment.center,
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                  child: Text("Cancel", style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
+                                                ),
+                            
+                                                TextButton(
+                                                  onPressed: () async{
+                                                    await gitCommit(widget.workSpace, commitMessage, all: true);
+                                                    if(context.mounted){
+                                                      gitBloc.add(GitCommitEvent(commitMessage: ''));
+                                                      try {
+                                                        repoBloc.add(LoadRepoStatus(widget.workSpace));
+                                                      } catch (_) {}
+                                                      Navigator.of(context).pop();
+                                                    }
+                                                  },
+                                                  child: const Text("Stage all and Commit", style: TextStyle(color: Colors.blue)),
+                                                )
+                                              ],
+                                          ),
+                                        ),
                                       ),
                                     );
                                     return;
@@ -1552,7 +1563,6 @@ class _SourceControlState extends State<SourceControl> {
                                 },
                                 child: Text("\u2713 Commit")
                               )
-                                    
                             ),
                             SizedBox(
                               width: 50,
@@ -1763,13 +1773,52 @@ class _SourceControlState extends State<SourceControl> {
                                       Tooltip(
                                         message: "Discard Change",
                                         child: IconButton(
-                                          onPressed: () async {
-                                            await gitRestoreFile(fileName, widget.workSpace);
-                                            if (context.mounted) {
-                                              try {
-                                                context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                              } catch (_) {}
-                                            }
+                                          onPressed: (){
+                                            final repoBloc = context.read<RepoStatusBloc>();
+                                            showDialog(
+                                              context: context, 
+                                              builder: (context) => BlocProvider.value(
+                                                value: repoBloc,
+                                                child: AlertDialog(
+                                                  title:  Text("Are you sure want to discard the changes?", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                                  backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                                  icon: const Icon(Icons.info_outline, size: 35),
+                                                  iconColor: Colors.blue,
+                                                  actionsAlignment: MainAxisAlignment.center,
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.of(context).pop(),
+                                                        child: const Text(
+                                                          "Cancel",
+                                                          style: TextStyle(
+                                                            color: Colors.red,
+                                                            fontSize: 17
+                                                          ),
+                                                        )
+                                                      ),
+                                                      const SizedBox(width: 25),
+                                                      TextButton(
+                                                        onPressed: () async{
+                                                          await gitRestoreFile(fileName, widget.workSpace);
+                                                          if (context.mounted) {
+                                                            try {
+                                                              repoBloc.add(LoadRepoStatus(widget.workSpace));
+                                                            } catch (_) {}
+                                                            Navigator.of(context).pop();
+                                                          }
+                                                        },
+                                                        child: const Text(
+                                                          "Yes",
+                                                          style: TextStyle(
+                                                            color: Colors.blue,
+                                                            fontSize: 17
+                                                          ),
+                                                        )
+                                                      ),
+                                                    ],
+                                                ),
+                                              ),
+                                            );
                                           },
                                           icon: Icon(
                                             FontAwesomeIcons.arrowRotateLeft,
@@ -1801,6 +1850,34 @@ class _SourceControlState extends State<SourceControl> {
                                 );
                               }
                             ),
+                            Divider(
+                              thickness: 0.1,
+                              endIndent: 12,
+                              color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                            ),
+                            FutureBuilder<List<CommitNode>>(
+                              future: getGraph(widget.workSpace),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
+                                if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                                  return Center(child: Text('No commits found', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
+                                }
+                                final commits = snapshot.data!;
+                                assignLanes(commits);
+                                return Padding(
+                                  padding: const EdgeInsets.only(left: 25),
+                                  child: Transform.scale(
+                                    scale: 1.2,
+                                    child: GitCommitGraph(
+                                      commits: commits,
+                                      appTheme: widget.appTheme
+                                    ),
+                                  ),
+                                );
+                              }
+                            )
                           ],
                         )
                       ]
@@ -2753,6 +2830,174 @@ class SettingsTab extends StatelessWidget {
         ),appTheme.isDark
       )
       ],
+      ),
+    );
+  }
+}
+
+//--------------------GIT GRAPH PAINTER------------------------------------
+
+class GitGraphPainter extends CustomPainter {
+  final List<CommitNode> commits;
+  final int currentIndex;
+  final double laneWidth;
+  final double rowHeight;
+
+  GitGraphPainter({
+    required this.commits,
+    required this.currentIndex,
+    this.laneWidth = 20,
+    this.rowHeight = 32,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final dotPaint = Paint()..style = PaintingStyle.fill;
+
+    final laneColors = <int, Color>{};
+
+    Color colorForLane(int lane) {
+      return laneColors.putIfAbsent(
+        lane,
+        () => Colors.primaries.reversed.toList()[lane % Colors.primaries.length],
+      );
+    }
+
+    final commit = commits[currentIndex];
+    final x = commit.lane * laneWidth + laneWidth / 2;
+    final y = rowHeight / 2;
+
+    paint.color = colorForLane(commit.lane);
+
+    for (final parentHash in commit.parents) {
+      final parentIndex = commits.indexWhere((c) => c.hash == parentHash);
+      if (parentIndex == -1) continue;
+
+      final parent = commits[parentIndex];
+      final px = parent.lane * laneWidth + laneWidth / 2;
+      
+      if (parentIndex == currentIndex + 1 && parent.lane == commit.lane) {
+        canvas.drawLine(
+          Offset(x, y + 4),
+          Offset(x, rowHeight),
+          paint,
+        );
+      } else if (parentIndex > currentIndex) {
+        final path = Path()
+          ..moveTo(x, y + 4)
+          ..lineTo(x, rowHeight * 0.7)
+          ..quadraticBezierTo(x, rowHeight, px, rowHeight);
+        canvas.drawPath(path, paint);
+      }
+    }
+
+    if (currentIndex > 0) {
+      final prevCommit = commits[currentIndex - 1];
+      if (prevCommit.parents.contains(commit.hash) && prevCommit.lane == commit.lane) {
+        paint.color = colorForLane(commit.lane);
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, y - 4),
+          paint,
+        );
+      } else {
+        for (int i = 0; i < currentIndex; i++) {
+          if (commits[i].parents.contains(commit.hash)) {
+            final ancestorLane = commits[i].lane;
+            paint.color = colorForLane(ancestorLane);
+            final ax = ancestorLane * laneWidth + laneWidth / 2;
+            if (ancestorLane == commit.lane) {
+              canvas.drawLine(Offset(x, 0), Offset(x, y - 4), paint);
+            } else {
+              final path = Path()
+                ..moveTo(ax, 0)
+                ..quadraticBezierTo(ax, y * 0.3, x, y - 4);
+              canvas.drawPath(path, paint);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    dotPaint.color = colorForLane(commit.lane);
+    canvas.drawCircle(Offset(x, y), 5, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class GitCommitGraph extends StatelessWidget {
+  final List<CommitNode> commits;
+  final AppTheme appTheme;
+
+  const GitCommitGraph({super.key, required this.commits, required this.appTheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxLane = commits.fold(0, (max, c) => c.lane > max ? c.lane : max);
+    final graphWidth = (maxLane + 1) * 24.0;
+    
+    return SizedBox(
+      height: commits.length * 36.0,
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: commits.length,
+        itemBuilder: (context, index) {
+          final commit = commits[index];
+          return SizedBox(
+            height: 36,
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 50),
+                  child: SizedBox(
+                    width: graphWidth.clamp(30.0, 120.0),
+                    child: CustomPaint(
+                      painter: GitGraphPainter(
+                        commits: commits,
+                        currentIndex: index,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        commit.message,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: appTheme.selectScreenCardTextColor,
+                          fontSize: 13,
+                          height: 1.2,
+                        ),
+                      ),
+                      Text(
+                        '${commit.author} • ${commit.hash.substring(0, 7)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                          fontSize: 10,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

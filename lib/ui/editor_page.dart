@@ -126,7 +126,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => ApiBloc()),
             BlocProvider(create: (_) => FolderBloc()),
             BlocProvider(create: (_) => AIChatBloc()),
-            BlocProvider(create: (_) => GitCommitBloc()),
             BlocProvider(create: (_) => RepoStatusBloc()..add(LoadRepoStatus(widget.rootDir))),
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(

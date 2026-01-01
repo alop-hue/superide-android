@@ -36,10 +36,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'VSDROID_SHARED_PATH': sharedPath,
-      'LD_LIBRARY_PATH': '$sharedPath:/data/data/com.vsdroid/lib$runtimesDir/ruby:$runtimesDir/mono',
+      'LD_LIBRARY_PATH': '$sharedPath:/data/data/com.vsdroid/lib$runtimesDir/ruby:$runtimesDir/mono:$libDir',
       'VSDROID_BIN_PATH': binDir,
       'JAVA_HOME': '$runtimesDir/java-17-openjdk',
       'MONO_PATH': '$runtimesDir/mono/mono/4.5',
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
     };
     _startPty(
       "$sharedPath/libbash.so",
