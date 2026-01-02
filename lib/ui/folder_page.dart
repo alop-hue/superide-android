@@ -13,7 +13,12 @@ import '../utils/widgets.dart';
 
 class FolderPage extends StatelessWidget {
   final Directory dir;
-  const FolderPage({required this.dir,super.key});
+  final bool isCloned;
+  const FolderPage({
+    super.key,
+    required this.dir,
+    required this.isCloned
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +43,7 @@ class FolderPage extends StatelessWidget {
                       : "No version control (.git) found on this folder/project",
                       style: TextStyle(color: Colors.grey[appTheme.isDark ? 500 : 600]),
                   ),
-                  Card(
+                  if(!isCloned) Card(
                     child: Wrap(
                       children: [
                         Padding(

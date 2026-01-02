@@ -8,6 +8,7 @@ part 'repo_state.dart';
 class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
   RepoStatusBloc() : super(const RepoStatusInitial()) {
     on<LoadRepoStatus>(_onLoad);
+    on<LoadCommitGraph>(_onLoadCommitGraph);
   }
 
   Future<void> _onLoad(LoadRepoStatus event, Emitter<RepoStatusState> emit) async {
@@ -31,6 +32,52 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
       emit(RepoStatusLoaded(staged: staged, unstaged: unstaged, rawOutput: stdout));
     } catch (e) {
       emit(RepoStatusError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadCommitGraph(LoadCommitGraph event, Emitter<RepoStatusState> emit) async {
+    final currentState = state;
+    if (currentState is RepoStatusLoaded) {
+      emit(RepoStatusLoaded(
+        staged: currentState.staged,
+        unstaged: currentState.unstaged,
+        rawOutput: currentState.rawOutput,
+        commits: null, 
+      ));
+    } else {
+      emit(const RepoStatusLoading());
+    }
+
+    try {
+      final commits = await getGraph(event.workspace);
+      if (state is RepoStatusLoaded) {
+        final currentState = state as RepoStatusLoaded;
+        emit(RepoStatusLoaded(
+          staged: currentState.staged,
+          unstaged: currentState.unstaged,
+          rawOutput: currentState.rawOutput,
+          commits: commits,
+        ));
+      } else {
+        emit(RepoStatusLoaded(
+          staged: [],
+          unstaged: [],
+          rawOutput: '',
+          commits: commits,
+        ));
+      }
+    } catch (e) {
+      if (state is RepoStatusLoaded) {
+        final currentState = state as RepoStatusLoaded;
+        emit(RepoStatusLoaded(
+          staged: currentState.staged,
+          unstaged: currentState.unstaged,
+          rawOutput: currentState.rawOutput,
+          commits: [],
+        ));
+      } else {
+        emit(RepoStatusError(message: e.toString()));
+      }
     }
   }
 }

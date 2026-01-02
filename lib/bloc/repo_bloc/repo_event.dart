@@ -10,3 +10,9 @@ class LoadRepoStatus extends RepoStatusEvent {
   const LoadRepoStatus(this.workspace);
   @override List<Object?> get props => [workspace];
 }
+
+class LoadCommitGraph extends RepoStatusEvent {
+  final String workspace;
+  const LoadCommitGraph(this.workspace);
+  @override List<Object?> get props => [workspace];
+}

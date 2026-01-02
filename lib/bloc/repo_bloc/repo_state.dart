@@ -12,8 +12,14 @@ class RepoStatusLoaded extends RepoStatusState {
   final List<String> staged;
   final List<String> unstaged;
   final String rawOutput;
-  const RepoStatusLoaded({required this.staged, required this.unstaged, required this.rawOutput});
-  @override List<Object?> get props => [staged, unstaged, rawOutput];
+  final List<CommitNode>? commits;
+  const RepoStatusLoaded({
+    required this.staged,
+    required this.unstaged,
+    required this.rawOutput,
+    this.commits,
+  });
+  @override List<Object?> get props => [staged, unstaged, rawOutput, commits];
 }
 
 class RepoStatusError extends RepoStatusState {

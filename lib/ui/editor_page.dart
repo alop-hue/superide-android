@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
+import 'package:vector_math/vector_math_64.dart' hide Colors;
 import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'webview.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
@@ -44,7 +45,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
     apiUrlController = TextEditingController();
-    trasnformationController.value = Matrix4.identity()..scale(1.45);
+    trasnformationController.value = Matrix4.identity()..scaleByVector3(Vector3(1.45, 1.45, 1.45));
     apiTabController =  TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
     
@@ -227,118 +228,117 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             ),
                                           ),
                                         ),
-                                        SizedBox(
-                                          child: DirectoryTreeViewerCustom(
-                                            appTheme: appTheme,
-                                            isUnfoldedFirst: false,
-                                            rootPath: widget.rootDir,
-                                            enableCreateFileOption: true,
-                                            enableDeleteFileOption: true,
-                                            enableDeleteFolderOption: true,
-                                            enableCreateFolderOption: true,
-                                            enableRenameFileOption: true,
-                                            enableRenameFolderOption: true,
-                                            editingFieldStyle: EditingFieldStyle(
-                                              textFieldWidth: MediaQuery.of(context).size.width,
-                                              textStyle: const TextStyle(color: Colors.grey,),
-                                              cursorColor: Colors.grey,
-                                              cursorHeight: 19,
-                                              verticalTextAlign: TextAlignVertical.top,
-                                              textfieldDecoration: const InputDecoration(
-                                                isDense: true,
-                                                contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.all(Radius.circular(2)),
-                                                  borderSide: BorderSide(color: Colors.grey)
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.all(Radius.circular(2)),
-                                                  borderSide: BorderSide(color: Colors.grey)
-                                                ),
+                                        DirectoryTreeViewerCustom(
+                                          appTheme: appTheme,
+                                          isUnfoldedFirst: false,
+                                          rootPath: widget.rootDir,
+                                          enableCreateFileOption: true,
+                                          enableDeleteFileOption: true,
+                                          enableDeleteFolderOption: true,
+                                          enableCreateFolderOption: true,
+                                          enableRenameFileOption: true,
+                                          enableRenameFolderOption: true,
+                                          enableGitFeatures: true,
+                                          editingFieldStyle: EditingFieldStyle(
+                                            textFieldWidth: MediaQuery.of(context).size.width,
+                                            textStyle: const TextStyle(color: Colors.grey,),
+                                            cursorColor: Colors.grey,
+                                            cursorHeight: 19,
+                                            verticalTextAlign: TextAlignVertical.top,
+                                            textfieldDecoration: const InputDecoration(
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.all(Radius.circular(2)),
+                                                borderSide: BorderSide(color: Colors.grey)
                                               ),
-                                              folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
-                                              fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
-                                              doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
-                                              cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
-                                            ),
-                                            fileIconBuilder: (ext) {
-                                              return SizedBox(
-                                                height: 25,
-                                                width: 25,
-                                                child:languages.firstWhere(
-                                                  (lang)=>lang.extension.contains(ext.replaceFirst(".", "")),
-                                                  orElse: () => languages[0],
-                                                ).icon??FileIcon(ext)
-                                              );
-                                            },
-                                            folderStyle: FolderStyle(
-                                              iconForCreateFolder: Icon(
-                                                Icons.create_new_folder,
-                                                color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
-                                              ),
-                                              iconForCreateFile: Icon(
-                                                FontAwesomeIcons.fileCirclePlus,
-                                                size: 20,
-                                                color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
-                                              ),
-                                              rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
-                                              rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
-                                              folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
-                                              folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
-                                              folderNameStyle: TextStyle(
-                                                color: appTheme.selectScreenCardTextColor,
-                                                fontSize: 20,
-                                                fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.all(Radius.circular(2)),
+                                                borderSide: BorderSide(color: Colors.grey)
                                               ),
                                             ),
-                                            fileStyle: FileStyle(
-                                              iconForDeleteFile: Icon(Icons.delete, size: 25, color: Colors.red[300]),
-                                              fileNameStyle: TextStyle(
-                                                color: appTheme.selectScreenCardTextColor,
-                                                fontSize: 20,
-                                                fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
-                                                height: 2,
-                                              ),
-                                            ),
-                                            onFileTap: (f) async{
-                                              final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
-                                              for(ActiveEditors item in currentState){
-                                                item.isActive = false;
-                                              }
-                                              final lang = languages.firstWhere(
-                                                (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
-                                                orElse: () =>languages[0]
-                                              );
-                                              final lspConfig = await startLspServer(
-                                                ext: lang.extension[0],
-                                                executable: lang.lspExecutable,
-                                                args: lang.args ?? [],
-                                                workspacePath: f.parent.path,
-                                                langId: lang.name
-                                              );
-                                              currentState.add(
-                                                ActiveEditors(
-                                                  controller: CodeForgeController(
-                                                    lspConfig: lspConfig
-                                                  ),
-                                                  undoRedoController: UndoRedoController(),
-                                                  filePath: f,
-                                                  isActive: true,
-                                                  languageDetails: lang
-                                                )
-                                              );
-                                              mruOrder.insert(0, currentState.length - 1);
-                                              if(context.mounted) {
-                                                context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
-                                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                  final newIndex = currentState.indexWhere((item) => item.isActive == true);
-                                                  if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
-                                                    tabController!.animateTo(newIndex);
-                                                  }
-                                                });
-                                              }
-                                            },
+                                            folderIcon: const Icon(Icons.folder, color: Colors.grey,size: 20),
+                                            fileIcon: const Icon(Icons.edit_document, color: Colors.grey,size: 20),
+                                            doneIcon: const Icon(Icons.check, color: Colors.grey,size: 20),
+                                            cancelIcon: const Icon(Icons.close, color: Colors.grey,size: 20),
                                           ),
+                                          fileIconBuilder: (ext) {
+                                            return SizedBox(
+                                              height: 25,
+                                              width: 25,
+                                              child:languages.firstWhere(
+                                                (lang)=>lang.extension.contains(ext.replaceFirst(".", "")),
+                                                orElse: () => languages[0],
+                                              ).icon??FileIcon(ext)
+                                            );
+                                          },
+                                          folderStyle: FolderStyle(
+                                            iconForCreateFolder: Icon(
+                                              Icons.create_new_folder,
+                                              color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                            ),
+                                            iconForCreateFile: Icon(
+                                              FontAwesomeIcons.fileCirclePlus,
+                                              size: 20,
+                                              color: appTheme.isDark? Colors.grey : const Color(0xff2b2b2b),
+                                            ),
+                                            rootFolderClosedIcon: const Icon(Icons.chevron_right_sharp,color: Colors.grey),
+                                            rootFolderOpenedIcon: const Icon(Icons.keyboard_arrow_down_sharp,color: Colors.grey),
+                                            folderClosedicon: SvgPicture.asset('assets/icons/folder.svg',height: 30,width: 30),
+                                            folderOpenedicon: SvgPicture.asset('assets/icons/open-file-folder.svg',height: 30,width: 30),
+                                            folderNameStyle: TextStyle(
+                                              color: appTheme.selectScreenCardTextColor,
+                                              fontSize: 20,
+                                              fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                            ),
+                                          ),
+                                          fileStyle: FileStyle(
+                                            iconForDeleteFile: Icon(Icons.delete, size: 25, color: Colors.red[300]),
+                                            fileNameStyle: TextStyle(
+                                              color: appTheme.selectScreenCardTextColor,
+                                              fontSize: 20,
+                                              fontWeight: appTheme.isDark ? FontWeight.w400 : FontWeight.w500,
+                                              height: 2,
+                                            ),
+                                          ),
+                                          onFileTap: (f) async{
+                                            final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                            for(ActiveEditors item in currentState){
+                                              item.isActive = false;
+                                            }
+                                            final lang = languages.firstWhere(
+                                              (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
+                                              orElse: () =>languages[0]
+                                            );
+                                            final lspConfig = await startLspServer(
+                                              ext: lang.extension[0],
+                                              executable: lang.lspExecutable,
+                                              args: lang.args ?? [],
+                                              workspacePath: f.parent.path,
+                                              langId: lang.name
+                                            );
+                                            currentState.add(
+                                              ActiveEditors(
+                                                controller: CodeForgeController(
+                                                  lspConfig: lspConfig
+                                                ),
+                                                undoRedoController: UndoRedoController(),
+                                                filePath: f,
+                                                isActive: true,
+                                                languageDetails: lang
+                                              )
+                                            );
+                                            mruOrder.insert(0, currentState.length - 1);
+                                            if(context.mounted) {
+                                              context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                final newIndex = currentState.indexWhere((item) => item.isActive == true);
+                                                if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
+                                                  tabController!.animateTo(newIndex);
+                                                }
+                                              });
+                                            }
+                                          },
                                         ),
                                       ],
                                     ),

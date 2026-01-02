@@ -100,40 +100,48 @@ Future<File> setTempFile(String extension) async {
   throw PathNotFoundException(dir.path, OSError("Failed to create the `Templates` directory."));
 }
 
+Map<String, String> gitEnvs(String sharedPath) => {
+  'PATH': '$binDir:/bin:/usr/bin',
+  'GIT_EXEC_PATH': '$binDir/git-core',
+  'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+  'LD_LIBRARY_PATH': "$sharedPath:$libDir",
+  'VSDROID_SHARED_PATH': sharedPath
+};
+
 Future<void> cloneRepo(
   String location,
   String url,
   void Function(double progress) onProgress,
 ) async {
   final sharedPath = await NativeChannel.getLibraryPath();
+
   final process = await Process.start(
     '$binDir/git',
-    ['clone', url],
+    ['clone', '--progress', url],
     workingDirectory: location,
-    environment: {
-      'PATH': '$binDir:/bin:/usr/bin',
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath),
   );
 
-  process.stderr
-      .transform(SystemEncoding().decoder)
-      .listen((line) {
-        print(line);
-    final match = RegExp(r'Receiving objects:\s+(\d+)%')
-        .firstMatch(line);
+  final progressRegex = RegExp(
+    r'(Receiving objects|Resolving deltas|Compressing objects):\s+(\d+)%'
+  );
 
+  process.stderr.listen((data) {
+    final text = String.fromCharCodes(data);
+
+    final match = progressRegex.firstMatch(text);
     if (match != null) {
-      final percent = double.parse(match.group(1)!);
+      final percent = double.parse(match.group(2)!);
       onProgress(percent / 100);
     }
   });
 
-  await process.exitCode;
+  final exitCode = await process.exitCode;
+  if (exitCode != 0) {
+    throw Exception('git clone failed with exit code $exitCode');
+  }
 }
+
 
 Future<void> initRepo(String workspacePath) async{
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -141,36 +149,21 @@ Future<void> initRepo(String workspacePath) async{
     "$binDir/git",
     ["init"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
   
   await Process.run(
     "$binDir/git",
     ["config", "--local", "user.name", "VSdroid user"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
   
   await Process.run(
     "$binDir/git",
     ["config", "--local", "user.email", "vsdroid@local"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
 }
 
@@ -180,12 +173,7 @@ Future<ProcessResult> getRepoStatus(String workspacePath) async{
     "$binDir/git",
     ["status", "--porcelain=v1", "-uall"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
 }
 
@@ -195,12 +183,7 @@ Future<void> stageChange(String fileName, String workspacePath) async {
     "$binDir/git",
     ["add", fileName],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
 }
 
@@ -210,44 +193,62 @@ Future<void> stageAll(String workspacePath) async {
     "$binDir/git",
     ["add", "--all"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: gitEnvs(sharedPath)
   );
 }
 
 Future<void> unstageChange(String fileName, String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
+  final env = gitEnvs(sharedPath);
+
+  final hasHead = await _hasInitialCommit(workspacePath, env);
+
+  final args = hasHead
+      ? ["restore", "--staged", fileName]
+      : ["reset", fileName];
+
   await Process.run(
     "$binDir/git",
-    ["restore", "--staged", fileName],
+    args,
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: env,
   );
 }
 
-Future<void> unstageAll(String workspacePath) async{
+
+Future<void> unstageAll(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
+  final env = gitEnvs(sharedPath);
+
+  final hasHead = await _hasInitialCommit(workspacePath, env);
+
+  final args = hasHead
+      ? ["restore", "--staged", "."]
+      : ["reset", "."];
+
   await Process.run(
     "$binDir/git",
-    ["restore", "--staged", "."],
+    args,
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath
-    }
+    environment: env,
   );
 }
+
+
+Future<bool> _hasInitialCommit(
+  String workspacePath,
+  Map<String, String> env,
+) async {
+  final result = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "--verify", "HEAD"],
+    workingDirectory: workspacePath,
+    environment: env,
+  );
+
+  return result.exitCode == 0;
+}
+
 
 Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all = false, bool amend = false}) async {
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -260,12 +261,7 @@ Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all 
     "$binDir/git",
     args,
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath,
-    },
+    environment: gitEnvs(sharedPath)
   );
 
   return result;
@@ -277,12 +273,7 @@ Future<List<CommitNode>> getGraph(String workspacePath) async{
     "$binDir/git",
     ["log", "--all", "--pretty=format:%H%x01%P%x01%an%x01%s"],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath,
-    },
+    environment: gitEnvs(sharedPath)
   );
   
   final List<CommitNode> commits = [];
@@ -316,12 +307,7 @@ Future<void> gitRestoreFile(String fileName, String workspacePath) async{
     "$binDir/git",
     ["restore", fileName],
     workingDirectory: workspacePath,
-    environment: {
-      'GIT_EXEC_PATH': '$binDir/git-core',
-      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-      'VSDROID_SHARED_PATH': sharedPath,
-    },
+    environment: gitEnvs(sharedPath)
   );
 }
 
@@ -752,6 +738,9 @@ class CommitNode {
   final String author;
   final String message;
   int lane;
+  int? childLane; // Lane of the child that points to this commit
+  bool isMerge; // Has multiple parents
+  bool isBranchStart; // First commit on a new branch
 
   CommitNode({
     required this.hash,
@@ -759,26 +748,183 @@ class CommitNode {
     required this.author,
     required this.message,
     this.lane = -1,
+    this.childLane,
+    this.isMerge = false,
+    this.isBranchStart = false,
   });
 }
 
-void assignLanes(List<CommitNode> commits) {
-  final Map<String, int> activeLanes = {};
-  int nextLane = 0;
+/// Represents a connection line in the git graph
+class GraphLine {
+  final int fromLane;
+  final int toLane;
+  final int colorIndex;
+  final bool isPassThrough; // Line just passes through this row
+  
+  GraphLine({
+    required this.fromLane,
+    required this.toLane,
+    required this.colorIndex,
+    this.isPassThrough = false,
+  });
+}
 
-  for (final commit in commits) {
-    if (activeLanes.containsKey(commit.hash)) {
-      commit.lane = activeLanes[commit.hash]!;
-    } else {
-      commit.lane = nextLane++;
-    }
+/// Stores lane information for each commit row
+class CommitRowInfo {
+  final CommitNode commit;
+  final List<GraphLine> lines;
+  final int commitLane;
+  final int colorIndex;
+  
+  CommitRowInfo({
+    required this.commit,
+    required this.lines,
+    required this.commitLane,
+    required this.colorIndex,
+  });
+}
 
-    for (final parent in commit.parents) {
-      activeLanes[parent] = commit.lane;
-    }
-
-    activeLanes.remove(commit.hash);
+/// VSCode-style lane assignment that properly handles merges and branches
+/// This does a two-pass approach:
+/// 1. First pass: Scan forward to find where each commit appears (to know branch origins)
+/// 2. Second pass: Build the graph with proper lane assignments
+List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
+  if (commits.isEmpty) return [];
+  
+  final List<CommitRowInfo> rowInfos = [];
+  
+  // Build a map of hash -> index for quick lookup
+  final Map<String, int> hashToIndex = {};
+  for (int i = 0; i < commits.length; i++) {
+    hashToIndex[commits[i].hash] = i;
   }
+  
+  // Track active lanes: lane -> (expectedHash, colorIndex, originIndex)
+  // originIndex is where this lane started (for drawing pass-through from top)
+  final Map<int, (String, int)> activeLanes = {};
+  final Map<String, int> hashToLane = {};
+  final Map<String, int> hashToColor = {};
+  int nextColorIndex = 0;
+  
+  // Find the next available lane (smallest non-negative integer not in use)
+  int findAvailableLane(int preferredLane) {
+    if (!activeLanes.containsKey(preferredLane)) {
+      return preferredLane;
+    }
+    int lane = 0;
+    while (activeLanes.containsKey(lane)) {
+      lane++;
+    }
+    return lane;
+  }
+  
+  for (int i = 0; i < commits.length; i++) {
+    final commit = commits[i];
+    commit.isMerge = commit.parents.length > 1;
+    
+    final List<GraphLine> lines = [];
+    int commitLane;
+    int colorIndex;
+    
+    // Check if any active lane is expecting this commit
+    int? expectedLane;
+    int? expectedColor;
+    for (final entry in activeLanes.entries) {
+      if (entry.value.$1 == commit.hash) {
+        expectedLane = entry.key;
+        expectedColor = entry.value.$2;
+        break;
+      }
+    }
+    
+    if (expectedLane != null) {
+      // This commit was expected - it's continuing a branch or is a merge target
+      commitLane = expectedLane;
+      colorIndex = expectedColor!;
+      // Remove from active since we've reached it
+      activeLanes.remove(expectedLane);
+    } else {
+      // New branch starting (first commit or branch head not yet seen)
+      commitLane = findAvailableLane(0);
+      colorIndex = nextColorIndex++;
+      commit.isBranchStart = i > 0;
+    }
+    
+    commit.lane = commitLane;
+    hashToLane[commit.hash] = commitLane;
+    hashToColor[commit.hash] = colorIndex;
+    
+    // Draw pass-through lines for all OTHER active lanes
+    for (final entry in activeLanes.entries) {
+      lines.add(GraphLine(
+        fromLane: entry.key,
+        toLane: entry.key,
+        colorIndex: entry.value.$2,
+        isPassThrough: true,
+      ));
+    }
+    
+    // Process parents and add connecting lines
+    for (int p = 0; p < commit.parents.length; p++) {
+      final parentHash = commit.parents[p];
+      
+      // Check if this parent is already being tracked in a lane
+      int? existingParentLane;
+      int? existingParentColor;
+      for (final entry in activeLanes.entries) {
+        if (entry.value.$1 == parentHash) {
+          existingParentLane = entry.key;
+          existingParentColor = entry.value.$2;
+          break;
+        }
+      }
+      
+      int parentLane;
+      int parentColor;
+      
+      if (existingParentLane != null) {
+        // Parent is already tracked - draw merge line to that lane
+        parentLane = existingParentLane;
+        parentColor = existingParentColor!;
+        // Draw connecting line from commit to existing parent lane
+        lines.add(GraphLine(
+          fromLane: commitLane,
+          toLane: parentLane,
+          colorIndex: parentColor,
+        ));
+      } else {
+        if (p == 0) {
+          // First parent continues on the same lane
+          parentLane = commitLane;
+          parentColor = colorIndex;
+        } else {
+          // Additional parent (merge) - assign a new lane
+          parentLane = findAvailableLane(commitLane + 1);
+          parentColor = nextColorIndex++;
+        }
+        
+        // Add this parent to active lanes
+        activeLanes[parentLane] = (parentHash, parentColor);
+        hashToColor[parentHash] = parentColor;
+        
+        // Draw connecting line
+        lines.add(GraphLine(
+          fromLane: commitLane,
+          toLane: parentLane,
+          colorIndex: parentColor,
+        ));
+      }
+    }
+    
+    rowInfos.add(CommitRowInfo(
+      commit: commit,
+      lines: lines,
+      commitLane: commitLane,
+      colorIndex: colorIndex,
+    ));
+  }
+  
+  return rowInfos;
 }
 
 Map<String, (String, Color)> gitFileStatus = {

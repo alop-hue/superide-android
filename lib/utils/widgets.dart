@@ -32,6 +32,16 @@ Directory? _findRepoRoot(File file) {
   return null;
 }
 
+String _extractGitFilename(String gitStatusLine) {
+  String fileName = gitStatusLine.substring(2).trim();
+  
+  if (fileName.startsWith('"') && fileName.endsWith('"')) {
+    fileName = fileName.substring(1, fileName.length - 1);
+  }
+  
+  return fileName;
+}
+
 void _refreshRepoStatusForFile(BuildContext context, File file) {
   try {
     final root = _findRepoRoot(file);
@@ -561,6 +571,7 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
   final bool enableDeleteFileOption;
   final bool enableRenameFolderOption;
   final bool enableRenameFileOption;
+  final bool enableGitFeatures;
   final FolderStyle? folderStyle;
   final FileStyle? fileStyle;
   final EditingFieldStyle? editingFieldStyle;
@@ -587,6 +598,7 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
     this.enableDeleteFolderOption = false,
     this.enableRenameFolderOption = false,
     this.enableRenameFileOption = false,
+    this.enableGitFeatures = false,
     this.fileIconBuilder,
   });
 
@@ -613,17 +625,17 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     if (repoState is! RepoStatusLoaded) return (defaultColor, null);
     final relativePath = path.relative(file.path, from: widget.rootPath);
     for (final line in repoState.staged) {
-      final trimmed = line.trim();
-      if (trimmed.endsWith(relativePath)) {
-        final status = trimmed.substring(0, 2).trim();
+      final fileName = _extractGitFilename(line);
+      if (fileName == relativePath) {
+        final status = line.substring(0, 2).trim();
         final indicator = gitFileStatus[status];
         return (indicator?.$2 ?? defaultColor, indicator?.$1);
       }
     }
     for (final line in repoState.unstaged) {
-      final trimmed = line.trim();
-      if (trimmed.endsWith(relativePath)) {
-        final status = trimmed.substring(0, 2).trim();
+      final fileName = _extractGitFilename(line);
+      if (fileName == relativePath) {
+        final status = line.substring(0, 2).trim();
         final indicator = gitFileStatus[status];
         return (indicator?.$2 ?? defaultColor, indicator?.$1);
       }
@@ -704,6 +716,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 
   void _showFolderContextMenu(BuildContext context, Directory directory, Offset tapPosition) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final isRootDirectory = directory.path == widget.rootPath;
     
     showMenu(
       context: context,
@@ -752,7 +765,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               () => startCreating(directory.path, true),
             ),
           ),
-        if (widget.enableRenameFolderOption)
+        if (widget.enableRenameFolderOption && !isRootDirectory)
           PopupMenuItem(
             child: Row(
               children: [
@@ -772,7 +785,73 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               () => startRenaming(directory.path),
             ),
           ),
-        if (widget.enableDeleteFolderOption)
+        if (isRootDirectory)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.refresh, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Refresh Explorer',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () {
+                if(context.mounted){
+                  try {
+                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+                  } catch (_) {}
+                }
+              },
+            ),
+          ),
+        if (isRootDirectory)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.unfold_more, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Expand All',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => _expandAllFolders(),
+            ),
+          ),
+        if (isRootDirectory)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.unfold_less, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Collapse All',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 16
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => Future.delayed(
+              Duration.zero,
+              () => _collapseAllFolders(),
+            ),
+          ),
+        if (widget.enableDeleteFolderOption && !isRootDirectory)
           PopupMenuItem(
             child: Row(
               children: [
@@ -787,18 +866,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () {
-                Directory(directory.path).delete(recursive: true);
-                setState(() {});
-                if(context.mounted){
-                  try {
-                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
-                  } catch (_) {}
-                }
-              },
-            ),
+            onTap: () => _showDeleteFolderConfirmation(context, directory),
           ),
       ],
     );
@@ -849,18 +917,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () {
-                file.deleteSync();
-                setState(() {});
-                if(context.mounted){
-                  try {
-                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
-                  } catch (_) {}
-                }
-              },
-            ),
+            onTap: () => _showDeleteFileConfirmation(context, file),
           ),
       ],
     );
@@ -1045,23 +1102,266 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
+  void _expandAllFolders() {
+    final folderBloc = context.read<FolderBloc>();
+    final allPaths = _getAllDirectoryPaths(Directory(widget.rootPath));
+    folderBloc.setAllFoldersExpanded(allPaths, true);
+  }
+
+  void _collapseAllFolders() {
+    final folderBloc = context.read<FolderBloc>();
+    final allPaths = _getAllDirectoryPaths(Directory(widget.rootPath));
+    folderBloc.setAllFoldersExpanded(allPaths, false);
+  }
+
+  List<String> _getAllDirectoryPaths(Directory directory) {
+    final paths = <String>[];
+    try {
+      final entries = directory.listSync(recursive: true);
+      for (final entry in entries) {
+        if (entry is Directory) {
+          paths.add(entry.path);
+        }
+      }
+    } catch (_) {}
+    return paths;
+  }
+
+  void _showDeleteFolderConfirmation(BuildContext context, Directory directory) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange[400],
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Delete Folder',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Are you sure you want to delete "${path.basename(directory.path)}" and all its contents? This action cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _performFolderDeletion(context, directory);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[400],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _performFolderDeletion(BuildContext context, Directory directory) {
+    try {
+      directory.deleteSync(recursive: true);
+      setState(() {});
+      if (context.mounted) {
+        try {
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+        } catch (_) {}
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete folder: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeleteFileConfirmation(BuildContext context, File file) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange[400],
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Delete File',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Are you sure you want to delete "${path.basename(file.path)}"? This action cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _performFileDeletion(context, file);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[400],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _performFileDeletion(BuildContext context, File file) {
+    try {
+      file.deleteSync();
+      setState(() {});
+      if (context.mounted) {
+        try {
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+        } catch (_) {}
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete file: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final rootDirectory = Directory(widget.rootPath);
     if (!rootDirectory.existsSync()) {
       return const Center(child: Text('Directory does not exist'));
     }
-    return BlocBuilder<RepoStatusBloc, RepoStatusState>(
-      builder: (context, repoState) {
-        return BlocBuilder<FolderBloc, FolderState>(
-          builder: (context, folderState) {
-            return SingleChildScrollView(
-              child: _buildDirectoryTree(rootDirectory, repoState),
-            );
-          },
-        );
-      },
-    );
+    if (widget.enableGitFeatures) {
+      return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+        builder: (context, repoState) {
+          return BlocBuilder<FolderBloc, FolderState>(
+            builder: (context, folderState) {
+              return SingleChildScrollView(
+                child: _buildDirectoryTree(rootDirectory, repoState),
+              );
+            },
+          );
+        },
+      );
+    } else {
+      return BlocBuilder<FolderBloc, FolderState>(
+        builder: (context, folderState) {
+          return SingleChildScrollView(
+            child: _buildDirectoryTree(rootDirectory, const RepoStatusInitial()),
+          );
+        },
+      );
+    }
   }
 }
 
@@ -1302,6 +1602,10 @@ class _SourceControlState extends State<SourceControl> {
   bool _isARepo = false;
   late final TextEditingController _commitController;
   late final StreamSubscription<GitCommitState> _commitSub;
+  bool _stagedExpanded = true;
+  bool _unstagedExpanded = true;
+  bool _commitGraphExpanded = true;
+  late final ScrollController _commitGraphScrollController;
 
   @override
   void initState() {
@@ -1319,6 +1623,12 @@ class _SourceControlState extends State<SourceControl> {
       }
     });
 
+    _commitGraphScrollController = ScrollController();
+
+    if (widget.isRepoThere) {
+      context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+    }
+
     super.initState();
   }
 
@@ -1326,6 +1636,7 @@ class _SourceControlState extends State<SourceControl> {
   void dispose() {
     _commitSub.cancel();
     _commitController.dispose();
+    _commitGraphScrollController.dispose();
     super.dispose();
   }
 
@@ -1334,9 +1645,473 @@ class _SourceControlState extends State<SourceControl> {
     if (oldWidget.workSpace != widget.workSpace) {
       try {
         context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+        if (widget.isRepoThere) {
+          context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+        }
       } catch (_) {}
     }
     super.didUpdateWidget(oldWidget);
+  }
+
+  Widget _buildCollapsibleChangesList({
+    required String title,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required int itemCount,
+    required Widget Function(BuildContext, int) itemBuilder,
+    required Widget actionButton,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4, right: 4),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: isExpanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$itemCount',
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const Expanded(child: SizedBox()),
+                actionButton,
+              ],
+            ),
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeInOut,
+          switchOutCurve: Curves.easeInOut,
+          transitionBuilder: (child, animation) {
+            return SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1.0,
+              child: child,
+            );
+          },
+          child: isExpanded
+              ? ConstrainedBox(
+                  key: ValueKey('$title-expanded'),
+                  constraints: BoxConstraints(
+                    maxHeight: itemCount > 5 ? 250 : itemCount * 50.0,
+                  ),
+                  child: Scrollbar(
+                    thumbVisibility: itemCount > 5,
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: itemCount,
+                      itemBuilder: itemBuilder,
+                    ),
+                  ),
+                )
+              : SizedBox.shrink(key: ValueKey('$title-collapsed')),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCollapsibleCommitGraph() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _commitGraphExpanded = !_commitGraphExpanded),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12, top: 12, bottom: 8, right: 4),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: _commitGraphExpanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  "Commit History",
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    fontSize: 14,
+                  ),
+                ),
+                const Expanded(child: SizedBox()),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeInOut,
+          switchOutCurve: Curves.easeInOut,
+          transitionBuilder: (child, animation) {
+            return SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1.0,
+              child: child,
+            );
+          },
+          child: _commitGraphExpanded
+              ? ConstrainedBox(
+                  key: const ValueKey('commit-graph-expanded'),
+                  constraints: const BoxConstraints(
+                    maxHeight: 600,
+                  ),
+                  child: BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                    builder: (context, state) {
+                      if (state is RepoStatusLoaded && state.commits != null) {
+                        if (state.commits!.isEmpty) {
+                          return Center(child: Text('No commits found', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
+                        }
+                        final commits = state.commits!;
+                        return Scrollbar(
+                          controller: _commitGraphScrollController,
+                          thumbVisibility: commits.length > 10,
+                          child: SingleChildScrollView(
+                            controller: _commitGraphScrollController,
+                            child: GitCommitGraph(
+                              commits: commits,
+                              appTheme: widget.appTheme
+                            ),
+                          ),
+                        );
+                      } else if (state is RepoStatusLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else {
+                        return Center(child: Text('Loading commits...', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
+                      }
+                    }
+                  ),
+                )
+              : SizedBox.shrink(key: const ValueKey('commit-graph-collapsed')),
+        ),
+      ],
+    );
+  }
+
+  void _showInitializeRepoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff0e639c).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.create_new_folder,
+                      color: Color(0xff0e639c),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      "Initialize Repository",
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                "This will create a new Git repository in the current folder. This action initializes Git tracking for version control.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      "Cancel",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await _initializeRepository(widget.workSpace);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xff0e639c),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      "Initialize",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPublishToGithubDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 350,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      FontAwesomeIcons.github,
+                      color: Colors.black87,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      "Publish to GitHub",
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                "This will create a new repository on GitHub and push your local code. You'll need to authenticate with GitHub first.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.amber[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Make sure you have GitHub CLI installed and authenticated.",
+                        style: TextStyle(
+                          color: Colors.amber[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      "Cancel",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await _publishToGithub();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      "Publish",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _initializeRepository(String workspacePath) async {
+    try {
+      await initRepo(workspacePath);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Repository initialized successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {
+          _isARepo = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to initialize repository: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishToGithub() async {
+    try {
+      // TODO: Implement actual GitHub publishing logic
+      // For now, just show a message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publishing to GitHub... (Feature coming soon)'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to publish to GitHub: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -1351,12 +2126,7 @@ class _SourceControlState extends State<SourceControl> {
             ),
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: () async{
-                await initRepo(widget.workSpace);
-                setState(() {
-                  _isARepo = true;
-                });
-              },
+              onPressed: _showInitializeRepoDialog,
               style:  ButtonStyle(
                 shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
@@ -1377,7 +2147,7 @@ class _SourceControlState extends State<SourceControl> {
             SizedBox(
               width: 200,
               child: ElevatedButton(
-                onPressed: (){},
+                onPressed: _showPublishToGithubDialog,
                 style: const ButtonStyle(
                   shape: WidgetStatePropertyAll(
                     RoundedRectangleBorder(
@@ -1395,9 +2165,9 @@ class _SourceControlState extends State<SourceControl> {
                   ],
                 )),
             )];
-    return !isTemp ? Padding(
-      padding: const EdgeInsets.only(top: 25,left: 10),
-      child: SizedBox(
+    return !isTemp ? SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 25,left: 10),
         child: Column(
           children: [
             const SizedBox(height: 20),
@@ -1638,40 +2408,30 @@ class _SourceControlState extends State<SourceControl> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if(repoState.staged.isNotEmpty) Padding(
-                              padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4),
-                              child: Row(
-                                children: [
-                                  Text("Staged Changes", style: TextStyle(
-                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)
-                                  )),
-                                  const Expanded(child: SizedBox()),
-                                  Tooltip(
-                                    message: "Unstage All Changes",
-                                      child: IconButton(
-                                      onPressed: () async {
-                                        await unstageAll(widget.workSpace);
-                                        try { 
-                                          if(context.mounted) {
-                                            context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                          }
-                                        } catch (_) {}
-                                      },
-                                      icon: Text(
-                                        "—",
-                                        style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
-                                      )
-                                    ),
-                                  )
-                                ],
-                              ),
-                            ),
-                            ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
+                            if(repoState.staged.isNotEmpty) _buildCollapsibleChangesList(
+                              title: "Staged Changes",
+                              isExpanded: _stagedExpanded,
+                              onToggle: () => setState(() => _stagedExpanded = !_stagedExpanded),
                               itemCount: repoState.staged.length,
+                              actionButton: Tooltip(
+                                message: "Unstage All Changes",
+                                child: IconButton(
+                                  onPressed: () async {
+                                    await unstageAll(widget.workSpace);
+                                    try { 
+                                      if(context.mounted) {
+                                        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                      }
+                                    } catch (_) {}
+                                  },
+                                  icon: Text(
+                                    "—",
+                                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
+                                  )
+                                ),
+                              ),
                               itemBuilder: (_, index) {
-                                final fileName = repoState.staged[index].substring(2).trim();
+                                final fileName = _extractGitFilename(repoState.staged[index]);
                                 final (String, Color) repoIndicator = gitFileStatus[repoState.staged[index].substring(0,2).trim()]!;
                                 return ListTile(
                                   visualDensity: VisualDensity(vertical: -4),
@@ -1716,40 +2476,30 @@ class _SourceControlState extends State<SourceControl> {
                                     fontWeight: FontWeight.bold
                                   ),
                                 );
-                              }
+                              },
                             ),
-                            if (repoState.unstaged.isNotEmpty) Padding(
-                              padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4),
-                              child: Row(
-                                children: [
-                                  Text("Unstaged Changes", style: TextStyle(
-                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)
-                                  )),
-                                  const Expanded(child: SizedBox()),
-                                  Tooltip(
-                                    message: "Stage All Changes",
-                                      child: IconButton(
-                                      onPressed: () async{
-                                        await stageAll(widget.workSpace);
-                                        if(context.mounted){
-                                          try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
-                                        }
-                                      },
-                                      icon: Icon(
-                                        Icons.add,
-                                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                                      )
-                                    ),
-                                  )
-                                ],
-                              ),
-                            ),
-                            ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
+                            if (repoState.unstaged.isNotEmpty) _buildCollapsibleChangesList(
+                              title: "Unstaged Changes",
+                              isExpanded: _unstagedExpanded,
+                              onToggle: () => setState(() => _unstagedExpanded = !_unstagedExpanded),
                               itemCount: repoState.unstaged.length,
+                              actionButton: Tooltip(
+                                message: "Stage All Changes",
+                                child: IconButton(
+                                  onPressed: () async{
+                                    await stageAll(widget.workSpace);
+                                    if(context.mounted){
+                                      try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
+                                    }
+                                  },
+                                  icon: Icon(
+                                    Icons.add,
+                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                  )
+                                ),
+                              ),
                               itemBuilder: (_, index) {
-                                final fileName = repoState.unstaged[index].substring(2).trim();
+                                final fileName = _extractGitFilename(repoState.unstaged[index]);
                                 final (String, Color) repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0,2).trim()]!;
                                 return ListTile(
                                   visualDensity: VisualDensity(vertical: -4),
@@ -1765,8 +2515,8 @@ class _SourceControlState extends State<SourceControl> {
                                       }
                                     })()
                                   ),
-                                  title: Text(path.basename(fileName)),
-                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11)),
+                                  title: Text(path.basename(fileName), overflow: TextOverflow.ellipsis),
+                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -1848,36 +2598,14 @@ class _SourceControlState extends State<SourceControl> {
                                     fontWeight: FontWeight.bold
                                   ),
                                 );
-                              }
+                              },
                             ),
                             Divider(
                               thickness: 0.1,
                               endIndent: 12,
                               color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
                             ),
-                            FutureBuilder<List<CommitNode>>(
-                              future: getGraph(widget.workSpace),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const Center(child: CircularProgressIndicator());
-                                }
-                                if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                                  return Center(child: Text('No commits found', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
-                                }
-                                final commits = snapshot.data!;
-                                assignLanes(commits);
-                                return Padding(
-                                  padding: const EdgeInsets.only(left: 25),
-                                  child: Transform.scale(
-                                    scale: 1.2,
-                                    child: GitCommitGraph(
-                                      commits: commits,
-                                      appTheme: widget.appTheme
-                                    ),
-                                  ),
-                                );
-                              }
-                            )
+                            _buildCollapsibleCommitGraph()
                           ],
                         )
                       ]
@@ -2837,99 +3565,224 @@ class SettingsTab extends StatelessWidget {
 
 //--------------------GIT GRAPH PAINTER------------------------------------
 
-class GitGraphPainter extends CustomPainter {
-  final List<CommitNode> commits;
-  final int currentIndex;
+/// VSCode-style git graph colors
+const List<Color> _gitGraphColors = [
+  Color(0xFF4EC9B0), // Teal/Cyan (main branch)
+  Color(0xFFCE9178), // Orange/Salmon
+  Color(0xFF569CD6), // Blue
+  Color(0xFFB5CEA8), // Light green
+  Color(0xFFC586C0), // Purple/Magenta
+  Color(0xFFDCDCAA), // Yellow
+  Color(0xFF4FC1FF), // Light blue
+  Color(0xFFD16969), // Red/Coral
+  Color(0xFF6A9955), // Green
+  Color(0xFFD7BA7D), // Gold
+];
+
+Color _getGraphColor(int index) {
+  return _gitGraphColors[index % _gitGraphColors.length];
+}
+
+class VSCodeGitGraphPainter extends CustomPainter {
+  final CommitRowInfo rowInfo;
   final double laneWidth;
   final double rowHeight;
+  final bool isDark;
+  final Color textColor;
+  final Color secondaryTextColor;
+  final double maxWidth;
 
-  GitGraphPainter({
-    required this.commits,
-    required this.currentIndex,
-    this.laneWidth = 20,
-    this.rowHeight = 32,
+  VSCodeGitGraphPainter({
+    required this.rowInfo,
+    required this.textColor,
+    required this.secondaryTextColor,
+    required this.maxWidth,
+    this.laneWidth = 16,
+    this.rowHeight = 36,
+    this.isDark = true,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final linePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    final nodePaint = Paint()..style = PaintingStyle.fill;
+    final nodeStrokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
-    final dotPaint = Paint()..style = PaintingStyle.fill;
+    final commitX = rowInfo.commitLane * laneWidth + laneWidth / 2;
+    final commitY = rowHeight / 2;
 
-    final laneColors = <int, Color>{};
+    // Draw all lines first (behind the node)
+    for (final line in rowInfo.lines) {
+      final fromX = line.fromLane * laneWidth + laneWidth / 2;
+      final toX = line.toLane * laneWidth + laneWidth / 2;
+      final color = _getGraphColor(line.colorIndex);
+      linePaint.color = color;
 
-    Color colorForLane(int lane) {
-      return laneColors.putIfAbsent(
-        lane,
-        () => Colors.primaries.reversed.toList()[lane % Colors.primaries.length],
-      );
-    }
-
-    final commit = commits[currentIndex];
-    final x = commit.lane * laneWidth + laneWidth / 2;
-    final y = rowHeight / 2;
-
-    paint.color = colorForLane(commit.lane);
-
-    for (final parentHash in commit.parents) {
-      final parentIndex = commits.indexWhere((c) => c.hash == parentHash);
-      if (parentIndex == -1) continue;
-
-      final parent = commits[parentIndex];
-      final px = parent.lane * laneWidth + laneWidth / 2;
-      
-      if (parentIndex == currentIndex + 1 && parent.lane == commit.lane) {
+      if (line.isPassThrough) {
+        // Vertical pass-through line
         canvas.drawLine(
-          Offset(x, y + 4),
-          Offset(x, rowHeight),
-          paint,
+          Offset(fromX, 0),
+          Offset(fromX, rowHeight),
+          linePaint,
         );
-      } else if (parentIndex > currentIndex) {
-        final path = Path()
-          ..moveTo(x, y + 4)
-          ..lineTo(x, rowHeight * 0.7)
-          ..quadraticBezierTo(x, rowHeight, px, rowHeight);
-        canvas.drawPath(path, paint);
-      }
-    }
-
-    if (currentIndex > 0) {
-      final prevCommit = commits[currentIndex - 1];
-      if (prevCommit.parents.contains(commit.hash) && prevCommit.lane == commit.lane) {
-        paint.color = colorForLane(commit.lane);
+      } else if (line.fromLane == line.toLane) {
+        // Straight line down from commit
         canvas.drawLine(
-          Offset(x, 0),
-          Offset(x, y - 4),
-          paint,
+          Offset(fromX, commitY + 5),
+          Offset(fromX, rowHeight),
+          linePaint,
         );
       } else {
-        for (int i = 0; i < currentIndex; i++) {
-          if (commits[i].parents.contains(commit.hash)) {
-            final ancestorLane = commits[i].lane;
-            paint.color = colorForLane(ancestorLane);
-            final ax = ancestorLane * laneWidth + laneWidth / 2;
-            if (ancestorLane == commit.lane) {
-              canvas.drawLine(Offset(x, 0), Offset(x, y - 4), paint);
-            } else {
-              final path = Path()
-                ..moveTo(ax, 0)
-                ..quadraticBezierTo(ax, y * 0.3, x, y - 4);
-              canvas.drawPath(path, paint);
-            }
-            break;
-          }
+        // Curved merge/branch line
+        final path = Path();
+        
+        if (line.toLane > line.fromLane) {
+          // Branch going right (merge from another branch)
+          path.moveTo(fromX, commitY + 5);
+          path.lineTo(fromX, commitY + 10);
+          path.quadraticBezierTo(
+            fromX, rowHeight - 4,
+            toX, rowHeight,
+          );
+        } else {
+          // Branch going left
+          path.moveTo(fromX, commitY + 5);
+          path.quadraticBezierTo(
+            fromX, rowHeight - 4,
+            toX, rowHeight,
+          );
         }
+        canvas.drawPath(path, linePaint);
       }
     }
 
-    dotPaint.color = colorForLane(commit.lane);
-    canvas.drawCircle(Offset(x, y), 5, dotPaint);
+    // Draw incoming line from top (if this isn't the first commit)
+    linePaint.color = _getGraphColor(rowInfo.colorIndex);
+    canvas.drawLine(
+      Offset(commitX, 0),
+      Offset(commitX, commitY - 5),
+      linePaint,
+    );
+
+    // Draw the commit node
+    final nodeColor = _getGraphColor(rowInfo.colorIndex);
+    
+    if (rowInfo.commit.isMerge) {
+      // Merge commit: filled circle with ring
+      nodePaint.color = nodeColor;
+      canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
+      nodeStrokePaint.color = nodeColor.withAlpha(180);
+      canvas.drawCircle(Offset(commitX, commitY), 7, nodeStrokePaint);
+    } else {
+      // Regular commit: solid filled circle
+      nodePaint.color = nodeColor;
+      canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
+    }
+
+    // Calculate the maximum lane used in this row (including all lines)
+    int maxLaneInRow = rowInfo.commitLane;
+    for (final line in rowInfo.lines) {
+      if (line.fromLane > maxLaneInRow) maxLaneInRow = line.fromLane;
+      if (line.toLane > maxLaneInRow) maxLaneInRow = line.toLane;
+    }
+    
+    // Position text after the rightmost lane with some padding
+    final graphWidth = (maxLaneInRow + 1) * laneWidth + 12;
+    
+    // Draw text using TextPainter
+    double textStartX = graphWidth;
+    final availableWidth = maxWidth - textStartX;
+    
+    if (availableWidth > 50) {
+      // Draw merge badge if this is a merge commit
+      if (rowInfo.commit.isMerge) {
+        final badgePainter = TextPainter(
+          text: TextSpan(
+            text: 'Merge',
+            style: TextStyle(
+              color: _getGraphColor(rowInfo.colorIndex),
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        badgePainter.layout();
+        
+        // Draw badge background
+        final badgeWidth = badgePainter.width + 8;
+        final badgeHeight = badgePainter.height + 2;
+        final badgeRect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(textStartX, 8, badgeWidth, badgeHeight),
+          const Radius.circular(3),
+        );
+        
+        final badgeBgPaint = Paint()
+          ..color = _getGraphColor(rowInfo.colorIndex).withAlpha(40)
+          ..style = PaintingStyle.fill;
+        canvas.drawRRect(badgeRect, badgeBgPaint);
+        
+        final badgeBorderPaint = Paint()
+          ..color = _getGraphColor(rowInfo.colorIndex).withAlpha(100)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+        canvas.drawRRect(badgeRect, badgeBorderPaint);
+        
+        // Draw badge text
+        badgePainter.paint(canvas, Offset(textStartX + 4, 8));
+        
+        textStartX += badgeWidth + 6;
+      }
+      
+      // Draw commit message
+      final messagePainter = TextPainter(
+        text: TextSpan(
+          text: rowInfo.commit.message,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 13,
+            height: 1.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '...',
+      );
+      messagePainter.layout(maxWidth: availableWidth - (rowInfo.commit.isMerge ? 50 : 0));
+      messagePainter.paint(canvas, Offset(textStartX, 6));
+      
+      // Draw author and hash
+      final authorHash = '${rowInfo.commit.author} • ${rowInfo.commit.hash.substring(0, 7)}';
+      final authorPainter = TextPainter(
+        text: TextSpan(
+          text: authorHash,
+          style: TextStyle(
+            color: secondaryTextColor,
+            fontSize: 10,
+            height: 1.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '...',
+      );
+      authorPainter.layout(maxWidth: availableWidth);
+      authorPainter.paint(canvas, Offset(graphWidth, 22));
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant VSCodeGitGraphPainter oldDelegate) {
+    return oldDelegate.rowInfo != rowInfo || 
+           oldDelegate.maxWidth != maxWidth ||
+           oldDelegate.textColor != textColor;
+  }
 }
 
 class GitCommitGraph extends StatelessWidget {
@@ -2940,64 +3793,40 @@ class GitCommitGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxLane = commits.fold(0, (max, c) => c.lane > max ? c.lane : max);
-    final graphWidth = (maxLane + 1) * 24.0;
+    // Use the new VSCode-style lane assignment
+    final rowInfos = assignVSCodeLanes(commits);
     
-    return SizedBox(
-      height: commits.length * 36.0,
-      child: ListView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: commits.length,
-        itemBuilder: (context, index) {
-          final commit = commits[index];
-          return SizedBox(
-            height: 36,
-            child: Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 50),
-                  child: SizedBox(
-                    width: graphWidth.clamp(30.0, 120.0),
-                    child: CustomPaint(
-                      painter: GitGraphPainter(
-                        commits: commits,
-                        currentIndex: index,
-                      ),
-                    ),
-                  ),
+    // Content width for horizontal scrolling
+    const contentWidth = 500.0;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: contentWidth,
+        height: commits.length * 36.0,
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: rowInfos.length,
+          itemBuilder: (context, index) {
+            final rowInfo = rowInfos[index];
+            
+            return SizedBox(
+              height: 36,
+              child: CustomPaint(
+                size: Size(contentWidth, 36),
+                painter: VSCodeGitGraphPainter(
+                  rowInfo: rowInfo,
+                  isDark: appTheme.isDark,
+                  textColor: appTheme.selectScreenCardTextColor,
+                  secondaryTextColor: appTheme.selectScreenCardTextColor.withAlpha(150),
+                  maxWidth: contentWidth,
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        commit.message,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: appTheme.selectScreenCardTextColor,
-                          fontSize: 13,
-                          height: 1.2,
-                        ),
-                      ),
-                      Text(
-                        '${commit.author} • ${commit.hash.substring(0, 7)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: appTheme.selectScreenCardTextColor.withAlpha(150),
-                          fontSize: 10,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

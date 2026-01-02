@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,101 @@ class _SelectTypeState extends State<SelectType> {
   void dispose() {
     createFileController.dispose();
     super.dispose();
+  }
+
+  Future<void> _performClone(String projectDir, String repoUrl, String repoName, BuildContext context, StreamController<double> progressController) async {
+    final targetDir = Directory("$projectDir/$repoName");
+    
+    if (targetDir.existsSync()) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Directory "$repoName" already exists'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (context.mounted) {
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => FolderPage(dir: targetDir, isCloned: true,),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return SizeTransition(sizeFactor: animation, child: child);
+              }
+            )
+          );
+        }
+      }
+      return;
+    }
+
+    try {
+      await cloneRepo(projectDir, repoUrl, (progress) {
+        progressController.add(progress);
+      });
+
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        Navigator.of(context).push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => FolderPage(dir: Directory("$projectDir/$repoName"), isCloned: true),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SizeTransition(sizeFactor: animation, child: child);
+            }
+          )
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            backgroundColor: context.read<AppThemeBloc>().state.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            child: Container(
+              width: 300,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Failed to clone the repo.",
+                    style: TextStyle(
+                      color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    e.toString(),
+                    style: TextStyle(color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text("OK")
+                  )
+                ],
+              ),
+            ),
+          )
+        );
+      }
+    } finally {
+      if (mounted) {
+        progressController.close();
+      }
+    }
   }
 
   @override
@@ -189,68 +285,156 @@ class _SelectTypeState extends State<SelectType> {
                 fileTiles(() {
                   showDialog(
                     context: context,
-                    builder: (context) => AlertDialog(
-                      icon: const Icon(FontAwesomeIcons.fileCirclePlus),
-                      iconColor: Colors.grey,
-                      backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                      title: const Text("Create a new file",style: TextStyle(color: Colors.grey)),
-                      content: Form(
-                        key: _createFileKey,
-                        child: TextFormField(
-                          style: const TextStyle(color: Colors.grey),
-                          cursorColor: Colors.grey,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "Please enter a valid filename";
-                            }
-                            return null;
-                          },
-                          controller: createFileController,
-                          decoration: const InputDecoration(
-                              hintStyle: TextStyle(color: Colors.grey),
-                              hintText: " filename.ext",
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius:BorderRadius.all(Radius.circular(25)),
-                                borderSide:BorderSide(color: Color(0xff5090c8))),
-                              border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))
+                    builder: (context) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      child: Container(
+                        width: 350,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: appThemestate.appTheme.isDark
+                              ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                              : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
-                          ),
-                          actions: [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 7),
-                              child: ElevatedButton(
-                                style: ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.red[700])),
-                                onPressed: (){
-                                Navigator.of(context).pop();
-                              }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
-                            ),
-                            ElevatedButton(
-                              onPressed: () async {
-                                _createFileKey.currentState!.validate();
-                                if (createFileController.text.isNotEmpty) {
-                                  final file = await createFile(
-                                    createFileController.text,
-                                    filesDir,
-                                    context
-                                  );
-                                  if (context.mounted && file != null) {
-                                    Navigator.of(context).pop();
-                                    Navigator.of(context).push(
-                                      PageRouteBuilder(
-                                        pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
-                                        .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")))),
-                                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                          return SizeTransition(sizeFactor: animation, child: child);
-                                        }
-                                      )
-                                    );
-                                  }
-                                }
-                              },
-                              child: const Text("OK"))
                           ],
-                        ));
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xff5090c8).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    FontAwesomeIcons.fileCirclePlus,
+                                    color: Color(0xff5090c8),
+                                    size: 28,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    "Create a new file",
+                                    style: TextStyle(
+                                      color: appThemestate.appTheme.selectScreenCardTextColor,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            Form(
+                              key: _createFileKey,
+                              child: TextFormField(
+                                style: TextStyle(
+                                  color: appThemestate.appTheme.selectScreenCardTextColor,
+                                ),
+                                cursorColor: const Color(0xff5090c8),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Please enter a valid filename";
+                                  }
+                                  return null;
+                                },
+                                controller: createFileController,
+                                decoration: InputDecoration(
+                                  hintStyle: TextStyle(color: Colors.grey[500]),
+                                  hintText: " filename.ext",
+                                  filled: true,
+                                  fillColor: appThemestate.appTheme.isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                    borderSide: const BorderSide(color: Color(0xff5090c8), width: 2),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Cancel",
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    _createFileKey.currentState!.validate();
+                                    if (createFileController.text.isNotEmpty) {
+                                      final file = await createFile(
+                                        createFileController.text,
+                                        filesDir,
+                                        context
+                                      );
+                                      if (context.mounted && file != null) {
+                                        Navigator.of(context).pop();
+                                        Navigator.of(context).push(
+                                          PageRouteBuilder(
+                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
+                                            .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")))),
+                                            transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                                              return SizeTransition(sizeFactor: animation, child: child);
+                                            }
+                                          )
+                                        );
+                                      }
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xff5090c8),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: const Text(
+                                    "Create",
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
                   }, "New File...",
                   const Icon(FontAwesomeIcons.fileCirclePlus),
                   appThemestate.appTheme.isDark
@@ -278,20 +462,83 @@ class _SelectTypeState extends State<SelectType> {
                       if(context.mounted) {
                         showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title:  Text("Failed to open file",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                          icon: const Icon(Icons.error_outline,size: 35),
-                          iconColor: Colors.red[600],
-                          actionsAlignment: MainAxisAlignment.center,
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                child: const Text("OK")
-                              )
-                            ],
+                        builder: (context) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: Container(
+                            width: 350,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: appThemestate.appTheme.isDark
+                                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                                  : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                  child: const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red,
+                                    size: 32,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  "Failed to open file",
+                                  style: TextStyle(
+                                    color: appThemestate.appTheme.selectScreenCardTextColor,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "The selected file could not be opened.",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: const Text(
+                                    "OK",
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                       }
@@ -308,7 +555,7 @@ class _SelectTypeState extends State<SelectType> {
                       if(context.mounted){
                         Navigator.of(context).push(
                           PageRouteBuilder(
-                            pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: dir),
+                            pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: dir, isCloned: false),
                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                               return SizeTransition(sizeFactor: animation,child: child);
                             }
@@ -321,24 +568,87 @@ class _SelectTypeState extends State<SelectType> {
                     if(context.mounted) {
                         showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title:  Text("Failed to open folder",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                          icon: const Icon(Icons.error_outline,size: 35),
-                          iconColor: Colors.red[600],
-                          actionsAlignment: MainAxisAlignment.center,
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                child: const Text("OK"))
-                            ],
+                        builder: (context) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: Container(
+                            width: 350,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: appThemestate.appTheme.isDark
+                                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                                  : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                  child: const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red,
+                                    size: 32,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  "Failed to open folder",
+                                  style: TextStyle(
+                                    color: appThemestate.appTheme.selectScreenCardTextColor,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "The selected folder could not be opened.",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  child: const Text(
+                                    "OK",
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
-                      }
-                  }
-                  },
+                    }
+                  }},
                   "Open Folder...",
                   const Icon(FontAwesomeIcons.folderOpen),
                   appThemestate.appTheme.isDark
@@ -349,103 +659,245 @@ class _SelectTypeState extends State<SelectType> {
                       context: context,
                       builder: (_) {
                         final cloneController = TextEditingController();
-                        return AlertDialog(
-                          icon: Icon(Icons.file_download_outlined, size: 30),
-                          iconColor: appThemestate.appTheme.selectScreenCardTextColor,
-                          backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                          content: Form(
-                            key: _cloneRepoKey,
-                            child: TextFormField(
-                              style: TextStyle(
-                                color: appThemestate.appTheme.selectScreenCardTextColor,
+                        return Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: Container(
+                            width: 400,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: appThemestate.appTheme.isDark
+                                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                                  : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              cursorColor: Color(0xff5090c8),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return "Please enter a valid filename";
-                                }
-                                return null;
-                              },
-                              decoration: const InputDecoration(
-                                hintStyle: TextStyle(color: Colors.grey),
-                                hintText: " Clone repo",
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius:BorderRadius.all(Radius.circular(25)),
-                                  borderSide:BorderSide(color: Color(0xff5090c8))),
-                                border: OutlineInputBorder(borderRadius:BorderRadius.all(Radius.circular(25)))
-                              ),
-                              controller: cloneController,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
                             ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text("Cancel", style: TextStyle(color: Colors.red))
-                            ),
-                            TextButton(
-                              onPressed: () async{
-                                try {
-                                  final repoUrl = cloneController.text.trim();
-                                  final repoName = extractRepoName(repoUrl);
-                                  await cloneRepo(
-                                    projectDir,
-                                    repoUrl,
-                                    (progress){
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: LinearPercentIndicator(
-                                          percent: progress,
-                                          progressColor: Colors.greenAccent,
-                                          backgroundColor: Colors.white24,
-                                          barRadius: const Radius.circular(20),
-                                          lineHeight: 8,
-                                          trailing: Padding(
-                                            padding: const EdgeInsets.only(left: 10),
-                                            child: Text(
-                                              "${(progress * 100).toStringAsFixed(1)}%",
-                                              style: const TextStyle(color: Colors.white70),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xff5090c8).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.file_download_outlined,
+                                        color: Color(0xff5090c8),
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(
+                                        "Clone Repository",
+                                        style: TextStyle(
+                                          color: appThemestate.appTheme.selectScreenCardTextColor,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Enter the repository URL to clone",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Form(
+                                  key: _cloneRepoKey,
+                                  child: TextFormField(
+                                    style: TextStyle(
+                                      color: appThemestate.appTheme.selectScreenCardTextColor,
+                                    ),
+                                    cursorColor: const Color(0xff5090c8),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return "Please enter a valid repository URL";
+                                      }
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      hintStyle: TextStyle(color: Colors.grey[500]),
+                                      hintText: " https://github.com/user/repo.git",
+                                      filled: true,
+                                      fillColor: appThemestate.appTheme.isDark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                        borderSide: const BorderSide(color: Color(0xff5090c8), width: 2),
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                    ),
+                                    controller: cloneController,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        "Cancel",
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        if (!_cloneRepoKey.currentState!.validate()) return;
+
+                                        final repoUrl = cloneController.text.trim();
+                                        final repoName = extractRepoName(repoUrl);
+
+                                        Navigator.of(context).pop();
+
+                                        final progressController = StreamController<double>.broadcast();
+
+                                        showDialog(
+                                          context: context,
+                                          barrierDismissible: false,
+                                          builder: (_) => Dialog(
+                                            backgroundColor: Colors.transparent,
+                                            child: Container(
+                                              width: 350,
+                                              padding: const EdgeInsets.all(24),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: appThemestate.appTheme.isDark
+                                                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                                                    : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.3),
+                                                    blurRadius: 20,
+                                                    offset: const Offset(0, 10),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: StreamBuilder<double>(
+                                                stream: progressController.stream,
+                                                initialData: 0.0,
+                                                builder: (context, snapshot) {
+                                                  final progress = snapshot.data ?? 0.0;
+                                                  return Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.all(16),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xff5090c8).withValues(alpha: 0.1),
+                                                          borderRadius: BorderRadius.circular(50),
+                                                        ),
+                                                        child: const Icon(
+                                                          Icons.file_download_outlined,
+                                                          color: Color(0xff5090c8),
+                                                          size: 32,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 20),
+                                                      Text(
+                                                        "Cloning repository...",
+                                                        style: TextStyle(
+                                                          color: appThemestate.appTheme.selectScreenCardTextColor,
+                                                          fontSize: 18,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        "This may take a few minutes",
+                                                        style: TextStyle(
+                                                          color: Colors.grey[600],
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 24),
+                                                      LinearPercentIndicator(
+                                                        percent: progress,
+                                                        progressColor: const Color(0xff5090c8),
+                                                        backgroundColor: appThemestate.appTheme.isDark
+                                                          ? Colors.white.withValues(alpha: 0.1)
+                                                          : Colors.black.withValues(alpha: 0.1),
+                                                        barRadius: const Radius.circular(20),
+                                                        lineHeight: 8,
+                                                        trailing: Padding(
+                                                          padding: const EdgeInsets.only(left: 10),
+                                                          child: Text(
+                                                            "${(progress * 100).toStringAsFixed(1)}%",
+                                                            style: TextStyle(
+                                                              color: appThemestate.appTheme.selectScreenCardTextColor,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
+                                              ),
                                             ),
                                           ),
-                                        ))
-                                      );
-                                    }
-                                  );
-                                  if(context.mounted) {
-                                    Navigator.of(context).push(
-                                      PageRouteBuilder(
-                                        pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: Directory("$projectDir/$repoName")),
-                                        transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                          return SizeTransition(sizeFactor: animation,child: child);
-                                        }
-                                      )
-                                    );
-                                  }
-                                } catch (e) {
-                                  debugPrint(e.toString());
-                                  if(context.mounted){
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => AlertDialog(
-                                        icon: Icon(Icons.info_outline),
-                                        backgroundColor: appThemestate.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                        iconColor: Colors.red,
-                                        title: Text("Failed to clone the repo."),
-                                        actions: [
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
-                                            child: const Text("OK")
-                                          )
-                                        ],
-                                      )
-                                    );
-                                  }
-                                }
-                              },
-                              child: const Text("Clone", style: TextStyle(color: Color(0xff5090c8)))
-                            )
-                          ],
-                      );
+                                        );
+
+                                        progressController.add(0.0);
+
+                                        await _performClone(projectDir, repoUrl, repoName, context, progressController);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xff5090c8),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        elevation: 2,
+                                      ),
+                                      child: const Text(
+                                        "Clone",
+                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       }
                     );
                   },
@@ -489,7 +941,7 @@ class _SelectTypeState extends State<SelectType> {
                                 children: [
                                   Icon(FontAwesomeIcons.folderTree,color: appThemestate.appTheme.selectScreenCardTextColor),
                                   const SizedBox(width: 12.5),
-                                  Text("New Project",style: TextStyle(fontSize: 16.5,color: appThemestate.appTheme.selectScreenCardTextColor)),
+                                  Text("Projects",style: TextStyle(fontSize: 16.5,color: appThemestate.appTheme.selectScreenCardTextColor)),
                                 ],
                               ),
                             ),
