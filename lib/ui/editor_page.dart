@@ -74,7 +74,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
     final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
-        return FutureBuilder(
+    return FutureBuilder(
       future: Future.wait([
         widget.filePath == null
         ? setTempFile(widget.languageDetails.extension[0])
@@ -111,15 +111,104 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
       )
       ]),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final initialController = CodeForgeController(
-          lspConfig: snapshot.data?[2] as LspConfig?
-        );
-        final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
-        final initalUndoController = UndoRedoController();
-        final target = snapshot.data![0] as File;
+        if (snapshot.hasError) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to initialize editor',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                snapshot.error.toString(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Check if data exists and is valid
+  if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'No data received',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Safely extract data with null checks
+  final target = snapshot.data![0] as File?;
+  final lspConfig = snapshot.data!.length > 2 ? snapshot.data![2] as LspConfig? : null;
+  
+  // Verify target file is valid
+  if (target == null || !target.existsSync()) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to create or access file',
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              target?.path ?? 'Unknown path',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  final initialController = CodeForgeController(
+    lspConfig: lspConfig
+  );
+  final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
+  final initalUndoController = UndoRedoController();
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => StackBloc()),

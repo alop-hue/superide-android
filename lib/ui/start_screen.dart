@@ -101,6 +101,7 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/sh'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-https'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-http'},
+      {'src': '$sharedPath/libccls.so', 'dst': '$binDir/ccls'},
       ...loaderTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
       ...javaTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
     ];

@@ -72,32 +72,29 @@ Future<Directory> setupTempDir() async {
 
 Future<File> setTempFile(String extension) async {
   final dir = await setupTempDir();
+  
   File target;
-  if (dir.existsSync()) {
-    if(extension == 'html'){
-      target = File('${dir.path}/index.html');  
-    }
-    else if(extension == 'css'){
-      target = File('${dir.path}/style.css');  
-    }
-    else if(extension == 'js'){
-      target = File('${dir.path}/script.js');  
-    }
-    else{
-      target = File('${dir.path}/tempCode.$extension');
-    }
-    if (!target.existsSync() || (target.existsSync() && target.readAsStringSync().isEmpty)) {
-      await target.create(recursive: true);
-      await target.writeAsString(
-        languages.firstWhere(
-          (lang)=> lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
-          orElse: () =>languages[0]
-        ).helloWorld
-      );
-      return target;
-    }
+  if (extension == 'html') {
+    target = File('${dir.path}/index.html');  
+  } else if (extension == 'css') {
+    target = File('${dir.path}/style.css');  
+  } else if (extension == 'js') {
+    target = File('${dir.path}/script.js');  
+  } else {
+    target = File('${dir.path}/tempCode.$extension');
   }
-  throw PathNotFoundException(dir.path, OSError("Failed to create the `Templates` directory."));
+  
+  if (!target.existsSync() || target.readAsStringSync().isEmpty) {
+    await target.create(recursive: true);
+    await target.writeAsString(
+      languages.firstWhere(
+        (lang) => lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
+        orElse: () => languages[0]
+      ).helloWorld
+    );
+  }
+  
+  return target;
 }
 
 Map<String, String> gitEnvs(String sharedPath) => {
@@ -758,9 +755,9 @@ class CommitNode {
   final String author;
   final String message;
   int lane;
-  int? childLane; // Lane of the child that points to this commit
-  bool isMerge; // Has multiple parents
-  bool isBranchStart; // First commit on a new branch
+  int? childLane;
+  bool isMerge;
+  bool isBranchStart;
 
   CommitNode({
     required this.hash,
@@ -774,12 +771,11 @@ class CommitNode {
   });
 }
 
-/// Represents a connection line in the git graph
 class GraphLine {
   final int fromLane;
   final int toLane;
   final int colorIndex;
-  final bool isPassThrough; // Line just passes through this row
+  final bool isPassThrough;
   
   GraphLine({
     required this.fromLane,
@@ -789,7 +785,6 @@ class GraphLine {
   });
 }
 
-/// Stores lane information for each commit row
 class CommitRowInfo {
   final CommitNode commit;
   final List<GraphLine> lines;
@@ -804,29 +799,21 @@ class CommitRowInfo {
   });
 }
 
-/// VSCode-style lane assignment that properly handles merges and branches
-/// This does a two-pass approach:
-/// 1. First pass: Scan forward to find where each commit appears (to know branch origins)
-/// 2. Second pass: Build the graph with proper lane assignments
 List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
   if (commits.isEmpty) return [];
   
   final List<CommitRowInfo> rowInfos = [];
   
-  // Build a map of hash -> index for quick lookup
   final Map<String, int> hashToIndex = {};
   for (int i = 0; i < commits.length; i++) {
     hashToIndex[commits[i].hash] = i;
   }
   
-  // Track active lanes: lane -> (expectedHash, colorIndex, originIndex)
-  // originIndex is where this lane started (for drawing pass-through from top)
   final Map<int, (String, int)> activeLanes = {};
   final Map<String, int> hashToLane = {};
   final Map<String, int> hashToColor = {};
   int nextColorIndex = 0;
   
-  // Find the next available lane (smallest non-negative integer not in use)
   int findAvailableLane(int preferredLane) {
     if (!activeLanes.containsKey(preferredLane)) {
       return preferredLane;
@@ -846,7 +833,6 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
     int commitLane;
     int colorIndex;
     
-    // Check if any active lane is expecting this commit
     int? expectedLane;
     int? expectedColor;
     for (final entry in activeLanes.entries) {
@@ -858,13 +844,10 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
     }
     
     if (expectedLane != null) {
-      // This commit was expected - it's continuing a branch or is a merge target
       commitLane = expectedLane;
       colorIndex = expectedColor!;
-      // Remove from active since we've reached it
       activeLanes.remove(expectedLane);
     } else {
-      // New branch starting (first commit or branch head not yet seen)
       commitLane = findAvailableLane(0);
       colorIndex = nextColorIndex++;
       commit.isBranchStart = i > 0;
@@ -874,7 +857,6 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
     hashToLane[commit.hash] = commitLane;
     hashToColor[commit.hash] = colorIndex;
     
-    // Draw pass-through lines for all OTHER active lanes
     for (final entry in activeLanes.entries) {
       lines.add(GraphLine(
         fromLane: entry.key,
@@ -884,11 +866,8 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
       ));
     }
     
-    // Process parents and add connecting lines
     for (int p = 0; p < commit.parents.length; p++) {
       final parentHash = commit.parents[p];
-      
-      // Check if this parent is already being tracked in a lane
       int? existingParentLane;
       int? existingParentColor;
       for (final entry in activeLanes.entries) {
@@ -903,10 +882,8 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
       int parentColor;
       
       if (existingParentLane != null) {
-        // Parent is already tracked - draw merge line to that lane
         parentLane = existingParentLane;
         parentColor = existingParentColor!;
-        // Draw connecting line from commit to existing parent lane
         lines.add(GraphLine(
           fromLane: commitLane,
           toLane: parentLane,
@@ -914,20 +891,16 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
         ));
       } else {
         if (p == 0) {
-          // First parent continues on the same lane
           parentLane = commitLane;
           parentColor = colorIndex;
         } else {
-          // Additional parent (merge) - assign a new lane
           parentLane = findAvailableLane(commitLane + 1);
           parentColor = nextColorIndex++;
         }
         
-        // Add this parent to active lanes
         activeLanes[parentLane] = (parentHash, parentColor);
         hashToColor[parentHash] = parentColor;
         
-        // Draw connecting line
         lines.add(GraphLine(
           fromLane: commitLane,
           toLane: parentLane,

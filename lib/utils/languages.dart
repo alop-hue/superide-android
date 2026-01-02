@@ -126,7 +126,7 @@ final langc = Language(
   command: 'clang',
   icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
   type: 'compiled',
-  // lspExecutable: "/data/data/com.vsdroid/bin/clangd",
+  lspExecutable: "/data/data/com.vsdroid/bin/ccls",
 );
 final langcpp = Language(
   name: 'C++',
@@ -137,7 +137,7 @@ final langcpp = Language(
   command: 'clang++',
   icon: SvgPicture.asset('assets/material_icons/cpp.svg',height: 35,width: 35),
   type: 'compiled',
-  // lspExecutable: "/data/data/com.vsdroid/bin/clangd",
+  lspExecutable: "/data/data/com.vsdroid/bin/ccls",
 );
 final langdart = Language(
   name: 'Dart',
@@ -631,7 +631,7 @@ final nodeRunTime = RunTime(
 
 final clangRunTime = RunTime(
   name: "Clang",
-  details: "The clang compiler for C/C++.",
+  details: "The clang compiler for C/C++. CCLS Language server is included with this bundle",
   version: "20.1.7",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
   archiveName: "clang.zip",
