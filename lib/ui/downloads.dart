@@ -1,22 +1,13 @@
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:ui';
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
+import 'package:flutter_file_downloader/flutter_file_downloader.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
+import '../utils/constants.dart';
+import '../utils/functions.dart';
 import '../utils/languages.dart';
-
-@pragma('vm:entry-point')
-void downloadCallback(String id, int status, int progress) {
-  final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
-  send?.send([id, status, progress]);
-}
 
 class DownloadManager extends StatefulWidget {
   const DownloadManager({super.key});
@@ -26,54 +17,120 @@ class DownloadManager extends StatefulWidget {
 }
 
 class _DownloadManagerState extends State<DownloadManager> {
-  StreamSubscription<dynamic>? _portSubscription;
-  final Map<String, String> archiveNameMap = {};
-  final Map<int, String> taskIdMap = {};
   final Set<int> loadingIndexes = {};
-  final Set<String> loadingTaskIds = {};
   late final AppThemeState appThemeState;
+  bool _isOnDownloadPage = true;
 
   @override
   void initState() {
-    FlutterDownloader.registerCallback(downloadCallback);
     appThemeState = context.read<AppThemeBloc>().state;
-    final stream = context.read<DownloadPortBloc>().downloadStream;
-    _portSubscription = stream.listen((data) async {
-      final id = data[0] as String;
-      final progress = data[2] as int;
-      final status = DownloadTaskStatus.fromInt(data[1]);
-      if (status.name == 'complete' && mounted) {
-        final archiveName = archiveNameMap[id];
-        final isExtension = extensions.any((ext) => ext.archiveName == archiveName);
-        final extractDir = isExtension ? extensionDir : runtimesDir;
-        final archivePath = isExtension
-            ? "$extensionDir/$archiveName"
-            : "$runtimesDir/$archiveName";
-        await Extractor.extractZip(
-          context,
-          archivePath,
-          extractDir,
-          archiveName: archiveName,
-        );
-        await File(archivePath).delete(recursive: true);
-      }
-      setState(() {
-        loadingTaskIds.remove(id);
-      });
-      if (mounted) {
-        final bloc = context.read<DownloadProgressBloc>();
-        final current = Map<String, double>.from(bloc.state.downloadProgress ?? {});
-        current[id] = progress.toDouble();
-        bloc.add(DownloadProgressEvent(current));
-      }
-    });
+    _isOnDownloadPage = true;
     super.initState();
   }
 
   @override
   void dispose() {
-    _portSubscription?.cancel();
+    _isOnDownloadPage = false;
     super.dispose();
+  }
+
+  void _startDownload(BuildContext context, int index, String url, String archiveName, String targetDir, bool isExtension) {
+    final downloadBloc = context.read<DownloadManagerBloc>();
+    
+    setState(() {
+      loadingIndexes.add(index);
+    });
+
+    final archivePath = "$targetDir/$archiveName";
+    final extractDir = isExtension ? extensionDir : runtimesDir;
+
+    FileDownloader.downloadFile(
+      url: url,
+      name: archiveName,
+      downloadDestination: DownloadDestinations.appFiles,
+      notificationType: NotificationType.all,
+      onProgress: (fileName, progress) {
+        downloadBloc.updateProgress(index, progress);
+        
+        if (mounted && _isOnDownloadPage) {
+          setState(() {
+            loadingIndexes.remove(index);
+          });
+        } else if (mounted && !_isOnDownloadPage) {
+          
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: const Duration(seconds: 1),
+              content: Row(
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Downloading... ${(progress).toStringAsFixed(0)}%'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        
+        if (progress >= 100.0 && !downloadBloc.state.isExtracting(index) && !downloadBloc.state.isFullyCompleted(index)) {
+          _startExtraction(downloadBloc, index, archivePath, extractDir, archiveName);
+        }
+      },
+      onDownloadCompleted: (path) async {
+        
+        
+        if (mounted && _isOnDownloadPage) {
+          setState(() {});
+        }
+      },
+      onDownloadError: (error) {
+        downloadBloc.clearProgress(index);
+        
+        if (mounted) {
+          setState(() {
+            loadingIndexes.remove(index);
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Download failed: $error'))
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _startExtraction(DownloadManagerBloc downloadBloc, int index, String archivePath, String extractDir, String archiveName) async {
+    downloadBloc.startExtracting(index);
+    
+    try {
+      await Extractor.extractZipBackground(
+        archivePath,
+        extractDir,
+        archiveName: archiveName,
+        onProgress: (progress) {
+          downloadBloc.updateExtractionProgress(index, progress);
+        },
+      );
+      
+      
+      final archiveFile = File(archivePath);
+      if (await archiveFile.exists()) {
+        await archiveFile.delete();
+      }
+      
+      downloadBloc.markFullyCompleted(index);
+    } catch (e) {
+      debugPrint('Error during extraction: $e');
+      downloadBloc.markFullyCompleted(index); 
+    }
   }
 
 
@@ -146,16 +203,67 @@ class _DownloadManagerState extends State<DownloadManager> {
                         trailing: SizedBox(
                           height: 50,
                           width: 100,
-                          child: BlocBuilder<DownloadProgressBloc, DownloadProgressState>(
+                          child: BlocBuilder<DownloadManagerBloc, DownloadManagerState>(
                             builder: (context, downloadState) {
-                              double? percent = downloadState.downloadProgress?[taskIdMap[index]] ?? 0;
+                              final percent = downloadState.downloadProgress[index] ?? 0;
                               final File archiveFile = File("$runtimesDir/${runtimes[index].archiveName}");
                               final Directory parentDir = Directory("$runtimesDir/${runtimes[index].parentName}");
-                              if((
-                                percent / 100).clamp(0.0, 1.0) == 1.0 ||
-                                (archiveFile.existsSync() && ((archiveFile.lengthSync() / (1024 * 1024)).toInt() == (runtimes[index].archiveSize).toInt())) ||
-                                parentDir.existsSync()
-                              ){
+                              
+                              
+                              final isExtracting = downloadState.isExtracting(index);
+                              final extractionPercent = downloadState.extractionProgress[index] ?? 0;
+                              
+                              
+                              if (isExtracting) {
+                                if (extractionPercent > 0.0 && extractionPercent < 100.0) {
+                                  return LinearPercentIndicator(
+                                    progressColor: Colors.greenAccent.withAlpha(180),
+                                    percent: (extractionPercent / 100).clamp(0.0, 1.0),
+                                    width: 95,
+                                    lineHeight: 40,
+                                    barRadius: Radius.circular(20),
+                                    center: Text("${(extractionPercent).toStringAsFixed(0)}%",
+                                      style: const TextStyle(fontSize: 12)),
+                                  );
+                                } else {
+                                  
+                                  return LinearPercentIndicator(
+                                    progressColor: Colors.greenAccent.withAlpha(180),
+                                    percent: 0.0,
+                                    width: 95,
+                                    lineHeight: 40,
+                                    barRadius: Radius.circular(20),
+                                    center: const SizedBox(
+                                      height: 25,
+                                      width: 25,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                              
+                              
+                              final zipExistsButNotExtracted = archiveFile.existsSync() && !parentDir.existsSync();
+                              if (zipExistsButNotExtracted && !isExtracting) {
+                                
+                                return LinearPercentIndicator(
+                                  progressColor: Colors.orangeAccent.withAlpha(180),
+                                  percent: 0.0,
+                                  width: 95,
+                                  lineHeight: 40,
+                                  barRadius: Radius.circular(20),
+                                  center: const SizedBox(
+                                    height: 25,
+                                    width: 25,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                );
+                              }
+                              
+                              
+                              final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(index);
+                              
+                              if (isFullyInstalled) {
                                 return IconButton(
                                   onPressed: (){
                                     showDialog(
@@ -189,15 +297,10 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               if(parentDir.existsSync()){
                                                 parentDir.deleteSync(recursive: true);
                                               }
+                                              context.read<DownloadManagerBloc>().removeDownload(index);
                                               setState(() {
-                                                final taskId = taskIdMap[index];
-                                                if (taskId != null) {
-                                                  loadingTaskIds.remove(taskId);
-                                                  taskIdMap.remove(index);
-                                                }
                                                 loadingIndexes.remove(index);
                                               });
-                                              context.read<DownloadProgressBloc>().add(DownloadProgressEvent(null));
                                               Navigator.of(context).pop(true);
                                             },
                                             style: ButtonStyle(
@@ -212,7 +315,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   icon: Icon(Icons.delete, color: Colors.red)
                                 );
                               }
-                              final taskId = taskIdMap[index];
+                              
+                              
                               if (percent > 0.0 && percent < 100.0) {
                                 return LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
@@ -223,7 +327,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   center: Text("${(percent).toStringAsFixed(0)}%"),
                                 );
                               }
-                              if (loadingIndexes.contains(index) || (taskId != null && loadingTaskIds.contains(taskId) && percent == 0.0)) {
+                              
+                              if (loadingIndexes.contains(index)) {
                                 return LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
                                   percent: 0.0,
@@ -237,29 +342,22 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   ),
                                 );
                               }
+                              
                               return GestureDetector(
-                                onTap: () async{
-                                  setState(() {
-                                    loadingIndexes.add(index);
-                                  });
-                                  final dir = runtimesDir;
-                                  if(!(await Directory(dir).exists())){
-                                    await Directory(dir).create(recursive: true);
+                                onTap: () async {
+                                  if (!(await Directory(downloadsDir).exists())) {
+                                    await Directory(downloadsDir).create(recursive: true);
                                   }
-                                  final String? taskId = await FlutterDownloader.enqueue(
-                                    url: runtimes[index].url,
-                                    savedDir: dir,
-                                    saveInPublicStorage: false,
-                                    showNotification: true,
-                                    openFileFromNotification: false,
+                                  
+                                  if (!context.mounted) return;
+                                  _startDownload(
+                                    context,
+                                    index,
+                                    runtimes[index].url,
+                                    runtimes[index].archiveName,
+                                    downloadsDir,
+                                    false, 
                                   );
-                                  if(taskId != null){
-                                    setState(() {
-                                      taskIdMap[index] = taskId;
-                                      loadingTaskIds.add(taskId);
-                                    });
-                                    archiveNameMap[taskId] = runtimes[index].archiveName;
-                                  }
                                 },
                                 child: LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
@@ -317,14 +415,67 @@ class _DownloadManagerState extends State<DownloadManager> {
                         trailing: SizedBox(
                           height: 50,
                           width: 100,
-                          child: BlocBuilder<DownloadProgressBloc, DownloadProgressState>(
+                          child: BlocBuilder<DownloadManagerBloc, DownloadManagerState>(
                             builder: (context, downloadState) {
-                              double? percent = downloadState.downloadProgress?[taskIdMap[index]] ?? 0;
+                              final percent = downloadState.downloadProgress[index] ?? 0;
                               final File archiveFile = File("$extensionDir/${extensions[index].archiveName}");
                               final Directory parentDir = Directory("$extensionDir/${extensions[index].parentName}");
-                              if ((percent / 100).clamp(0.0, 1.0) == 1.0 ||
-                                  (archiveFile.existsSync() && ((archiveFile.lengthSync() / (1024 * 1024)).toInt() == (exten.archiveSize).toInt())) ||
-                                  parentDir.existsSync()) {
+                              
+                              
+                              final isExtracting = downloadState.isExtracting(index);
+                              final extractionPercent = downloadState.extractionProgress[index] ?? 0;
+                              
+                              
+                              if (isExtracting) {
+                                if (extractionPercent > 0.0 && extractionPercent < 100.0) {
+                                  return LinearPercentIndicator(
+                                    progressColor: Colors.greenAccent.withAlpha(180),
+                                    percent: (extractionPercent / 100).clamp(0.0, 1.0),
+                                    width: 95,
+                                    lineHeight: 40,
+                                    barRadius: Radius.circular(20),
+                                    center: Text("${(extractionPercent).toStringAsFixed(0)}%",
+                                      style: const TextStyle(fontSize: 12)),
+                                  );
+                                } else {
+                                  
+                                  return LinearPercentIndicator(
+                                    progressColor: Colors.greenAccent.withAlpha(180),
+                                    percent: 0.0,
+                                    width: 95,
+                                    lineHeight: 40,
+                                    barRadius: Radius.circular(20),
+                                    center: const SizedBox(
+                                      height: 25,
+                                      width: 25,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                              
+                              
+                              final zipExistsButNotExtracted = archiveFile.existsSync() && !parentDir.existsSync();
+                              if (zipExistsButNotExtracted && !isExtracting) {
+                                
+                                return LinearPercentIndicator(
+                                  progressColor: Colors.orangeAccent.withAlpha(180),
+                                  percent: 0.0,
+                                  width: 95,
+                                  lineHeight: 40,
+                                  barRadius: Radius.circular(20),
+                                  center: const SizedBox(
+                                    height: 25,
+                                    width: 25,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                );
+                              }
+                              
+                              
+                              final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(index);
+                              
+                              if (isFullyInstalled) {
                                 return IconButton(
                                   onPressed: () {
                                     showDialog(
@@ -358,15 +509,10 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               if (parentDir.existsSync()) {
                                                 parentDir.deleteSync(recursive: true);
                                               }
+                                              context.read<DownloadManagerBloc>().removeDownload(index);
                                               setState(() {
-                                                final taskId = taskIdMap[index];
-                                                if (taskId != null) {
-                                                  loadingTaskIds.remove(taskId);
-                                                  taskIdMap.remove(index);
-                                                }
                                                 loadingIndexes.remove(index);
                                               });
-                                              context.read<DownloadProgressBloc>().add(DownloadProgressEvent(null));
                                               Navigator.of(context).pop(true);
                                             },
                                             style: ButtonStyle(
@@ -381,7 +527,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   icon: Icon(Icons.delete, color: Colors.red),
                                 );
                               }
-                              final taskId = taskIdMap[index];
+                              
+                              
                               if (percent > 0.0 && percent < 100.0) {
                                 return LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
@@ -392,7 +539,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   center: Text("${(percent).toStringAsFixed(0)}%"),
                                 );
                               }
-                              if (loadingIndexes.contains(index) || (taskId != null && loadingTaskIds.contains(taskId) && percent == 0.0)) {
+                              
+                              if (loadingIndexes.contains(index)) {
                                 return LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
                                   percent: 0.0,
@@ -406,29 +554,22 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   ),
                                 );
                               }
+                              
                               return GestureDetector(
                                 onTap: () async {
-                                  setState(() {
-                                    loadingIndexes.add(index);
-                                  });
-                                  final dir = extensionDir;
-                                  if (!(await Directory(dir).exists())) {
-                                    await Directory(dir).create(recursive: true);
+                                  if (!(await Directory(downloadsDir).exists())) {
+                                    await Directory(downloadsDir).create(recursive: true);
                                   }
-                                  final String? taskId = await FlutterDownloader.enqueue(
-                                    url: extensions[index].url,
-                                    savedDir: dir,
-                                    saveInPublicStorage: false,
-                                    showNotification: true,
-                                    openFileFromNotification: false,
+                                  
+                                  if (!context.mounted) return;
+                                  _startDownload(
+                                    context,
+                                    index,
+                                    extensions[index].url,
+                                    extensions[index].archiveName,
+                                    downloadsDir,
+                                    true, 
                                   );
-                                  if (taskId != null) {
-                                    setState(() {
-                                      taskIdMap[index] = taskId;
-                                      loadingTaskIds.add(taskId);
-                                    });
-                                    archiveNameMap[taskId] = extensions[index].archiveName;
-                                  }
                                 },
                                 child: LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),

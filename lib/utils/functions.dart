@@ -654,6 +654,26 @@ class Extractor {
       debugPrint('Extraction error: $e');
     }
   }
+
+  static Future<void> extractZipBackground(
+    String inputPath,
+    String outputDir, {
+    String? archiveName,
+    Function(double)? onProgress,
+  }) async {
+    try {
+      await ZipFile.extractToDirectory(
+        zipFile: File(inputPath),
+        destinationDir: Directory(outputDir),
+        onExtracting: (entry, rawProgress) {
+          onProgress?.call(rawProgress);
+          return ZipFileOperation.includeItem;
+        },
+      );
+    } catch (e) {
+      debugPrint('Extraction error for $archiveName: $e');
+    }
+  }
 }
 
 class NativeChannel {

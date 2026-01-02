@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
 import 'bloc/ui_bloc/ui_bloc.dart';
 import '../ui/start_screen.dart';
 import '../utils/functions.dart';
@@ -9,7 +8,6 @@ import '../utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterDownloader.initialize();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
   final codeForgeConfig = await getCodeForgeConfig();
@@ -50,8 +48,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => AppThemeBloc(appTheme: themeMap[appTheme]!)),
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
-        BlocProvider(create: (_) => DownloadProgressBloc()),
-          BlocProvider(create: (_) => DownloadPortBloc()),
+        BlocProvider(create: (_) => DownloadManagerBloc()),
         BlocProvider(create: (_) => GeneralBloc(
           {
             "autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool,

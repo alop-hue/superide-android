@@ -54,7 +54,7 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   Future<void> _initializeApp() async {
-    final runTimedir = Directory(runtimesDir);
+    final downdir = Directory(downloadsDir);
     final gitCore = "$binDir/git-core";
     final binDirectory = Directory(binDir);
     final libDirectory = Directory(libDir);
@@ -72,8 +72,8 @@ class _StartScreenState extends State<StartScreen> {
       await gitCoreDir.create(recursive: true);
     }
 
-    if (await runTimedir.exists()) {
-      for (final file in runTimedir.listSync()) {
+    if (await downdir.exists()) {
+      for (final file in downdir.listSync()) {
         if (file is File && file.path.endsWith('.zip')) {
           await file.delete();
         }

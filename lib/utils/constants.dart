@@ -1,5 +1,6 @@
 const binDir = "/data/data/com.vsdroid/bin";
 const libDir = "/data/data/com.vsdroid/lib";
+const downloadsDir = "/storage/emulated/0/Android/data/com.vsdroid/files/data/user/0/com.vsdroid/files";
 const certDir = "/data/data/com.vsdroid/certs";
 const runtimesDir = "/data/data/com.vsdroid/runtimes";
 const projectDir = "/data/data/com.vsdroid/VSdroid/Projects";

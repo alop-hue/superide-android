@@ -190,3 +190,48 @@ class GitCommitState {
 
   GitCommitState({required this.commitMessage});
 }
+
+class DownloadManagerState {
+  final Map<int, double> downloadProgress;
+  final Map<int, double> extractionProgress;
+  final Set<int> extractingItems; // Items currently being extracted
+  final Set<int> fullyCompleted; // Items with extraction complete
+
+  DownloadManagerState({
+    required this.downloadProgress,
+    required this.extractionProgress,
+    required this.extractingItems,
+    required this.fullyCompleted,
+  });
+
+  DownloadManagerState copyWith({
+    Map<int, double>? downloadProgress,
+    Map<int, double>? extractionProgress,
+    Set<int>? extractingItems,
+    Set<int>? fullyCompleted,
+  }) {
+    return DownloadManagerState(
+      downloadProgress: downloadProgress ?? this.downloadProgress,
+      extractionProgress: extractionProgress ?? this.extractionProgress,
+      extractingItems: extractingItems ?? this.extractingItems,
+      fullyCompleted: fullyCompleted ?? this.fullyCompleted,
+    );
+  }
+
+  bool isDownloading(int index) {
+    return downloadProgress.containsKey(index) && 
+           (downloadProgress[index] ?? 0) < 100.0;
+  }
+
+  bool isDownloadComplete(int index) {
+    return (downloadProgress[index] ?? 0) >= 100.0;
+  }
+
+  bool isExtracting(int index) {
+    return extractingItems.contains(index);
+  }
+
+  bool isFullyCompleted(int index) {
+    return fullyCompleted.contains(index);
+  }
+}

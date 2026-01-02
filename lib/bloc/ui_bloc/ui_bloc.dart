@@ -182,3 +182,69 @@ class GitCommitBloc extends Bloc<GitCommitEvent, GitCommitState>{
     on<GitCommitEvent>((event, emit) => emit(GitCommitState(commitMessage: event.commitMessage)));
   }
 }
+
+class DownloadManagerBloc extends Cubit<DownloadManagerState> {
+  DownloadManagerBloc() : super(DownloadManagerState(
+    downloadProgress: {}, 
+    extractionProgress: {},
+    extractingItems: {},
+    fullyCompleted: {}
+  ));
+
+  void updateProgress(int index, double progress) {
+    final newProgress = Map<int, double>.from(state.downloadProgress);
+    newProgress[index] = progress;
+    emit(state.copyWith(downloadProgress: newProgress));
+  }
+
+  void updateExtractionProgress(int index, double progress) {
+    final newProgress = Map<int, double>.from(state.extractionProgress);
+    newProgress[index] = progress;
+    emit(state.copyWith(extractionProgress: newProgress));
+  }
+
+  void startExtracting(int index) {
+    final newExtracting = Set<int>.from(state.extractingItems);
+    newExtracting.add(index);
+    emit(state.copyWith(extractingItems: newExtracting));
+  }
+
+  void markFullyCompleted(int index) {
+    final newExtracting = Set<int>.from(state.extractingItems);
+    final newFullyCompleted = Set<int>.from(state.fullyCompleted);
+    newExtracting.remove(index);
+    newFullyCompleted.add(index);
+    emit(state.copyWith(
+      extractingItems: newExtracting,
+      fullyCompleted: newFullyCompleted
+    ));
+  }
+
+  void removeDownload(int index) {
+    final newProgress = Map<int, double>.from(state.downloadProgress);
+    final newExtractionProgress = Map<int, double>.from(state.extractionProgress);
+    final newExtracting = Set<int>.from(state.extractingItems);
+    final newFullyCompleted = Set<int>.from(state.fullyCompleted);
+    newProgress.remove(index);
+    newExtractionProgress.remove(index);
+    newExtracting.remove(index);
+    newFullyCompleted.remove(index);
+    emit(state.copyWith(
+      downloadProgress: newProgress, 
+      extractionProgress: newExtractionProgress,
+      extractingItems: newExtracting,
+      fullyCompleted: newFullyCompleted
+    ));
+  }
+
+  void clearProgress(int index) {
+    final newProgress = Map<int, double>.from(state.downloadProgress);
+    final newExtractionProgress = Map<int, double>.from(state.extractionProgress);
+    newProgress.remove(index);
+    newExtractionProgress.remove(index);
+    emit(state.copyWith(
+      downloadProgress: newProgress,
+      extractionProgress: newExtractionProgress
+    ));
+  }
+}

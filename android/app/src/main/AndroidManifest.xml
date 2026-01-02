@@ -14,12 +14,6 @@
         android:enableOnBackInvokedCallback="true"
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="true">
-        <service
-            android:name="vn.hunghd.flutterdownloader.DownloadWorker"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-        />
         <activity
             android:name=".MainActivity"
             android:exported="true"

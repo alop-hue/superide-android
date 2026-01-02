@@ -635,7 +635,7 @@ final clangRunTime = RunTime(
   version: "20.1.7",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
   archiveName: "clang.zip",
-  archiveSize: 89,
+  archiveSize: 86,
   parentName: "clang",
   icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
 );
