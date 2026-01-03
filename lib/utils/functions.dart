@@ -566,7 +566,7 @@ Future<LspConfig?> startLspServer({
           ...environment ?? {},
           'VSDROID_SHARED_PATH': sharedPath,
           'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
-          'JAVA_HOME': '$runtimeDir/java-17-openjdk',
+          'JAVA_HOME': '$runtimeDir/java-21-openjdk',
         },
         workspacePath: workspacePath,
         languageId: langId,

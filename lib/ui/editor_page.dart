@@ -795,7 +795,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.kt':
-                              final String compileCommand = 'echo "Compiling..." && kotlinc ${filePath.path} -d ${tempDir.path}';
+                              final String compileCommand = 'kotlinc ${filePath.path} -d ${tempDir.path}';
                               final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;

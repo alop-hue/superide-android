@@ -31,6 +31,7 @@ const List<String> javaTools = [
   'jstack',
   'jstat',
   'jstatd',
+  'jwebserver',
   'keytool',
   'rmiregistry',
   'serialver'
@@ -154,12 +155,6 @@ class _StartScreenState extends State<StartScreen> {
       libDirectory.createSync(recursive: true);
       final bytes = await rootBundle.load('assets/lib/libz.so.1');
       File('$libDir/libz.so.1').writeAsBytesSync(bytes.buffer.asUint8List());
-    }
-    
-    if (!File('$libDir/libpcre2-8.so').existsSync()) {
-      libDirectory.createSync(recursive: true);
-      final bytes = await rootBundle.load('assets/lib/libpcre2-8.so');
-      File('$libDir/libpcre2-8.so').writeAsBytesSync(bytes.buffer.asUint8List());
     }
 
     setState(() {

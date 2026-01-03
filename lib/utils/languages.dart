@@ -632,7 +632,7 @@ final nodeRunTime = RunTime(
 final clangRunTime = RunTime(
   name: "Clang",
   details: "The clang compiler for C/C++. CCLS Language server is included with this bundle",
-  version: "20.1.7",
+  version: "21.1.8",
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
   archiveName: "clang.zip",
   archiveSize: 86,
@@ -643,11 +643,11 @@ final clangRunTime = RunTime(
 final java17RunTime = RunTime(
   name: "OpenJDK",
   details: "The Java Virtual Machine.",
-  version: "17",
-  archiveSize: 121,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/java-17-openjdk.zip",
-  archiveName: "java-17-openjdk.zip",
-  parentName: "java-17-openjdk",
+  version: "21",
+  archiveSize: 135,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/java-21-openjdk.zip",
+  archiveName: "java-21-openjdk.zip",
+  parentName: "java-21-openjdk",
   icon: SvgPicture.asset('assets/icons/Java.svg',height: 35, width: 35)
 );
 
