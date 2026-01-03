@@ -10,7 +10,7 @@ import '../utils/themes.dart';
 class MdView extends StatelessWidget {
   final String data;
   final AppTheme appTheme;
-  final ThemeState theme;
+  final ConfigState theme;
   const MdView({
     super.key,
     required this.data,

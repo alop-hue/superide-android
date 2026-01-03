@@ -17,13 +17,13 @@ class StackBloc extends Bloc<StackIndexChange, StackState> {
   }
 }
 
-class ThemeBloc extends Bloc<UiEvent, ThemeState>{
+class ConfigBloc extends Bloc<UiEvent, ConfigState>{
   final Map<String, dynamic> codeForgeConfig;
-  ThemeBloc({
+  ConfigBloc({
     required this.codeForgeConfig
   })
     :super(
-      ThemeState(
+      ConfigState(
         fontSize: 15,
         codeForgeConfig: codeForgeConfig
       )

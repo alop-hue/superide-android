@@ -443,11 +443,31 @@ Future<String> getAppTheme() async{
   return savedAppTheme ?? "dark";
 }
 
-Future<String> getCodeForgeConfig() async{
+Future<String> getCodeForgeConfig() async {
   final prefs = await SharedPreferences.getInstance();
-  final config = prefs.getString('CodeForgeConfig');
-  return config ?? 
-    '{"indentLineStatus":true, "lineWrap":false, "enableFolding":true, "theme":"vs2015", "fontFamily": "jetBrainsMono", "isAIEnabled" : true, "manualCompletion": true, "autoSave": true}';
+  final defaultConfig = {
+    "indentLineStatus": true,
+    "lineWrap": false,
+    "enableFolding": true,
+    "theme": "vs2015",
+    "fontFamily": "jetBrainsMono",
+    "isAIEnabled": true,
+    "manualCompletion": true,
+    "autoSave": true,
+    "enableLSP": true,
+    "LSPdisabledLangs": [],
+  };
+  final configString = prefs.getString('CodeForgeConfig');
+  if (configString == null) {
+    return jsonEncode(defaultConfig);
+  }
+  try {
+    final Map<String, dynamic> storedConfig = jsonDecode(configString);
+    final mergedConfig = Map<String, dynamic>.from(defaultConfig)..addAll(storedConfig);
+    return jsonEncode(mergedConfig);
+  } catch (e) {
+    return jsonEncode(defaultConfig);
+  }
 }
 
 Future<String> getAiConfig() async{
@@ -544,7 +564,9 @@ Future<LspConfig?> startLspServer({
               ...args,
             ];
           } else if(ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++'){
-            return null;
+             return [
+               '--init={"clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
+             ];
           }
           else if(ext == 'java'){
             return [

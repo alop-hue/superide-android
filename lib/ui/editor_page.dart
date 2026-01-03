@@ -74,7 +74,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
-    final ThemeBloc uiBloc = BlocProvider.of<ThemeBloc>(context);
+    final ConfigBloc uiBloc = BlocProvider.of<ConfigBloc>(context);
     return FutureBuilder(
       future: Future.wait([
         widget.filePath == null
@@ -103,13 +103,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
           }
           prefs.setString('recent', jsonEncode(uniqueData));
       })(),
-      startLspServer(
+      uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(widget.languageDetails.name.toLowerCase()) ? startLspServer(
         ext: widget.languageDetails.extension[0],
         executable: widget.languageDetails.lspExecutable,
         args: widget.languageDetails.args ?? [],
         workspacePath: widget.rootDir,
         langId: widget.languageDetails.name
-      )
+      ) : Future.value(null)
       ]),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -397,13 +397,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                               (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
                                               orElse: () =>languages[0]
                                             );
-                                            final lspConfig = await startLspServer(
+                                            final lspConfig = uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(lang.name.toLowerCase()) ? await startLspServer(
                                               ext: lang.extension[0],
                                               executable: lang.lspExecutable,
                                               args: lang.args ?? [],
                                               workspacePath: f.parent.path,
                                               langId: lang.name
-                                            );
+                                            ) : null;
                                             currentState.add(
                                               ActiveEditors(
                                                 controller: CodeForgeController(
@@ -808,7 +808,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 pageBuilder: (context, animation, scondaryAnimation) =>MdView(
                                   data: filePath.readAsStringSync(),
                                   appTheme: appTheme,
-                                  theme: context.read<ThemeBloc>().state,
+                                  theme: context.read<ConfigBloc>().state,
                                 ),
                                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                   return SizeTransition(sizeFactor: animation, child: child);

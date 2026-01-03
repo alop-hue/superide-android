@@ -5,18 +5,18 @@ class StackState {
   const StackState({required this.stackIndex});
 }
 
-class ThemeState {
+class ConfigState {
   final double fontSize;
   final Map<String, dynamic> codeForgeConfig;
-  const ThemeState({
+  const ConfigState({
     required this.fontSize,
     required this.codeForgeConfig
   });
-  ThemeState copyWith({
+  ConfigState copyWith({
     double? fontSize,
     Map<String, dynamic>? codeForgeConfig
   }){
-    return ThemeState(
+    return ConfigState(
       fontSize: fontSize ?? this.fontSize,
       codeForgeConfig: codeForgeConfig ?? this.codeForgeConfig
     );

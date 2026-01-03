@@ -296,7 +296,6 @@ final langmarkdown = Language(
   extension: ['md'],
   details: 'A markup language for formatting plain text.',
   language: builtinAllLanguages['markdown'],
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
   args: ["--stdio"],
   icon: SvgPicture.asset('assets/material_icons/markdown.svg',height: 35,width: 35),
   helloWorld: '# Hello, World!',

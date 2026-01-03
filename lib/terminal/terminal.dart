@@ -29,7 +29,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
   @override
   void initState() {
     super.initState();
-    if (!_isInitialized) {
+    if (!_isInitialized && mounted) {
       setupTerminal();
       _isInitialized = true;
     }
@@ -63,13 +63,15 @@ class _SetupTerminalState extends State<SetupTerminal> {
   }
 
   void _startPty(String execPath, Map<String, String> enVars, {List<String> args = const []}) {
-    pty = Pty.start(execPath,
+    pty = Pty.start(
+      execPath,
       workingDirectory: enVars['HOME'],
       environment: enVars,
       rows: terminal.viewHeight,
-      columns: 63,
+      columns: terminal.viewWidth,
       arguments: args,
     );
+
 
     pty.output
       .cast<List<int>>()
@@ -82,6 +84,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
     terminal.onOutput = (data) {
       pty.write(const Utf8Encoder().convert(data));
+    };
+
+    terminal.onResize = (w, h, pw, ph){
+      pty.resize(h, w);
     };
   }
 

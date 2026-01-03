@@ -300,13 +300,13 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
     final codeController = widget.codeController;
     return BlocBuilder<GeneralBloc, GeneralState>(
       builder: (context, generalState) {
-        return BlocBuilder<ThemeBloc, ThemeState>(
-          builder: (context, themeState) {
+        return BlocBuilder<ConfigBloc, ConfigState>(
+          builder: (context, configState) {
             return GestureDetector(
               behavior: HitTestBehavior.translucent,
               onScaleStart: (details) {
                 if (details.pointerCount == 2) {
-                  _initialFontSize = themeState.fontSize;
+                  _initialFontSize = configState.fontSize;
                 }
               },
               onScaleUpdate: (details) {
@@ -314,7 +314,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                   _currentScale = details.scale;
                   double newFontSize = _initialFontSize * _currentScale;
                   newFontSize = newFontSize.clamp(8.0, 48.0);
-                  context.read<ThemeBloc>().add(
+                  context.read<ConfigBloc>().add(
                     SetFontSize(fontSize: newFontSize),
                   );
                 }
@@ -334,16 +334,16 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                           )
                         : null,
                     enableGuideLines:
-                        themeState.codeForgeConfig['indentLineStatus'],
+                        configState.codeForgeConfig['indentLineStatus'],
                     selectionStyle: CodeSelectionStyle(
                       selectionColor: Colors.blueAccent.withAlpha(80),
                       cursorBubbleColor: Colors.blue,
                     ),
                     editorTheme:
-                        highlightThemes[themeState.codeForgeConfig['theme']],
+                        highlightThemes[configState.codeForgeConfig['theme']],
                     textStyle: TextStyle(
-                      fontFamily: themeState.codeForgeConfig['fontFamily'],
-                      fontSize: themeState.fontSize,
+                      fontFamily: configState.codeForgeConfig['fontFamily'],
+                      fontSize: configState.fontSize,
                     ),
                     controller: codeController,
                   );
@@ -519,16 +519,16 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                         appTheme.isDark,
                         Icons.zoom_in,
                         (){
-                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
+                          double currentFontSize = context.read<ConfigBloc>().state.fontSize;
+                          context.read<ConfigBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
                         }
                       ),
                       bottomTool(
                         appTheme.isDark,
                         Icons.zoom_out,
                         (){
-                          double currentFontSize = context.read<ThemeBloc>().state.fontSize;
-                          context.read<ThemeBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
+                          double currentFontSize = context.read<ConfigBloc>().state.fontSize;
+                          context.read<ConfigBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
                         }
                       ),
                       bottomTool(
@@ -3172,7 +3172,7 @@ class _AIChatState extends State<AIChat> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppThemeBloc, AppThemeState>(
-      builder: (context, themeState) {
+      builder: (context, configState) {
         return BlocBuilder<AIBloc, AIState>(
           builder: (context, aiState) {
             final Models? chatModel = aiState.chatModel;
@@ -3185,7 +3185,7 @@ class _AIChatState extends State<AIChat> {
                   "Chat Model is not configured. Go to the settings and create one.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: themeState.appTheme.selectScreenCardTextColor,
+                    color: configState.appTheme.selectScreenCardTextColor,
                   ),
                 ),
               );
@@ -3208,10 +3208,10 @@ class _AIChatState extends State<AIChat> {
                             child: Text(
                               "AI CHAT",
                               style: TextStyle(
-                                fontWeight: themeState.appTheme.isDark
+                                fontWeight: configState.appTheme.isDark
                                     ? FontWeight.w300
                                     : FontWeight.w500,
-                                color: themeState
+                                color: configState
                                     .appTheme
                                     .selectScreenCardTextColor,
                               ),
@@ -3225,7 +3225,7 @@ class _AIChatState extends State<AIChat> {
                               onPressed: () {},
                               icon: Icon(
                                 Icons.attach_file,
-                                color: themeState
+                                color: configState
                                     .appTheme
                                     .selectScreenCardTextColor
                                     .withAlpha(200),
@@ -3235,7 +3235,7 @@ class _AIChatState extends State<AIChat> {
                               onPressed: () {},
                               icon: Icon(
                                 Icons.history,
-                                color: themeState
+                                color: configState
                                     .appTheme
                                     .selectScreenCardTextColor
                                     .withAlpha(200),
@@ -3246,11 +3246,11 @@ class _AIChatState extends State<AIChat> {
                         TextField(
                           controller: _promptController,
                           cursorColor:
-                              themeState.appTheme.selectScreenCardTextColor,
+                              configState.appTheme.selectScreenCardTextColor,
                           textAlignVertical: TextAlignVertical.top,
                           style: TextStyle(
                             color:
-                                themeState.appTheme.selectScreenCardTextColor,
+                                configState.appTheme.selectScreenCardTextColor,
                           ),
                           maxLines: null,
                           decoration: InputDecoration(
@@ -3266,7 +3266,7 @@ class _AIChatState extends State<AIChat> {
                               },
                               icon: Icon(
                                 Icons.send,
-                                color: themeState
+                                color: configState
                                     .appTheme
                                     .selectScreenCardTextColor,
                               ),
@@ -3277,7 +3277,7 @@ class _AIChatState extends State<AIChat> {
                             ),
                             labelText: 'Ask AI',
                             labelStyle: TextStyle(
-                              color: themeState
+                              color: configState
                                   .appTheme
                                   .selectScreenCardTextColor
                                   .withAlpha(150),
@@ -3301,7 +3301,7 @@ class _AIChatState extends State<AIChat> {
                               Text(
                                 path.basename(widget.filePath),
                                 style: TextStyle(
-                                  color: themeState
+                                  color: configState
                                       .appTheme
                                       .selectScreenCardTextColor
                                       .withAlpha(150),
@@ -3314,13 +3314,13 @@ class _AIChatState extends State<AIChat> {
                           child: ListView.builder(
                             itemCount: aiChatState.aiConversation.length,
                             itemBuilder: (context, index) {
-                              final isDark = themeState.appTheme.isDark;
+                              final isDark = configState.appTheme.isDark;
                               final config = isDark
                                   ? MarkdownConfig(
                                       configs: [
                                         PConfig(
                                           textStyle: TextStyle(
-                                            color: themeState
+                                            color: configState
                                                 .appTheme
                                                 .selectScreenCardTextColor,
                                           ),
@@ -3403,7 +3403,7 @@ class _AIChatState extends State<AIChat> {
 
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;
-  final ThemeBloc uiBloc;
+  final ConfigBloc uiBloc;
   const SettingsTab({
     super.key,
     required this.appTheme,
@@ -3430,11 +3430,11 @@ class SettingsTab extends StatelessWidget {
           const SizedBox(height: 15),
           settingsTile(() {
             showDialog(context: context, builder: (context)=>
-            BlocProvider<ThemeBloc>.value(
+            BlocProvider<ConfigBloc>.value(
               value: uiBloc,
-              child: BlocBuilder<ThemeBloc, ThemeState>(
-                builder: (context, themeState) {
-                  final String currentTheme = themeState.codeForgeConfig['theme'];
+              child: BlocBuilder<ConfigBloc, ConfigState>(
+                builder: (context, configState) {
+                  final String currentTheme = configState.codeForgeConfig['theme'];
                   return AlertDialog(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                     insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -3465,11 +3465,11 @@ class SettingsTab extends StatelessWidget {
                                   leading: e==currentTheme? const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
                                   onTap: () async{
                                     final prefs = await SharedPreferences.getInstance();
-                                    final currentState = themeState.codeForgeConfig;
+                                    final currentState = configState.codeForgeConfig;
                                     currentState['theme'] = e;
                                     await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                     if (context.mounted) {
-                                      context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                      context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                                       Navigator.of(context).pop();
                                     }
                                   },
@@ -3493,11 +3493,11 @@ class SettingsTab extends StatelessWidget {
           ),
           settingsTile((){
           showDialog(context: context, builder: (context)=>
-          BlocProvider<ThemeBloc>.value(
+          BlocProvider<ConfigBloc>.value(
             value: uiBloc,
-            child: BlocBuilder<ThemeBloc,ThemeState>(
-              builder: (context, themeState){
-                final String currentFont = themeState.codeForgeConfig['fontFamily'];
+            child: BlocBuilder<ConfigBloc,ConfigState>(
+              builder: (context, configState){
+                final String currentFont = configState.codeForgeConfig['fontFamily'];
                 return AlertDialog(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 15),
                   insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
@@ -3526,12 +3526,12 @@ class SettingsTab extends StatelessWidget {
                               child:
                               ListTile(
                                 onTap: () async{
-                                  final currentState = themeState.codeForgeConfig;
+                                  final currentState = configState.codeForgeConfig;
                                   currentState['fontFamily'] = e;
                                   final prefs = await SharedPreferences.getInstance();
                                   await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                   if (context.mounted) {
-                                    context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                    context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                                     Navigator.of(context).pop();
                                   }
                                 },

@@ -63,13 +63,13 @@ int main() {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ThemeBloc, ThemeState>(
-      builder: (context, themeState) {
-        final theme = themeState.codeForgeConfig['theme'];
-        final fontFamily = themeState.codeForgeConfig['fontFamily'];
-        final isIndentEnabled = themeState.codeForgeConfig['indentLineStatus'];
-        final lineWrap = themeState.codeForgeConfig['lineWrap'];
-        final enableFolding = themeState.codeForgeConfig['enableFolding'];
+    return BlocBuilder<ConfigBloc, ConfigState>(
+      builder: (context, configState) {
+        final theme = configState.codeForgeConfig['theme'];
+        final fontFamily = configState.codeForgeConfig['fontFamily'];
+        final isIndentEnabled = configState.codeForgeConfig['indentLineStatus'];
+        final lineWrap = configState.codeForgeConfig['lineWrap'];
+        final enableFolding = configState.codeForgeConfig['enableFolding'];
         return BlocBuilder<AppThemeBloc, AppThemeState>(
           builder: (context, appThemeState) {
             return Scaffold(
@@ -109,7 +109,7 @@ int main() {
                                 value: generalState.generalSettings['autoSave'] ?? true,
                                 onToggle: (value) async{
                                   final prefs = await SharedPreferences.getInstance();
-                                  final currentState = themeState.codeForgeConfig;
+                                  final currentState = configState.codeForgeConfig;
                                   currentState['autoSave'] = value;
                                   await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                   prefs.setInt("fontSize", value ? 20 : 15);
@@ -123,7 +123,7 @@ int main() {
                             },
                           ),
                         ),
-                        subTitle: themeState.fontSize > 15 ? "Large" : "Normal"
+                        subTitle: configState.fontSize > 15 ? "Large" : "Normal"
                       ),
                       settingsDivider,
                       settingsType("Appearance", appThemeState.appTheme.isDark),
@@ -202,11 +202,11 @@ int main() {
                                         leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
                                         onTap: () async{
                                           final prefs = await SharedPreferences.getInstance();
-                                          final currentState = themeState.codeForgeConfig;
+                                          final currentState = configState.codeForgeConfig;
                                           currentState['theme'] = e;
                                           await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                           if (context.mounted) {
-                                            context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                            context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                                             Navigator.of(context).pop();
                                           }
                                         },
@@ -228,7 +228,7 @@ int main() {
                       settingsTile(
                         (){
                           showDialog(context: context, builder: (context) {
-                            final String currentFont = themeState.codeForgeConfig['fontFamily'];
+                            final String currentFont = configState.codeForgeConfig['fontFamily'];
                             WidgetsBinding.instance.addPostFrameCallback((_){
                               final selectedIndex = fonts.indexOf(currentFont);
                               fontScroll.jumpTo(selectedIndex * 58);
@@ -263,12 +263,12 @@ int main() {
                                           child:
                                           ListTile(
                                             onTap: () async{
-                                              final currentState = themeState.codeForgeConfig;
+                                              final currentState = configState.codeForgeConfig;
                                               currentState['fontFamily'] = e;
                                               final prefs = await SharedPreferences.getInstance();
                                               await prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                               if (context.mounted) {
-                                                context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                                                context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                                                 Navigator.of(context).pop();
                                               }
                                             },
@@ -311,9 +311,9 @@ int main() {
                             value: isIndentEnabled, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeForgeConfig;
+                              final currentState = configState.codeForgeConfig;
                               currentState['indentLineStatus'] = value;
-                              if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                               prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
@@ -339,9 +339,9 @@ int main() {
                             value: lineWrap, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeForgeConfig;
+                              final currentState = configState.codeForgeConfig;
                               currentState['lineWrap'] = value;
-                              if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                               prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
@@ -367,9 +367,9 @@ int main() {
                             value: enableFolding, 
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
-                              final currentState = themeState.codeForgeConfig;
+                              final currentState = configState.codeForgeConfig;
                               currentState['enableFolding'] = value;
-                              if(context.mounted) context.read<ThemeBloc>().add(ChangeConfigEvent(currentState));
+                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
                               prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
                             }
                           ),
@@ -868,7 +868,7 @@ int main() {
                                       if(aiState.config.isNotEmpty){
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
-                                          final currentValue = themeState.codeForgeConfig;
+                                          final currentValue = configState.codeForgeConfig;
                                           currentValue['isAIEnabled'] = value;
                                           prefs.setString('codeForgeConfig', jsonEncode(currentValue));
                                           context.read<AIBloc>().add(AIEnableEvent(value));
@@ -904,7 +904,7 @@ int main() {
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
                                           context.read<AIBloc>().add(AIModeEvent(val));
-                                          final currentState = themeState.codeForgeConfig;
+                                          final currentState = configState.codeForgeConfig;
                                           currentState['manualCompletion'] = val;
                                           prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                         }
@@ -1095,20 +1095,99 @@ int main() {
                             toggleColor: Color(0xff002b6e),
                             inactiveToggleColor: Colors.white,
                             activeColor: Color(0xffb0c6fe),
-                            value: false,
-                            onToggle: (val) {
-                              
-                              
+                            value: configState.codeForgeConfig['enableLSP'] ?? true,
+                            onToggle: (val) async {
+                              final prefs = await SharedPreferences.getInstance();
+                              if(context.mounted){
+                                final currentConfig = configState.codeForgeConfig;
+                                currentConfig['enableLSP'] = val;
+                                context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
+                                prefs.setString('CodeForgeConfig', jsonEncode(currentConfig));
+                              }
                             }
                           ),
                         ),
                       ),
                       settingsTile(
-                        (){},
+                        () {
+                          final currentExcluded = List<String>.from(configState.codeForgeConfig["LSPdisabledLangs"] ?? []);
+                          showDialog(
+                            context: context,
+                            builder: (context) => StatefulBuilder(
+                              builder: (context, setState) {
+                                final excludeScrollCtrl = ScrollController();
+                                return AlertDialog(
+                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                title: Text(
+                                  "Disable LSP for selected languages",
+                                  style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                ),
+                                content: SizedBox(
+                                  height: 300,
+                                  width: 300,
+                                  child: RawScrollbar(
+                                    thumbVisibility: true,
+                                    controller: excludeScrollCtrl,
+                                    child: ListView(
+                                      controller: excludeScrollCtrl,
+                                      children: languages.where((langs)=> langs.lspExecutable != null).map((lang) {
+                                        final isExcluded = currentExcluded.contains(lang.name.toLowerCase());
+                                        return CheckboxListTile(
+                                          title: Text(
+                                            lang.name,
+                                            style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                          ),
+                                          value: isExcluded,
+                                          activeColor: Colors.lightBlue,
+                                          checkColor: Colors.white,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              if (val!) {
+                                                currentExcluded.add(lang.name.toLowerCase());
+                                              } else {
+                                                currentExcluded.remove(lang.name.toLowerCase());
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text(
+                                      "Cancel",
+                                      style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      final currentConfig = configState.codeForgeConfig;
+                                      currentConfig["LSPdisabledLangs"] = currentExcluded;
+                                      await prefs.setString('CodeForgeConfig', jsonEncode(currentConfig));
+                                      if (context.mounted) {
+                                        context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                    child: Text(
+                                      "OK",
+                                      style: TextStyle(color: Colors.lightBlue),
+                                    ),
+                                  ),
+                                ],
+                              );
+                              },
+                            ),
+                          );
+                        },
                         "Disable LSP for selected languages",
                         Icon(Icons.block, color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
                         appThemeState.appTheme.isDark,
-                        subTitle: "0 langauges excluded"
+                        subTitle: "${(configState.codeForgeConfig["LSPdisabledLangs"] ?? []).length} languages excluded"
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),

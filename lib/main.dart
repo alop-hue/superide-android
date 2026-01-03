@@ -39,7 +39,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => ThemeBloc(
+        BlocProvider(create: (_) => ConfigBloc(
           codeForgeConfig: jsonDecode(codeForgeConfig)
         )),
         BlocProvider(create: (_) => FolderBloc()),
