@@ -730,6 +730,7 @@ class ActiveEditors {
   final Language languageDetails;
   final UndoRedoController undoRedoController;
   bool isActive;
+  FindController? findController;
 
 
   ActiveEditors({
@@ -738,6 +739,7 @@ class ActiveEditors {
     required this.languageDetails,
     required this.undoRedoController,
     required this.isActive,
+    this.findController,
   });
 }
 

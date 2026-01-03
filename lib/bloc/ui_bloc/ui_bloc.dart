@@ -183,6 +183,23 @@ class GitCommitBloc extends Bloc<GitCommitEvent, GitCommitState>{
   }
 }
 
+class WorkspaceSearchBloc extends Bloc<WorkspaceSearchEvent, WorkspaceSearchState> {
+  WorkspaceSearchBloc() : super(WorkspaceSearchState.initial()) {
+    on<UpdateSearchResults>((event, emit) => emit(state.copyWith(
+      results: event.results,
+      query: event.query,
+      isSearching: false,
+    )));
+    on<SetSearching>((event, emit) => emit(state.copyWith(isSearching: event.isSearching)));
+    on<UpdateSearchOptions>((event, emit) => emit(state.copyWith(
+      matchCase: event.matchCase,
+      matchWholeWord: event.matchWholeWord,
+      isRegex: event.isRegex,
+    )));
+    on<ClearSearchResults>((event, emit) => emit(WorkspaceSearchState.initial()));
+  }
+}
+
 class DownloadManagerBloc extends Cubit<DownloadManagerState> {
   DownloadManagerBloc() : super(DownloadManagerState(
     downloadProgress: {}, 

@@ -9,10 +9,6 @@ environment:
 dependencies:
   android_intent_plus: ^6.0.0
   bloc: ^9.2.0
-  # code_forge:
-  #   git:
-  #     url: https://github.com/heckmon/code_forge
-  #     ref: 35f1cee396c91ebc9d44b5da39c29b675578b5df
   code_forge:
     path: /home/athul/Projects/code_forge
   equatable: ^2.0.7

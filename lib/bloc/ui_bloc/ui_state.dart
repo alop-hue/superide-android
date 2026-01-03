@@ -191,6 +191,65 @@ class GitCommitState {
   GitCommitState({required this.commitMessage});
 }
 
+class SearchResultData {
+  final String filePath;
+  final int lineNumber;
+  final String lineContent;
+  final String relativePath;
+
+  SearchResultData({
+    required this.filePath,
+    required this.lineNumber,
+    required this.lineContent,
+    required this.relativePath,
+  });
+}
+
+class WorkspaceSearchState {
+  final List<SearchResultData> results;
+  final String query;
+  final bool isSearching;
+  final bool matchCase;
+  final bool matchWholeWord;
+  final bool isRegex;
+
+  WorkspaceSearchState({
+    required this.results,
+    required this.query,
+    required this.isSearching,
+    required this.matchCase,
+    required this.matchWholeWord,
+    required this.isRegex,
+  });
+
+  factory WorkspaceSearchState.initial() => WorkspaceSearchState(
+    results: [],
+    query: '',
+    isSearching: false,
+    matchCase: false,
+    matchWholeWord: false,
+    isRegex: false,
+  );
+
+  WorkspaceSearchState copyWith({
+    List<SearchResultData>? results,
+    String? query,
+    bool? isSearching,
+    bool? matchCase,
+    bool? matchWholeWord,
+    bool? isRegex,
+  }) {
+    return WorkspaceSearchState(
+      results: results ?? this.results,
+      query: query ?? this.query,
+      isSearching: isSearching ?? this.isSearching,
+      matchCase: matchCase ?? this.matchCase,
+      matchWholeWord: matchWholeWord ?? this.matchWholeWord,
+      isRegex: isRegex ?? this.isRegex,
+    );
+  }
+}
+
 class DownloadManagerState {
   final Map<int, double> downloadProgress;
   final Map<int, double> extractionProgress;

@@ -146,3 +146,33 @@ class GitCommitEvent extends UiEvent {
 
   GitCommitEvent({required this.commitMessage});
 }
+
+// Workspace Search Events
+sealed class WorkspaceSearchEvent extends UiEvent {}
+
+class UpdateSearchResults extends WorkspaceSearchEvent {
+  final List<SearchResultData> results;
+  final String query;
+
+  UpdateSearchResults({required this.results, required this.query});
+}
+
+class SetSearching extends WorkspaceSearchEvent {
+  final bool isSearching;
+
+  SetSearching({required this.isSearching});
+}
+
+class UpdateSearchOptions extends WorkspaceSearchEvent {
+  final bool matchCase;
+  final bool matchWholeWord;
+  final bool isRegex;
+
+  UpdateSearchOptions({
+    required this.matchCase,
+    required this.matchWholeWord,
+    required this.isRegex,
+  });
+}
+
+class ClearSearchResults extends WorkspaceSearchEvent {}

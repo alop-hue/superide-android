@@ -60,14 +60,144 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     paramTabController.dispose();
     findWordController.dispose();
     trasnformationController.dispose();
+    tabController?.removeListener(_onTabChanged);
     tabController?.dispose();
     super.dispose();
   }
 
   void _updateTabController(int tabCount) {
     if (tabController == null || tabController!.length != tabCount) {
+      tabController?.removeListener(_onTabChanged);
       tabController?.dispose();
       tabController = TabController(length: tabCount, vsync: this);
+      tabController!.addListener(_onTabChanged);
+    }
+  }
+
+  /// Callback when tab changes - apply workspace search highlighting to the new active tab
+  void _onTabChanged() {
+    if (tabController == null || !tabController!.indexIsChanging) return;
+    
+    // Get the workspace search state and apply to newly active editor
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _applyWorkspaceSearchToActiveEditor();
+    });
+  }
+
+  /// Apply workspace search highlighting to the currently active editor
+  void _applyWorkspaceSearchToActiveEditor() {
+    if (!mounted) return;
+    
+    try {
+      final searchState = context.read<WorkspaceSearchBloc>().state;
+      final editorState = context.read<ActiveEditorsBloc>().state;
+      
+      if (searchState.query.isEmpty) return;
+      if (editorState.activeEditors.isEmpty) return;
+      
+      final activeIndex = tabController?.index ?? 0;
+      if (activeIndex < 0 || activeIndex >= editorState.activeEditors.length) return;
+      
+      final editor = editorState.activeEditors[activeIndex];
+      _applySearchHighlighting(editor, searchState.query, searchState);
+    } catch (_) {
+      // Context might not have the bloc available yet
+    }
+  }
+
+  /// Apply search highlighting to an editor without showing the find panel
+  void _applySearchHighlighting(ActiveEditors editor, String query, WorkspaceSearchState searchState) {
+    if (editor.findController == null) return;
+    
+    final findController = editor.findController!;
+    
+    // Set search options to match workspace search settings
+    findController.caseSensitive = searchState.matchCase;
+    findController.matchWholeWord = searchState.matchWholeWord;
+    findController.isRegex = searchState.isRegex;
+    
+    // Apply highlighting without scrolling (just highlight the matches)
+    findController.findInputController.text = query;
+    findController.find(query, scrollToMatch: false);
+  }
+
+  /// Clear search highlighting from an editor
+  void _clearSearchHighlighting(ActiveEditors editor) {
+    if (editor.findController == null) return;
+    editor.findController!.find('', scrollToMatch: false);
+    editor.findController!.findInputController.clear();
+  }
+
+  /// Navigate to a specific match on or near the target line.
+  /// Uses manual match calculation and navigation since find() positions
+  /// based on cursor which may not update synchronously.
+  void _goToMatchNearLine(ActiveEditors editor, int targetLine, String searchQuery) {
+    if (editor.findController == null) return;
+    
+    final findController = editor.findController!;
+    final codeController = editor.controller;
+    final text = codeController.text;
+    
+    // First trigger find to populate matches
+    findController.findInputController.text = searchQuery;
+    findController.find(searchQuery);
+    
+    if (findController.matchCount == 0) return;
+    
+    // Calculate character offset for the start of target line
+    final lines = text.split('\n');
+    int targetCharOffset = 0;
+    for (int i = 0; i < targetLine - 1 && i < lines.length; i++) {
+      targetCharOffset += lines[i].length + 1; // +1 for newline
+    }
+    
+    // Calculate end of target line
+    int targetLineEnd = targetCharOffset;
+    if (targetLine - 1 < lines.length) {
+      targetLineEnd += lines[targetLine - 1].length;
+    }
+    
+    // Find all occurrences of the search query in text
+    final lowerText = findController.caseSensitive ? text : text.toLowerCase();
+    final lowerQuery = findController.caseSensitive ? searchQuery : searchQuery.toLowerCase();
+    
+    final matchPositions = <int>[];
+    int pos = 0;
+    while (true) {
+      final index = lowerText.indexOf(lowerQuery, pos);
+      if (index == -1) break;
+      matchPositions.add(index);
+      pos = index + 1;
+    }
+    
+    if (matchPositions.isEmpty) return;
+    
+    // Find which match index is on or closest to the target line
+    int bestMatchIndex = 0;
+    for (int i = 0; i < matchPositions.length; i++) {
+      final matchStart = matchPositions[i];
+      
+      // Check if this match is on the target line
+      if (matchStart >= targetCharOffset && matchStart <= targetLineEnd) {
+        bestMatchIndex = i;
+        break;
+      }
+    }
+    
+    // Navigate to the target match using next() from current position
+    // findController.currentMatchIndex is where we are now (usually 0 after find())
+    final currentIdx = findController.currentMatchIndex;
+    final diff = bestMatchIndex - currentIdx;
+    
+    if (diff > 0) {
+      for (int i = 0; i < diff; i++) {
+        findController.next();
+      }
+    } else if (diff < 0) {
+      for (int i = 0; i < -diff; i++) {
+        findController.previous();
+      }
     }
   }
 
@@ -207,6 +337,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
         );
         final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
         final initalUndoController = UndoRedoController();
+        final initialFindController = FindController(initialController);
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => StackBloc()),
@@ -214,6 +345,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => ApiBloc()),
             BlocProvider(create: (_) => FolderBloc()),
             BlocProvider(create: (_) => AIChatBloc()),
+            BlocProvider(create: (_) => WorkspaceSearchBloc()),
             BlocProvider(create: (_) => RepoStatusBloc()..add(LoadRepoStatus(widget.rootDir))),
             BlocProvider(create: (_) => ActiveEditorsBloc(
               ActiveEditors(
@@ -222,24 +354,42 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 languageDetails: widget.languageDetails,
                 undoRedoController: initalUndoController,
                 isActive: true,
+                findController: initialFindController,
               )
             )),
           ],
-          child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
-            buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
-            builder: (context, editorState) {
-              _updateTabController(editorState.activeEditors.length);
-              return Scaffold(
-                resizeToAvoidBottomInset: true,
-                drawer: BlocBuilder<StackBloc, StackState>(
-                  buildWhen: (previous, current) => current != previous,
-                  builder: (context, state) { 
-                    return Drawer(
-                      width: 350,
-                      backgroundColor: appTheme.editorPageDrawerBg,
-                      child: Row(
-                        children: [
-                          Container(
+          child: BlocListener<WorkspaceSearchBloc, WorkspaceSearchState>(
+            listenWhen: (previous, current) => 
+              previous.query != current.query ||
+              previous.matchCase != current.matchCase ||
+              previous.matchWholeWord != current.matchWholeWord ||
+              previous.isRegex != current.isRegex,
+            listener: (context, searchState) {
+              // Apply workspace search highlighting to all open editors
+              final editorState = context.read<ActiveEditorsBloc>().state;
+              for (final editor in editorState.activeEditors) {
+                if (searchState.query.isEmpty) {
+                  _clearSearchHighlighting(editor);
+                } else {
+                  _applySearchHighlighting(editor, searchState.query, searchState);
+                }
+              }
+            },
+            child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
+              buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
+              builder: (context, editorState) {
+                _updateTabController(editorState.activeEditors.length);
+                return Scaffold(
+                  resizeToAvoidBottomInset: true,
+                  drawer: BlocBuilder<StackBloc, StackState>(
+                    buildWhen: (previous, current) => current != previous,
+                    builder: (context, state) { 
+                      return Drawer(
+                        width: 350,
+                        backgroundColor: appTheme.editorPageDrawerBg,
+                        child: Row(
+                          children: [
+                            Container(
                             color: appTheme.editorPageToolbarBg,
                             child: Column(
                               children: [
@@ -404,15 +554,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                               workspacePath: f.parent.path,
                                               langId: lang.name
                                             ) : null;
+                                            final newController = CodeForgeController(
+                                              lspConfig: lspConfig
+                                            );
                                             currentState.add(
                                               ActiveEditors(
-                                                controller: CodeForgeController(
-                                                  lspConfig: lspConfig
-                                                ),
+                                                controller: newController,
                                                 undoRedoController: UndoRedoController(),
                                                 filePath: f,
                                                 isActive: true,
-                                                languageDetails: lang
+                                                languageDetails: lang,
+                                                findController: FindController(newController),
                                               )
                                             );
                                             mruOrder.insert(0, currentState.length - 1);
@@ -423,6 +575,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                 if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
                                                   tabController!.animateTo(newIndex);
                                                 }
+                                                // Apply workspace search highlighting to the new editor
+                                                _applyWorkspaceSearchToActiveEditor();
                                               });
                                             }
                                           },
@@ -436,7 +590,83 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   findWordController: findWordController,
                                   editorState: editorState,
                                   replaceWordController: replaceWordController,
-                                  tabController: tabController
+                                  tabController: tabController,
+                                  workspacePath: widget.rootDir,
+                                  onFileOpen: (file, lineNumber, searchQuery) async {
+                                    final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                    
+                                    // Check if file is already open
+                                    final existingIndex = currentState.indexWhere(
+                                      (editor) => editor.filePath.path == file.path,
+                                    );
+                                    
+                                    if (existingIndex >= 0) {
+                                      // File already open, switch to it
+                                      for (int i = 0; i < currentState.length; i++) {
+                                        currentState[i].isActive = i == existingIndex;
+                                      }
+                                      context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (tabController != null && existingIndex < tabController!.length) {
+                                          tabController!.animateTo(existingIndex);
+                                        }
+                                        // Trigger find with the search query
+                                        final editor = currentState[existingIndex];
+                                        if (editor.findController != null && searchQuery.isNotEmpty) {
+                                          _goToMatchNearLine(editor, lineNumber, searchQuery);
+                                        }
+                                      });
+                                    } else {
+                                      // Open new file
+                                      for (ActiveEditors item in currentState) {
+                                        item.isActive = false;
+                                      }
+                                      final lang = languages.firstWhere(
+                                        (language) => language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
+                                        orElse: () => languages[0]
+                                      );
+                                      final newLspConfig = uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(lang.name.toLowerCase()) 
+                                        ? await startLspServer(
+                                            ext: lang.extension[0],
+                                            executable: lang.lspExecutable,
+                                            args: lang.args ?? [],
+                                            workspacePath: file.parent.path,
+                                            langId: lang.name
+                                          ) 
+                                        : null;
+                                      final newController = CodeForgeController(
+                                        lspConfig: newLspConfig
+                                      );
+                                      final newFindController = FindController(newController);
+                                      currentState.add(
+                                        ActiveEditors(
+                                          controller: newController,
+                                          undoRedoController: UndoRedoController(),
+                                          filePath: file,
+                                          isActive: true,
+                                          languageDetails: lang,
+                                          findController: newFindController,
+                                        )
+                                      );
+                                      mruOrder.insert(0, currentState.length - 1);
+                                      if (context.mounted) {
+                                        context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          final newIndex = currentState.indexWhere((item) => item.isActive == true);
+                                          if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
+                                            tabController!.animateTo(newIndex);
+                                          }
+                                          // Trigger find with the search query after file loads
+                                          if (searchQuery.isNotEmpty) {
+                                            // Small delay to ensure the editor is fully loaded
+                                            Future.delayed(const Duration(milliseconds: 100), () {
+                                              _goToMatchNearLine(currentState.last, lineNumber, searchQuery);
+                                            });
+                                          }
+                                        });
+                                      }
+                                    }
+                                  },
                                 ),
                                 SourceControl(appTheme: appTheme, workSpace: widget.rootDir, isRepoThere: isRepoThere),
                                 APITesting(
@@ -676,10 +906,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               ),
                                 PopupMenuItem(
                                   child: TextButton(onPressed: () async{
-                                    if(context.mounted){
-                                      final activeEditorForSave = tabController != null
+                                    if(context.mounted && editorState.activeEditors.isNotEmpty){
+                                      final activeEditorForSave = tabController != null && tabController!.index < editorState.activeEditors.length
                                           ? editorState.activeEditors[tabController!.index]
-                                          : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                                          : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
                                       final savedPlace = await selectDir(
                                         dialogeTitle: "Save file as...",
                                         initialDirectory: widget.rootDir,
@@ -733,9 +963,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
                                           ElevatedButton(
                                             onPressed: () {
-                                              final activeEditorForClear = tabController != null
+                                              if (editorState.activeEditors.isEmpty) return;
+                                              final activeEditorForClear = tabController != null && tabController!.index < editorState.activeEditors.length
                                                   ? editorState.activeEditors[tabController!.index]
-                                                  : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                                                  : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
                                               activeEditorForClear.filePath.writeAsString('');
                                               Navigator.of(context).pop();
                                               try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
@@ -755,13 +986,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             ]),
                       IconButton(
                         onPressed: () async {
+                          if (editorState.activeEditors.isEmpty) return;
                           final Directory tempDir = Directory('/data/data/com.vsdroid/temps');
                             if(!tempDir.existsSync()){
                               tempDir.createSync(recursive: true);
                             }
-                            final activeEditorForRun = tabController != null
+                            final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
                               ? editorState.activeEditors[tabController!.index]
-                              : editorState.activeEditors.firstWhere((item) => item.isActive == true);
+                              : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
                             final File filePath = activeEditorForRun.filePath;
                           final String extention = path.extension(filePath.path);
                           switch (extention) {
@@ -816,9 +1048,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               ));
                               break;
                             default:
-                              final String command = languages.firstWhere((language) =>
-                                language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
-                              ).command ?? '';
+                              final lang = languages.firstWhere(
+                                (language) => language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
+                                orElse: () => languages[0],
+                              );
+                              final String command = lang.command ?? '';
                               Navigator.of(context).push(PageRouteBuilder(
                                 pageBuilder: (context, animation, scondaryAnimation) =>
                                   SetupTerminal(
@@ -865,6 +1099,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 )
               );
             },
+          ),
           ),
         );
       },

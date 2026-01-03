@@ -405,7 +405,7 @@ class _SelectTypeState extends State<SelectType> {
                                         Navigator.of(context).push(
                                           PageRouteBuilder(
                                             pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
-                                            .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")))),
+                                            .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")), orElse: () => languages[0])),
                                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                               return SizeTransition(sizeFactor: animation, child: child);
                                             }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -236,19 +237,25 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
   );
 }
 
-//-----------------------Editor---------------------------------------
+
 
 class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeForgeController codeController;
   final UndoRedoController undoRedoController;
   final Language language;
+  final FindController findController;
+  final bool showFindPanel;
+  final VoidCallback? onFindPanelClose;
   const CodeEditor({
     super.key,
     required this.codeController,
     required this.undoRedoController,
     required this.filePath,
     required this.language,
+    required this.findController,
+    this.showFindPanel = false,
+    this.onFindPanelClose,
   });
 
   @override
@@ -339,6 +346,14 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                       selectionColor: Colors.blueAccent.withAlpha(80),
                       cursorBubbleColor: Colors.blue,
                     ),
+                    matchHighlightStyle: const MatchHighlightStyle(
+                      currentMatchStyle: TextStyle(
+                        backgroundColor: Color(0xFFFFA726),
+                      ),
+                      otherMatchStyle: TextStyle(
+                        backgroundColor: Color(0x55FFFF00),
+                      ),
+                    ),
                     editorTheme:
                         highlightThemes[configState.codeForgeConfig['theme']],
                     textStyle: TextStyle(
@@ -346,6 +361,13 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                       fontSize: configState.fontSize,
                     ),
                     controller: codeController,
+                    findController: widget.findController,
+                    finderBuilder: (context, findController) {
+                      return FindPanelWidget(
+                        controller: findController,
+                        onClose: widget.onFindPanelClose,
+                      );
+                    },
                   );
                 },
               ),
@@ -360,7 +382,345 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   bool get wantKeepAlive => true;
 }
 
-//-----------------------Editor Page----------------------------------
+
+
+const double _kFindPanelWidth = 380;
+const double _kFindPanelHeight = 36;
+const double _kReplacePanelHeight = _kFindPanelHeight * 2;
+const double _kFindIconSize = 18;
+const double _kFindInputFontSize = 13;
+const double _kFindResultFontSize = 11;
+
+class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
+  final FindController controller;
+  final VoidCallback? onClose;
+
+  const FindPanelWidget({
+    super.key,
+    required this.controller,
+    this.onClose,
+  });
+
+  @override
+  Size get preferredSize => Size(
+    double.infinity,
+    !controller.isActive
+        ? 0
+        : (controller.isReplaceMode ? _kReplacePanelHeight : _kFindPanelHeight + 2) + 10,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, child) {
+        if (!controller.isActive) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(right: 8, top: 4),
+          alignment: Alignment.topRight,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Focus(
+              canRequestFocus: false,
+              onKeyEvent: (n, e) {
+                if (e.logicalKey == LogicalKeyboardKey.escape) {
+                  controller.isActive = false;
+                  onClose?.call();
+                  return KeyEventResult.handled;
+                }
+                if (e.logicalKey == LogicalKeyboardKey.tab &&
+                    controller.isReplaceMode &&
+                    controller.findInputFocusNode.hasFocus) {
+                  controller.replaceInputFocusNode.requestFocus();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: Container(
+                width: _kFindPanelWidth,
+                decoration: BoxDecoration(
+                  color: const Color(0xff252526),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(80),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        controller.isReplaceMode
+                            ? Icons.keyboard_arrow_down
+                            : Icons.keyboard_arrow_right,
+                        color: Colors.grey[400],
+                        size: 20,
+                      ),
+                      style: IconButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(
+                        maxWidth: 22,
+                        minHeight: preferredSize.height,
+                        maxHeight: preferredSize.height,
+                      ),
+                      tooltip: 'Toggle Replace',
+                      onPressed: controller.toggleReplaceMode,
+                    ),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildFindRow(context),
+                          if (controller.isReplaceMode) _buildReplaceRow(context),
+                          if (!controller.isReplaceMode) const SizedBox(height: 2),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFindRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: _kFindPanelHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _buildTextField(
+                  focusNode: controller.findInputFocusNode,
+                  controller: controller.findInputController,
+                  iconsWidth: 60,
+                  padding: const EdgeInsets.only(left: 3, right: 5, top: 4, bottom: 2),
+                  hintText: 'Find',
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildCheckText(
+                      context: context,
+                      text: 'Aa',
+                      tooltip: 'Match Case',
+                      checked: controller.caseSensitive,
+                      onPressed: controller.toggleCaseSensitive,
+                    ),
+                    _buildCheckText(
+                      context: context,
+                      text: 'W',
+                      tooltip: 'Match Whole Word',
+                      checked: controller.matchWholeWord,
+                      onPressed: controller.toggleMatchWholeWord,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _buildCheckText(
+                        context: context,
+                        text: '\u2022\u2731',
+                        tooltip: 'Use Regular Expression',
+                        checked: controller.isRegex,
+                        onPressed: controller.toggleRegex,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        _buildResultText(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildIconButton(
+              icon: Icons.arrow_upward,
+              tooltip: 'Previous (Shift+Enter)',
+              onPressed: controller.matchCount == 0 ? null : controller.previous,
+            ),
+            _buildIconButton(
+              icon: Icons.arrow_downward,
+              tooltip: 'Next (Enter)',
+              onPressed: controller.matchCount == 0 ? null : controller.next,
+            ),
+            _buildIconButton(
+              icon: Icons.close,
+              tooltip: 'Close (Escape)',
+              onPressed: () {
+                controller.toggleActive();
+                onClose?.call();
+              },
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReplaceRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: _kFindPanelHeight,
+            child: _buildTextField(
+              focusNode: controller.replaceInputFocusNode,
+              controller: controller.replaceInputController,
+              padding: const EdgeInsets.only(left: 3, right: 5, top: 2, bottom: 4),
+              hintText: 'Replace',
+              onSubmit: (_) {
+                controller.replace();
+                controller.replaceInputFocusNode.requestFocus();
+              },
+            ),
+          ),
+        ),
+        _buildIconButton(
+          icon: Icons.done,
+          tooltip: 'Replace',
+          onPressed: controller.matchCount == 0 ? null : controller.replace,
+        ),
+        _buildIconButton(
+          icon: Icons.done_all,
+          tooltip: 'Replace All',
+          onPressed: controller.matchCount == 0 ? null : controller.replaceAll,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    double iconsWidth = 0,
+    EdgeInsets padding = EdgeInsets.zero,
+    String? hintText,
+    ValueChanged<String>? onSubmit,
+  }) {
+    return Padding(
+      padding: padding,
+      child: TextField(
+        controller: controller,
+        maxLines: 1,
+        focusNode: focusNode,
+        autofocus: false,
+        style: const TextStyle(fontSize: _kFindInputFontSize, color: Colors.white),
+        onSubmitted: onSubmit,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: const Color(0xff3c3c3c),
+          hintText: hintText,
+          hintStyle: TextStyle(color: Colors.grey[600], fontSize: _kFindInputFontSize),
+          contentPadding: EdgeInsets.fromLTRB(8, 5, iconsWidth, 5),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(4)),
+            borderSide: BorderSide(
+              width: 0.5,
+              color: Colors.grey[700]!,
+            ),
+          ),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(4)),
+            borderSide: BorderSide(
+              width: 1,
+              color: Color(0xff0178b9),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckText({
+    required BuildContext context,
+    required String text,
+    required String tooltip,
+    required bool checked,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Text(
+              text,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: _kFindInputFontSize,
+                color: checked ? const Color(0xff0178b9) : Colors.grey[500],
+                fontWeight: checked ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconButton({
+    required IconData icon,
+    VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            icon, 
+            size: _kFindIconSize, 
+            color: onPressed != null ? Colors.grey[400] : Colors.grey[700],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultText() {
+    final text = controller.matchCount == 0
+        ? 'No results'
+        : '${controller.currentMatchIndex + 1}/${controller.matchCount}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: _kFindResultFontSize,
+          color: controller.matchCount == 0 ? Colors.red[300] : Colors.grey[400],
+        ),
+      ),
+    );
+  }
+}
+
+
 
 class EditorArea extends StatefulWidget {
   final ActiveEditors editor;
@@ -401,24 +761,12 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
         final pageContent = Column(
           children: [
             Expanded(
-              child: BlocListener<FindWordBloc, FindWordState>(
-                listener: (context, wordState) {
-                  if(wordState.isRegex){
-                    controller.findRegex(RegExp(wordState.word));
-                  } else {
-                    controller.findWord(
-                      wordState.word,
-                      matchCase: wordState.matchCase,
-                      matchWholeWord: wordState.matchWholeWord
-                    );
-                  }
-                },
-                child: CodeEditor(
-                  language: language,
-                  undoRedoController: undoRedoController,
-                  codeController: controller,
-                  filePath: editor.filePath,
-                ),
+              child: CodeEditor(
+                language: language,
+                undoRedoController: undoRedoController,
+                codeController: controller,
+                filePath: editor.filePath,
+                findController: editor.findController!,
               )
             ),
             Container(
@@ -560,7 +908,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   bool get wantKeepAlive => true;
 }
 
-//-----------------------DirectoryTreeViewer--------------------------
+
 
 class DirectoryTreeViewerCustom extends StatefulWidget {
   final String rootPath;
@@ -706,8 +1054,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         } else {
           File(oldPath).renameSync(newPath);
         }
-      } catch (e) {
-        //
+      } catch (_) {
+        
       }
     }
     stopRenaming();
@@ -1365,223 +1713,666 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 }
 
-//-----------------------SEARCH--------------------------
 
-class FindWordWidget extends StatelessWidget {
+
+class FindWordWidget extends StatefulWidget {
   final AppTheme appTheme;
   final TextEditingController findWordController, replaceWordController;
   final ActiveEditorsState editorState;
   final TabController? tabController;
+  final String workspacePath;
+  final void Function(File file, int lineNumber, String searchQuery)? onFileOpen;
   const FindWordWidget({
     super.key,
     required this.appTheme,
     required this.findWordController,
     required this.editorState,
     required this.replaceWordController,
-    required this.tabController
+    required this.tabController,
+    required this.workspacePath,
+    this.onFileOpen,
   });
 
   @override
+  State<FindWordWidget> createState() => _FindWordWidgetState();
+}
+
+class _FindWordWidgetState extends State<FindWordWidget> {
+  final ScrollController _resultsScrollController = ScrollController();
+
+  ActiveEditors? _getActiveEditor() {
+    if (widget.editorState.activeEditors.isEmpty) return null;
+    
+    
+    if (widget.tabController != null) {
+      final index = widget.tabController!.index;
+      if (index >= 0 && index < widget.editorState.activeEditors.length) {
+        return widget.editorState.activeEditors[index];
+      }
+    }
+    
+    
+    for (final editor in widget.editorState.activeEditors) {
+      if (editor.isActive) {
+        return editor;
+      }
+    }
+    
+    
+    return widget.editorState.activeEditors.first;
+  }
+
+  
+  
+  
+  void _goToMatchNearLine(ActiveEditors editor, int targetLine, String searchQuery) {
+    if (editor.findController == null) return;
+    
+    final findController = editor.findController!;
+    final codeController = editor.controller;
+    final text = codeController.text;
+    
+    
+    findController.findInputController.text = searchQuery;
+    findController.find(searchQuery);
+    
+    if (findController.matchCount == 0) return;
+    
+    
+    final lines = text.split('\n');
+    int targetCharOffset = 0;
+    for (int i = 0; i < targetLine - 1 && i < lines.length; i++) {
+      targetCharOffset += lines[i].length + 1; 
+    }
+    
+    
+    int targetLineEnd = targetCharOffset;
+    if (targetLine - 1 < lines.length) {
+      targetLineEnd += lines[targetLine - 1].length;
+    }
+    
+    
+    final lowerText = findController.caseSensitive ? text : text.toLowerCase();
+    final lowerQuery = findController.caseSensitive ? searchQuery : searchQuery.toLowerCase();
+    
+    final matchPositions = <int>[];
+    int pos = 0;
+    while (true) {
+      final index = lowerText.indexOf(lowerQuery, pos);
+      if (index == -1) break;
+      matchPositions.add(index);
+      pos = index + 1;
+    }
+    
+    if (matchPositions.isEmpty) return;
+    
+    
+    int bestMatchIndex = 0;
+    for (int i = 0; i < matchPositions.length; i++) {
+      final matchStart = matchPositions[i];
+      
+      
+      if (matchStart >= targetCharOffset && matchStart <= targetLineEnd) {
+        bestMatchIndex = i;
+        break;
+      }
+    }
+    
+    
+    
+    final currentIdx = findController.currentMatchIndex;
+    final diff = bestMatchIndex - currentIdx;
+    
+    if (diff > 0) {
+      for (int i = 0; i < diff; i++) {
+        findController.next();
+      }
+    } else if (diff < 0) {
+      for (int i = 0; i < -diff; i++) {
+        findController.previous();
+      }
+    }
+  }
+
+  Future<void> _searchWorkspace(BuildContext context, String query, WorkspaceSearchState searchState) async {
+    if (query.isEmpty) {
+      context.read<WorkspaceSearchBloc>().add(UpdateSearchResults(results: [], query: ''));
+      return;
+    }
+
+    context.read<WorkspaceSearchBloc>().add(SetSearching(isSearching: true));
+
+    final results = <SearchResultData>[];
+    final dir = Directory(widget.workspacePath);
+    
+    try {
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) {
+          
+          final relativePath = entity.path.replaceFirst('${widget.workspacePath}/', '');
+          if (relativePath.contains('/.') || 
+              relativePath.startsWith('.') ||
+              relativePath.contains('/build/') ||
+              relativePath.contains('/.git/')) {
+            continue;
+          }
+          
+          
+          final ext = path.extension(entity.path).toLowerCase();
+          final textExtensions = ['.dart', '.js', '.ts', '.json', '.xml', '.html', '.css', '.md', '.txt', '.yaml', '.yml', '.java', '.kt', '.py', '.c', '.cpp', '.h', '.hpp', '.sh', '.gradle', '.properties', '.swift', '.m', '.go', '.rs', '.rb', '.php', '.sql', '.vue', '.jsx', '.tsx'];
+          if (!textExtensions.contains(ext) && ext.isNotEmpty) {
+            continue;
+          }
+
+          try {
+            final content = await entity.readAsString();
+            final lines = content.split('\n');
+            
+            for (int i = 0; i < lines.length; i++) {
+              final line = lines[i];
+              bool hasMatch = false;
+              
+              if (searchState.isRegex) {
+                try {
+                  final regex = RegExp(query, caseSensitive: searchState.matchCase);
+                  hasMatch = regex.hasMatch(line);
+                } catch (_) {
+                  
+                }
+              } else if (searchState.matchWholeWord) {
+                final pattern = RegExp(
+                  '\\b${RegExp.escape(query)}\\b',
+                  caseSensitive: searchState.matchCase,
+                );
+                hasMatch = pattern.hasMatch(line);
+              } else {
+                hasMatch = searchState.matchCase 
+                    ? line.contains(query)
+                    : line.toLowerCase().contains(query.toLowerCase());
+              }
+              
+              if (hasMatch) {
+                results.add(SearchResultData(
+                  filePath: entity.path,
+                  lineNumber: i + 1,
+                  lineContent: line.trim(),
+                  relativePath: relativePath,
+                ));
+              }
+            }
+          } catch (_) {
+            
+          }
+        }
+      }
+    } catch (_) {
+      
+    }
+
+    if (context.mounted) {
+      context.read<WorkspaceSearchBloc>().add(UpdateSearchResults(results: results, query: query));
+    }
+  }
+
+  Future<void> _replaceInWorkspace(BuildContext context, String findText, String replaceText, WorkspaceSearchState searchState) async {
+    if (findText.isEmpty || searchState.results.isEmpty) return;
+
+    final filesModified = <String>{};
+
+    for (final result in searchState.results) {
+      try {
+        final file = File(result.filePath);
+        String content = await file.readAsString();
+        String newContent;
+        
+        if (searchState.isRegex) {
+          try {
+            final regex = RegExp(findText, caseSensitive: searchState.matchCase);
+            newContent = content.replaceAll(regex, replaceText);
+          } catch (_) {
+            continue;
+          }
+        } else if (searchState.matchWholeWord) {
+          final pattern = RegExp(
+            '\\b${RegExp.escape(findText)}\\b',
+            caseSensitive: searchState.matchCase,
+          );
+          newContent = content.replaceAll(pattern, replaceText);
+        } else {
+          if (searchState.matchCase) {
+            newContent = content.replaceAll(findText, replaceText);
+          } else {
+            newContent = content.replaceAll(
+              RegExp(RegExp.escape(findText), caseSensitive: false),
+              replaceText,
+            );
+          }
+        }
+        
+        if (content != newContent) {
+          await file.writeAsString(newContent);
+          filesModified.add(result.filePath);
+        }
+      } catch (_) {
+        
+      }
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Replaced in ${filesModified.length} file(s)'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      
+      _searchWorkspace(context, findText, searchState);
+    }
+  }
+
+  @override
+  void dispose() {
+    _resultsScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 5),
-        child: SizedBox(
+    return BlocBuilder<WorkspaceSearchBloc, WorkspaceSearchState>(
+      builder: (context, searchState) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 5),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(left: 17),
+                padding: const EdgeInsets.only(left: 17, bottom: 15),
                 child: Text(
                   "SEARCH",
                   style: TextStyle(
-                    fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                    color: appTheme.selectScreenCardTextColor,
+                    fontWeight: widget.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final activeEditor = _getActiveEditor();
+                      if (activeEditor != null && activeEditor.findController != null) {
+                        
+                        Navigator.of(context).pop();
+                        
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          activeEditor.findController!.isActive = true;
+                          
+                          activeEditor.findController!.findInputFocusNode.requestFocus();
+                        });
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No active editor'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    },
+                    icon: Icon(Icons.article_outlined, color: widget.appTheme.selectScreenCardTextColor, size: 18),
+                    label: Text(
+                      "Find in Current File",
+                      style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: widget.appTheme.selectScreenCardTextColor.withAlpha(100)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 15),
-              BlocBuilder<FindWordBloc, FindWordState>(
-                builder: (context, wordState) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStatePropertyAll(wordState.matchCase ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
-                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                            side: BorderSide(
-                              width: 0.5,
-                              color: wordState.matchCase ? appTheme.selectScreenCardTextColor : Colors.transparent
-                            ),
-                            borderRadius: BorderRadiusGeometry.circular(5),
-                          ))
-                        ),
-                        tooltip: "Match case",
-                        onPressed: () {
-                          context.read<FindWordBloc>().add(FindWord(
-                            word: wordState.word,
-                            matchCase: !wordState.matchCase,
-                            matchWholeWord: wordState.matchWholeWord,
-                            isRegex: wordState.isRegex,
-                          ));
-                        },
-                        icon: Text('Aa', style: TextStyle(color: appTheme.selectScreenCardTextColor))
-                      ),
-                      IconButton(
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStatePropertyAll(wordState.matchWholeWord ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
-                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                            side: BorderSide(
-                              width: 0.5,
-                              color: wordState.matchWholeWord ? appTheme.selectScreenCardTextColor : Colors.transparent
-                            ),
-                            borderRadius: BorderRadiusGeometry.circular(5),
-                          ))
-                        ),
-                        tooltip: "Match word",
-                        onPressed: () {
-                          context.read<FindWordBloc>().add(FindWord(
-                            word: wordState.word,
-                            matchCase: wordState.matchCase,
-                            matchWholeWord: !wordState.matchWholeWord,
-                            isRegex: wordState.isRegex,
-                          ));
-                        },
-                        icon: Text(
-                          'ab',
-                          style: TextStyle(
-                            decoration: TextDecoration.underline,
-                            decorationColor: appTheme.selectScreenCardTextColor,
-                            color: appTheme.selectScreenCardTextColor
-                          )
-                        )
-                      ),
-                      IconButton(
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStatePropertyAll(wordState.isRegex ? Color(0xff0178b9).withAlpha(100) : Colors.transparent),
-                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                            side: BorderSide(
-                              width: 0.5,
-                              color: wordState.isRegex ? appTheme.selectScreenCardTextColor : Colors.transparent
-                            ),
-                            borderRadius: BorderRadiusGeometry.circular(5),
-                          ))
-                        ),
-                        tooltip: "Use Regular Expression",
-                        onPressed: () {
-                          context.read<FindWordBloc>().add(FindWord(
-                            word: wordState.word,
-                            matchCase: wordState.matchCase,
-                            matchWholeWord: wordState.matchWholeWord,
-                            isRegex: !wordState.isRegex
-                          ));
-                        },
-                        icon: Text(
-                          '\u2022\u2731',
-                          style: TextStyle(
-                            fontSize: 16,
-                            decorationColor: appTheme.selectScreenCardTextColor,
-                            color: appTheme.selectScreenCardTextColor
-                          )
-                        )
-                      )
-                    ],
-                  );
-                },
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  "Search in Workspace",
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
+              const SizedBox(height: 8),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildOptionButton('Aa', 'Match Case', searchState.matchCase, () {
+                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
+                        matchCase: !searchState.matchCase,
+                        matchWholeWord: searchState.matchWholeWord,
+                        isRegex: searchState.isRegex,
+                      ));
+                      if (widget.findWordController.text.isNotEmpty) {
+                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(matchCase: !searchState.matchCase));
+                      }
+                    }),
+                    _buildOptionButton('ab', 'Match Word', searchState.matchWholeWord, () {
+                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
+                        matchCase: searchState.matchCase,
+                        matchWholeWord: !searchState.matchWholeWord,
+                        isRegex: searchState.isRegex,
+                      ));
+                      if (widget.findWordController.text.isNotEmpty) {
+                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(matchWholeWord: !searchState.matchWholeWord));
+                      }
+                    }, underline: true),
+                    _buildOptionButton('\u2022\u2731', 'Regex', searchState.isRegex, () {
+                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
+                        matchCase: searchState.matchCase,
+                        matchWholeWord: searchState.matchWholeWord,
+                        isRegex: !searchState.isRegex,
+                      ));
+                      if (widget.findWordController.text.isNotEmpty) {
+                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(isRegex: !searchState.isRegex));
+                      }
+                    }),
+                  ],
+                ),
+              ),
+              
               ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 title: SizedBox(
-                  height: 47,
-                  child: BlocListener<FindWordBloc, FindWordState>(
-                    listener: (context, wordState) {
-                      if (findWordController.text != wordState.word) {
-                        findWordController.text = wordState.word;
-                        findWordController.selection = TextSelection.collapsed(offset: wordState.word.length);
+                  height: 42,
+                  child: TextField(
+                    controller: widget.findWordController,
+                    onChanged: (value) {
+                      if (value.length >= 2) {
+                        _searchWorkspace(context, value, searchState);
+                      } else if (value.isEmpty) {
+                        context.read<WorkspaceSearchBloc>().add(ClearSearchResults());
                       }
                     },
-                    child: TextField(
-                      controller: findWordController,
-                      onChanged: (word) {
-                        final String currWord = context.read<FindWordBloc>().state.word;
-                        context.read<FindWordBloc>().add(
-                          FindWord(
-                            word: currWord.isEmpty ? word.trim() : word,
-                            matchCase: context.read<FindWordBloc>().state.matchCase,
-                            matchWholeWord: context.read<FindWordBloc>().state.matchWholeWord,
-                            isRegex: context.read<FindWordBloc>().state.isRegex
-                          )
-                        );
-                      },
-                      cursorColor: Colors.grey,
-                      style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                      decoration: InputDecoration(
-                        hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
-                        hintText: "Find word",
-                        border: const OutlineInputBorder(),
-                        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
-                      ),
+                    onSubmitted: (value) => _searchWorkspace(context, value, searchState),
+                    cursorColor: Colors.grey,
+                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(120), fontSize: 14),
+                      hintText: "Search",
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: const OutlineInputBorder(),
+                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                      suffixIcon: widget.findWordController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, size: 18, color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)),
+                              onPressed: () {
+                                widget.findWordController.clear();
+                                context.read<WorkspaceSearchBloc>().add(ClearSearchResults());
+                              },
+                            )
+                          : null,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 1),
+              
               ListTile(
-                trailing: InkWell(
-                  onTap: () async {
-                    if (findWordController.text.isNotEmpty) {
-                      final currentState = context.read<FindWordBloc>().state;
-                      final activeEditor = tabController != null
-                          ? editorState.activeEditors[tabController!.index]
-                          : editorState.activeEditors.firstWhere((item) => item.isActive == true);
-                          //TODO: FindController based replace.
-                      try {
-                         _refreshRepoStatusForFile(context, activeEditor.filePath);
-                         } catch(_) {}
-                      if (context.mounted) {
-                        //TODO: Remember user preference.
-                        context.read<FindWordBloc>().add(
-                          FindWord(
-                            word: "",
-                            matchCase: currentState.matchCase,
-                            matchWholeWord: currentState.matchWholeWord,
-                            isRegex: currentState.isRegex
-                          )
-                        );
-                      }
-                    }
-                  },
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xff0e639c),
-                      borderRadius: BorderRadius.all(Radius.circular(25))
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 42,
+                        child: TextField(
+                          controller: widget.replaceWordController,
+                          cursorColor: Colors.grey,
+                          style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(120), fontSize: 14),
+                            hintText: "Replace",
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: const OutlineInputBorder(),
+                            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                          ),
+                        ),
+                      ),
                     ),
-                    height: 45,
-                    width: 45,
-                    child: const Icon(Icons.find_replace_sharp, color: Colors.white)),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: searchState.results.isNotEmpty
+                          ? () => _replaceInWorkspace(
+                                context,
+                                widget.findWordController.text,
+                                widget.replaceWordController.text,
+                                searchState,
+                              )
+                          : null,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: searchState.results.isNotEmpty ? const Color(0xff0e639c) : Colors.grey[700],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        height: 38,
+                        width: 38,
+                        child: const Icon(Icons.find_replace, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
-                title: SizedBox(
-                  height: 47,
-                  child: TextField(
-                    controller: replaceWordController,
-                    cursorColor: Colors.grey,
-                    style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                    decoration: InputDecoration(
-                      hintStyle: TextStyle(color: appTheme.selectScreenCardTextColor),
-                      hintText: "Replace",
-                      border: const OutlineInputBorder(),
-                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9)))
+              ),
+              const SizedBox(height: 8),
+              
+              if (searchState.isSearching)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 17),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: widget.appTheme.selectScreenCardTextColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Searching...",
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (searchState.results.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 17),
+                  child: Text(
+                    "${searchState.results.length} result${searchState.results.length == 1 ? '' : 's'} found",
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                      fontSize: 12,
                     ),
                   ),
                 ),
+              const SizedBox(height: 8),
+              
+              Expanded(
+                child: searchState.results.isEmpty
+                    ? Center(
+                        child: Text(
+                          widget.findWordController.text.isEmpty
+                              ? "Enter search term"
+                              : searchState.isSearching ? "" : "No results found",
+                          style: TextStyle(
+                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(100),
+                            fontSize: 13,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _resultsScrollController,
+                        itemCount: searchState.results.length,
+                        itemBuilder: (context, index) {
+                          final result = searchState.results[index];
+                          return _buildResultTile(result, searchState.query);
+                        },
+                      ),
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionButton(String text, String tooltip, bool isActive, VoidCallback onTap, {bool underline = false}) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xff0178b9).withAlpha(100) : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isActive ? widget.appTheme.selectScreenCardTextColor : Colors.transparent,
+              width: 0.5,
+            ),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: widget.appTheme.selectScreenCardTextColor,
+              fontSize: 13,
+              decoration: underline ? TextDecoration.underline : null,
+              decorationColor: widget.appTheme.selectScreenCardTextColor,
+            ),
+          ),
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildResultTile(SearchResultData result, String searchQuery) {
+    return InkWell(
+      onTap: () {
+        final file = File(result.filePath);
+        
+        
+        final existingIndex = widget.editorState.activeEditors.indexWhere(
+          (editor) => editor.filePath.path == file.path,
+        );
+        
+        if (existingIndex >= 0) {
+          
+          if (widget.tabController != null) {
+            widget.tabController!.animateTo(existingIndex);
+          }
+          Navigator.of(context).pop();
+          
+          
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final editor = widget.editorState.activeEditors[existingIndex];
+            if (editor.findController != null) {
+              
+              _goToMatchNearLine(editor, result.lineNumber, searchQuery);
+            }
+          });
+        } else {
+          
+          Navigator.of(context).pop();
+          widget.onFileOpen?.call(file, result.lineNumber, searchQuery);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: widget.appTheme.selectScreenCardTextColor.withAlpha(30),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: (() {
+                    try {
+                      final ext = path.extension(result.filePath).replaceAll('.', '');
+                      return languages.singleWhere(
+                        (lang) => lang.extension.contains(ext),
+                      ).icon;
+                    } catch (_) {
+                      
+                      return langtxt.icon;
+                    }
+                  })(),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    result.relativePath,
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  ':${result.lineNumber}',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(120),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              result.lineContent,
+              style: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                fontSize: 11,
+                fontFamily: 'monospace',
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-//-----------------------Source Control------------------
+
 
 class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
@@ -1606,6 +2397,7 @@ class _SourceControlState extends State<SourceControl> {
   bool _unstagedExpanded = true;
   bool _commitGraphExpanded = true;
   late final ScrollController _commitGraphScrollController;
+  final ScrollController _changesListScrollController = ScrollController();
 
   @override
   void initState() {
@@ -1637,6 +2429,7 @@ class _SourceControlState extends State<SourceControl> {
     _commitSub.cancel();
     _commitController.dispose();
     _commitGraphScrollController.dispose();
+    _changesListScrollController.dispose();
     super.dispose();
   }
 
@@ -1728,8 +2521,10 @@ class _SourceControlState extends State<SourceControl> {
                     maxHeight: itemCount > 5 ? 250 : itemCount * 50.0,
                   ),
                   child: Scrollbar(
+                    controller: _changesListScrollController,
                     thumbVisibility: itemCount > 5,
                     child: ListView.builder(
+                      controller: _changesListScrollController,
                       padding: EdgeInsets.zero,
                       shrinkWrap: true,
                       itemCount: itemCount,
@@ -2092,8 +2887,8 @@ class _SourceControlState extends State<SourceControl> {
 
   Future<void> _publishToGithub() async {
     try {
-      // TODO: Implement actual GitHub publishing logic
-      // For now, just show a message
+      
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2629,7 +3424,7 @@ class _SourceControlState extends State<SourceControl> {
   }
 }
 
-//-----------------------API Testing---------------------
+
 
 class APITesting extends StatelessWidget {
   final Map<String, String> params, headers;
@@ -3009,7 +3804,7 @@ class APITesting extends StatelessWidget {
   }
 }
 
-//-----------------------AIChat--------------------------
+
 
 class AIChat extends StatefulWidget {
   final String filePath;
@@ -3096,8 +3891,8 @@ class _AIChatState extends State<AIChat> {
     );
 
     try {
-      //TODO: Convert to Stream
-      //TODO: Preserver model memory/history
+      
+      
       StringBuffer responseBuffer = StringBuffer();
       final streamedResponse = await client.send(request);
       streamedResponse.stream
@@ -3149,8 +3944,8 @@ class _AIChatState extends State<AIChat> {
                   );
                   aiChatBloc.add(AIChatEvent(updated));
                 }
-              } catch (e) {
-                //
+              } catch (_) {
+                
               }
               client.close();
             },
@@ -3399,7 +4194,7 @@ class _AIChatState extends State<AIChat> {
   }
 }
 
-//------------------------Settings--------------------
+
 
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;
@@ -3456,6 +4251,7 @@ class SettingsTab extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 20),
                         child: SingleChildScrollView(
+                          primary: true,
                           child: Column(
                             children: highlightThemes.keys.toList().map((e)=>Card(
                               elevation: 0,
@@ -3518,6 +4314,7 @@ class SettingsTab extends StatelessWidget {
                     child:Padding(
                       padding: const EdgeInsets.only(bottom: 20),
                       child: SingleChildScrollView(
+                        primary: true,
                         child: Column(
                           children: fonts.map(
                             (e) => Card(
@@ -3563,20 +4360,19 @@ class SettingsTab extends StatelessWidget {
   }
 }
 
-//--------------------GIT GRAPH PAINTER------------------------------------
 
-/// VSCode-style git graph colors
+
 const List<Color> _gitGraphColors = [
-  Color(0xFF4EC9B0), // Teal/Cyan (main branch)
-  Color(0xFFCE9178), // Orange/Salmon
-  Color(0xFF569CD6), // Blue
-  Color(0xFFB5CEA8), // Light green
-  Color(0xFFC586C0), // Purple/Magenta
-  Color(0xFFDCDCAA), // Yellow
-  Color(0xFF4FC1FF), // Light blue
-  Color(0xFFD16969), // Red/Coral
-  Color(0xFF6A9955), // Green
-  Color(0xFFD7BA7D), // Gold
+  Color(0xFF4EC9B0), 
+  Color(0xFFCE9178), 
+  Color(0xFF569CD6), 
+  Color(0xFFB5CEA8), 
+  Color(0xFFC586C0), 
+  Color(0xFFDCDCAA), 
+  Color(0xFF4FC1FF), 
+  Color(0xFFD16969), 
+  Color(0xFF6A9955), 
+  Color(0xFFD7BA7D), 
 ];
 
 Color _getGraphColor(int index) {
@@ -3617,7 +4413,6 @@ class VSCodeGitGraphPainter extends CustomPainter {
     final commitX = rowInfo.commitLane * laneWidth + laneWidth / 2;
     final commitY = rowHeight / 2;
 
-    // Draw all lines first (behind the node)
     for (final line in rowInfo.lines) {
       final fromX = line.fromLane * laneWidth + laneWidth / 2;
       final toX = line.toLane * laneWidth + laneWidth / 2;
@@ -3625,25 +4420,21 @@ class VSCodeGitGraphPainter extends CustomPainter {
       linePaint.color = color;
 
       if (line.isPassThrough) {
-        // Vertical pass-through line
         canvas.drawLine(
           Offset(fromX, 0),
           Offset(fromX, rowHeight),
           linePaint,
         );
       } else if (line.fromLane == line.toLane) {
-        // Straight line down from commit
         canvas.drawLine(
           Offset(fromX, commitY + 5),
           Offset(fromX, rowHeight),
           linePaint,
         );
       } else {
-        // Curved merge/branch line
         final path = Path();
         
         if (line.toLane > line.fromLane) {
-          // Branch going right (merge from another branch)
           path.moveTo(fromX, commitY + 5);
           path.lineTo(fromX, commitY + 10);
           path.quadraticBezierTo(
@@ -3651,7 +4442,6 @@ class VSCodeGitGraphPainter extends CustomPainter {
             toX, rowHeight,
           );
         } else {
-          // Branch going left
           path.moveTo(fromX, commitY + 5);
           path.quadraticBezierTo(
             fromX, rowHeight - 4,
@@ -3662,7 +4452,6 @@ class VSCodeGitGraphPainter extends CustomPainter {
       }
     }
 
-    // Draw incoming line from top (if this isn't the first commit)
     linePaint.color = _getGraphColor(rowInfo.colorIndex);
     canvas.drawLine(
       Offset(commitX, 0),
@@ -3670,37 +4459,29 @@ class VSCodeGitGraphPainter extends CustomPainter {
       linePaint,
     );
 
-    // Draw the commit node
     final nodeColor = _getGraphColor(rowInfo.colorIndex);
     
     if (rowInfo.commit.isMerge) {
-      // Merge commit: filled circle with ring
       nodePaint.color = nodeColor;
       canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
       nodeStrokePaint.color = nodeColor.withAlpha(180);
       canvas.drawCircle(Offset(commitX, commitY), 7, nodeStrokePaint);
     } else {
-      // Regular commit: solid filled circle
       nodePaint.color = nodeColor;
       canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
     }
 
-    // Calculate the maximum lane used in this row (including all lines)
     int maxLaneInRow = rowInfo.commitLane;
     for (final line in rowInfo.lines) {
       if (line.fromLane > maxLaneInRow) maxLaneInRow = line.fromLane;
       if (line.toLane > maxLaneInRow) maxLaneInRow = line.toLane;
     }
     
-    // Position text after the rightmost lane with some padding
     final graphWidth = (maxLaneInRow + 1) * laneWidth + 12;
-    
-    // Draw text using TextPainter
     double textStartX = graphWidth;
     final availableWidth = maxWidth - textStartX;
     
     if (availableWidth > 50) {
-      // Draw merge badge if this is a merge commit
       if (rowInfo.commit.isMerge) {
         final badgePainter = TextPainter(
           text: TextSpan(
@@ -3715,7 +4496,6 @@ class VSCodeGitGraphPainter extends CustomPainter {
         );
         badgePainter.layout();
         
-        // Draw badge background
         final badgeWidth = badgePainter.width + 8;
         final badgeHeight = badgePainter.height + 2;
         final badgeRect = RRect.fromRectAndRadius(
@@ -3733,14 +4513,10 @@ class VSCodeGitGraphPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1;
         canvas.drawRRect(badgeRect, badgeBorderPaint);
-        
-        // Draw badge text
         badgePainter.paint(canvas, Offset(textStartX + 4, 8));
-        
         textStartX += badgeWidth + 6;
       }
       
-      // Draw commit message
       final messagePainter = TextPainter(
         text: TextSpan(
           text: rowInfo.commit.message,
@@ -3757,7 +4533,6 @@ class VSCodeGitGraphPainter extends CustomPainter {
       messagePainter.layout(maxWidth: availableWidth - (rowInfo.commit.isMerge ? 50 : 0));
       messagePainter.paint(canvas, Offset(textStartX, 6));
       
-      // Draw author and hash
       final authorHash = '${rowInfo.commit.author} • ${rowInfo.commit.hash.substring(0, 7)}';
       final authorPainter = TextPainter(
         text: TextSpan(
@@ -3793,10 +4568,7 @@ class GitCommitGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the new VSCode-style lane assignment
     final rowInfos = assignVSCodeLanes(commits);
-    
-    // Content width for horizontal scrolling
     const contentWidth = 500.0;
 
     return SingleChildScrollView(
@@ -3811,7 +4583,6 @@ class GitCommitGraph extends StatelessWidget {
           itemCount: rowInfos.length,
           itemBuilder: (context, index) {
             final rowInfo = rowInfos[index];
-            
             return SizedBox(
               height: 36,
               child: CustomPaint(
