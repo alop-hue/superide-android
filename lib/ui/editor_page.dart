@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
+import 'package:vsdroid/ui/mdview.dart';
 import 'webview.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -112,103 +113,100 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
       ]),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Error')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            const Text(
-              'Failed to initialize editor',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                snapshot.error.toString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Failed to initialize editor',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Go Back'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back'),
+          );
+        }
+        
+        if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No data received',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // Check if data exists and is valid
-  if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Error')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text(
-              'No data received',
-              style: TextStyle(fontSize: 18),
+          );
+        }
+        
+        final target = snapshot.data![0] as File?;
+        final lspConfig = snapshot.data!.length > 2 ? snapshot.data![2] as LspConfig? : null;
+        
+        if (target == null || !target.existsSync()) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Failed to create or access file',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    target?.path ?? 'Unknown path',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  // Safely extract data with null checks
-  final target = snapshot.data![0] as File?;
-  final lspConfig = snapshot.data!.length > 2 ? snapshot.data![2] as LspConfig? : null;
-  
-  // Verify target file is valid
-  if (target == null || !target.existsSync()) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Error')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.insert_drive_file_outlined, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            const Text(
-              'Failed to create or access file',
-              style: TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              target?.path ?? 'Unknown path',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Go Back'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  final initialController = CodeForgeController(
-    lspConfig: lspConfig
-  );
-  final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
-  final initalUndoController = UndoRedoController();
+          );
+        }
+        
+        final initialController = CodeForgeController(
+          lspConfig: lspConfig
+        );
+        final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
+        final initalUndoController = UndoRedoController();
         return MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => StackBloc()),
@@ -795,6 +793,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.kt':
+                            case '.kts':
                               final String compileCommand = 'kotlinc ${filePath.path} -d ${tempDir.path}';
                               final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
@@ -803,6 +802,18 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               final String compileCommand = "tsc ${filePath.path} --outDir ${tempDir.path}";
                               final String runCommand = "node ${tempDir.path}/${path.basenameWithoutExtension(filePath.path)}.js";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
+                              break;
+                            case '.md':
+                              Navigator.of(context).push(PageRouteBuilder(
+                                pageBuilder: (context, animation, scondaryAnimation) =>MdView(
+                                  data: filePath.readAsStringSync(),
+                                  appTheme: appTheme,
+                                  theme: context.read<ThemeBloc>().state,
+                                ),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return SizeTransition(sizeFactor: animation, child: child);
+                                },
+                              ));
                               break;
                             default:
                               final String command = languages.firstWhere((language) =>

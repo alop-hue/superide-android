@@ -559,8 +559,25 @@ Future<LspConfig?> startLspServer({
               ...args
             ];
           }
+          if(ext == 'py'){
+            return [extensions.singleWhere((item) => item.fileExtension[0] == "py").serverFile[0], ...args];
+          }
+          
+          if(ext == 'html'){
+            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "html")).serverFile[0], ...args];
+          }
 
-          return [extensions.singleWhere((item) => item.fileExtension == ext).serverFile, ...args];
+          if(ext == 'css'){
+            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "css")).serverFile[1], ...args];
+          }
+
+          if(ext == 'json'){
+            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "json")).serverFile[2], ...args];
+          }
+          
+          /* if(ext == 'md'){
+            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "md")).serverFile[3], ...args];
+          } */
         })(),
         environment: {
           ...environment ?? {},
@@ -571,7 +588,6 @@ Future<LspConfig?> startLspServer({
         workspacePath: workspacePath,
         languageId: langId,
       );
-      
       return config;
     } catch (e) {
       debugPrint('LSP Initialization failed: $e');

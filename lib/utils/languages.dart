@@ -46,7 +46,8 @@ class RunTime{
 }
 
 class Extension{
-  final String name, details, url, archiveName, parentName, fileExtension, serverFile;
+  final String name, details, url, archiveName, parentName;
+  final List<String> fileExtension, serverFile;
   final double archiveSize;
   final dynamic icon;  
   Extension({
@@ -167,6 +168,8 @@ final langhtml = Language(
             </body>
             </html>''',
   icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
+  args: ["--stdio"],
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
 );
 final langcss = Language(
   name: 'CSS',
@@ -174,6 +177,8 @@ final langcss = Language(
   details: 'Used to style and format web pages.',
   language: builtinAllLanguages['css'],
   helloWorld: '/* Hello, World! */',
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  args: ["--stdio"],
   icon: SvgPicture.asset('assets/material_icons/css.svg',height: 35,width: 35),
 );
 final langscss = Language(
@@ -282,13 +287,17 @@ final langjson = Language(
   details: 'A lightweight format for data interchange.',
   language: builtinAllLanguages['json'],
   icon: SvgPicture.asset('assets/material_icons/json.svg',height: 35,width: 35),
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  args: ["--stdio"],
   helloWorld: '{ "hello": "world" }',
 );
 final langmarkdown = Language(
   name: 'Markdown',
-  extension: ['md','markdown'],
+  extension: ['md'],
   details: 'A markup language for formatting plain text.',
   language: builtinAllLanguages['markdown'],
+  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  args: ["--stdio"],
   icon: SvgPicture.asset('assets/material_icons/markdown.svg',height: 35,width: 35),
   helloWorld: '# Hello, World!',
 );
@@ -701,11 +710,30 @@ final basedpyright = Extension(
   parentName: "basedpyright",
   archiveSize: 8.4,
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/basedpyright.zip",
-  icon: SvgPicture.asset("assets/icons/pyright.svg", width: 35, height: 35),
-  fileExtension: "py",
-  serverFile: "/data/data/com.vsdroid/extensions/basedpyright/langserver.index.js"
+  icon: Image.asset("assets/icons/based_pyright_logo.png"),
+  fileExtension: ["py"],
+  serverFile: ["/data/data/com.vsdroid/extensions/basedpyright/langserver.index.js"]
+);
+
+final vscodeExtractedLSPs = Extension(
+  name: "VScode-extracted LSP Servers",
+  details: "Language servers extracted from the VSCode. Contains HTML, CSS, Markdown, JSON and ESLint servers\nNote: Node JS runtime is required.",
+  archiveName: "vscode-langservers-extracted.zip",
+  parentName: "vscode-langservers-extracted",
+  archiveSize: 14,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/vscode-langservers-extracted.zip",
+  icon: Image.asset("assets/icons/html-css.png"),
+  fileExtension: ["html", "css", "md", "json"],
+  serverFile: [
+    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/html-language-server/node/htmlServerMain.js",
+    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/css-language-server/node/cssServerMain.js",
+    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/json-language-server/node/jsonServerMain.js",
+    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/markdown-language-server/node/main.js",
+    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/eslint-language-server/eslintServer.js",
+  ]
 );
 
 final List<Extension> extensions = [
   basedpyright,
+  vscodeExtractedLSPs
 ];
