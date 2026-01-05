@@ -8,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/ui/github_page.dart';
 import 'about.dart';
 import 'donation_page.dart';
 import 'folder_page.dart';
@@ -263,7 +264,12 @@ class _SelectTypeState extends State<SelectType> {
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
                 tooltip: "Github",
-                onPressed: () {},
+                onPressed: () => Navigator.of(context).push(PageRouteBuilder(
+                  pageBuilder: (context ,animation, secondaryAnimation) => GithubPage(),
+                  transitionsBuilder: (context ,animation, secondaryAnimation, child){
+                    return SizeTransition(sizeFactor: animation, child: child);
+                  }
+                )),
                 icon: const Icon(FontAwesomeIcons.github)
               ),
             ),

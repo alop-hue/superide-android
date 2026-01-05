@@ -908,7 +908,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   bool get wantKeepAlive => true;
 }
 
-
+//-------------------DirectoryTreeViewer-----------------------
 
 class DirectoryTreeViewerCustom extends StatefulWidget {
   final String rootPath;
@@ -1040,7 +1040,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       }
     }
     stopCreating();
-    try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath)); } catch (_) {}
+    try {
+      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+    } catch (_) {}
   }
 
   void renameEntry(String oldPath, bool isFolder) {
@@ -1713,7 +1715,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 }
 
-
+//-------------------FindWord----------------------------------
 
 class FindWordWidget extends StatefulWidget {
   final AppTheme appTheme;
@@ -2372,7 +2374,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
   }
 }
 
-
+//--------------------SourceControl----------------------------
 
 class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
@@ -2397,7 +2399,8 @@ class _SourceControlState extends State<SourceControl> {
   bool _unstagedExpanded = true;
   bool _commitGraphExpanded = true;
   late final ScrollController _commitGraphScrollController;
-  final ScrollController _changesListScrollController = ScrollController();
+  final ScrollController _stagedScrollController = ScrollController();
+  final ScrollController _unstagedScrollController = ScrollController();
 
   @override
   void initState() {
@@ -2420,7 +2423,6 @@ class _SourceControlState extends State<SourceControl> {
     if (widget.isRepoThere) {
       context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
     }
-
     super.initState();
   }
 
@@ -2429,7 +2431,8 @@ class _SourceControlState extends State<SourceControl> {
     _commitSub.cancel();
     _commitController.dispose();
     _commitGraphScrollController.dispose();
-    _changesListScrollController.dispose();
+    _stagedScrollController.dispose();
+    _unstagedScrollController.dispose();
     super.dispose();
   }
 
@@ -2453,6 +2456,7 @@ class _SourceControlState extends State<SourceControl> {
     required int itemCount,
     required Widget Function(BuildContext, int) itemBuilder,
     required Widget actionButton,
+    required ScrollController controller,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2521,10 +2525,10 @@ class _SourceControlState extends State<SourceControl> {
                     maxHeight: itemCount > 5 ? 250 : itemCount * 50.0,
                   ),
                   child: Scrollbar(
-                    controller: _changesListScrollController,
+                    controller: controller,
                     thumbVisibility: itemCount > 5,
                     child: ListView.builder(
-                      controller: _changesListScrollController,
+                      controller: controller,
                       padding: EdgeInsets.zero,
                       shrinkWrap: true,
                       itemCount: itemCount,
@@ -3166,6 +3170,11 @@ class _SourceControlState extends State<SourceControl> {
                                     ),
                                   ),
                                   menuStyle: MenuStyle(
+                                    shape: WidgetStatePropertyAll(
+                                      RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.all(Radius.circular(10))
+                                      )
+                                    ),
                                     backgroundColor: WidgetStatePropertyAll(widget.appTheme.cardTheme.color),
                                   ),
                                   dropdownMenuEntries: [
@@ -3225,50 +3234,129 @@ class _SourceControlState extends State<SourceControl> {
                                   )
                                 ),
                               ),
+                              controller: _stagedScrollController,
                               itemBuilder: (_, index) {
                                 final fileName = _extractGitFilename(repoState.staged[index]);
                                 final (String, Color) repoIndicator = gitFileStatus[repoState.staged[index].substring(0,2).trim()]!;
-                                return ListTile(
-                                  visualDensity: VisualDensity(vertical: -4),
-                                  leading: SizedBox(
-                                    height: 21,
-                                    width: 21,
-                                    child: ((){
-                                      try {
-                                        return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
-                                      } catch (e) {
-                                        debugPrint(e.toString());
-                                        return SizedBox.shrink();
-                                      }
-                                    })()
-                                  ),
-                                  title: Text(path.basename(fileName)),
-                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11)),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Tooltip(
-                                        message: "Unstage Changes",
-                                        child: IconButton(
-                                          onPressed: () async {
-                                            await unstageChange(fileName, widget.workSpace);
-                                            if(context.mounted){
-                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
-                                            }
-                                          },
-                                          icon: Text(
-                                            "—",
-                                            style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
-                                          )
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () {},
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: widget.appTheme.isDark
+                                              ? Colors.white.withValues(alpha: 0.03)
+                                              : Colors.black.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: repoIndicator.$2.withValues(alpha: 0.2),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            // File icon
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: (() {
+                                                try {
+                                                  return languages.singleWhere(
+                                                    (lang) => lang.extension.contains(
+                                                      path.extension(path.basename(fileName)).replaceAll('.', '')
+                                                    )
+                                                  ).icon;
+                                                } catch (e) {
+                                                  return Icon(
+                                                    Icons.insert_drive_file,
+                                                    size: 18,
+                                                    color: repoIndicator.$2,
+                                                  );
+                                                }
+                                              })(),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            // File info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    path.basename(fileName),
+                                                    style: TextStyle(
+                                                      fontSize: 13.5,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: repoIndicator.$2,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    fileName,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.5),
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Status badge
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                repoIndicator.$1,
+                                                style: TextStyle(
+                                                  color: repoIndicator.$2,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            // Unstage button
+                                            Tooltip(
+                                              message: "Unstage Changes",
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(4),
+                                                onTap: () async {
+                                                  await unstageChange(fileName, widget.workSpace);
+                                                  if (context.mounted) {
+                                                    try {
+                                                      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                    } catch (_) {}
+                                                  }
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(
+                                                    Icons.remove_circle_outline,
+                                                    size: 18,
+                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      Text(repoIndicator.$1),
-                                    ],
-                                  ),
-                                  titleTextStyle: TextStyle(fontSize: 14, color: repoIndicator.$2),
-                                  leadingAndTrailingTextStyle: TextStyle(
-                                    color: repoIndicator.$2,
-                                    fontWeight: FontWeight.bold
+                                    ),
                                   ),
                                 );
                               },
@@ -3293,104 +3381,191 @@ class _SourceControlState extends State<SourceControl> {
                                   )
                                 ),
                               ),
+                              controller: _unstagedScrollController,
                               itemBuilder: (_, index) {
                                 final fileName = _extractGitFilename(repoState.unstaged[index]);
                                 final (String, Color) repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0,2).trim()]!;
-                                return ListTile(
-                                  visualDensity: VisualDensity(vertical: -4),
-                                  leading: SizedBox(
-                                    height: 21,
-                                    width: 21,
-                                    child: ((){
-                                      try {
-                                        return languages.singleWhere((lang) => lang.extension.contains(path.extension(path.basename(fileName)).replaceAll('.', ''))).icon;
-                                      } catch (e) {
-                                        debugPrint(e.toString());
-                                        return SizedBox.shrink();
-                                      }
-                                    })()
-                                  ),
-                                  title: Text(path.basename(fileName), overflow: TextOverflow.ellipsis),
-                                  subtitle: Text(fileName, style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Tooltip(
-                                        message: "Discard Change",
-                                        child: IconButton(
-                                          onPressed: (){
-                                            final repoBloc = context.read<RepoStatusBloc>();
-                                            showDialog(
-                                              context: context, 
-                                              builder: (context) => BlocProvider.value(
-                                                value: repoBloc,
-                                                child: AlertDialog(
-                                                  title:  Text("Are you sure want to discard the changes?", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                                  backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                                  icon: const Icon(Icons.info_outline, size: 35),
-                                                  iconColor: Colors.blue,
-                                                  actionsAlignment: MainAxisAlignment.center,
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () => Navigator.of(context).pop(),
-                                                        child: const Text(
-                                                          "Cancel",
-                                                          style: TextStyle(
-                                                            color: Colors.red,
-                                                            fontSize: 17
-                                                          ),
-                                                        )
-                                                      ),
-                                                      const SizedBox(width: 25),
-                                                      TextButton(
-                                                        onPressed: () async{
-                                                          await gitRestoreFile(fileName, widget.workSpace);
-                                                          if (context.mounted) {
-                                                            try {
-                                                              repoBloc.add(LoadRepoStatus(widget.workSpace));
-                                                            } catch (_) {}
-                                                            Navigator.of(context).pop();
-                                                          }
-                                                        },
-                                                        child: const Text(
-                                                          "Yes",
-                                                          style: TextStyle(
-                                                            color: Colors.blue,
-                                                            fontSize: 17
-                                                          ),
-                                                        )
-                                                      ),
-                                                    ],
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () {},
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: widget.appTheme.isDark
+                                              ? Colors.white.withValues(alpha: 0.03)
+                                              : Colors.black.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: repoIndicator.$2.withValues(alpha: 0.2),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            // File icon
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: (() {
+                                                try {
+                                                  return languages.singleWhere(
+                                                    (lang) => lang.extension.contains(
+                                                      path.extension(path.basename(fileName)).replaceAll('.', '')
+                                                    )
+                                                  ).icon;
+                                                } catch (e) {
+                                                  return Icon(
+                                                    Icons.insert_drive_file,
+                                                    size: 18,
+                                                    color: repoIndicator.$2,
+                                                  );
+                                                }
+                                              })(),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            // File info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    path.basename(fileName),
+                                                    style: TextStyle(
+                                                      fontSize: 13.5,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: repoIndicator.$2,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    fileName,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.5),
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Status badge
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                repoIndicator.$1,
+                                                style: TextStyle(
+                                                  color: repoIndicator.$2,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
                                                 ),
                                               ),
-                                            );
-                                          },
-                                          icon: Icon(
-                                            FontAwesomeIcons.arrowRotateLeft,
-                                            size: 13.5,
-                                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(180)
-                                          )
+                                            ),
+                                            const SizedBox(width: 4),
+                                            // Discard button
+                                            Tooltip(
+                                              message: "Discard Change",
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(4),
+                                                onTap: () {
+                                                  final repoBloc = context.read<RepoStatusBloc>();
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) => BlocProvider.value(
+                                                      value: repoBloc,
+                                                      child: AlertDialog(
+                                                        title: Text(
+                                                          "Are you sure want to discard the changes?",
+                                                          style: TextStyle(color: Colors.grey[400], fontSize: 20)
+                                                        ),
+                                                        backgroundColor: widget.appTheme.isDark
+                                                            ? const Color(0xff2b2b2b)
+                                                            : const Color.fromARGB(255, 240, 240, 240),
+                                                        icon: const Icon(Icons.info_outline, size: 35),
+                                                        iconColor: Colors.blue,
+                                                        actionsAlignment: MainAxisAlignment.center,
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () => Navigator.of(context).pop(),
+                                                            child: const Text(
+                                                              "Cancel",
+                                                              style: TextStyle(color: Colors.red, fontSize: 17),
+                                                            )
+                                                          ),
+                                                          const SizedBox(width: 25),
+                                                          TextButton(
+                                                            onPressed: () async {
+                                                              await gitRestoreFile(fileName, widget.workSpace);
+                                                              if (context.mounted) {
+                                                                try {
+                                                                  repoBloc.add(LoadRepoStatus(widget.workSpace));
+                                                                } catch (_) {}
+                                                                Navigator.of(context).pop();
+                                                              }
+                                                            },
+                                                            child: const Text(
+                                                              "Yes",
+                                                              style: TextStyle(color: Colors.blue, fontSize: 17),
+                                                            )
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(
+                                                    FontAwesomeIcons.arrowRotateLeft,
+                                                    size: 16,
+                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            // Stage button
+                                            Tooltip(
+                                              message: "Stage Changes",
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(4),
+                                                onTap: () async {
+                                                  await stageChange(fileName, widget.workSpace);
+                                                  if (context.mounted) {
+                                                    try {
+                                                      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                    } catch (_) {}
+                                                  }
+                                                },
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(
+                                                    Icons.add_circle_outline,
+                                                    size: 18,
+                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      Tooltip(
-                                        message: "Stage Changes",
-                                        child: IconButton(
-                                          onPressed: () async{
-                                            await stageChange(fileName, widget.workSpace);
-                                            if(context.mounted){
-                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}    
-                                            }
-                                          },
-                                          icon: Icon(Icons.add, color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
-                                        ),
-                                      ),
-                                      Text(repoIndicator.$1),
-                                    ],
-                                  ),
-                                  titleTextStyle: TextStyle(fontSize: 14, color: repoIndicator.$2),
-                                  leadingAndTrailingTextStyle: TextStyle(
-                                    color: repoIndicator.$2,
-                                    fontWeight: FontWeight.bold
+                                    ),
                                   ),
                                 );
                               },
@@ -3424,7 +3599,7 @@ class _SourceControlState extends State<SourceControl> {
   }
 }
 
-
+//--------------------API Testing------------------------------
 
 class APITesting extends StatelessWidget {
   final Map<String, String> params, headers;
@@ -3804,7 +3979,7 @@ class APITesting extends StatelessWidget {
   }
 }
 
-
+//--------------------AI Chat----------------------------------
 
 class AIChat extends StatefulWidget {
   final String filePath;
@@ -4194,7 +4369,7 @@ class _AIChatState extends State<AIChat> {
   }
 }
 
-
+//--------------------Settings---------------------------------
 
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;

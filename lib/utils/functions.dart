@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -162,6 +164,142 @@ Future<void> initRepo(String workspacePath) async{
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath)
   );
+  
+  await createGitignoreIfNeeded(workspacePath);
+}
+
+Future<void> createGitignoreIfNeeded(String workspacePath) async {
+  final gitignoreFile = File('$workspacePath/.gitignore');
+  
+  if (await gitignoreFile.exists()) {
+    final existingContent = await gitignoreFile.readAsString();
+    final existingLines = existingContent.split('\n').map((e) => e.trim()).toSet();
+    
+    final patternsToAdd = <String>[];
+    for (final pattern in _getGitignorePatterns()) {
+      final trimmedPattern = pattern.trim();
+      if (trimmedPattern.isNotEmpty && 
+          !trimmedPattern.startsWith('#') && 
+          !existingLines.contains(trimmedPattern)) {
+        patternsToAdd.add(pattern);
+      }
+    }
+    
+    if (patternsToAdd.isNotEmpty) {
+      await gitignoreFile.writeAsString(
+        '$existingContent\n\n# Auto-added by VSdroid\n${patternsToAdd.join('\n')}\n',
+        mode: FileMode.append,
+      );
+    }
+  } else {
+    await gitignoreFile.writeAsString(_getGitignorePatterns().join('\n'));
+  }
+}
+
+List<String> _getGitignorePatterns() {
+  return [
+    '# VSdroid and Editor files',
+    '.vscode/',
+    '.idea/',
+    '*.swp',
+    '*.swo',
+    '*~',
+    '.DS_Store',
+    '',
+    '# Language Server Protocol (LSP) cache directories',
+    '.ccls-cache/',
+    '.clangd/',
+    '.cache/',
+    'compile_commands.json',
+    '__pycache__/',
+    '*.pyc',
+    '.mypy_cache/',
+    '.ruff_cache/',
+    '.pytest_cache/',
+    'pyrightconfig.json',
+    '.dart_tool/',
+    '.packages',
+    'pubspec.lock',
+    '.flutter-plugins',
+    '.flutter-plugins-dependencies',
+    '.metadata',
+    '*.jdt.ls/',
+    '.settings/',
+    'bin/',
+    '.classpath',
+    '.project',
+    '.factorypath',
+    '*.class',
+    'node_modules/',
+    '.npm/',
+    'tsconfig.tsbuildinfo',
+    '.eslintcache',
+    '*.tsbuildinfo',
+    '.venv/',
+    'venv/',
+    'env/',
+    'ENV/',
+    '',
+    '# Build outputs',
+    'build/',
+    'dist/',
+    'out/',
+    'target/',
+    '*.o',
+    '*.a',
+    '*.so',
+    '*.dylib',
+    '*.dll',
+    '*.exe',
+    '*.app',
+    '*.apk',
+    '*.aab',
+    '*.ipa',
+    '',
+    '# Shell configuration',
+    '.bashrc',
+    '',
+    '# Logs and databases',
+    '*.log',
+    '*.sql',
+    '*.sqlite',
+    '*.db',
+    '',
+    '# OS generated files',
+    'Thumbs.db',
+    'Desktop.ini',
+    '.Spotlight-V100',
+    '.Trashes',
+    '',
+    '# Temporary files',
+    '*.tmp',
+    '*.temp',
+    '*.bak',
+    '*.backup',
+    '*~',
+    '',
+    '# IDE specific',
+    '*.iml',
+    '.gradle/',
+    'local.properties',
+    '.externalNativeBuild/',
+    '.cxx/',
+    '',
+    '# Compiled Dynamic libraries',
+    '*.so.*',
+    '*.dylib.*',
+    '',
+    '# Coverage reports',
+    'coverage/',
+    '.coverage',
+    'htmlcov/',
+    '',
+    '# Package files',
+    '*.tar.gz',
+    '*.zip',
+    '*.rar',
+    '*.7z',
+  ];
 }
 
 Future<ProcessResult> getRepoStatus(String workspacePath) async{
@@ -306,6 +444,91 @@ Future<void> gitRestoreFile(String fileName, String workspacePath) async{
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath)
   );
+}
+
+Future<void> gitPull(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  await Process.run(
+    "$binDir/git",
+    ["pull", "--ff-only"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath)
+  );
+}
+
+Future<ProcessResult> gitPush(String workspacePath) async{
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["push"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath)
+  );
+  return result;
+}
+
+Future<String> gitHubSignIn() async {
+  final secureStorage = const FlutterSecureStorage();
+  const clientId = "Ov23liYO7I8tsbftzDKc";
+  const backEndHandler = "https://gihub-auth-handler.vercel.app/";
+  
+  final authUrl = Uri.https(
+    'github.com',
+    '/login/oauth/authorize',
+    {
+      'client_id': clientId,
+      'scope': 'repo read:user',
+      'redirect_uri': 'vsdroid://oauth',
+    }
+  );
+
+  try {
+    final result = await FlutterWebAuth2.authenticate(
+      url: authUrl.toString(),
+      callbackUrlScheme: 'vsdroid',
+      options: const FlutterWebAuth2Options(
+        intentFlags: ephemeralIntentFlags,
+      ),
+    );
+
+    final code = Uri.parse(result).queryParameters['code'];
+    
+    if (code == null || code.isEmpty) {
+      return 'No authorization code received';
+    }
+
+    final response = await http.post(
+      Uri.parse('$backEndHandler/github/oauth'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'code': code}),
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        return http.Response('Backend connection timeout', 408);
+      },
+    );
+
+    if (response.statusCode != 200) {
+      return ('${response.statusCode}: ${response.body}');
+    }
+    
+    final data = jsonDecode(response.body);
+    final accessToken = data['access_token'];
+    
+    if (accessToken == null || accessToken.isEmpty) {
+      return 'No access token in backend response';
+    }
+
+    await secureStorage.write(
+      key: 'github_access_token',
+      value: accessToken,
+    );
+
+    return "success";
+
+  } catch (e) {
+    return e.toString();
+  }
 }
 
 String extractRepoName(String url) {

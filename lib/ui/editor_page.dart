@@ -336,6 +336,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
           lspConfig: lspConfig
         );
         final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
+        
+        if (isRepoThere) {
+          createGitignoreIfNeeded(widget.rootDir);
+        }
+        
         final initalUndoController = UndoRedoController();
         final initialFindController = FindController(initialController);
         return MultiBlocProvider(
