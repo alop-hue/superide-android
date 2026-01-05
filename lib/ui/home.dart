@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
@@ -270,7 +271,41 @@ class _SelectTypeState extends State<SelectType> {
                     return SizeTransition(sizeFactor: animation, child: child);
                   }
                 )),
-                icon: const Icon(FontAwesomeIcons.github)
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(FontAwesomeIcons.github),
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: FutureBuilder(
+                        future: const FlutterSecureStorage().read(key: 'github_access_token'),
+                        builder: (_, tokenSnap) {
+                          if (tokenSnap.connectionState == ConnectionState.waiting) {
+                            return const SizedBox.shrink();
+                          }
+
+                          if (tokenSnap.data == null || tokenSnap.data!.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: const Color(0xff238636),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: appThemestate.appTheme.scaffoldBg,
+                                width: 1.5,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                  ],
+                )
               ),
             ),
           ]),

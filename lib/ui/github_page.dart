@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:percent_indicator/percent_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/ui/folder_page.dart';
@@ -148,14 +147,20 @@ class _GithubPageState extends State<GithubPage> {
   }
 
   Future<void> _cloneRepository(BuildContext context, Map<String, dynamic> repo, AppTheme appTheme) async {
-    final repoUrl = repo['clone_url'] as String;
+    String repoUrl = repo['clone_url'] as String;
     final repoName = repo['name'] as String;
     final progressController = StreamController<double>();
+    
+    if (repo['private'] == true && _token != null) {
+      repoUrl = repoUrl.replaceFirst('https://', 'https://$_token@');
+    }
+
+    final navigator = Navigator.of(context);
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: StreamBuilder<double>(
@@ -189,14 +194,26 @@ class _GithubPageState extends State<GithubPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                LinearPercentIndicator(
-                  percent: snapshot.data!.clamp(0.0, 1.0),
-                  lineHeight: 8,
-                  barRadius: const Radius.circular(4),
-                  backgroundColor: appTheme.isDark 
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.1),
-                  progressColor: const Color(0xff238636),
+                Container(
+                  width: 200,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: appTheme.isDark 
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 200 * snapshot.data!.clamp(0.0, 1.0),
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: const Color(0xff238636),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -216,8 +233,8 @@ class _GithubPageState extends State<GithubPage> {
     final targetDir = Directory("$projectDir/$repoName");
     
     if (targetDir.existsSync()) {
+      navigator.pop();
       if (context.mounted) {
-        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Directory "$repoName" already exists'),
@@ -226,17 +243,15 @@ class _GithubPageState extends State<GithubPage> {
         );
         
         await Future.delayed(const Duration(milliseconds: 500));
-        if (context.mounted) {
-          Navigator.of(context).push(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => 
-                FolderPage(dir: targetDir, isCloned: true),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                return SizeTransition(sizeFactor: animation, child: child);
-              },
-            ),
-          );
-        }
+        navigator.push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+              FolderPage(dir: targetDir, isCloned: true),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SizeTransition(sizeFactor: animation, child: child);
+            },
+          ),
+        );
       }
       return;
     }
@@ -245,26 +260,31 @@ class _GithubPageState extends State<GithubPage> {
       await cloneRepo(projectDir, repoUrl, (progress) {
         progressController.add(progress);
       });
-
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        Navigator.of(context).push(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => 
-              FolderPage(dir: Directory("$projectDir/$repoName"), isCloned: true),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return SizeTransition(sizeFactor: animation, child: child);
-            },
-          ),
-        );
-      }
+      
+      progressController.add(1.0);
+      navigator.pop();
+      await Future.delayed(const Duration(milliseconds: 300));
+      final clonedDir = Directory("$projectDir/$repoName");
+      debugPrint('Navigating to folder: ${clonedDir.path}');
+      debugPrint('Directory exists: ${clonedDir.existsSync()}');
+      
+      await navigator.push(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => 
+            FolderPage(dir: clonedDir, isCloned: true),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SizeTransition(sizeFactor: animation, child: child);
+          },
+        ),
+      );
     } catch (e) {
+      debugPrint('Clone error: $e');
+      navigator.pop();
       if (context.mounted) {
-        Navigator.of(context).pop();
         _showErrorDialog(context, 'Clone Failed', e.toString(), appTheme);
       }
     } finally {
-      progressController.close();
+      await progressController.close();
     }
   }
 
