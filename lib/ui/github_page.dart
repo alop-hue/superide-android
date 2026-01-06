@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/ui/folder_page.dart';
 import 'package:vsdroid/utils/constants.dart';
@@ -48,8 +49,8 @@ class _GithubPageState extends State<GithubPage> {
     final token = await storage.read(key: 'github_access_token');
     if (token != null && token.isNotEmpty) {
       setState(() => _token = token);
-      _loadUserInfo();
-      _loadRepos();
+      await _loadUserInfo();
+      await _loadRepos();
     }
   }
 
@@ -102,11 +103,15 @@ class _GithubPageState extends State<GithubPage> {
   Future<void> _signOut() async {
     final storage = const FlutterSecureStorage();
     await storage.delete(key: 'github_access_token');
-    setState(() {
-      _token = null;
-      _userInfo = null;
-      _repos = [];
-    });
+    await clearGitCredentials();
+    if(mounted){
+      context.read<GithubAuthCubit>().logout();
+      setState(() {
+        _token = null;
+        _userInfo = null;
+        _repos = [];
+      });
+    }
   }
 
   void _showErrorDialog(BuildContext context, String title, String message, AppTheme appTheme) {
@@ -439,6 +444,9 @@ class _GithubPageState extends State<GithubPage> {
                     final result = await gitHubSignIn();
                     if (result == "success") {
                       await _loadToken();
+                      if(mounted){
+                        context.read<GithubAuthCubit>().refresh();
+                      }
                     } else {
                       if (mounted) {
                         _showErrorDialog(context, 'Sign In Failed', result, appTheme);

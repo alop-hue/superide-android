@@ -3,13 +3,12 @@ import 'dart:io';
 import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/ui/github_page.dart';
+import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'about.dart';
 import 'donation_page.dart';
 import 'folder_page.dart';
@@ -21,6 +20,7 @@ import 'settings.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
 import '../ui/contribute.dart';
+import '../ui/github_page.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
@@ -141,6 +141,7 @@ class _SelectTypeState extends State<SelectType> {
 
   @override
   Widget build(BuildContext context) {
+    context.read<GithubAuthCubit>().refresh();
     return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, appThemestate) {
         return Scaffold(
@@ -275,21 +276,12 @@ class _SelectTypeState extends State<SelectType> {
                   clipBehavior: Clip.none,
                   children: [
                     const Icon(FontAwesomeIcons.github),
-                    Positioned(
-                      right: -2,
-                      top: -2,
-                      child: FutureBuilder(
-                        future: const FlutterSecureStorage().read(key: 'github_access_token'),
-                        builder: (_, tokenSnap) {
-                          if (tokenSnap.connectionState == ConnectionState.waiting) {
-                            return const SizedBox.shrink();
-                          }
-
-                          if (tokenSnap.data == null || tokenSnap.data!.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return Container(
+                    BlocBuilder<GithubAuthCubit, bool>(
+                      builder: (context, loggedIn) {
+                        return loggedIn ? Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
                             width: 11,
                             height: 11,
                             decoration: BoxDecoration(
@@ -300,9 +292,9 @@ class _SelectTypeState extends State<SelectType> {
                                 width: 1.5,
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ) : SizedBox.shrink();
+                      },
                     )
                   ],
                 )

@@ -1084,12 +1084,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               },
                             )
                           );
-                          /* Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => SetupTerminal(
-                              projectDir: editorState.activeEditors.isNotEmpty
-                                ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.parent.path
-                                : widget.rootDir
-                            ))); */
                         },
                         icon: const Icon(Icons.terminal))
                   ],

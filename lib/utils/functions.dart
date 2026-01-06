@@ -101,6 +101,7 @@ Future<File> setTempFile(String extension) async {
 
 Map<String, String> gitEnvs(String sharedPath) => {
   'PATH': '$binDir:/bin:/usr/bin',
+  'HOME': homeDir,
   'GIT_EXEC_PATH': '$binDir/git-core',
   'GIT_SSL_CAINFO': '$certDir/cacert.pem',
   'LD_LIBRARY_PATH': "$sharedPath:$libDir",
@@ -369,7 +370,6 @@ Future<void> unstageAll(String workspacePath) async {
   );
 }
 
-
 Future<bool> _hasInitialCommit(
   String workspacePath,
   Map<String, String> env,
@@ -383,7 +383,6 @@ Future<bool> _hasInitialCommit(
 
   return result.exitCode == 0;
 }
-
 
 Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all = false, bool amend = false}) async {
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -524,12 +523,106 @@ Future<String> gitHubSignIn() async {
       value: accessToken,
     );
 
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.github.com/user'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      );
+
+      await _configureGitIdentity(jsonDecode(response.body));
+      await _configureGitCredentialHelper();
+      await _approveGithubCredentials(accessToken);
+      
+    } catch (e) {
+      debugPrint('Failed to load user info: $e');
+    }
+
     return "success";
 
   } catch (e) {
     return e.toString();
   }
 }
+
+String resolveGitEmail(Map<String, dynamic> user) {
+  final email = user['email'];
+  final login = user['login'];
+  if (email != null && email.toString().isNotEmpty) {
+    return email;
+  }
+  return '$login@users.noreply.github.com';
+}
+
+Future<void> _configureGitIdentity(Map<String, dynamic> user) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final name = user['name'] ?? user['login'];
+  final email = resolveGitEmail(user);
+
+  await Process.run(
+    "$binDir/git",
+    ["config", "--global", "user.name", name],
+    environment: gitEnvs(sharedPath),
+  );
+
+  await Process.run(
+    "$binDir/git",
+    ["config", "--global", "user.email", email],
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<void> _configureGitCredentialHelper() async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+
+  await Process.run(
+    "$binDir/git",
+    ["config", "--global", "credential.helper", "store"],
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<void> _approveGithubCredentials(String token) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+
+  final process = await Process.start(
+    "$binDir/git",
+    ["credential-store", "store"],
+    environment: gitEnvs(sharedPath),
+  );
+
+  process.stdin.write(
+    "protocol=https\n"
+    "host=github.com\n"
+    "username=oauth2\n"
+    "password=$token\n\n"
+  );
+
+  await process.stdin.close();
+  await process.exitCode;
+}
+
+
+Future<void> clearGitCredentials() async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+
+  await Process.run(
+    "$binDir/git",
+    ["credential", "reject"],
+    environment: gitEnvs(sharedPath),
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
+  );
+
+  final home = Directory(homeDir);
+  final credsFile = File('${home.path}/.git-credentials');
+  if (credsFile.existsSync()) {
+    credsFile.deleteSync();
+  }
+}
+
 
 String extractRepoName(String url) {
   url = url.replaceFirst(RegExp(r'^(https?://|git@)'), '');
@@ -602,9 +695,6 @@ Future<Directory?> pickDir() async {
     {'uri': treeUri},
   );
   if(projectPath == null) return null;
-  print("\n");
-  print(projectPath);
-  print("\n");
   return Directory(projectPath);
 }
 

@@ -43,9 +43,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
     }
     
     final enVars = <String, String>{
-      'HOME': workDir.path,
+      'HOME': homeDir,
       'PS1': " \x1b[32m\\w \x1b[0m\$ ",
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
+      'PROMPT_DIRTRIM':'2',
       'VSDROID_SHARED_PATH': sharedPath,
       'LD_LIBRARY_PATH': '$sharedPath:$runtimesDir/ruby:$runtimesDir/mono:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$sharedPath/libc++_shared.so', 
@@ -65,7 +66,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
   void _startPty(String execPath, Map<String, String> enVars, {List<String> args = const []}) {
     pty = Pty.start(
       execPath,
-      workingDirectory: enVars['HOME'],
+      workingDirectory: widget.projectDir,
       environment: enVars,
       rows: terminal.viewHeight,
       columns: terminal.viewWidth,

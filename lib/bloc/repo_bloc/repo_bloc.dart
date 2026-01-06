@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vsdroid/utils/functions.dart';
 
 part 'repo_event.dart';
@@ -79,5 +80,21 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
         emit(RepoStatusError(message: e.toString()));
       }
     }
+  }
+}
+
+class GithubAuthCubit extends Cubit<bool> {
+  GithubAuthCubit() : super(false) {
+    refresh();
+  }
+
+  Future<void> refresh() async {
+    final token = await const FlutterSecureStorage().read(key: 'github_access_token');
+    emit(token != null && token.isNotEmpty);
+  }
+
+  Future<void> logout() async {
+    await const FlutterSecureStorage().delete(key: 'github_access_token');
+    emit(false);
   }
 }
