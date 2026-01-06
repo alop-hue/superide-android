@@ -113,7 +113,7 @@ class MainActivity : FlutterActivity() {
         val src = DocumentFile.fromTreeUri(this, treeUri)
             ?: throw IllegalArgumentException("Invalid SAF tree URI")
 
-        val projectsRoot = File(filesDir, "VSdroid/Projects")
+        val projectsRoot = File("/data/data/com.vsdroid/VSdroid/Projects")
         if (!projectsRoot.exists()) projectsRoot.mkdirs()
 
         val target = File(projectsRoot, src.name ?: "ImportedProject")
@@ -130,6 +130,9 @@ class MainActivity : FlutterActivity() {
                 copySafRecursive(child, childDest)
             }
         } else {
+            dest.parentFile?.let {
+                if (!it.exists()) it.mkdirs()
+            }
             contentResolver.openInputStream(src.uri)?.use { input ->
                 dest.outputStream().use { output ->
                     input.copyTo(output)

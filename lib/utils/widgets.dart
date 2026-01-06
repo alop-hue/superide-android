@@ -185,6 +185,7 @@ Widget projectTile(
   icon,
   Color cardBg,
   VoidCallback onTap,
+  {Widget? trailing}
 ) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
@@ -201,6 +202,7 @@ Widget projectTile(
           projectDetails,
           style: const TextStyle(color: Colors.grey),
         ),
+        trailing: trailing,
       ),
     ),
   );
@@ -3477,7 +3479,6 @@ class _SourceControlState extends State<SourceControl> {
                                               ),
                                             ),
                                             const SizedBox(width: 4),
-                                            // Discard button
                                             Tooltip(
                                               message: "Discard Change",
                                               child: InkWell(

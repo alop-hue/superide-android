@@ -1094,15 +1094,12 @@ class _SelectTypeState extends State<SelectType> {
                                           )
                                         );
                                       },
-                                      title:
-                                          ((){
-                                            if(File(recentData[index].keys.toList()[0]).existsSync()){
-                                              return Text(
-                                                path.basename(recentData[index].keys.toList()[0]),
-                                                style: const TextStyle(fontSize: 17));
-                                            }
-                                            return Text("${path.basename(recentData[index].keys.toList()[0])} - File not found");
-                                          })(),
+                                      title: Text(
+                                        File(recentData[index].keys.toList()[0]).existsSync() 
+                                          ? path.basename(recentData[index].keys.toList()[0])
+                                          : "${path.basename(recentData[index].keys.toList()[0])} - File not found",
+                                        style: const TextStyle(fontSize: 17)
+                                      ),
                                       subtitle: Text(
                                         recentData[index][recentData[index].keys.toList()[0]],
                                         style: TextStyle(

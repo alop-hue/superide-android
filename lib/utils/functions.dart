@@ -470,7 +470,7 @@ Future<ProcessResult> gitPush(String workspacePath) async{
 Future<String> gitHubSignIn() async {
   final secureStorage = const FlutterSecureStorage();
   const clientId = "Ov23liYO7I8tsbftzDKc";
-  const backEndHandler = "https://gihub-auth-handler.vercel.app/";
+  const backEndHandler = "https://gihub-auth-handler.vercel.app";
   
   final authUrl = Uri.https(
     'github.com',
@@ -602,6 +602,9 @@ Future<Directory?> pickDir() async {
     {'uri': treeUri},
   );
   if(projectPath == null) return null;
+  print("\n");
+  print(projectPath);
+  print("\n");
   return Directory(projectPath);
 }
 

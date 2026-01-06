@@ -355,6 +355,82 @@ class _ProjectScreenState extends State<ProjectScreen> {
                                   ),
                                 );
                               },
+                              trailing: IconButton.filledTonal(
+                                visualDensity: VisualDensity(horizontal: 1, vertical: 1),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      backgroundColor: appTheme.isDark
+                                        ? const Color(0xff2b2b2b)
+                                        : const Color.fromARGB(255, 250, 250, 250),
+                                      title: Text(
+                                        'Are you sure want to delete this project?',
+                                        style: TextStyle(
+                                          color: appTheme.selectScreenCardTextColor,
+                                          fontSize: 20
+                                        ),
+                                      ),
+                                      content: Text(
+                                        "This action cannot be undone.",
+                                        style: TextStyle(
+                                          color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                                          fontSize: 16
+                                        ),
+                                      ),
+                                      actions: [
+                                        ElevatedButton(
+                                          onPressed: ()=> Navigator.of(context).pop(),
+                                          style: ElevatedButton.styleFrom(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            elevation: 2,
+                                          ),
+                                          child: Text('Cancel')
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            dir.deleteSync(recursive: true);
+                                            setState(() {
+                                              _existingProjectsFuture = null;
+                                            });
+                                            Navigator.of(context).pop(true);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            elevation: 2,
+                                          ),
+                                          child: Text('Delete', style: TextStyle(color: Colors.white))
+                                        )
+                                      ],
+                                    )
+                                  );
+                                },
+                                icon: Icon(
+                                  Icons.delete,
+                                    color: Colors.red.withAlpha(180)
+                                ),
+                                style: ButtonStyle(
+                                  backgroundColor: WidgetStatePropertyAll(appTheme.editorPageToolSelectedBgColor.withAlpha(170)),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                                      side: BorderSide(
+                                        color: appTheme.selectScreenCardTextColor.withAlpha(100),
+                                        width: 0.45
+                                      )
+                                    )
+                                  ),
+                                  elevation: WidgetStatePropertyAll(15),
+
+                                ),
+                              )
                             ),
                           )).toList(),
                         );
