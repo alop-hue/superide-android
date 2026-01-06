@@ -103,6 +103,8 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-https'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-http'},
       {'src': '$sharedPath/libccls.so', 'dst': '$binDir/ccls'},
+      {'src': '$sharedPath/libless.so', 'dst': '$binDir/less', 'env': {'LD_LIBRARY_PATH' : libDir}},
+      {'src': '$sharedPath/libless.so', 'dst': '$binDir/pager', 'env': {'LD_LIBRARY_PATH' : libDir}},
       ...loaderTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
       ...javaTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
     ];
@@ -155,6 +157,12 @@ class _StartScreenState extends State<StartScreen> {
       libDirectory.createSync(recursive: true);
       final bytes = await rootBundle.load('assets/lib/libz.so.1');
       File('$libDir/libz.so.1').writeAsBytesSync(bytes.buffer.asUint8List());
+    }
+    
+    if (!File('$libDir/libncursesw.so.6').existsSync()) {
+      libDirectory.createSync(recursive: true);
+      final bytes = await rootBundle.load('assets/lib/libncursesw.so.6');
+      File('$libDir/libncursesw.so.6').writeAsBytesSync(bytes.buffer.asUint8List());
     }
 
     setState(() {

@@ -23,7 +23,7 @@ Future<Directory> setupProjectDir() async {
   return target;
 }
 
-Future<Directory> setupFilesDir() async{
+Future<Directory> setupFilesDir() async {
   final target = Directory(filesDir);
   if (!target.existsSync()) {
     await target.create(recursive: true);
@@ -53,10 +53,7 @@ Future<Directory> setupFilesDir() async{
       }
     }
 
-    await currentFiles.writeAsString(
-      jsonEncode(cleaned),
-      flush: true,
-    );
+    await currentFiles.writeAsString(jsonEncode(cleaned), flush: true);
   } catch (e) {
     await currentFiles.writeAsString(jsonEncode({}), flush: true);
   }
@@ -74,28 +71,32 @@ Future<Directory> setupTempDir() async {
 
 Future<File> setTempFile(String extension) async {
   final dir = await setupTempDir();
-  
+
   File target;
   if (extension == 'html') {
-    target = File('${dir.path}/index.html');  
+    target = File('${dir.path}/index.html');
   } else if (extension == 'css') {
-    target = File('${dir.path}/style.css');  
+    target = File('${dir.path}/style.css');
   } else if (extension == 'js') {
-    target = File('${dir.path}/script.js');  
+    target = File('${dir.path}/script.js');
   } else {
     target = File('${dir.path}/tempCode.$extension');
   }
-  
+
   if (!target.existsSync() || target.readAsStringSync().isEmpty) {
     await target.create(recursive: true);
     await target.writeAsString(
-      languages.firstWhere(
-        (lang) => lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
-        orElse: () => languages[0]
-      ).helloWorld
+      languages
+          .firstWhere(
+            (lang) => lang.extension.contains(
+              path.extension(target.path).replaceFirst(".", ""),
+            ),
+            orElse: () => languages[0],
+          )
+          .helloWorld,
     );
   }
-  
+
   return target;
 }
 
@@ -105,7 +106,7 @@ Map<String, String> gitEnvs(String sharedPath) => {
   'GIT_EXEC_PATH': '$binDir/git-core',
   'GIT_SSL_CAINFO': '$certDir/cacert.pem',
   'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-  'VSDROID_SHARED_PATH': sharedPath
+  'VSDROID_SHARED_PATH': sharedPath,
 };
 
 Future<void> cloneRepo(
@@ -123,7 +124,7 @@ Future<void> cloneRepo(
   );
 
   final progressRegex = RegExp(
-    r'(Receiving objects|Resolving deltas|Compressing objects):\s+(\d+)%'
+    r'(Receiving objects|Resolving deltas|Compressing objects):\s+(\d+)%',
   );
 
   process.stderr.listen((data) {
@@ -142,50 +143,52 @@ Future<void> cloneRepo(
   }
 }
 
-
-Future<void> initRepo(String workspacePath) async{
+Future<void> initRepo(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   await Process.run(
     "$binDir/git",
     ["init"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
-  
+
   await Process.run(
     "$binDir/git",
     ["config", "--local", "user.name", "VSdroid user"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
-  
+
   await Process.run(
     "$binDir/git",
     ["config", "--local", "user.email", "vsdroid@local"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
-  
+
   await createGitignoreIfNeeded(workspacePath);
 }
 
 Future<void> createGitignoreIfNeeded(String workspacePath) async {
   final gitignoreFile = File('$workspacePath/.gitignore');
-  
+
   if (await gitignoreFile.exists()) {
     final existingContent = await gitignoreFile.readAsString();
-    final existingLines = existingContent.split('\n').map((e) => e.trim()).toSet();
-    
+    final existingLines = existingContent
+        .split('\n')
+        .map((e) => e.trim())
+        .toSet();
+
     final patternsToAdd = <String>[];
     for (final pattern in _getGitignorePatterns()) {
       final trimmedPattern = pattern.trim();
-      if (trimmedPattern.isNotEmpty && 
-          !trimmedPattern.startsWith('#') && 
+      if (trimmedPattern.isNotEmpty &&
+          !trimmedPattern.startsWith('#') &&
           !existingLines.contains(trimmedPattern)) {
         patternsToAdd.add(pattern);
       }
     }
-    
+
     if (patternsToAdd.isNotEmpty) {
       await gitignoreFile.writeAsString(
         '$existingContent\n\n# Auto-added by VSdroid\n${patternsToAdd.join('\n')}\n',
@@ -303,13 +306,13 @@ List<String> _getGitignorePatterns() {
   ];
 }
 
-Future<ProcessResult> getRepoStatus(String workspacePath) async{
+Future<ProcessResult> getRepoStatus(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   return await Process.run(
     "$binDir/git",
     ["status", "--porcelain=v1", "-uall"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
 }
 
@@ -319,7 +322,7 @@ Future<void> stageChange(String fileName, String workspacePath) async {
     "$binDir/git",
     ["add", fileName],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
 }
 
@@ -329,7 +332,7 @@ Future<void> stageAll(String workspacePath) async {
     "$binDir/git",
     ["add", "--all"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
 }
 
@@ -351,16 +354,13 @@ Future<void> unstageChange(String fileName, String workspacePath) async {
   );
 }
 
-
 Future<void> unstageAll(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final env = gitEnvs(sharedPath);
 
   final hasHead = await _hasInitialCommit(workspacePath, env);
 
-  final args = hasHead
-      ? ["restore", "--staged", "."]
-      : ["reset", "."];
+  final args = hasHead ? ["restore", "--staged", "."] : ["reset", "."];
 
   await Process.run(
     "$binDir/git",
@@ -384,7 +384,12 @@ Future<bool> _hasInitialCommit(
   return result.exitCode == 0;
 }
 
-Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all = false, bool amend = false}) async {
+Future<ProcessResult> gitCommit(
+  String workspacePath,
+  String message, {
+  bool all = false,
+  bool amend = false,
+}) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final args = <String>['commit'];
   if (amend) args.add('--amend');
@@ -395,133 +400,617 @@ Future<ProcessResult> gitCommit(String workspacePath, String message, {bool all 
     "$binDir/git",
     args,
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
 
   return result;
 }
 
-Future<List<CommitNode>> getGraph(String workspacePath) async{
+Future<List<CommitNode>> getGraph(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final result = await Process.run(
     "$binDir/git",
     ["log", "--all", "--pretty=format:%H%x01%P%x01%an%x01%s"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
-  
+
   final List<CommitNode> commits = [];
   final lines = result.stdout.toString().split('\n');
-  
+
   for (final line in lines) {
     if (line.trim().isEmpty) continue;
-    
+
     final parts = line.split('\x01');
     if (parts.length >= 4) {
       final hash = parts[0];
       final parentHashes = parts[1].isEmpty ? <String>[] : parts[1].split(' ');
       final author = parts[2];
       final message = parts[3];
-      
-      commits.add(CommitNode(
-        hash: hash,
-        parents: parentHashes,
-        author: author,
-        message: message,
-      ));
+
+      commits.add(
+        CommitNode(
+          hash: hash,
+          parents: parentHashes,
+          author: author,
+          message: message,
+        ),
+      );
     }
   }
-  
+
   return commits;
 }
 
-Future<void> gitRestoreFile(String fileName, String workspacePath) async{
+Future<void> gitRestoreFile(String fileName, String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   await Process.run(
     "$binDir/git",
     ["restore", fileName],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
 }
 
-Future<void> gitPull(String workspacePath) async{
+Future<ProcessResult> gitPush(
+  String workspacePath, {
+  String? remote,
+  String? branch,
+  bool setUpstream = false,
+}) async {
   final sharedPath = await NativeChannel.getLibraryPath();
-  await Process.run(
-    "$binDir/git",
-    ["pull", "--ff-only"],
-    workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
-  );
-}
-
-Future<ProcessResult> gitPush(String workspacePath) async{
-  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['push'];
+  if (setUpstream) args.add('-u');
+  if (remote != null) args.add(remote);
+  if (branch != null) args.add(branch);
   final result = await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  return result;
+}
+
+Future<ProcessResult> gitPull(
+  String workspacePath, {
+  String? remote,
+  String? branch,
+  bool rebase = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['pull'];
+  if (rebase) args.add('--rebase');
+  if (remote != null) args.add(remote);
+  if (branch != null) args.add(branch);
+  final result = await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  return result;
+}
+
+Future<ProcessResult> gitFetch(
+  String workspacePath, {
+  String? remote,
+  bool all = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['fetch'];
+  if (all) args.add('--all');
+  if (remote != null && !all) args.add(remote);
+  final result = await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  return result;
+}
+
+Future<ProcessResult> gitSync(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  // Pull then push
+  final pullResult = await Process.run(
+    "$binDir/git",
+    ["pull", "--rebase"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (pullResult.exitCode != 0) return pullResult;
+
+  final pushResult = await Process.run(
     "$binDir/git",
     ["push"],
     workingDirectory: workspacePath,
-    environment: gitEnvs(sharedPath)
+    environment: gitEnvs(sharedPath),
   );
-  return result;
+  return pushResult;
+}
+
+// ===================== Branch Operations =====================
+
+Future<List<String>> gitListBranches(
+  String workspacePath, {
+  bool remote = false,
+  bool all = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['branch'];
+  if (all) {
+    args.add('-a');
+  } else if (remote) {
+    args.add('-r');
+  }
+  final result = await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return [];
+  return (result.stdout as String)
+      .split('\n')
+      .map((b) => b.replaceFirst('*', '').trim())
+      .where((b) => b.isNotEmpty)
+      .toList();
+}
+
+Future<String?> gitCurrentBranch(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["branch", "--show-current"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return null;
+  return (result.stdout as String).trim();
+}
+
+Future<ProcessResult> gitCreateBranch(
+  String workspacePath,
+  String branchName, {
+  String? fromRef,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['checkout', '-b', branchName];
+  if (fromRef != null) args.add(fromRef);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitCheckoutBranch(
+  String workspacePath,
+  String branchName,
+) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["checkout", branchName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitRenameBranch(
+  String workspacePath,
+  String oldName,
+  String newName,
+) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["branch", "-m", oldName, newName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitDeleteBranch(
+  String workspacePath,
+  String branchName, {
+  bool force = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["branch", force ? "-D" : "-d", branchName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitDeleteRemoteBranch(
+  String workspacePath,
+  String branchName, {
+  String remote = 'origin',
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["push", remote, "--delete", branchName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitMergeBranch(
+  String workspacePath,
+  String branchName, {
+  bool noFf = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['merge'];
+  if (noFf) args.add('--no-ff');
+  args.add(branchName);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitRebaseBranch(
+  String workspacePath,
+  String branchName,
+) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["rebase", branchName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitPublishBranch(
+  String workspacePath,
+  String branchName, {
+  String remote = 'origin',
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["push", "-u", remote, branchName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+// ===================== Stash Operations =====================
+
+Future<List<Map<String, String>>> gitListStashes(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["stash", "list", "--format=%gd%x01%s"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return [];
+  final lines = (result.stdout as String)
+      .split('\n')
+      .where((l) => l.isNotEmpty);
+  return lines.map((line) {
+    final parts = line.split('\x01');
+    return {
+      'ref': parts.isNotEmpty ? parts[0] : '',
+      'message': parts.length > 1 ? parts[1] : '',
+    };
+  }).toList();
+}
+
+Future<ProcessResult> gitStash(
+  String workspacePath, {
+  String? message,
+  bool includeUntracked = false,
+  bool stagedOnly = false,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['stash', 'push'];
+  if (includeUntracked) args.add('--include-untracked');
+  if (stagedOnly) args.add('--staged');
+  if (message != null && message.isNotEmpty) {
+    args.addAll(['-m', message]);
+  }
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitStashApply(
+  String workspacePath, {
+  String? stashRef,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['stash', 'apply'];
+  if (stashRef != null) args.add(stashRef);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitStashPop(
+  String workspacePath, {
+  String? stashRef,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['stash', 'pop'];
+  if (stashRef != null) args.add(stashRef);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitStashDrop(
+  String workspacePath, {
+  String? stashRef,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['stash', 'drop'];
+  if (stashRef != null) args.add(stashRef);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitStashClear(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["stash", "clear"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<String> gitStashShow(String workspacePath, String stashRef) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["stash", "show", "-p", stashRef],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  return result.stdout as String;
+}
+
+// ===================== Tag Operations =====================
+
+Future<List<String>> gitListTags(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["tag", "-l"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return [];
+  return (result.stdout as String)
+      .split('\n')
+      .where((t) => t.isNotEmpty)
+      .toList();
+}
+
+Future<ProcessResult> gitCreateTag(
+  String workspacePath,
+  String tagName, {
+  String? message,
+  String? ref,
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final args = <String>['tag'];
+  if (message != null && message.isNotEmpty) {
+    args.addAll(['-a', tagName, '-m', message]);
+  } else {
+    args.add(tagName);
+  }
+  if (ref != null) args.add(ref);
+  return await Process.run(
+    "$binDir/git",
+    args,
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitDeleteTag(String workspacePath, String tagName) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["tag", "-d", tagName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitDeleteRemoteTag(
+  String workspacePath,
+  String tagName, {
+  String remote = 'origin',
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["push", remote, "--delete", "refs/tags/$tagName"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+Future<ProcessResult> gitPushTag(
+  String workspacePath,
+  String tagName, {
+  String remote = 'origin',
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["push", remote, tagName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+// ===================== Remote Operations =====================
+
+Future<List<String>> gitListRemotes(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["remote"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return [];
+  return (result.stdout as String)
+      .split('\n')
+      .where((r) => r.isNotEmpty)
+      .toList();
+}
+
+Future<String?> gitGetRemoteUrl(
+  String workspacePath, {
+  String remote = 'origin',
+}) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["remote", "get-url", remote],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return null;
+  return (result.stdout as String).trim();
+}
+
+Future<ProcessResult> gitAddRemote(
+  String workspacePath,
+  String name,
+  String url,
+) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  return await Process.run(
+    "$binDir/git",
+    ["remote", "add", name, url],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+}
+
+// ===================== Status Helpers =====================
+
+Future<bool> hasRemote(String workspacePath) async {
+  final remotes = await gitListRemotes(workspacePath);
+  return remotes.isNotEmpty;
+}
+
+Future<int> getUnpushedCommitCount(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["rev-list", "--count", "@{u}..HEAD"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return 0;
+  return int.tryParse((result.stdout as String).trim()) ?? 0;
+}
+
+Future<int> getUnpulledCommitCount(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  // First fetch to get latest
+  await gitFetch(workspacePath);
+  final result = await Process.run(
+    "$binDir/git",
+    ["rev-list", "--count", "HEAD..@{u}"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (result.exitCode != 0) return 0;
+  return int.tryParse((result.stdout as String).trim()) ?? 0;
+}
+
+Future<bool> hasUpstream(String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  return result.exitCode == 0;
 }
 
 Future<String> gitHubSignIn() async {
   final secureStorage = const FlutterSecureStorage();
   const clientId = "Ov23liYO7I8tsbftzDKc";
   const backEndHandler = "https://gihub-auth-handler.vercel.app";
-  
-  final authUrl = Uri.https(
-    'github.com',
-    '/login/oauth/authorize',
-    {
-      'client_id': clientId,
-      'scope': 'repo read:user',
-      'redirect_uri': 'vsdroid://oauth',
-    }
-  );
+
+  final authUrl = Uri.https('github.com', '/login/oauth/authorize', {
+    'client_id': clientId,
+    'scope': 'repo read:user',
+    'redirect_uri': 'vsdroid://oauth',
+  });
 
   try {
     final result = await FlutterWebAuth2.authenticate(
       url: authUrl.toString(),
       callbackUrlScheme: 'vsdroid',
-      options: const FlutterWebAuth2Options(
-        intentFlags: ephemeralIntentFlags,
-      ),
+      options: const FlutterWebAuth2Options(intentFlags: ephemeralIntentFlags),
     );
 
     final code = Uri.parse(result).queryParameters['code'];
-    
+
     if (code == null || code.isEmpty) {
       return 'No authorization code received';
     }
 
-    final response = await http.post(
-      Uri.parse('$backEndHandler/github/oauth'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'code': code}),
-    ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {
-        return http.Response('Backend connection timeout', 408);
-      },
-    );
+    final response = await http
+        .post(
+          Uri.parse('$backEndHandler/github/oauth'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'code': code}),
+        )
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            return http.Response('Backend connection timeout', 408);
+          },
+        );
 
     if (response.statusCode != 200) {
       return ('${response.statusCode}: ${response.body}');
     }
-    
+
     final data = jsonDecode(response.body);
     final accessToken = data['access_token'];
-    
+
     if (accessToken == null || accessToken.isEmpty) {
       return 'No access token in backend response';
     }
 
-    await secureStorage.write(
-      key: 'github_access_token',
-      value: accessToken,
-    );
+    await secureStorage.write(key: 'github_access_token', value: accessToken);
 
     try {
       final response = await http.get(
@@ -535,13 +1024,11 @@ Future<String> gitHubSignIn() async {
       await _configureGitIdentity(jsonDecode(response.body));
       await _configureGitCredentialHelper();
       await _approveGithubCredentials(accessToken);
-      
     } catch (e) {
       debugPrint('Failed to load user info: $e');
     }
 
     return "success";
-
   } catch (e) {
     return e.toString();
   }
@@ -561,49 +1048,50 @@ Future<void> _configureGitIdentity(Map<String, dynamic> user) async {
   final name = user['name'] ?? user['login'];
   final email = resolveGitEmail(user);
 
-  await Process.run(
-    "$binDir/git",
-    ["config", "--global", "user.name", name],
-    environment: gitEnvs(sharedPath),
-  );
+  await Process.run("$binDir/git", [
+    "config",
+    "--global",
+    "user.name",
+    name,
+  ], environment: gitEnvs(sharedPath));
 
-  await Process.run(
-    "$binDir/git",
-    ["config", "--global", "user.email", email],
-    environment: gitEnvs(sharedPath),
-  );
+  await Process.run("$binDir/git", [
+    "config",
+    "--global",
+    "user.email",
+    email,
+  ], environment: gitEnvs(sharedPath));
 }
 
 Future<void> _configureGitCredentialHelper() async {
   final sharedPath = await NativeChannel.getLibraryPath();
 
-  await Process.run(
-    "$binDir/git",
-    ["config", "--global", "credential.helper", "store"],
-    environment: gitEnvs(sharedPath),
-  );
+  await Process.run("$binDir/git", [
+    "config",
+    "--global",
+    "credential.helper",
+    "store",
+  ], environment: gitEnvs(sharedPath));
 }
 
 Future<void> _approveGithubCredentials(String token) async {
   final sharedPath = await NativeChannel.getLibraryPath();
 
-  final process = await Process.start(
-    "$binDir/git",
-    ["credential-store", "store"],
-    environment: gitEnvs(sharedPath),
-  );
+  final process = await Process.start("$binDir/git", [
+    "credential-store",
+    "store",
+  ], environment: gitEnvs(sharedPath));
 
   process.stdin.write(
     "protocol=https\n"
     "host=github.com\n"
     "username=oauth2\n"
-    "password=$token\n\n"
+    "password=$token\n\n",
   );
 
   await process.stdin.close();
   await process.exitCode;
 }
-
 
 Future<void> clearGitCredentials() async {
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -623,7 +1111,6 @@ Future<void> clearGitCredentials() async {
   }
 }
 
-
 String extractRepoName(String url) {
   url = url.replaceFirst(RegExp(r'^(https?://|git@)'), '');
   final parts = url.split(RegExp(r'[:/]'));
@@ -632,7 +1119,7 @@ String extractRepoName(String url) {
   if (repoName.endsWith('.git')) {
     repoName = repoName.substring(0, repoName.length - 4);
   }
-  
+
   return repoName;
 }
 
@@ -665,10 +1152,7 @@ Future<File?> pickFile() async {
     fileMap[picked.name] = picked.identifier!;
   }
 
-  await currentFiles.writeAsString(
-    jsonEncode(fileMap),
-    flush: true,
-  );
+  await currentFiles.writeAsString(jsonEncode(fileMap), flush: true);
 
   final targetFile = File('${projectDir.path}/${picked.name}');
 
@@ -682,32 +1166,36 @@ Future<File?> pickFile() async {
   return targetFile;
 }
 
-
 Future<Directory?> pickDir() async {
   const MethodChannel saf = MethodChannel('vsdroid/saf');
-  final String? treeUri =
-      await saf.invokeMethod<String>('pickSafDir');
+  final String? treeUri = await saf.invokeMethod<String>('pickSafDir');
 
   if (treeUri == null) return null;
 
-  final projectPath = await saf.invokeMethod<String>(
-    'cloneSafDir',
-    {'uri': treeUri},
-  );
-  if(projectPath == null) return null;
+  final projectPath = await saf.invokeMethod<String>('cloneSafDir', {
+    'uri': treeUri,
+  });
+  if (projectPath == null) return null;
   return Directory(projectPath);
 }
 
-
-Future<String?> selectDir({String? dialogeTitle, String? initialDirectory, Uint8List? bytes}) async{
+Future<String?> selectDir({
+  String? dialogeTitle,
+  String? initialDirectory,
+  Uint8List? bytes,
+}) async {
   return await FilePicker.platform.saveFile(
     dialogTitle: dialogeTitle,
     initialDirectory: initialDirectory,
-    bytes: bytes
+    bytes: bytes,
   );
 }
 
-Future<File?> createFile(String filename, String dirPath, BuildContext context) async {
+Future<File?> createFile(
+  String filename,
+  String dirPath,
+  BuildContext context,
+) async {
   final fileDir = Directory(dirPath);
   if (!fileDir.existsSync()) {
     await fileDir.create(recursive: true);
@@ -725,7 +1213,7 @@ Future<File?> createFile(String filename, String dirPath, BuildContext context) 
             content: Text(e.toString()),
             title: const Text(
               "Failed to open file",
-              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300),
             ),
             backgroundColor: const Color(0xff2b2b2b),
             icon: const Icon(Icons.error_outline),
@@ -747,13 +1235,13 @@ Future<HttpServer?> startServer() async {
   }
 }
 
-Future<String> getRecent() async{
+Future<String> getRecent() async {
   final prefs = await SharedPreferences.getInstance();
   final recent = prefs.getString('recent');
   return recent ?? '[]';
 }
 
-Future<String> getAppTheme() async{
+Future<String> getAppTheme() async {
   final prefs = await SharedPreferences.getInstance();
   final savedAppTheme = prefs.getString("savedAppTheme");
   return savedAppTheme ?? "dark";
@@ -779,20 +1267,21 @@ Future<String> getCodeForgeConfig() async {
   }
   try {
     final Map<String, dynamic> storedConfig = jsonDecode(configString);
-    final mergedConfig = Map<String, dynamic>.from(defaultConfig)..addAll(storedConfig);
+    final mergedConfig = Map<String, dynamic>.from(defaultConfig)
+      ..addAll(storedConfig);
     return jsonEncode(mergedConfig);
   } catch (e) {
     return jsonEncode(defaultConfig);
   }
 }
 
-Future<String> getAiConfig() async{
+Future<String> getAiConfig() async {
   final prefs = await SharedPreferences.getInstance();
   final config = prefs.getString('aiConfig');
   return config ?? '{}';
 }
 
-Future<String> getModelSelected() async{
+Future<String> getModelSelected() async {
   final prefs = await SharedPreferences.getInstance();
   final model = prefs.getString('modelSelected');
   return model ?? '{}';
@@ -838,98 +1327,126 @@ Future<Map<String, dynamic>> sendRequest({
       'body': response.body,
     };
   } catch (e) {
-    return {
-      'error': e.toString(),
-    };
+    return {'error': e.toString()};
   }
 }
 
-void runCode(BuildContext context, String compileCommand, String runCommand, String rootDir){
-  Navigator.of(context).push(PageRouteBuilder(pageBuilder: (context, animation, scondaryAnimation)=>
-    SetupTerminal(
-      projectDir: rootDir,
-      args: [
-        "-c",
-        "$compileCommand && $runCommand"
-      ]
+void runCode(
+  BuildContext context,
+  String compileCommand,
+  String runCommand,
+  String rootDir,
+) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
+        projectDir: rootDir,
+        args: ["-c", "$compileCommand && $runCommand"],
+      ),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return SizeTransition(sizeFactor: animation, child: child);
+      },
     ),
-    transitionsBuilder: (context ,animation, secondaryAnimation, child){
-      return SizeTransition(sizeFactor: animation,child: child);
-    }
-  ));
+  );
 }
 
 Future<LspConfig?> startLspServer({
-    required String ext,
-    required String? executable,
-    required List<String> args,
-    required String workspacePath,
-    required String langId,
-    Map<String, String>? environment
-  }) async{
-  if(executable == null) return null;
-    try {
-      final String sharedPath = await NativeChannel.getLibraryPath();
-      final String runtimeDir = runtimesDir;
-      final config = await LspStdioConfig.start(
-        executable: executable,
-        args: ((){
-          if (ext == 'ts' || ext == 'js') {
-            return [
-              "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
-              ...args,
-            ];
-          } else if(ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++'){
-             return [
-               '--init={"clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
-             ];
-          }
-          else if(ext == 'java'){
-            return [
-              '-Dlog.protocol=true',
-              '-Dlog.level=ALL',
-              "-jar",
-              "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
-              "-configuration",
-              "$extensionDir/JDT-LS/config_linux_arm",
-              "-data",
-              workspacePath,
-              ...args
-            ];
-          }
-          if(ext == 'py'){
-            return [extensions.singleWhere((item) => item.fileExtension[0] == "py").serverFile[0], ...args];
-          }
-          
-          if(ext == 'html'){
-            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "html")).serverFile[0], ...args];
-          }
+  required String ext,
+  required String? executable,
+  required List<String> args,
+  required String workspacePath,
+  required String langId,
+  Map<String, String>? environment,
+}) async {
+  if (executable == null) return null;
+  try {
+    final String sharedPath = await NativeChannel.getLibraryPath();
+    final String runtimeDir = runtimesDir;
+    final config = await LspStdioConfig.start(
+      executable: executable,
+      args: (() {
+        if (ext == 'ts' || ext == 'js') {
+          return [
+            "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+            ...args,
+          ];
+        } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
+          return [
+            '--init={"clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
+          ];
+        } else if (ext == 'java') {
+          return [
+            '-Dlog.protocol=true',
+            '-Dlog.level=ALL',
+            "-jar",
+            "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
+            "-configuration",
+            "$extensionDir/JDT-LS/config_linux_arm",
+            "-data",
+            workspacePath,
+            ...args,
+          ];
+        }
+        if (ext == 'py') {
+          return [
+            extensions
+                .singleWhere((item) => item.fileExtension[0] == "py")
+                .serverFile[0],
+            ...args,
+          ];
+        }
 
-          if(ext == 'css'){
-            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "css")).serverFile[1], ...args];
-          }
+        if (ext == 'html') {
+          return [
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "html"),
+                )
+                .serverFile[0],
+            ...args,
+          ];
+        }
 
-          if(ext == 'json'){
-            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "json")).serverFile[2], ...args];
-          }
-          
-          /* if(ext == 'md'){
+        if (ext == 'css') {
+          return [
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "css"),
+                )
+                .serverFile[1],
+            ...args,
+          ];
+        }
+
+        if (ext == 'json') {
+          return [
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "json"),
+                )
+                .serverFile[2],
+            ...args,
+          ];
+        }
+
+        /* if(ext == 'md'){
             return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "md")).serverFile[3], ...args];
           } */
-        })(),
-        environment: {
-          ...environment ?? {},
-          'VSDROID_SHARED_PATH': sharedPath,
-          'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
-          'JAVA_HOME': '$runtimeDir/java-21-openjdk',
-        },
-        workspacePath: workspacePath,
-        languageId: langId,
-      );
-      return config;
-    } catch (e) {
-      debugPrint('LSP Initialization failed: $e');
-    }
+      })(),
+      environment: {
+        ...environment ?? {},
+        'VSDROID_SHARED_PATH': sharedPath,
+        'LD_LIBRARY_PATH':
+            '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+        'JAVA_HOME': '$runtimeDir/java-21-openjdk',
+      },
+      workspacePath: workspacePath,
+      languageId: langId,
+    );
+    return config;
+  } catch (e) {
+    debugPrint('LSP Initialization failed: $e');
+  }
   return null;
 }
 
@@ -945,9 +1462,7 @@ class Extractor {
 
     final snackbar = SnackBar(
       elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       behavior: SnackBarBehavior.floating,
       duration: const Duration(days: 1),
       content: ValueListenableBuilder<double>(
@@ -996,8 +1511,7 @@ class Extractor {
       messenger.showSnackBar(
         const SnackBar(content: Text('🎉 Extraction complete!')),
       );
-    }
-    catch (e) {
+    } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         const SnackBar(content: Text('❌ Extraction failed')),
@@ -1048,7 +1562,6 @@ class ActiveEditors {
   bool isActive;
   FindController? findController;
 
-
   ActiveEditors({
     required this.filePath,
     required this.controller,
@@ -1074,15 +1587,15 @@ class CodeForgeDemoKey {
 
   @override
   bool operator ==(Object other) {
-    return identical(this, other) || 
-      other is CodeForgeDemoKey &&
-      runtimeType == other.runtimeType &&
-      indentLineStatus == other.indentLineStatus &&
-      lineWrap == other.lineWrap &&
-      enableFolding == other.enableFolding &&
-      theme == other.theme &&
-      fontFamily == other.fontFamily &&
-      isDark == other.isDark;
+    return identical(this, other) ||
+        other is CodeForgeDemoKey &&
+            runtimeType == other.runtimeType &&
+            indentLineStatus == other.indentLineStatus &&
+            lineWrap == other.lineWrap &&
+            enableFolding == other.enableFolding &&
+            theme == other.theme &&
+            fontFamily == other.fontFamily &&
+            isDark == other.isDark;
   }
 
   @override
@@ -1096,13 +1609,14 @@ class CodeForgeDemoKey {
   );
 }
 
-class AIConversation{
+class AIConversation {
   final String userRequest;
   String? modelResponse;
 
   AIConversation(this.userRequest, this.modelResponse);
 
-  AIConversation copyWith({String? modelResponse}) =>  AIConversation(userRequest, modelResponse);
+  AIConversation copyWith({String? modelResponse}) =>
+      AIConversation(userRequest, modelResponse);
 }
 
 class CommitNode {
@@ -1132,7 +1646,7 @@ class GraphLine {
   final int toLane;
   final int colorIndex;
   final bool isPassThrough;
-  
+
   GraphLine({
     required this.fromLane,
     required this.toLane,
@@ -1146,7 +1660,7 @@ class CommitRowInfo {
   final List<GraphLine> lines;
   final int commitLane;
   final int colorIndex;
-  
+
   CommitRowInfo({
     required this.commit,
     required this.lines,
@@ -1157,19 +1671,19 @@ class CommitRowInfo {
 
 List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
   if (commits.isEmpty) return [];
-  
+
   final List<CommitRowInfo> rowInfos = [];
-  
+
   final Map<String, int> hashToIndex = {};
   for (int i = 0; i < commits.length; i++) {
     hashToIndex[commits[i].hash] = i;
   }
-  
+
   final Map<int, (String, int)> activeLanes = {};
   final Map<String, int> hashToLane = {};
   final Map<String, int> hashToColor = {};
   int nextColorIndex = 0;
-  
+
   int findAvailableLane(int preferredLane) {
     if (!activeLanes.containsKey(preferredLane)) {
       return preferredLane;
@@ -1180,15 +1694,15 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
     }
     return lane;
   }
-  
+
   for (int i = 0; i < commits.length; i++) {
     final commit = commits[i];
     commit.isMerge = commit.parents.length > 1;
-    
+
     final List<GraphLine> lines = [];
     int commitLane;
     int colorIndex;
-    
+
     int? expectedLane;
     int? expectedColor;
     for (final entry in activeLanes.entries) {
@@ -1198,7 +1712,7 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
         break;
       }
     }
-    
+
     if (expectedLane != null) {
       commitLane = expectedLane;
       colorIndex = expectedColor!;
@@ -1208,20 +1722,22 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
       colorIndex = nextColorIndex++;
       commit.isBranchStart = i > 0;
     }
-    
+
     commit.lane = commitLane;
     hashToLane[commit.hash] = commitLane;
     hashToColor[commit.hash] = colorIndex;
-    
+
     for (final entry in activeLanes.entries) {
-      lines.add(GraphLine(
-        fromLane: entry.key,
-        toLane: entry.key,
-        colorIndex: entry.value.$2,
-        isPassThrough: true,
-      ));
+      lines.add(
+        GraphLine(
+          fromLane: entry.key,
+          toLane: entry.key,
+          colorIndex: entry.value.$2,
+          isPassThrough: true,
+        ),
+      );
     }
-    
+
     for (int p = 0; p < commit.parents.length; p++) {
       final parentHash = commit.parents[p];
       int? existingParentLane;
@@ -1233,18 +1749,20 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
           break;
         }
       }
-      
+
       int parentLane;
       int parentColor;
-      
+
       if (existingParentLane != null) {
         parentLane = existingParentLane;
         parentColor = existingParentColor!;
-        lines.add(GraphLine(
-          fromLane: commitLane,
-          toLane: parentLane,
-          colorIndex: parentColor,
-        ));
+        lines.add(
+          GraphLine(
+            fromLane: commitLane,
+            toLane: parentLane,
+            colorIndex: parentColor,
+          ),
+        );
       } else {
         if (p == 0) {
           parentLane = commitLane;
@@ -1253,33 +1771,37 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
           parentLane = findAvailableLane(commitLane + 1);
           parentColor = nextColorIndex++;
         }
-        
+
         activeLanes[parentLane] = (parentHash, parentColor);
         hashToColor[parentHash] = parentColor;
-        
-        lines.add(GraphLine(
-          fromLane: commitLane,
-          toLane: parentLane,
-          colorIndex: parentColor,
-        ));
+
+        lines.add(
+          GraphLine(
+            fromLane: commitLane,
+            toLane: parentLane,
+            colorIndex: parentColor,
+          ),
+        );
       }
     }
-    
-    rowInfos.add(CommitRowInfo(
-      commit: commit,
-      lines: lines,
-      commitLane: commitLane,
-      colorIndex: colorIndex,
-    ));
+
+    rowInfos.add(
+      CommitRowInfo(
+        commit: commit,
+        lines: lines,
+        commitLane: commitLane,
+        colorIndex: colorIndex,
+      ),
+    );
   }
-  
+
   return rowInfos;
 }
 
 Map<String, (String, Color)> gitFileStatus = {
-  "M" : ('M',  Color(0xffaf9672)),
-  "D" : ('D',  Colors.red[300]!),
-  "UU" : ('C', Colors.red[300]!),
-  "??" : ('U', Colors.green[700]!),
-  "A" : ('U', Colors.green[700]!),
+  "M": ('M', Color(0xffaf9672)),
+  "D": ('D', Colors.red[300]!),
+  "UU": ('C', Colors.red[300]!),
+  "??": ('U', Colors.green[700]!),
+  "A": ('U', Colors.green[700]!),
 };

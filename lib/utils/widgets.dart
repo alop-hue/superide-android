@@ -35,18 +35,19 @@ Directory? _findRepoRoot(File file) {
 
 String _extractGitFilename(String gitStatusLine) {
   String fileName = gitStatusLine.substring(2).trim();
-  
+
   if (fileName.startsWith('"') && fileName.endsWith('"')) {
     fileName = fileName.substring(1, fileName.length - 1);
   }
-  
+
   return fileName;
 }
 
 void _refreshRepoStatusForFile(BuildContext context, File file) {
   try {
     final root = _findRepoRoot(file);
-    if (root != null) context.read<RepoStatusBloc>().add(LoadRepoStatus(root.path));
+    if (root != null)
+      context.read<RepoStatusBloc>().add(LoadRepoStatus(root.path));
   } catch (_) {}
 }
 
@@ -184,9 +185,9 @@ Widget projectTile(
   String projectDetails,
   icon,
   Color cardBg,
-  VoidCallback onTap,
-  {Widget? trailing}
-) {
+  VoidCallback onTap, {
+  Widget? trailing,
+}) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
     child: Card(
@@ -239,8 +240,6 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
   );
 }
 
-
-
 class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeForgeController codeController;
@@ -264,7 +263,8 @@ class CodeEditor extends StatefulWidget {
   State<CodeEditor> createState() => _CodeEditorState();
 }
 
-class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMixin{
+class _CodeEditorState extends State<CodeEditor>
+    with AutomaticKeepAliveClientMixin {
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
   Timer? _saveTimer, _statusRefreshTimer;
@@ -278,20 +278,17 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
       if (!mounted) return;
       if (generalState.generalSettings['autoSave'] ?? true) {
         _saveTimer?.cancel();
-        _saveTimer = Timer(
-          const Duration(milliseconds: 85),
-          () {
-            try {
-              controller.saveFile();
-            } catch (_) {}
-            _statusRefreshTimer?.cancel();
-            _statusRefreshTimer = Timer(const Duration(milliseconds: 400), () {
-              if (mounted) {
-                _refreshRepoStatusForFile(context, widget.filePath);
-              }
-            });
-          },
-        );
+        _saveTimer = Timer(const Duration(milliseconds: 85), () {
+          try {
+            controller.saveFile();
+          } catch (_) {}
+          _statusRefreshTimer?.cancel();
+          _statusRefreshTimer = Timer(const Duration(milliseconds: 400), () {
+            if (mounted) {
+              _refreshRepoStatusForFile(context, widget.filePath);
+            }
+          });
+        });
       }
     });
   }
@@ -379,12 +376,10 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
       },
     );
   }
-  
+
   @override
   bool get wantKeepAlive => true;
 }
-
-
 
 const double _kFindPanelWidth = 380;
 const double _kFindPanelHeight = 36;
@@ -397,18 +392,17 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
   final FindController controller;
   final VoidCallback? onClose;
 
-  const FindPanelWidget({
-    super.key,
-    required this.controller,
-    this.onClose,
-  });
+  const FindPanelWidget({super.key, required this.controller, this.onClose});
 
   @override
   Size get preferredSize => Size(
     double.infinity,
     !controller.isActive
         ? 0
-        : (controller.isReplaceMode ? _kReplacePanelHeight : _kFindPanelHeight + 2) + 10,
+        : (controller.isReplaceMode
+                  ? _kReplacePanelHeight
+                  : _kFindPanelHeight + 2) +
+              10,
   );
 
   @override
@@ -484,8 +478,10 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildFindRow(context),
-                          if (controller.isReplaceMode) _buildReplaceRow(context),
-                          if (!controller.isReplaceMode) const SizedBox(height: 2),
+                          if (controller.isReplaceMode)
+                            _buildReplaceRow(context),
+                          if (!controller.isReplaceMode)
+                            const SizedBox(height: 2),
                         ],
                       ),
                     ),
@@ -512,7 +508,12 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
                   focusNode: controller.findInputFocusNode,
                   controller: controller.findInputController,
                   iconsWidth: 60,
-                  padding: const EdgeInsets.only(left: 3, right: 5, top: 4, bottom: 2),
+                  padding: const EdgeInsets.only(
+                    left: 3,
+                    right: 5,
+                    top: 4,
+                    bottom: 2,
+                  ),
                   hintText: 'Find',
                 ),
                 Row(
@@ -555,7 +556,9 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
             _buildIconButton(
               icon: Icons.arrow_upward,
               tooltip: 'Previous (Shift+Enter)',
-              onPressed: controller.matchCount == 0 ? null : controller.previous,
+              onPressed: controller.matchCount == 0
+                  ? null
+                  : controller.previous,
             ),
             _buildIconButton(
               icon: Icons.arrow_downward,
@@ -586,7 +589,12 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
             child: _buildTextField(
               focusNode: controller.replaceInputFocusNode,
               controller: controller.replaceInputController,
-              padding: const EdgeInsets.only(left: 3, right: 5, top: 2, bottom: 4),
+              padding: const EdgeInsets.only(
+                left: 3,
+                right: 5,
+                top: 2,
+                bottom: 4,
+              ),
               hintText: 'Replace',
               onSubmit: (_) {
                 controller.replace();
@@ -624,27 +632,27 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
         maxLines: 1,
         focusNode: focusNode,
         autofocus: false,
-        style: const TextStyle(fontSize: _kFindInputFontSize, color: Colors.white),
+        style: const TextStyle(
+          fontSize: _kFindInputFontSize,
+          color: Colors.white,
+        ),
         onSubmitted: onSubmit,
         decoration: InputDecoration(
           filled: true,
           fillColor: const Color(0xff3c3c3c),
           hintText: hintText,
-          hintStyle: TextStyle(color: Colors.grey[600], fontSize: _kFindInputFontSize),
+          hintStyle: TextStyle(
+            color: Colors.grey[600],
+            fontSize: _kFindInputFontSize,
+          ),
           contentPadding: EdgeInsets.fromLTRB(8, 5, iconsWidth, 5),
           enabledBorder: OutlineInputBorder(
             borderRadius: const BorderRadius.all(Radius.circular(4)),
-            borderSide: BorderSide(
-              width: 0.5,
-              color: Colors.grey[700]!,
-            ),
+            borderSide: BorderSide(width: 0.5, color: Colors.grey[700]!),
           ),
           focusedBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(4)),
-            borderSide: BorderSide(
-              width: 1,
-              color: Color(0xff0178b9),
-            ),
+            borderSide: BorderSide(width: 1, color: Color(0xff0178b9)),
           ),
         ),
       ),
@@ -695,8 +703,8 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: Icon(
-            icon, 
-            size: _kFindIconSize, 
+            icon,
+            size: _kFindIconSize,
             color: onPressed != null ? Colors.grey[400] : Colors.grey[700],
           ),
         ),
@@ -715,29 +723,26 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
         text,
         style: TextStyle(
           fontSize: _kFindResultFontSize,
-          color: controller.matchCount == 0 ? Colors.red[300] : Colors.grey[400],
+          color: controller.matchCount == 0
+              ? Colors.red[300]
+              : Colors.grey[400],
         ),
       ),
     );
   }
 }
 
-
-
 class EditorArea extends StatefulWidget {
   final ActiveEditors editor;
-  final  AppTheme appTheme;
-  const EditorArea({
-    super.key,
-    required this.editor,
-    required this.appTheme
-  });
+  final AppTheme appTheme;
+  const EditorArea({super.key, required this.editor, required this.appTheme});
 
   @override
   State<EditorArea> createState() => _EditorPageState();
 }
 
-class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMixin{
+class _EditorPageState extends State<EditorArea>
+    with AutomaticKeepAliveClientMixin {
   late final ActiveEditors editor;
   late final AppTheme appTheme;
   late final CodeForgeController controller;
@@ -746,7 +751,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   late final File filePath;
   late final String ext;
 
-  @override void initState() {
+  @override
+  void initState() {
     editor = widget.editor;
     appTheme = widget.appTheme;
     controller = editor.controller;
@@ -756,156 +762,169 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     ext = path.extension(filePath.path);
     super.initState();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-        final pageContent = Column(
-          children: [
-            Expanded(
-              child: CodeEditor(
-                language: language,
-                undoRedoController: undoRedoController,
-                codeController: controller,
-                filePath: editor.filePath,
-                findController: editor.findController!,
-              )
-            ),
-            Container(
-              height: 78,
-              color: appTheme.isDark ? const Color.fromARGB(255, 32, 32, 32) : const Color.fromARGB(255, 219, 218, 218),
-              child: Column(
+    final pageContent = Column(
+      children: [
+        Expanded(
+          child: CodeEditor(
+            language: language,
+            undoRedoController: undoRedoController,
+            codeController: controller,
+            filePath: editor.filePath,
+            findController: editor.findController!,
+          ),
+        ),
+        Container(
+          height: 78,
+          color: appTheme.isDark
+              ? const Color.fromARGB(255, 32, 32, 32)
+              : const Color.fromARGB(255, 219, 218, 218),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      SizedBox(
-                        height: 37,
-                        width: 75,
-                        child: IconButton(
-                          highlightColor: Colors.lightBlue.withAlpha(160),
-                          style: ButtonStyle(
-                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10))
-                            ))
+                  SizedBox(
+                    height: 37,
+                    width: 75,
+                    child: IconButton(
+                      highlightColor: Colors.lightBlue.withAlpha(160),
+                      style: ButtonStyle(
+                        shape: WidgetStateProperty.all(
+                          const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
                           ),
-                          padding: EdgeInsets.zero,
-                          onPressed: (){
-                
-                          },
-                          icon: SvgPicture.asset(
-                            "assets/icons/tab.svg",
-                            height: 25,
-                            width: 25,
-                            colorFilter: ColorFilter.mode(
-                              appTheme.isDark ? 
-                                const Color.fromARGB(255, 194, 194, 194) : 
-                                const Color.fromARGB(255, 40, 40, 40),
-                              BlendMode.srcIn
-                            ),
                         ),
                       ),
+                      padding: EdgeInsets.zero,
+                      onPressed: () {},
+                      icon: SvgPicture.asset(
+                        "assets/icons/tab.svg",
+                        height: 25,
+                        width: 25,
+                        colorFilter: ColorFilter.mode(
+                          appTheme.isDark
+                              ? const Color.fromARGB(255, 194, 194, 194)
+                              : const Color.fromARGB(255, 40, 40, 40),
+                          BlendMode.srcIn,
+                        ),
                       ),
-                      bottomTool(
-                        undoRedoController.canUndo && appTheme.isDark,
-                        Icons.undo,
-                        (){
-                          if(undoRedoController.canUndo){
-                            undoRedoController.undo();
-                          }
-                        }
-                      ),
-                      bottomTool(
-                        undoRedoController.canRedo && appTheme.isDark,
-                        Icons.redo,
-                        (){
-                          if(undoRedoController.canRedo){
-                            undoRedoController.redo();
-                          }
-                        }
-                      ),
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.arrow_upward,
-                        controller.pressUpArrowKey,
-                      ),
-                      SizedBox(
-                        height: 37,
-                        width: 75,
-                        child: IconButton(
-                          highlightColor: Colors.lightBlue.withAlpha(160),
-                          style: ButtonStyle(
-                            shape: WidgetStateProperty.all(const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10))
-                            ))
-                          ),
-                          padding: EdgeInsets.zero,
-                          onPressed: (){
-                            final codeModel = context.read<AIBloc>().state.modelSelected['code'];
-                            if(codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled){
-                              controller.manualAiCompletion?.call();
-                            }
-                            else{
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text("No completion model found. Configure one in the settings"),
-                                  duration: const Duration(seconds: 2),
-                                )
-                              );
-                            }
-                          },
-                          icon: SvgPicture.asset(
-                            "assets/icons/ai.svg",
-                            height: 25,
-                            width: 25,
-                          )
-                        )),
-                    ],
+                    ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.zoom_in,
-                        (){
-                          double currentFontSize = context.read<ConfigBloc>().state.fontSize;
-                          context.read<ConfigBloc>().add(SetFontSize(fontSize:  currentFontSize * 1.15));
+                  bottomTool(
+                    undoRedoController.canUndo && appTheme.isDark,
+                    Icons.undo,
+                    () {
+                      if (undoRedoController.canUndo) {
+                        undoRedoController.undo();
+                      }
+                    },
+                  ),
+                  bottomTool(
+                    undoRedoController.canRedo && appTheme.isDark,
+                    Icons.redo,
+                    () {
+                      if (undoRedoController.canRedo) {
+                        undoRedoController.redo();
+                      }
+                    },
+                  ),
+                  bottomTool(
+                    appTheme.isDark,
+                    Icons.arrow_upward,
+                    controller.pressUpArrowKey,
+                  ),
+                  SizedBox(
+                    height: 37,
+                    width: 75,
+                    child: IconButton(
+                      highlightColor: Colors.lightBlue.withAlpha(160),
+                      style: ButtonStyle(
+                        shape: WidgetStateProperty.all(
+                          const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        final codeModel = context
+                            .read<AIBloc>()
+                            .state
+                            .modelSelected['code'];
+                        if (codeModel != null &&
+                            codeModel.isNotEmpty &&
+                            context.read<AIBloc>().state.isEnabled) {
+                          controller.manualAiCompletion?.call();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                "No completion model found. Configure one in the settings",
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
                         }
+                      },
+                      icon: SvgPicture.asset(
+                        "assets/icons/ai.svg",
+                        height: 25,
+                        width: 25,
                       ),
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.zoom_out,
-                        (){
-                          double currentFontSize = context.read<ConfigBloc>().state.fontSize;
-                          context.read<ConfigBloc>().add(SetFontSize(fontSize:  currentFontSize * 0.9));
-                        }
-                      ),
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.arrow_back,
-                        controller.pressLetfArrowKey
-                      ),
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.arrow_downward,
-                        controller.pressDownArrowKey,
-                      ),
-                      bottomTool(
-                        appTheme.isDark,
-                        Icons.arrow_forward,
-                        controller.pressRightArrowKey,
-                      ),
-                    ],
-                  )
+                    ),
+                  ),
                 ],
               ),
-            )
-          ],
-        );
-        return pageContent;
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  bottomTool(appTheme.isDark, Icons.zoom_in, () {
+                    double currentFontSize = context
+                        .read<ConfigBloc>()
+                        .state
+                        .fontSize;
+                    context.read<ConfigBloc>().add(
+                      SetFontSize(fontSize: currentFontSize * 1.15),
+                    );
+                  }),
+                  bottomTool(appTheme.isDark, Icons.zoom_out, () {
+                    double currentFontSize = context
+                        .read<ConfigBloc>()
+                        .state
+                        .fontSize;
+                    context.read<ConfigBloc>().add(
+                      SetFontSize(fontSize: currentFontSize * 0.9),
+                    );
+                  }),
+                  bottomTool(
+                    appTheme.isDark,
+                    Icons.arrow_back,
+                    controller.pressLetfArrowKey,
+                  ),
+                  bottomTool(
+                    appTheme.isDark,
+                    Icons.arrow_downward,
+                    controller.pressDownArrowKey,
+                  ),
+                  bottomTool(
+                    appTheme.isDark,
+                    Icons.arrow_forward,
+                    controller.pressRightArrowKey,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    return pageContent;
   }
-  
+
   @override
   bool get wantKeepAlive => true;
 }
@@ -1058,18 +1077,23 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         } else {
           File(oldPath).renameSync(newPath);
         }
-      } catch (_) {
-        
-      }
+      } catch (_) {}
     }
     stopRenaming();
-    try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath)); } catch (_) {}
+    try {
+      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
+    } catch (_) {}
   }
 
-  void _showFolderContextMenu(BuildContext context, Directory directory, Offset tapPosition) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  void _showFolderContextMenu(
+    BuildContext context,
+    Directory directory,
+    Offset tapPosition,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final isRootDirectory = directory.path == widget.rootPath;
-    
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
@@ -1081,13 +1105,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                widget.folderStyle?.iconForCreateFile ?? FolderStyle().iconForCreateFile,
+                widget.folderStyle?.iconForCreateFile ??
+                    FolderStyle().iconForCreateFile,
                 const SizedBox(width: 15),
                 Text(
                   'New File',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -1101,13 +1126,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                widget.folderStyle?.iconForCreateFolder ?? FolderStyle().iconForCreateFolder,
+                widget.folderStyle?.iconForCreateFolder ??
+                    FolderStyle().iconForCreateFolder,
                 const SizedBox(width: 11),
                 Text(
                   'New Folder',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -1121,13 +1147,17 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                Icon(Icons.edit, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                Icon(
+                  Icons.edit,
+                  size: 25,
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Rename Folder',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -1141,67 +1171,74 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                Icon(Icons.refresh, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                Icon(
+                  Icons.refresh,
+                  size: 25,
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Refresh Explorer',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () {
-                if(context.mounted){
-                  try {
-                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootPath));
-                  } catch (_) {}
-                }
-              },
-            ),
+            onTap: () => Future.delayed(Duration.zero, () {
+              if (context.mounted) {
+                try {
+                  context.read<RepoStatusBloc>().add(
+                    LoadRepoStatus(widget.rootPath),
+                  );
+                } catch (_) {}
+              }
+            }),
           ),
         if (isRootDirectory)
           PopupMenuItem(
             child: Row(
               children: [
-                Icon(Icons.unfold_more, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                Icon(
+                  Icons.unfold_more,
+                  size: 25,
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Expand All',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () => _expandAllFolders(),
-            ),
+            onTap: () =>
+                Future.delayed(Duration.zero, () => _expandAllFolders()),
           ),
         if (isRootDirectory)
           PopupMenuItem(
             child: Row(
               children: [
-                Icon(Icons.unfold_less, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                Icon(
+                  Icons.unfold_less,
+                  size: 25,
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Collapse All',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () => _collapseAllFolders(),
-            ),
+            onTap: () =>
+                Future.delayed(Duration.zero, () => _collapseAllFolders()),
           ),
         if (widget.enableDeleteFolderOption && !isRootDirectory)
           PopupMenuItem(
@@ -1213,7 +1250,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                   'Delete Folder',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -1224,9 +1261,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  void _showFileContextMenu(BuildContext context, File file, Offset tapPosition) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    
+  void _showFileContextMenu(
+    BuildContext context,
+    File file,
+    Offset tapPosition,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
@@ -1238,33 +1280,36 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                Icon(Icons.edit, size: 25, color: widget.appTheme.selectScreenCardTextColor),
+                Icon(
+                  Icons.edit,
+                  size: 25,
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Rename File',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
             ),
-            onTap: () => Future.delayed(
-              Duration.zero,
-              () => startRenaming(file.path),
-            ),
+            onTap: () =>
+                Future.delayed(Duration.zero, () => startRenaming(file.path)),
           ),
         if (widget.enableDeleteFileOption)
           PopupMenuItem(
             child: Row(
               children: [
-                widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
+                widget.fileStyle?.iconForDeleteFile ??
+                    FileStyle().iconForDeleteFile,
                 const SizedBox(width: 8),
                 Text(
                   'Delete File',
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -1300,13 +1345,17 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           child: Row(
             children: [
               isUnfolded(directory.path)
-                  ? widget.folderStyle?.folderOpenedicon ?? FolderStyle().folderOpenedicon
-                  : widget.folderStyle?.folderClosedicon ?? FolderStyle().folderClosedicon,
+                  ? widget.folderStyle?.folderOpenedicon ??
+                        FolderStyle().folderOpenedicon
+                  : widget.folderStyle?.folderClosedicon ??
+                        FolderStyle().folderClosedicon,
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   path.basename(directory.path),
-                  style: widget.folderStyle?.folderNameStyle ?? FolderStyle().folderNameStyle,
+                  style:
+                      widget.folderStyle?.folderNameStyle ??
+                      FolderStyle().folderNameStyle,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
@@ -1339,8 +1388,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return Row(
       children: [
         isFolderCreation
-            ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
-            : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
+            ? widget.editingFieldStyle?.folderIcon ??
+                  EditingFieldStyle().folderIcon
+            : widget.editingFieldStyle?.fileIcon ??
+                  EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -1353,18 +1404,24 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration: widget.editingFieldStyle?.textfieldDecoration ?? EditingFieldStyle().textfieldDecoration,
+              decoration:
+                  widget.editingFieldStyle?.textfieldDecoration ??
+                  EditingFieldStyle().textfieldDecoration,
               controller: _controller,
               onSubmitted: (_) => createEntry(parent),
             ),
           ),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.doneIcon ?? EditingFieldStyle().doneIcon,
+          icon:
+              widget.editingFieldStyle?.doneIcon ??
+              EditingFieldStyle().doneIcon,
           onPressed: () => createEntry(parent),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon,
+          icon:
+              widget.editingFieldStyle?.cancelIcon ??
+              EditingFieldStyle().cancelIcon,
           onPressed: stopCreating,
         ),
       ],
@@ -1375,8 +1432,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return Row(
       children: [
         isFolder
-            ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
-            : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
+            ? widget.editingFieldStyle?.folderIcon ??
+                  EditingFieldStyle().folderIcon
+            : widget.editingFieldStyle?.fileIcon ??
+                  EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -1389,20 +1448,25 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration: (widget.editingFieldStyle?.textfieldDecoration ?? EditingFieldStyle().textfieldDecoration).copyWith(
-                hintText: path.basename(entityPath),
-              ),
+              decoration:
+                  (widget.editingFieldStyle?.textfieldDecoration ??
+                          EditingFieldStyle().textfieldDecoration)
+                      .copyWith(hintText: path.basename(entityPath)),
               controller: _renameController,
               onSubmitted: (_) => renameEntry(entityPath, isFolder),
             ),
           ),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.doneIcon ?? EditingFieldStyle().doneIcon,
+          icon:
+              widget.editingFieldStyle?.doneIcon ??
+              EditingFieldStyle().doneIcon,
           onPressed: () => renameEntry(entityPath, isFolder),
         ),
         IconButton(
-          icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon,
+          icon:
+              widget.editingFieldStyle?.cancelIcon ??
+              EditingFieldStyle().cancelIcon,
           onPressed: stopRenaming,
         ),
       ],
@@ -1415,7 +1479,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     }
 
     final (color, letter) = _getFileColor(file, repoState);
-    final baseStyle = widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle ?? const TextStyle();
+    final baseStyle =
+        widget.fileStyle?.fileNameStyle ??
+        FileStyle().fileNameStyle ??
+        const TextStyle();
     final key = GlobalKey();
     return InkWell(
       key: key,
@@ -1441,13 +1508,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               maxLines: 1,
             ),
           ),
-          if(letter != null) Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Text(
-              letter,
-              style: baseStyle.copyWith(color: color, fontSize: 15),
+          if (letter != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Text(
+                letter,
+                style: baseStyle.copyWith(color: color, fontSize: 15),
+              ),
             ),
-          ),
           if (widget.fileActions != null) ...widget.fileActions!,
         ],
       ),
@@ -1479,12 +1547,17 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return paths;
   }
 
-  void _showDeleteFolderConfirmation(BuildContext context, Directory directory) {
+  void _showDeleteFolderConfirmation(
+    BuildContext context,
+    Directory directory,
+  ) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return Dialog(
-          backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+          backgroundColor: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1513,7 +1586,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                   'Are you sure you want to delete "${path.basename(directory.path)}" and all its contents? This action cannot be undone.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                    color: widget.appTheme.selectScreenCardTextColor.withValues(
+                      alpha: 0.8,
+                    ),
                     fontSize: 16,
                   ),
                 ),
@@ -1524,7 +1599,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                     TextButton(
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                       ),
                       child: Text(
                         'Cancel',
@@ -1542,14 +1620,20 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[400],
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: const Text(
                         'Delete',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -1588,7 +1672,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       context: context,
       builder: (BuildContext dialogContext) {
         return Dialog(
-          backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+          backgroundColor: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1617,7 +1703,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                   'Are you sure you want to delete "${path.basename(file.path)}"? This action cannot be undone.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                    color: widget.appTheme.selectScreenCardTextColor.withValues(
+                      alpha: 0.8,
+                    ),
                     fontSize: 16,
                   ),
                 ),
@@ -1628,7 +1716,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                     TextButton(
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                       ),
                       child: Text(
                         'Cancel',
@@ -1646,14 +1737,20 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[400],
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: const Text(
                         'Delete',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -1709,7 +1806,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return BlocBuilder<FolderBloc, FolderState>(
         builder: (context, folderState) {
           return SingleChildScrollView(
-            child: _buildDirectoryTree(rootDirectory, const RepoStatusInitial()),
+            child: _buildDirectoryTree(
+              rootDirectory,
+              const RepoStatusInitial(),
+            ),
           );
         },
       );
@@ -1725,7 +1825,8 @@ class FindWordWidget extends StatefulWidget {
   final ActiveEditorsState editorState;
   final TabController? tabController;
   final String workspacePath;
-  final void Function(File file, int lineNumber, String searchQuery)? onFileOpen;
+  final void Function(File file, int lineNumber, String searchQuery)?
+  onFileOpen;
   const FindWordWidget({
     super.key,
     required this.appTheme,
@@ -1746,59 +1847,55 @@ class _FindWordWidgetState extends State<FindWordWidget> {
 
   ActiveEditors? _getActiveEditor() {
     if (widget.editorState.activeEditors.isEmpty) return null;
-    
-    
+
     if (widget.tabController != null) {
       final index = widget.tabController!.index;
       if (index >= 0 && index < widget.editorState.activeEditors.length) {
         return widget.editorState.activeEditors[index];
       }
     }
-    
-    
+
     for (final editor in widget.editorState.activeEditors) {
       if (editor.isActive) {
         return editor;
       }
     }
-    
-    
+
     return widget.editorState.activeEditors.first;
   }
 
-  
-  
-  
-  void _goToMatchNearLine(ActiveEditors editor, int targetLine, String searchQuery) {
+  void _goToMatchNearLine(
+    ActiveEditors editor,
+    int targetLine,
+    String searchQuery,
+  ) {
     if (editor.findController == null) return;
-    
+
     final findController = editor.findController!;
     final codeController = editor.controller;
     final text = codeController.text;
-    
-    
+
     findController.findInputController.text = searchQuery;
     findController.find(searchQuery);
-    
+
     if (findController.matchCount == 0) return;
-    
-    
+
     final lines = text.split('\n');
     int targetCharOffset = 0;
     for (int i = 0; i < targetLine - 1 && i < lines.length; i++) {
-      targetCharOffset += lines[i].length + 1; 
+      targetCharOffset += lines[i].length + 1;
     }
-    
-    
+
     int targetLineEnd = targetCharOffset;
     if (targetLine - 1 < lines.length) {
       targetLineEnd += lines[targetLine - 1].length;
     }
-    
-    
+
     final lowerText = findController.caseSensitive ? text : text.toLowerCase();
-    final lowerQuery = findController.caseSensitive ? searchQuery : searchQuery.toLowerCase();
-    
+    final lowerQuery = findController.caseSensitive
+        ? searchQuery
+        : searchQuery.toLowerCase();
+
     final matchPositions = <int>[];
     int pos = 0;
     while (true) {
@@ -1807,26 +1904,22 @@ class _FindWordWidgetState extends State<FindWordWidget> {
       matchPositions.add(index);
       pos = index + 1;
     }
-    
+
     if (matchPositions.isEmpty) return;
-    
-    
+
     int bestMatchIndex = 0;
     for (int i = 0; i < matchPositions.length; i++) {
       final matchStart = matchPositions[i];
-      
-      
+
       if (matchStart >= targetCharOffset && matchStart <= targetLineEnd) {
         bestMatchIndex = i;
         break;
       }
     }
-    
-    
-    
+
     final currentIdx = findController.currentMatchIndex;
     final diff = bestMatchIndex - currentIdx;
-    
+
     if (diff > 0) {
       for (int i = 0; i < diff; i++) {
         findController.next();
@@ -1838,9 +1931,15 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     }
   }
 
-  Future<void> _searchWorkspace(BuildContext context, String query, WorkspaceSearchState searchState) async {
+  Future<void> _searchWorkspace(
+    BuildContext context,
+    String query,
+    WorkspaceSearchState searchState,
+  ) async {
     if (query.isEmpty) {
-      context.read<WorkspaceSearchBloc>().add(UpdateSearchResults(results: [], query: ''));
+      context.read<WorkspaceSearchBloc>().add(
+        UpdateSearchResults(results: [], query: ''),
+      );
       return;
     }
 
@@ -1848,22 +1947,55 @@ class _FindWordWidgetState extends State<FindWordWidget> {
 
     final results = <SearchResultData>[];
     final dir = Directory(widget.workspacePath);
-    
+
     try {
       await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
-          
-          final relativePath = entity.path.replaceFirst('${widget.workspacePath}/', '');
-          if (relativePath.contains('/.') || 
+          final relativePath = entity.path.replaceFirst(
+            '${widget.workspacePath}/',
+            '',
+          );
+          if (relativePath.contains('/.') ||
               relativePath.startsWith('.') ||
               relativePath.contains('/build/') ||
               relativePath.contains('/.git/')) {
             continue;
           }
-          
-          
+
           final ext = path.extension(entity.path).toLowerCase();
-          final textExtensions = ['.dart', '.js', '.ts', '.json', '.xml', '.html', '.css', '.md', '.txt', '.yaml', '.yml', '.java', '.kt', '.py', '.c', '.cpp', '.h', '.hpp', '.sh', '.gradle', '.properties', '.swift', '.m', '.go', '.rs', '.rb', '.php', '.sql', '.vue', '.jsx', '.tsx'];
+          final textExtensions = [
+            '.dart',
+            '.js',
+            '.ts',
+            '.json',
+            '.xml',
+            '.html',
+            '.css',
+            '.md',
+            '.txt',
+            '.yaml',
+            '.yml',
+            '.java',
+            '.kt',
+            '.py',
+            '.c',
+            '.cpp',
+            '.h',
+            '.hpp',
+            '.sh',
+            '.gradle',
+            '.properties',
+            '.swift',
+            '.m',
+            '.go',
+            '.rs',
+            '.rb',
+            '.php',
+            '.sql',
+            '.vue',
+            '.jsx',
+            '.tsx',
+          ];
           if (!textExtensions.contains(ext) && ext.isNotEmpty) {
             continue;
           }
@@ -1871,18 +2003,19 @@ class _FindWordWidgetState extends State<FindWordWidget> {
           try {
             final content = await entity.readAsString();
             final lines = content.split('\n');
-            
+
             for (int i = 0; i < lines.length; i++) {
               final line = lines[i];
               bool hasMatch = false;
-              
+
               if (searchState.isRegex) {
                 try {
-                  final regex = RegExp(query, caseSensitive: searchState.matchCase);
+                  final regex = RegExp(
+                    query,
+                    caseSensitive: searchState.matchCase,
+                  );
                   hasMatch = regex.hasMatch(line);
-                } catch (_) {
-                  
-                }
+                } catch (_) {}
               } else if (searchState.matchWholeWord) {
                 final pattern = RegExp(
                   '\\b${RegExp.escape(query)}\\b',
@@ -1890,35 +2023,40 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 );
                 hasMatch = pattern.hasMatch(line);
               } else {
-                hasMatch = searchState.matchCase 
+                hasMatch = searchState.matchCase
                     ? line.contains(query)
                     : line.toLowerCase().contains(query.toLowerCase());
               }
-              
+
               if (hasMatch) {
-                results.add(SearchResultData(
-                  filePath: entity.path,
-                  lineNumber: i + 1,
-                  lineContent: line.trim(),
-                  relativePath: relativePath,
-                ));
+                results.add(
+                  SearchResultData(
+                    filePath: entity.path,
+                    lineNumber: i + 1,
+                    lineContent: line.trim(),
+                    relativePath: relativePath,
+                  ),
+                );
               }
             }
-          } catch (_) {
-            
-          }
+          } catch (_) {}
         }
       }
-    } catch (_) {
-      
-    }
+    } catch (_) {}
 
     if (context.mounted) {
-      context.read<WorkspaceSearchBloc>().add(UpdateSearchResults(results: results, query: query));
+      context.read<WorkspaceSearchBloc>().add(
+        UpdateSearchResults(results: results, query: query),
+      );
     }
   }
 
-  Future<void> _replaceInWorkspace(BuildContext context, String findText, String replaceText, WorkspaceSearchState searchState) async {
+  Future<void> _replaceInWorkspace(
+    BuildContext context,
+    String findText,
+    String replaceText,
+    WorkspaceSearchState searchState,
+  ) async {
     if (findText.isEmpty || searchState.results.isEmpty) return;
 
     final filesModified = <String>{};
@@ -1928,10 +2066,13 @@ class _FindWordWidgetState extends State<FindWordWidget> {
         final file = File(result.filePath);
         String content = await file.readAsString();
         String newContent;
-        
+
         if (searchState.isRegex) {
           try {
-            final regex = RegExp(findText, caseSensitive: searchState.matchCase);
+            final regex = RegExp(
+              findText,
+              caseSensitive: searchState.matchCase,
+            );
             newContent = content.replaceAll(regex, replaceText);
           } catch (_) {
             continue;
@@ -1952,14 +2093,12 @@ class _FindWordWidgetState extends State<FindWordWidget> {
             );
           }
         }
-        
+
         if (content != newContent) {
           await file.writeAsString(newContent);
           filesModified.add(result.filePath);
         }
-      } catch (_) {
-        
-      }
+      } catch (_) {}
     }
 
     if (context.mounted) {
@@ -1969,7 +2108,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
           duration: const Duration(seconds: 2),
         ),
       );
-      
+
       _searchWorkspace(context, findText, searchState);
     }
   }
@@ -1994,12 +2133,14 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 child: Text(
                   "SEARCH",
                   style: TextStyle(
-                    fontWeight: widget.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                    fontWeight: widget.appTheme.isDark
+                        ? FontWeight.w300
+                        : FontWeight.w500,
                     color: widget.appTheme.selectScreenCardTextColor,
                   ),
                 ),
               ),
-              
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: SizedBox(
@@ -2008,14 +2149,15 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       final activeEditor = _getActiveEditor();
-                      if (activeEditor != null && activeEditor.findController != null) {
-                        
+                      if (activeEditor != null &&
+                          activeEditor.findController != null) {
                         Navigator.of(context).pop();
-                        
+
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           activeEditor.findController!.isActive = true;
-                          
-                          activeEditor.findController!.findInputFocusNode.requestFocus();
+
+                          activeEditor.findController!.findInputFocusNode
+                              .requestFocus();
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -2026,13 +2168,23 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                         );
                       }
                     },
-                    icon: Icon(Icons.article_outlined, color: widget.appTheme.selectScreenCardTextColor, size: 18),
+                    icon: Icon(
+                      Icons.article_outlined,
+                      color: widget.appTheme.selectScreenCardTextColor,
+                      size: 18,
+                    ),
                     label: Text(
                       "Find in Current File",
-                      style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 13),
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 13,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: widget.appTheme.selectScreenCardTextColor.withAlpha(100)),
+                      side: BorderSide(
+                        color: widget.appTheme.selectScreenCardTextColor
+                            .withAlpha(100),
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -2041,59 +2193,99 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 ),
               ),
               const SizedBox(height: 15),
-              
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   "Search in Workspace",
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      180,
+                    ),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               const SizedBox(height: 8),
-              
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _buildOptionButton('Aa', 'Match Case', searchState.matchCase, () {
-                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
-                        matchCase: !searchState.matchCase,
-                        matchWholeWord: searchState.matchWholeWord,
-                        isRegex: searchState.isRegex,
-                      ));
-                      if (widget.findWordController.text.isNotEmpty) {
-                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(matchCase: !searchState.matchCase));
-                      }
-                    }),
-                    _buildOptionButton('ab', 'Match Word', searchState.matchWholeWord, () {
-                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
-                        matchCase: searchState.matchCase,
-                        matchWholeWord: !searchState.matchWholeWord,
-                        isRegex: searchState.isRegex,
-                      ));
-                      if (widget.findWordController.text.isNotEmpty) {
-                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(matchWholeWord: !searchState.matchWholeWord));
-                      }
-                    }, underline: true),
-                    _buildOptionButton('\u2022\u2731', 'Regex', searchState.isRegex, () {
-                      context.read<WorkspaceSearchBloc>().add(UpdateSearchOptions(
-                        matchCase: searchState.matchCase,
-                        matchWholeWord: searchState.matchWholeWord,
-                        isRegex: !searchState.isRegex,
-                      ));
-                      if (widget.findWordController.text.isNotEmpty) {
-                        _searchWorkspace(context, widget.findWordController.text, searchState.copyWith(isRegex: !searchState.isRegex));
-                      }
-                    }),
+                    _buildOptionButton(
+                      'Aa',
+                      'Match Case',
+                      searchState.matchCase,
+                      () {
+                        context.read<WorkspaceSearchBloc>().add(
+                          UpdateSearchOptions(
+                            matchCase: !searchState.matchCase,
+                            matchWholeWord: searchState.matchWholeWord,
+                            isRegex: searchState.isRegex,
+                          ),
+                        );
+                        if (widget.findWordController.text.isNotEmpty) {
+                          _searchWorkspace(
+                            context,
+                            widget.findWordController.text,
+                            searchState.copyWith(
+                              matchCase: !searchState.matchCase,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    _buildOptionButton(
+                      'ab',
+                      'Match Word',
+                      searchState.matchWholeWord,
+                      () {
+                        context.read<WorkspaceSearchBloc>().add(
+                          UpdateSearchOptions(
+                            matchCase: searchState.matchCase,
+                            matchWholeWord: !searchState.matchWholeWord,
+                            isRegex: searchState.isRegex,
+                          ),
+                        );
+                        if (widget.findWordController.text.isNotEmpty) {
+                          _searchWorkspace(
+                            context,
+                            widget.findWordController.text,
+                            searchState.copyWith(
+                              matchWholeWord: !searchState.matchWholeWord,
+                            ),
+                          );
+                        }
+                      },
+                      underline: true,
+                    ),
+                    _buildOptionButton(
+                      '\u2022\u2731',
+                      'Regex',
+                      searchState.isRegex,
+                      () {
+                        context.read<WorkspaceSearchBloc>().add(
+                          UpdateSearchOptions(
+                            matchCase: searchState.matchCase,
+                            matchWholeWord: searchState.matchWholeWord,
+                            isRegex: !searchState.isRegex,
+                          ),
+                        );
+                        if (widget.findWordController.text.isNotEmpty) {
+                          _searchWorkspace(
+                            context,
+                            widget.findWordController.text,
+                            searchState.copyWith(isRegex: !searchState.isRegex),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
-              
+
               ListTile(
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2105,24 +2297,46 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                       if (value.length >= 2) {
                         _searchWorkspace(context, value, searchState);
                       } else if (value.isEmpty) {
-                        context.read<WorkspaceSearchBloc>().add(ClearSearchResults());
+                        context.read<WorkspaceSearchBloc>().add(
+                          ClearSearchResults(),
+                        );
                       }
                     },
-                    onSubmitted: (value) => _searchWorkspace(context, value, searchState),
+                    onSubmitted: (value) =>
+                        _searchWorkspace(context, value, searchState),
                     cursorColor: Colors.grey,
-                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 14),
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor,
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
-                      hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(120), fontSize: 14),
+                      hintStyle: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor
+                            .withAlpha(120),
+                        fontSize: 14,
+                      ),
                       hintText: "Search",
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       border: const OutlineInputBorder(),
-                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xff0178b9)),
+                      ),
                       suffixIcon: widget.findWordController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear, size: 18, color: widget.appTheme.selectScreenCardTextColor.withAlpha(150)),
+                              icon: Icon(
+                                Icons.clear,
+                                size: 18,
+                                color: widget.appTheme.selectScreenCardTextColor
+                                    .withAlpha(150),
+                              ),
                               onPressed: () {
                                 widget.findWordController.clear();
-                                context.read<WorkspaceSearchBloc>().add(ClearSearchResults());
+                                context.read<WorkspaceSearchBloc>().add(
+                                  ClearSearchResults(),
+                                );
                               },
                             )
                           : null,
@@ -2130,7 +2344,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   ),
                 ),
               ),
-              
+
               ListTile(
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2142,13 +2356,25 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                         child: TextField(
                           controller: widget.replaceWordController,
                           cursorColor: Colors.grey,
-                          style: TextStyle(color: widget.appTheme.selectScreenCardTextColor, fontSize: 14),
+                          style: TextStyle(
+                            color: widget.appTheme.selectScreenCardTextColor,
+                            fontSize: 14,
+                          ),
                           decoration: InputDecoration(
-                            hintStyle: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(120), fontSize: 14),
+                            hintStyle: TextStyle(
+                              color: widget.appTheme.selectScreenCardTextColor
+                                  .withAlpha(120),
+                              fontSize: 14,
+                            ),
                             hintText: "Replace",
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             border: const OutlineInputBorder(),
-                            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xff0178b9))),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xff0178b9)),
+                            ),
                           ),
                         ),
                       ),
@@ -2157,28 +2383,34 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                     InkWell(
                       onTap: searchState.results.isNotEmpty
                           ? () => _replaceInWorkspace(
-                                context,
-                                widget.findWordController.text,
-                                widget.replaceWordController.text,
-                                searchState,
-                              )
+                              context,
+                              widget.findWordController.text,
+                              widget.replaceWordController.text,
+                              searchState,
+                            )
                           : null,
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: searchState.results.isNotEmpty ? const Color(0xff0e639c) : Colors.grey[700],
+                          color: searchState.results.isNotEmpty
+                              ? const Color(0xff0e639c)
+                              : Colors.grey[700],
                           borderRadius: BorderRadius.circular(20),
                         ),
                         height: 38,
                         width: 38,
-                        child: const Icon(Icons.find_replace, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.find_replace,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              
+
               if (searchState.isSearching)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 17),
@@ -2196,7 +2428,8 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                       Text(
                         "Searching...",
                         style: TextStyle(
-                          color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withAlpha(150),
                           fontSize: 12,
                         ),
                       ),
@@ -2209,22 +2442,26 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   child: Text(
                     "${searchState.results.length} result${searchState.results.length == 1 ? '' : 's'} found",
                     style: TextStyle(
-                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withAlpha(150),
                       fontSize: 12,
                     ),
                   ),
                 ),
               const SizedBox(height: 8),
-              
+
               Expanded(
                 child: searchState.results.isEmpty
                     ? Center(
                         child: Text(
                           widget.findWordController.text.isEmpty
                               ? "Enter search term"
-                              : searchState.isSearching ? "" : "No results found",
+                              : searchState.isSearching
+                              ? ""
+                              : "No results found",
                           style: TextStyle(
-                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(100),
+                            color: widget.appTheme.selectScreenCardTextColor
+                                .withAlpha(100),
                             fontSize: 13,
                           ),
                         ),
@@ -2245,7 +2482,13 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     );
   }
 
-  Widget _buildOptionButton(String text, String tooltip, bool isActive, VoidCallback onTap, {bool underline = false}) {
+  Widget _buildOptionButton(
+    String text,
+    String tooltip,
+    bool isActive,
+    VoidCallback onTap, {
+    bool underline = false,
+  }) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -2255,10 +2498,14 @@ class _FindWordWidgetState extends State<FindWordWidget> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xff0178b9).withAlpha(100) : Colors.transparent,
+            color: isActive
+                ? const Color(0xff0178b9).withAlpha(100)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? widget.appTheme.selectScreenCardTextColor : Colors.transparent,
+              color: isActive
+                  ? widget.appTheme.selectScreenCardTextColor
+                  : Colors.transparent,
               width: 0.5,
             ),
           ),
@@ -2280,29 +2527,24 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     return InkWell(
       onTap: () {
         final file = File(result.filePath);
-        
-        
+
         final existingIndex = widget.editorState.activeEditors.indexWhere(
           (editor) => editor.filePath.path == file.path,
         );
-        
+
         if (existingIndex >= 0) {
-          
           if (widget.tabController != null) {
             widget.tabController!.animateTo(existingIndex);
           }
           Navigator.of(context).pop();
-          
-          
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final editor = widget.editorState.activeEditors[existingIndex];
             if (editor.findController != null) {
-              
               _goToMatchNearLine(editor, result.lineNumber, searchQuery);
             }
           });
         } else {
-          
           Navigator.of(context).pop();
           widget.onFileOpen?.call(file, result.lineNumber, searchQuery);
         }
@@ -2327,12 +2569,13 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   width: 14,
                   child: (() {
                     try {
-                      final ext = path.extension(result.filePath).replaceAll('.', '');
-                      return languages.singleWhere(
-                        (lang) => lang.extension.contains(ext),
-                      ).icon;
+                      final ext = path
+                          .extension(result.filePath)
+                          .replaceAll('.', '');
+                      return languages
+                          .singleWhere((lang) => lang.extension.contains(ext))
+                          .icon;
                     } catch (_) {
-                      
                       return langtxt.icon;
                     }
                   })(),
@@ -2352,7 +2595,9 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 Text(
                   ':${result.lineNumber}',
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(120),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      120,
+                    ),
                     fontSize: 11,
                   ),
                 ),
@@ -2386,7 +2631,7 @@ class SourceControl extends StatefulWidget {
     super.key,
     required this.appTheme,
     required this.workSpace,
-    required this.isRepoThere
+    required this.isRepoThere,
   });
 
   @override
@@ -2466,7 +2711,12 @@ class _SourceControlState extends State<SourceControl> {
         InkWell(
           onTap: onToggle,
           child: Padding(
-            padding: const EdgeInsets.only(left: 12, top: 12, bottom: 4, right: 4),
+            padding: const EdgeInsets.only(
+              left: 12,
+              top: 12,
+              bottom: 4,
+              right: 4,
+            ),
             child: Row(
               children: [
                 AnimatedRotation(
@@ -2474,7 +2724,9 @@ class _SourceControlState extends State<SourceControl> {
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
                     Icons.chevron_right,
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      150,
+                    ),
                     size: 20,
                   ),
                 ),
@@ -2482,13 +2734,18 @@ class _SourceControlState extends State<SourceControl> {
                 Text(
                   title,
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      150,
+                    ),
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: widget.appTheme.isDark
                         ? Colors.white.withValues(alpha: 0.1)
@@ -2498,7 +2755,8 @@ class _SourceControlState extends State<SourceControl> {
                   child: Text(
                     '$itemCount',
                     style: TextStyle(
-                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
                       fontSize: 11,
                     ),
                   ),
@@ -2549,9 +2807,15 @@ class _SourceControlState extends State<SourceControl> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
-          onTap: () => setState(() => _commitGraphExpanded = !_commitGraphExpanded),
+          onTap: () =>
+              setState(() => _commitGraphExpanded = !_commitGraphExpanded),
           child: Padding(
-            padding: const EdgeInsets.only(left: 12, top: 12, bottom: 8, right: 4),
+            padding: const EdgeInsets.only(
+              left: 12,
+              top: 12,
+              bottom: 8,
+              right: 4,
+            ),
             child: Row(
               children: [
                 AnimatedRotation(
@@ -2559,7 +2823,9 @@ class _SourceControlState extends State<SourceControl> {
                   duration: const Duration(milliseconds: 200),
                   child: Icon(
                     Icons.chevron_right,
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      150,
+                    ),
                     size: 20,
                   ),
                 ),
@@ -2567,7 +2833,9 @@ class _SourceControlState extends State<SourceControl> {
                 Text(
                   "Commit History",
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
+                      150,
+                    ),
                     fontSize: 14,
                   ),
                 ),
@@ -2590,14 +2858,20 @@ class _SourceControlState extends State<SourceControl> {
           child: _commitGraphExpanded
               ? ConstrainedBox(
                   key: const ValueKey('commit-graph-expanded'),
-                  constraints: const BoxConstraints(
-                    maxHeight: 600,
-                  ),
+                  constraints: const BoxConstraints(maxHeight: 600),
                   child: BlocBuilder<RepoStatusBloc, RepoStatusState>(
                     builder: (context, state) {
                       if (state is RepoStatusLoaded && state.commits != null) {
                         if (state.commits!.isEmpty) {
-                          return Center(child: Text('No commits found', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
+                          return Center(
+                            child: Text(
+                              'No commits found',
+                              style: TextStyle(
+                                color:
+                                    widget.appTheme.selectScreenCardTextColor,
+                              ),
+                            ),
+                          );
                         }
                         final commits = state.commits!;
                         return Scrollbar(
@@ -2607,21 +2881,2981 @@ class _SourceControlState extends State<SourceControl> {
                             controller: _commitGraphScrollController,
                             child: GitCommitGraph(
                               commits: commits,
-                              appTheme: widget.appTheme
+                              appTheme: widget.appTheme,
                             ),
                           ),
                         );
                       } else if (state is RepoStatusLoading) {
                         return const Center(child: CircularProgressIndicator());
                       } else {
-                        return Center(child: Text('Loading commits...', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)));
+                        return Center(
+                          child: Text(
+                            'Loading commits...',
+                            style: TextStyle(
+                              color: widget.appTheme.selectScreenCardTextColor,
+                            ),
+                          ),
+                        );
                       }
-                    }
+                    },
                   ),
                 )
               : SizedBox.shrink(key: const ValueKey('commit-graph-collapsed')),
         ),
       ],
+    );
+  }
+
+  // ===================== Git Action Methods =====================
+
+  Future<void> _performPush(BuildContext context) async {
+    _showLoadingDialog(context, 'Pushing...');
+    try {
+      final result = await gitPush(widget.workSpace);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        if (result.exitCode == 0) {
+          _showSuccessSnackBar(context, 'Push successful');
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+        } else {
+          _showErrorSnackBar(context, 'Push failed: ${result.stderr}');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showErrorSnackBar(context, 'Push failed: $e');
+      }
+    }
+  }
+
+  Future<void> _performPull(BuildContext context) async {
+    _showLoadingDialog(context, 'Pulling...');
+    try {
+      final result = await gitPull(widget.workSpace);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        if (result.exitCode == 0) {
+          _showSuccessSnackBar(context, 'Pull successful');
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+          context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+        } else {
+          _showErrorSnackBar(context, 'Pull failed: ${result.stderr}');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showErrorSnackBar(context, 'Pull failed: $e');
+      }
+    }
+  }
+
+  Future<void> _performCommitAndPush(
+    BuildContext context,
+    String message,
+  ) async {
+    _showLoadingDialog(context, 'Committing and pushing...');
+    try {
+      final commitResult = await gitCommit(
+        widget.workSpace,
+        message,
+        all: true,
+      );
+      if (commitResult.exitCode != 0) {
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          _showErrorSnackBar(context, 'Commit failed: ${commitResult.stderr}');
+        }
+        return;
+      }
+
+      final pushResult = await gitPush(widget.workSpace);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        if (pushResult.exitCode == 0) {
+          _showSuccessSnackBar(context, 'Commit and push successful');
+          context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+        } else {
+          _showErrorSnackBar(context, 'Push failed: ${pushResult.stderr}');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showErrorSnackBar(context, 'Failed: $e');
+      }
+    }
+  }
+
+  Future<void> _performCommitAndSync(
+    BuildContext context,
+    String message,
+  ) async {
+    _showLoadingDialog(context, 'Committing and syncing...');
+    try {
+      final commitResult = await gitCommit(
+        widget.workSpace,
+        message,
+        all: true,
+      );
+      if (commitResult.exitCode != 0) {
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          _showErrorSnackBar(context, 'Commit failed: ${commitResult.stderr}');
+        }
+        return;
+      }
+
+      final syncResult = await gitSync(widget.workSpace);
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        if (syncResult.exitCode == 0) {
+          _showSuccessSnackBar(context, 'Commit and sync successful');
+          context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
+          context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+        } else {
+          _showErrorSnackBar(context, 'Sync failed: ${syncResult.stderr}');
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        _showErrorSnackBar(context, 'Failed: $e');
+      }
+    }
+  }
+
+  void _showLoadingDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: widget.appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : Colors.white,
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(
+              message,
+              style: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
+  }
+
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  // ===================== Branch Dialog Methods =====================
+
+  void _showCreateBranchDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: widget.appTheme.isDark
+                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                  : [
+                      const Color.fromARGB(255, 250, 250, 250),
+                      const Color.fromARGB(255, 240, 240, 240)
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.add_circle_outline,
+                      color: Colors.green,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Create Branch',
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: controller,
+                autofocus: true,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Branch name',
+                  hintStyle: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: widget.appTheme.isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(
+                      color: Color(0xff5090c8),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor
+                            .withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (controller.text.trim().isEmpty) return;
+                      Navigator.pop(dialogContext);
+                      final result = await gitCreateBranch(
+                        widget.workSpace,
+                        controller.text.trim(),
+                      );
+                      if (context.mounted) {
+                        if (result.exitCode == 0) {
+                          _showSuccessSnackBar(
+                            context,
+                            'Branch created and checked out',
+                          );
+                          context.read<RepoStatusBloc>().add(
+                                LoadRepoStatus(widget.workSpace),
+                              );
+                        } else {
+                          _showErrorSnackBar(
+                            context,
+                            'Failed: ${result.stderr}',
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Create'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateBranchFromDialog(
+    BuildContext context,
+    List<String> branches,
+  ) {
+    final controller = TextEditingController();
+    String? selectedBranch;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.cyan.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.call_split,
+                        color: Colors.cyan,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Create Branch From',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Source Branch',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: branches
+                      .map(
+                        (b) => DropdownMenuItem(
+                          value: b,
+                          child: Text(b),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedBranch = val),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'New branch name',
+                    hintStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (controller.text.trim().isEmpty ||
+                            selectedBranch == null) return;
+                        Navigator.pop(dialogContext);
+                        final result = await gitCreateBranch(
+                          widget.workSpace,
+                          controller.text.trim(),
+                          fromRef: selectedBranch,
+                        );
+                        if (context.mounted) {
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(
+                              context,
+                              'Branch created from $selectedBranch',
+                            );
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyan,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Create'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMergeBranchDialog(
+    BuildContext context,
+    List<String> branches,
+    String? currentBranch,
+  ) {
+    String? selectedBranch;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.merge_type,
+                        color: Colors.blue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Merge Branch',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Current branch: ${currentBranch ?? "unknown"}',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Branch to merge',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: branches
+                      .where((b) => b != currentBranch)
+                      .map(
+                        (b) => DropdownMenuItem(
+                          value: b,
+                          child: Text(b),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedBranch = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedBranch == null) return;
+                        Navigator.pop(dialogContext);
+                        _showLoadingDialog(context, 'Merging...');
+                        final result = await gitMergeBranch(
+                          widget.workSpace,
+                          selectedBranch!,
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(
+                              context,
+                              'Merged $selectedBranch',
+                            );
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Merge failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Merge'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRebaseBranchDialog(
+    BuildContext context,
+    List<String> branches,
+    String? currentBranch,
+  ) {
+    String? selectedBranch;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.swap_calls,
+                        color: Colors.deepOrange,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Rebase onto Branch',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Current branch: ${currentBranch ?? "unknown"}',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Rebase onto',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: branches
+                      .where((b) => b != currentBranch)
+                      .map(
+                        (b) => DropdownMenuItem(
+                          value: b,
+                          child: Text(b),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedBranch = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedBranch == null) return;
+                        Navigator.pop(dialogContext);
+                        _showLoadingDialog(context, 'Rebasing...');
+                        final result = await gitRebaseBranch(
+                          widget.workSpace,
+                          selectedBranch!,
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(
+                              context,
+                              'Rebased onto $selectedBranch',
+                            );
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Rebase failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepOrange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Rebase'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRenameBranchDialog(BuildContext context, List<String> branches) {
+    String? selectedBranch;
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.edit_outlined,
+                        color: Colors.amber,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Rename Branch',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Branch to rename',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: branches
+                      .map(
+                        (b) => DropdownMenuItem(
+                          value: b,
+                          child: Text(b),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) {
+                    setDialogState(() => selectedBranch = val);
+                    controller.text = val ?? '';
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'New name',
+                    hintStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedBranch == null ||
+                            controller.text.trim().isEmpty) return;
+                        Navigator.pop(dialogContext);
+                        final result = await gitRenameBranch(
+                          widget.workSpace,
+                          selectedBranch!,
+                          controller.text.trim(),
+                        );
+                        if (context.mounted) {
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(context, 'Branch renamed');
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Rename'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteBranchDialog(
+    BuildContext context,
+    List<String> branches,
+    String? currentBranch,
+  ) {
+    String? selectedBranch;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Delete Branch',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Branch to delete',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: branches
+                      .where((b) => b != currentBranch)
+                      .map(
+                        (b) => DropdownMenuItem(
+                          value: b,
+                          child: Text(b),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedBranch = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedBranch == null) return;
+                        Navigator.pop(dialogContext);
+                        final result = await gitDeleteBranch(
+                          widget.workSpace,
+                          selectedBranch!,
+                        );
+                        if (context.mounted) {
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(context, 'Branch deleted');
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteRemoteBranchDialog(
+    BuildContext context,
+    List<String> remoteBranches,
+  ) {
+    String? selectedBranch;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.cloud_off_outlined,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Delete Remote Branch',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedBranch,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Remote branch to delete',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: remoteBranches.map((b) {
+                    final display = b.replaceFirst('origin/', '');
+                    return DropdownMenuItem(
+                      value: display,
+                      child: Text(b),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setDialogState(() => selectedBranch = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedBranch == null) return;
+                        Navigator.pop(dialogContext);
+                        _showLoadingDialog(context, 'Deleting remote branch...');
+                        final result = await gitDeleteRemoteBranch(
+                          widget.workSpace,
+                          selectedBranch!,
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(context, 'Remote branch deleted');
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPublishBranchDialog(
+    BuildContext context,
+    String? currentBranch,
+  ) async {
+    if (currentBranch == null) return;
+    _showLoadingDialog(context, 'Publishing branch...');
+    final result = await gitPublishBranch(widget.workSpace, currentBranch);
+    if (context.mounted) {
+      Navigator.pop(context);
+      if (result.exitCode == 0) {
+        _showSuccessSnackBar(context, 'Branch published to origin');
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      } else {
+        _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+      }
+    }
+  }
+
+  // ===================== Stash Dialog Methods =====================
+
+  void _showStashDialog(
+    BuildContext context, {
+    bool includeUntracked = false,
+    bool stagedOnly = false,
+  }) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: widget.appTheme.isDark
+                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                  : [
+                      const Color.fromARGB(255, 250, 250, 250),
+                      const Color.fromARGB(255, 240, 240, 240)
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.save_outlined,
+                      color: Colors.orange,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      stagedOnly
+                          ? 'Stash Staged'
+                          : (includeUntracked
+                              ? 'Stash (Include Untracked)'
+                              : 'Stash'),
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: controller,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Stash message (optional)',
+                  hintStyle: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: widget.appTheme.isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(
+                      color: Color(0xff5090c8),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor
+                            .withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(dialogContext);
+                      final result = await gitStash(
+                        widget.workSpace,
+                        message: controller.text.trim().isEmpty
+                            ? null
+                            : controller.text.trim(),
+                        includeUntracked: includeUntracked,
+                        stagedOnly: stagedOnly,
+                      );
+                      if (context.mounted) {
+                        if (result.exitCode == 0) {
+                          _showSuccessSnackBar(context, 'Changes stashed');
+                          context.read<RepoStatusBloc>().add(
+                                LoadRepoStatus(widget.workSpace),
+                              );
+                        } else {
+                          _showErrorSnackBar(
+                            context,
+                            'Failed: ${result.stderr}',
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Stash'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showApplyStashDialog(
+    BuildContext context,
+    List<Map<String, String>> stashes, {
+    bool pop = false,
+  }) {
+    if (stashes.isEmpty) {
+      _showErrorSnackBar(context, 'No stashes available');
+      return;
+    }
+    String? selectedStash;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
+          title: Text(
+            pop ? 'Pop Stash' : 'Apply Stash',
+            style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+          ),
+          content: DropdownButtonFormField<String>(
+            value: selectedStash,
+            dropdownColor: widget.appTheme.isDark
+                ? const Color(0xff2b2b2b)
+                : Colors.white,
+            decoration: InputDecoration(
+              labelText: 'Select stash',
+              labelStyle: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+              ),
+            ),
+            items: stashes
+                .map(
+                  (s) => DropdownMenuItem(
+                    value: s['ref'],
+                    child: Text(
+                      '${s['ref']}: ${s['message']}',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) => setDialogState(() => selectedStash = val),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (selectedStash == null) return;
+                Navigator.pop(dialogContext);
+                final result = pop
+                    ? await gitStashPop(
+                        widget.workSpace,
+                        stashRef: selectedStash,
+                      )
+                    : await gitStashApply(
+                        widget.workSpace,
+                        stashRef: selectedStash,
+                      );
+                if (context.mounted) {
+                  if (result.exitCode == 0) {
+                    _showSuccessSnackBar(
+                      context,
+                      pop ? 'Stash popped' : 'Stash applied',
+                    );
+                    context.read<RepoStatusBloc>().add(
+                      LoadRepoStatus(widget.workSpace),
+                    );
+                  } else {
+                    _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                  }
+                }
+              },
+              child: Text(pop ? 'Pop' : 'Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDropStashDialog(
+    BuildContext context,
+    List<Map<String, String>> stashes,
+  ) {
+    if (stashes.isEmpty) {
+      _showErrorSnackBar(context, 'No stashes available');
+      return;
+    }
+    String? selectedStash;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
+          title: Text(
+            'Drop Stash',
+            style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+          ),
+          content: DropdownButtonFormField<String>(
+            value: selectedStash,
+            dropdownColor: widget.appTheme.isDark
+                ? const Color(0xff2b2b2b)
+                : Colors.white,
+            decoration: InputDecoration(
+              labelText: 'Select stash to drop',
+              labelStyle: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+              ),
+            ),
+            items: stashes
+                .map(
+                  (s) => DropdownMenuItem(
+                    value: s['ref'],
+                    child: Text(
+                      '${s['ref']}: ${s['message']}',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) => setDialogState(() => selectedStash = val),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (selectedStash == null) return;
+                Navigator.pop(dialogContext);
+                final result = await gitStashDrop(
+                  widget.workSpace,
+                  stashRef: selectedStash,
+                );
+                if (context.mounted) {
+                  if (result.exitCode == 0) {
+                    _showSuccessSnackBar(context, 'Stash dropped');
+                    context.read<RepoStatusBloc>().add(
+                      LoadRepoStatus(widget.workSpace),
+                    );
+                  } else {
+                    _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                  }
+                }
+              },
+              child: const Text('Drop', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDropAllStashesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: widget.appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : Colors.white,
+        title: Text(
+          'Drop All Stashes',
+          style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+        ),
+        content: Text(
+          'Are you sure you want to drop all stashes? This cannot be undone.',
+          style: TextStyle(
+            color: widget.appTheme.selectScreenCardTextColor.withAlpha(200),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final result = await gitStashClear(widget.workSpace);
+              if (context.mounted) {
+                if (result.exitCode == 0) {
+                  _showSuccessSnackBar(context, 'All stashes dropped');
+                  context.read<RepoStatusBloc>().add(
+                    LoadRepoStatus(widget.workSpace),
+                  );
+                } else {
+                  _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                }
+              }
+            },
+            child: const Text('Drop All', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showViewStashDialog(
+    BuildContext context,
+    List<Map<String, String>> stashes,
+  ) {
+    if (stashes.isEmpty) {
+      _showErrorSnackBar(context, 'No stashes available');
+      return;
+    }
+    String? selectedStash;
+    String? stashContent;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
+          title: Text(
+            'View Stash',
+            style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedStash,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  decoration: InputDecoration(
+                    labelText: 'Select stash',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withAlpha(150),
+                    ),
+                  ),
+                  items: stashes
+                      .map(
+                        (s) => DropdownMenuItem(
+                          value: s['ref'],
+                          child: Text(
+                            '${s['ref']}: ${s['message']}',
+                            style: TextStyle(
+                              color: widget.appTheme.selectScreenCardTextColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) async {
+                    setDialogState(() => selectedStash = val);
+                    if (val != null) {
+                      final content = await gitStashShow(widget.workSpace, val);
+                      setDialogState(() => stashContent = content);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: widget.appTheme.isDark
+                          ? Colors.black26
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        stashContent ?? 'Select a stash to view',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: widget.appTheme.selectScreenCardTextColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===================== Tag Dialog Methods =====================
+
+  void _showCreateTagDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final messageController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: widget.appTheme.isDark
+                  ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                  : [
+                      const Color.fromARGB(255, 250, 250, 250),
+                      const Color.fromARGB(255, 240, 240, 240)
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.label_outline,
+                      color: Colors.purple,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Create Tag',
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: nameController,
+                autofocus: true,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Tag name (e.g., v1.0.0)',
+                  hintStyle: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: widget.appTheme.isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(
+                      color: Color(0xff5090c8),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: messageController,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Message (optional, creates annotated tag)',
+                  hintStyle: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor
+                        .withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: widget.appTheme.isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(
+                      color: Color(0xff5090c8),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor
+                            .withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (nameController.text.trim().isEmpty) return;
+                      Navigator.pop(dialogContext);
+                      final result = await gitCreateTag(
+                        widget.workSpace,
+                        nameController.text.trim(),
+                        message: messageController.text.trim().isEmpty
+                            ? null
+                            : messageController.text.trim(),
+                      );
+                      if (context.mounted) {
+                        if (result.exitCode == 0) {
+                          _showSuccessSnackBar(context, 'Tag created');
+                          context.read<RepoStatusBloc>().add(
+                                LoadRepoStatus(widget.workSpace),
+                              );
+                        } else {
+                          _showErrorSnackBar(
+                            context,
+                            'Failed: ${result.stderr}',
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Create'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteTagDialog(BuildContext context, List<String> tags) {
+    if (tags.isEmpty) {
+      _showErrorSnackBar(context, 'No tags available');
+      return;
+    }
+    String? selectedTag;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.label_off_outlined,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Delete Tag',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedTag,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Tag to delete',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: tags
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedTag = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedTag == null) return;
+                        Navigator.pop(dialogContext);
+                        final result = await gitDeleteTag(
+                          widget.workSpace,
+                          selectedTag!,
+                        );
+                        if (context.mounted) {
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(context, 'Tag deleted');
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteRemoteTagDialog(BuildContext context, List<String> tags) {
+    if (tags.isEmpty) {
+      _showErrorSnackBar(context, 'No tags available');
+      return;
+    }
+    String? selectedTag;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.appTheme.isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [
+                        const Color.fromARGB(255, 250, 250, 250),
+                        const Color.fromARGB(255, 240, 240, 240)
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.cloud_off_outlined,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Delete Remote Tag',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: selectedTag,
+                  dropdownColor: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Tag to delete from remote',
+                    labelStyle: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor
+                          .withValues(alpha: 0.6),
+                    ),
+                    filled: true,
+                    fillColor: widget.appTheme.isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: const BorderSide(
+                        color: Color(0xff5090c8),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  items: tags
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setDialogState(() => selectedTag = val),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedTag == null) return;
+                        Navigator.pop(dialogContext);
+                        _showLoadingDialog(context, 'Deleting remote tag...');
+                        final result = await gitDeleteRemoteTag(
+                          widget.workSpace,
+                          selectedTag!,
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          if (result.exitCode == 0) {
+                            _showSuccessSnackBar(context, 'Remote tag deleted');
+                            context.read<RepoStatusBloc>().add(
+                                  LoadRepoStatus(widget.workSpace),
+                                );
+                          } else {
+                            _showErrorSnackBar(
+                              context,
+                              'Failed: ${result.stderr}',
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===================== Popup Menu Builder =====================
+
+  Widget _buildGitActionsRow(
+    BuildContext context,
+    RepoStatusState repoState,
+    bool isSignedIn,
+  ) {
+    final loaded = repoState is RepoStatusLoaded ? repoState : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6.5, right: 5.5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Tooltip(
+            message: 'Pull',
+            child: IconButton(
+              visualDensity: VisualDensity(horizontal: -2, vertical: -2),
+              onPressed: () => _performPull(context),
+              icon: Icon(
+                Icons.arrow_downward,
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(200),
+                size: 17,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: widget.appTheme.isDark
+                  ? Colors.white.withAlpha(20)
+                  : Colors.black.withAlpha(20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'Push',
+            child: IconButton(
+              visualDensity: VisualDensity(horizontal: -2, vertical: -2),
+              onPressed: loaded?.hasUpstream == true
+                ? () => _performPush(context)
+                : null,
+              icon: Icon(
+                Icons.arrow_upward,
+                color: loaded?.hasUpstream == true
+                  ? widget.appTheme.selectScreenCardTextColor.withAlpha(200)
+                  : widget.appTheme.selectScreenCardTextColor.withAlpha(80),
+                size: 17,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: widget.appTheme.isDark
+                  ? Colors.white.withAlpha(20)
+                  : Colors.black.withAlpha(20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_horiz,color: widget.appTheme.selectScreenCardTextColor.withAlpha(200)),
+            color: widget.appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : Colors.white,
+            onSelected: (value) =>
+                _handleGitMenuAction(context, value, loaded, isSignedIn),
+            itemBuilder: (context) => [
+              _buildPopupMenuWithSubmenu('Branch', FontAwesomeIcons.codeBranch, [
+                ('merge', 'Merge...'),
+                ('rebase', 'Rebase Branch...'),
+                ('divider', ''),
+                ('create_branch', 'Create Branch...'),
+                ('create_branch_from', 'Create Branch From...'),
+                ('rename_branch', 'Rename Branch...'),
+                ('divider', ''),
+                ('delete_branch', 'Delete Branch...'),
+                ('delete_remote_branch', 'Delete Remote Branch...'),
+                ('publish_branch', 'Publish Branch'),
+              ], loaded, isSignedIn),
+              _buildPopupMenuWithSubmenu('Stash', Icons.archive, [
+                ('stash', 'Stash'),
+                ('stash_untracked', 'Stash (Include Untracked)'),
+                ('stash_staged', 'Stash Staged'),
+                ('divider', ''),
+                ('apply_latest_stash', 'Apply Latest Stash'),
+                ('apply_stash', 'Apply Stash...'),
+                ('divider', ''),
+                ('pop_latest_stash', 'Pop Latest Stash'),
+                ('pop_stash', 'Pop Stash...'),
+                ('divider', ''),
+                ('drop_stash', 'Drop Stash...'),
+                ('drop_all_stashes', 'Drop All Stashes'),
+                ('view_stash', 'View Stash...'),
+              ], loaded, isSignedIn),
+              _buildPopupMenuWithSubmenu('Tags', Icons.local_offer, [
+                ('create_tag', 'Create Tag...'),
+                ('delete_tag', 'Delete Tag...'),
+                ('delete_remote_tag', 'Delete Remote Tag...'),
+              ], loaded, isSignedIn),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuEntry<String> _buildPopupMenuWithSubmenu(
+    String title,
+    IconData icon,
+    List<(String, String)> subItems,
+    RepoStatusLoaded? loaded,
+    bool isSignedIn,
+  ) {
+    return PopupMenuItem<String>(
+      padding: EdgeInsets.zero,
+      child: PopupMenuButton<String>(
+        offset: const Offset(200, 0),
+        color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+        onSelected: (value) {
+          // Close the parent popup menu first
+          Navigator.pop(context);
+          // Then handle the action after a short delay to allow the menu to close
+          Future.microtask(() {
+            if(mounted) {
+              _handleGitMenuAction(context, value, loaded, isSignedIn);
+            }
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: widget.appTheme.selectScreenCardTextColor,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: widget.appTheme.selectScreenCardTextColor.withAlpha(120),
+              ),
+            ],
+          ),
+        ),
+        itemBuilder: (context) => subItems.map((item) {
+          if (item.$1 == 'divider') {
+            return const PopupMenuDivider() as PopupMenuEntry<String>;
+          }
+          return PopupMenuItem<String>(
+            value: item.$1,
+            child: Text(
+              item.$2,
+              style: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _handleGitMenuAction(
+    BuildContext context,
+    String action,
+    RepoStatusLoaded? loaded,
+    bool isSignedIn,
+  ) {
+    switch (action) {
+      case 'merge':
+        _showMergeBranchDialog(
+          context,
+          loaded?.branches ?? [],
+          loaded?.currentBranch,
+        );
+        break;
+      case 'rebase':
+        _showRebaseBranchDialog(
+          context,
+          loaded?.branches ?? [],
+          loaded?.currentBranch,
+        );
+        break;
+      case 'create_branch':
+        _showCreateBranchDialog(context);
+        break;
+      case 'create_branch_from':
+        _showCreateBranchFromDialog(context, loaded?.branches ?? []);
+        break;
+      case 'rename_branch':
+        _showRenameBranchDialog(context, loaded?.branches ?? []);
+        break;
+      case 'delete_branch':
+        _showDeleteBranchDialog(
+          context,
+          loaded?.branches ?? [],
+          loaded?.currentBranch,
+        );
+        break;
+      case 'delete_remote_branch':
+        _showDeleteRemoteBranchDialog(context, loaded?.remoteBranches ?? []);
+        break;
+      case 'publish_branch':
+        _showPublishBranchDialog(context, loaded?.currentBranch);
+        break;
+      case 'stash':
+        _showStashDialog(context);
+        break;
+      case 'stash_untracked':
+        _showStashDialog(context, includeUntracked: true);
+        break;
+      case 'stash_staged':
+        _showStashDialog(context, stagedOnly: true);
+        break;
+      case 'apply_latest_stash':
+        _applyLatestStash(context);
+        break;
+      case 'apply_stash':
+        _showApplyStashDialog(context, loaded?.stashes ?? []);
+        break;
+      case 'pop_latest_stash':
+        _popLatestStash(context);
+        break;
+      case 'pop_stash':
+        _showApplyStashDialog(context, loaded?.stashes ?? [], pop: true);
+        break;
+      case 'drop_stash':
+        _showDropStashDialog(context, loaded?.stashes ?? []);
+        break;
+      case 'drop_all_stashes':
+        _showDropAllStashesDialog(context);
+        break;
+      case 'view_stash':
+        _showViewStashDialog(context, loaded?.stashes ?? []);
+        break;
+      case 'create_tag':
+        _showCreateTagDialog(context);
+        break;
+      case 'delete_tag':
+        _showDeleteTagDialog(context, loaded?.tags ?? []);
+        break;
+      case 'delete_remote_tag':
+        _showDeleteRemoteTagDialog(context, loaded?.tags ?? []);
+        break;
+    }
+  }
+
+  Future<void> _applyLatestStash(BuildContext context) async {
+    final result = await gitStashApply(widget.workSpace);
+    if (context.mounted) {
+      if (result.exitCode == 0) {
+        _showSuccessSnackBar(context, 'Latest stash applied');
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      } else {
+        _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+      }
+    }
+  }
+
+  Future<void> _popLatestStash(BuildContext context) async {
+    final result = await gitStashPop(widget.workSpace);
+    if (context.mounted) {
+      if (result.exitCode == 0) {
+        _showSuccessSnackBar(context, 'Latest stash popped');
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      } else {
+        _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+      }
+    }
+  }
+
+  // ===================== Dynamic Commit Button Builder =====================
+
+  Widget _buildCommitButton(
+    BuildContext context,
+    RepoStatusLoaded repoState,
+    bool isSignedIn,
+  ) {
+    final stagedEmpty = repoState.staged.isEmpty;
+    final unstagedEmpty = repoState.unstaged.isEmpty;
+    final hasChanges = !stagedEmpty || !unstagedEmpty;
+    final hasRemote = repoState.hasRemote;
+    final hasUpstream = repoState.hasUpstream;
+    final unpushedCount = repoState.unpushedCount;
+
+    final bool showPush = !hasChanges && unpushedCount > 0 && hasUpstream;
+    final bool showPublish =
+        !hasChanges && hasRemote && !hasUpstream && isSignedIn;
+
+    if (showPush) {
+      return SizedBox(
+        width: 250,
+        child: ElevatedButton.icon(
+          style: ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            backgroundColor: const WidgetStatePropertyAll(Color(0xff0e639c)),
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+          ),
+          onPressed: () => _performPush(context),
+          icon: const Icon(Icons.cloud_upload, size: 18),
+          label: Text('Push ($unpushedCount)'),
+        ),
+      );
+    } else if (showPublish) {
+      return SizedBox(
+        width: 250,
+        child: ElevatedButton.icon(
+          style: ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            backgroundColor: const WidgetStatePropertyAll(Color(0xff0e639c)),
+            foregroundColor: const WidgetStatePropertyAll(Colors.white),
+          ),
+          onPressed: () =>
+              _showPublishBranchDialog(context, repoState.currentBranch),
+          icon: const Icon(Icons.cloud_upload, size: 18),
+          label: const Text('Publish Branch'),
+        ),
+      );
+    } else {
+      return SizedBox(
+        width: 250,
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                style: ButtonStyle(
+                  shape: const WidgetStatePropertyAll(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(6),
+                        bottomLeft: Radius.circular(6),
+                      ),
+                    ),
+                  ),
+                  backgroundColor: WidgetStatePropertyAll(
+                    hasChanges
+                      ? const Color(0xff0e639c)
+                      : const Color.fromARGB(255, 15, 61, 92),
+                  ),
+                  foregroundColor: WidgetStatePropertyAll(
+                    hasChanges ? Colors.white : Colors.grey,
+                  ),
+                  textStyle: const WidgetStatePropertyAll(
+                    TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                onPressed: hasChanges
+                  ? () => _handleCommit(context, stagedEmpty, unstagedEmpty)
+                  : null,
+                child: const Text('\u2713 Commit'),
+              ),
+            ),
+            Container(
+              width: 50,
+              height: 40,
+              decoration: BoxDecoration(
+                border: const BorderDirectional(
+                  start: BorderSide(color: Colors.white, width: 0.5),
+                ),
+                color: hasChanges
+                  ? const Color(0xff0e639c)
+                  : const Color.fromARGB(255, 15, 61, 92),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              child: PopupMenuButton<String>(
+                enabled: hasChanges,
+                icon: Icon(
+                  FontAwesomeIcons.caretDown,
+                  color: hasChanges ? Colors.white : Colors.grey,
+                  size: 14,
+                ),
+                color: widget.appTheme.cardTheme.color,
+                onSelected: (value) {
+                  final commitMessage = context.read<GitCommitBloc>().state.commitMessage;
+                  if (commitMessage.isEmpty) {
+                    _showCommitMessageError(context);
+                    return;
+                  }
+                  if (value == 'commit_push') {
+                    _performCommitAndPush(context, commitMessage);
+                  } else if (value == 'commit_sync') {
+                    _performCommitAndSync(context, commitMessage);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'commit_push',
+                    child: Text(
+                      'Commit and Push',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'commit_sync',
+                    child: Text(
+                      'Commit and Sync',
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _handleCommit(
+    BuildContext context,
+    bool stagedEmpty,
+    bool unstagedEmpty,
+  ) async {
+    final commitMessage = context.read<GitCommitBloc>().state.commitMessage;
+    if (commitMessage.isEmpty) {
+      _showCommitMessageError(context);
+      return;
+    }
+
+    if (!stagedEmpty) {
+      await gitCommit(widget.workSpace, commitMessage);
+      if (context.mounted) {
+        context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      }
+    } else if (!unstagedEmpty) {
+      final repoBloc = context.read<RepoStatusBloc>();
+      final gitBloc = context.read<GitCommitBloc>();
+      showDialog(
+        context: context,
+        builder: (context) => BlocProvider.value(
+          value: repoBloc,
+          child: BlocProvider.value(
+            value: gitBloc,
+            child: AlertDialog(
+              title: Text(
+                "Changes aren't staged",
+                style: TextStyle(color: Colors.grey[400], fontSize: 20),
+              ),
+              backgroundColor: widget.appTheme.isDark
+                  ? const Color(0xff2b2b2b)
+                  : const Color.fromARGB(255, 240, 240, 240),
+              icon: const Icon(Icons.warning_amber_outlined, size: 35),
+              iconColor: Colors.amber,
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    "Cancel",
+                    style: TextStyle(
+                      color: widget.appTheme.selectScreenCardTextColor,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await gitCommit(widget.workSpace, commitMessage, all: true);
+                    if (context.mounted) {
+                      gitBloc.add(GitCommitEvent(commitMessage: ''));
+                      repoBloc.add(LoadRepoStatus(widget.workSpace));
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text(
+                    "Stage all and Commit",
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showCommitMessageError(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Commit message cannot be empty.",
+          style: TextStyle(color: Colors.grey[400], fontSize: 20),
+        ),
+        backgroundColor: widget.appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : const Color.fromARGB(255, 240, 240, 240),
+        icon: const Icon(Icons.info_outline, size: 35),
+        iconColor: Colors.red,
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2634,7 +5868,9 @@ class _SourceControlState extends State<SourceControl> {
           width: 320,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            color: widget.appTheme.isDark
+                ? const Color(0xff2b2b2b)
+                : const Color.fromARGB(255, 240, 240, 240),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -2679,7 +5915,9 @@ class _SourceControlState extends State<SourceControl> {
                 "This will create a new Git repository in the current folder. This action initializes Git tracking for version control.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                  color: widget.appTheme.selectScreenCardTextColor.withValues(
+                    alpha: 0.8,
+                  ),
                   fontSize: 16,
                 ),
               ),
@@ -2690,7 +5928,10 @@ class _SourceControlState extends State<SourceControl> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -2711,7 +5952,10 @@ class _SourceControlState extends State<SourceControl> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff0e639c),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -2742,7 +5986,9 @@ class _SourceControlState extends State<SourceControl> {
           width: 350,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            color: widget.appTheme.isDark
+                ? const Color(0xff2b2b2b)
+                : const Color.fromARGB(255, 240, 240, 240),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -2787,7 +6033,9 @@ class _SourceControlState extends State<SourceControl> {
                 "This will create a new repository on GitHub and push your local code. You'll need to authenticate with GitHub first.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.8),
+                  color: widget.appTheme.selectScreenCardTextColor.withValues(
+                    alpha: 0.8,
+                  ),
                   fontSize: 16,
                 ),
               ),
@@ -2797,11 +6045,17 @@ class _SourceControlState extends State<SourceControl> {
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.amber.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.amber[700], size: 20),
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.amber[700],
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -2822,7 +6076,10 @@ class _SourceControlState extends State<SourceControl> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -2843,7 +6100,10 @@ class _SourceControlState extends State<SourceControl> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black87,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -2893,8 +6153,6 @@ class _SourceControlState extends State<SourceControl> {
 
   Future<void> _publishToGithub() async {
     try {
-      
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2920,683 +6178,630 @@ class _SourceControlState extends State<SourceControl> {
     bool isTemp = widget.workSpace == templateDir;
     _isARepo = Directory(path.join(widget.workSpace, '.git')).existsSync();
     final List<Widget> noRepoFound = [
-            Text(
-              "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
-              textAlign: TextAlign.start,
-              style: TextStyle(color: widget.appTheme.isDark ?Colors.grey[400] : widget.appTheme.selectScreenCardTextColor),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _showInitializeRepoDialog,
-              style:  ButtonStyle(
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(5))
-                  )),
-                backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
-                foregroundColor: WidgetStatePropertyAll(Colors.white),
-                textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
-              ),
-              child: const Text("Initialize Repository")),
-            const SizedBox(height: 13.5),
-            Text(
-              "You can directly publish this\nfolder to a GitHub repository.\nOnce published, you'll have\naccess to source control featured\npowered by Git and GitHub",
-              textAlign: TextAlign.start,
-              style: TextStyle(color: widget.appTheme.isDark ?Colors.grey[400] : widget.appTheme.selectScreenCardTextColor),
-            ),
-            const SizedBox(height: 13.5),
-            SizedBox(
-              width: 200,
-              child: ElevatedButton(
-                onPressed: _showPublishToGithubDialog,
-                style: const ButtonStyle(
-                  shape: WidgetStatePropertyAll(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(5))
-                    )),
-                  backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
-                  foregroundColor: WidgetStatePropertyAll(Colors.white),
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
-                ),
-                child:  const Row(
-                  children: [
-                    Icon(FontAwesomeIcons.github,color: Colors.white),
-                    SizedBox(width: 8),
-                    Text("Publish to Github"),
-                  ],
-                )),
-            )];
-    return !isTemp ? SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 25,left: 10),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Text("SOURCE CONTROL",
-                style: TextStyle(
-                  fontWeight: widget.appTheme.isDark? FontWeight.w300 : FontWeight.w500,
-                  color: widget.appTheme.selectScreenCardTextColor,
-                ),
-              )
-            ),
-            const SizedBox(height: 13.5),
-            if(!_isARepo) ...noRepoFound,
-            if(_isARepo) ...[
-              BlocBuilder<GitCommitBloc, GitCommitState>(
-                builder: (context, commitState) {
-                  return SizedBox(
-                    height: 50,
-                    width: 250,
-                    child: TextField(
-                      controller: _commitController,
-                      keyboardType: TextInputType.url,
-                      style: const TextStyle(color: Colors.grey),
-                      cursorColor: Colors.grey,
-                      onChanged: (val){
-                        context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: val));
-                      },
-                      decoration: InputDecoration(
-                        suffixIcon: IconButton(
-                          onPressed: (){},
-                          icon: SvgPicture.asset(
-                            'assets/icons/ai.svg',
-                            height: 20,
-                            width: 20,
-                          ),
-                        ), 
-                        hintText: "Commit message",
-                        hintStyle: TextStyle(
-                          color: widget.appTheme.selectScreenCardTextColor.withAlpha(120)
-                        ),
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xff0e639c))
-                        )
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              BlocBuilder<RepoStatusBloc, RepoStatusState>(
-                builder: (_, repoState){
-                  final bool stagedEmpty;
-                  final bool unstagedEmpty;
-                  if (repoState is RepoStatusLoaded) {
-                    stagedEmpty = repoState.staged.isEmpty;
-                    unstagedEmpty = repoState.unstaged.isEmpty;
-                  } else {
-                    stagedEmpty = true;
-                    unstagedEmpty = true;
-                  }
-                  return Column(
-                    children: [
-                      SizedBox(
-                        width: 250,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ButtonStyle(
-                                  shape: const WidgetStatePropertyAll(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadiusGeometry.only(
-                                        topRight: Radius.zero,
-                                        bottomRight: Radius.zero,
-                                        topLeft: Radius.circular(6),
-                                        bottomLeft: Radius.circular(6),
-                                      )
-                                    )
-                                  ),
-                                  backgroundColor: WidgetStatePropertyAll(!(stagedEmpty && unstagedEmpty) ? Color(0xff0e639c) : Color.fromARGB(255, 15, 61, 92)),
-                                  foregroundColor: WidgetStatePropertyAll(!(stagedEmpty && unstagedEmpty) ? Colors.white: Colors.grey),
-                                  textStyle: const WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))
-                                ),
-                                onPressed: () async {
-                                  if(stagedEmpty && unstagedEmpty) return;
-                                  final commitMessage = context.read<GitCommitBloc>().state.commitMessage;
-                                  if(commitMessage.isEmpty){
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title:  Text("Commit message cannot be empty.", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                        backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                        icon: const Icon(Icons.info_outline, size: 35),
-                                        iconColor: Colors.red,
-                                        actionsAlignment: MainAxisAlignment.center,
-                                          actions: [
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: const Text("OK")
-                                            ),
-                                          ],
-                                      ),
-                                    );
-                                    return;
-                                  }
-                        
-                                  if(!stagedEmpty) {
-                                    await gitCommit(widget.workSpace, commitMessage);
-                                    if(context.mounted){
-                                      context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: ''));
-                                      try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
-                                    }
-                                  } else if(!unstagedEmpty){
-                                    final repoBloc = context.read<RepoStatusBloc>();
-                                    final gitBloc = context.read<GitCommitBloc>();
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => BlocProvider.value(
-                                        value: repoBloc,
-                                        child: BlocProvider.value(
-                                          value: gitBloc,
-                                          child: AlertDialog(
-                                            title:  Text("Changes aren't staged", style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                            backgroundColor: widget.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                            icon: const Icon(Icons.warning_amber_outlined,size: 35),
-                                            iconColor: Colors.amber,
-                                            actionsAlignment: MainAxisAlignment.center,
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () {
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                  child: Text("Cancel", style: TextStyle(color: widget.appTheme.selectScreenCardTextColor))
-                                                ),
-                            
-                                                TextButton(
-                                                  onPressed: () async{
-                                                    await gitCommit(widget.workSpace, commitMessage, all: true);
-                                                    if(context.mounted){
-                                                      gitBloc.add(GitCommitEvent(commitMessage: ''));
-                                                      try {
-                                                        repoBloc.add(LoadRepoStatus(widget.workSpace));
-                                                      } catch (_) {}
-                                                      Navigator.of(context).pop();
-                                                    }
-                                                  },
-                                                  child: const Text("Stage all and Commit", style: TextStyle(color: Colors.blue)),
-                                                )
-                                              ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  } else {
-                                    return;
-                                  }
-                                },
-                                child: Text("\u2713 Commit")
-                              )
-                            ),
-                            SizedBox(
-                              width: 50,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: BorderDirectional(start: BorderSide(color: Colors.white, width: 0.5)),
-                                  color: !(stagedEmpty && unstagedEmpty) ? Color(0xff0e639c) : Color.fromARGB(255, 15, 61, 92),
-                                  borderRadius: BorderRadius.only(
-                                    topRight: Radius.circular(6),
-                                    bottomRight: Radius.circular(6)
-                                  ),
-                                ),
-                                child: DropdownMenu(
-                                  enabled: !(unstagedEmpty && stagedEmpty),
-                                  trailingIcon: Icon(
-                                    FontAwesomeIcons.caretDown,
-                                    color: widget.appTheme.selectScreenCardTextColor,
-                                    size: 14,
-                                  ),
-                                  selectedTrailingIcon: Icon(
-                                    FontAwesomeIcons.caretUp,
-                                    color: widget.appTheme.selectScreenCardTextColor,
-                                    size: 14,
-                                  ),
-                                  inputDecorationTheme: InputDecorationTheme(
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                                    constraints: BoxConstraints.tight(const 
-                                    Size.fromHeight(40)),
-                                    border: OutlineInputBorder(
-                                      borderSide: BorderSide.none,
-                                      borderRadius: BorderRadius.only(
-                                        topRight: Radius.circular(6),
-                                        bottomRight: Radius.circular(6)
-                                      ),
-                                    ),
-                                  ),
-                                  menuStyle: MenuStyle(
-                                    shape: WidgetStatePropertyAll(
-                                      RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.all(Radius.circular(10))
-                                      )
-                                    ),
-                                    backgroundColor: WidgetStatePropertyAll(widget.appTheme.cardTheme.color),
-                                  ),
-                                  dropdownMenuEntries: [
-                                    DropdownMenuEntry(
-                                      style: ButtonStyle(
-                                        foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
-                                      ),
-                                      value: "Commit and Push", label: "Commit and Push"
-                                    ),
-                                    DropdownMenuEntry(
-                                      style: ButtonStyle(
-                                        foregroundColor: WidgetStatePropertyAll(widget.appTheme.selectScreenCardTextColor)
-                                      ),
-                                      value: "Commit and Sync", label: "Commit and Sync",
-                                    )
-                                ]),
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                      if (repoState is RepoStatusLoading || repoState is RepoStatusInitial) ...[
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 20),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      ] else if (repoState is RepoStatusError) ...[
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text('Error: ${repoState.message}', style: TextStyle(color: widget.appTheme.selectScreenCardTextColor)),
-                        )
-                      ] else if (repoState is RepoStatusLoaded) ...[
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if(repoState.staged.isNotEmpty) _buildCollapsibleChangesList(
-                              title: "Staged Changes",
-                              isExpanded: _stagedExpanded,
-                              onToggle: () => setState(() => _stagedExpanded = !_stagedExpanded),
-                              itemCount: repoState.staged.length,
-                              actionButton: Tooltip(
-                                message: "Unstage All Changes",
-                                child: IconButton(
-                                  onPressed: () async {
-                                    await unstageAll(widget.workSpace);
-                                    try { 
-                                      if(context.mounted) {
-                                        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                      }
-                                    } catch (_) {}
-                                  },
-                                  icon: Text(
-                                    "—",
-                                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor.withAlpha(180))
-                                  )
-                                ),
-                              ),
-                              controller: _stagedScrollController,
-                              itemBuilder: (_, index) {
-                                final fileName = _extractGitFilename(repoState.staged[index]);
-                                final (String, Color) repoIndicator = gitFileStatus[repoState.staged[index].substring(0,2).trim()]!;
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () {},
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: widget.appTheme.isDark
-                                              ? Colors.white.withValues(alpha: 0.03)
-                                              : Colors.black.withValues(alpha: 0.03),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: repoIndicator.$2.withValues(alpha: 0.2),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            // File icon
-                                            Container(
-                                              width: 32,
-                                              height: 32,
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: repoIndicator.$2.withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: (() {
-                                                try {
-                                                  return languages.singleWhere(
-                                                    (lang) => lang.extension.contains(
-                                                      path.extension(path.basename(fileName)).replaceAll('.', '')
-                                                    )
-                                                  ).icon;
-                                                } catch (e) {
-                                                  return Icon(
-                                                    Icons.insert_drive_file,
-                                                    size: 18,
-                                                    color: repoIndicator.$2,
-                                                  );
-                                                }
-                                              })(),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            // File info
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    path.basename(fileName),
-                                                    style: TextStyle(
-                                                      fontSize: 13.5,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: repoIndicator.$2,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    fileName,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.5),
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            // Status badge
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: repoIndicator.$2.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                repoIndicator.$1,
-                                                style: TextStyle(
-                                                  color: repoIndicator.$2,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            // Unstage button
-                                            Tooltip(
-                                              message: "Unstage Changes",
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.circular(4),
-                                                onTap: () async {
-                                                  await unstageChange(fileName, widget.workSpace);
-                                                  if (context.mounted) {
-                                                    try {
-                                                      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                    } catch (_) {}
-                                                  }
-                                                },
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(
-                                                    Icons.remove_circle_outline,
-                                                    size: 18,
-                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            if (repoState.unstaged.isNotEmpty) _buildCollapsibleChangesList(
-                              title: "Unstaged Changes",
-                              isExpanded: _unstagedExpanded,
-                              onToggle: () => setState(() => _unstagedExpanded = !_unstagedExpanded),
-                              itemCount: repoState.unstaged.length,
-                              actionButton: Tooltip(
-                                message: "Stage All Changes",
-                                child: IconButton(
-                                  onPressed: () async{
-                                    await stageAll(widget.workSpace);
-                                    if(context.mounted){
-                                      try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace)); } catch (_) {}
-                                    }
-                                  },
-                                  icon: Icon(
-                                    Icons.add,
-                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                                  )
-                                ),
-                              ),
-                              controller: _unstagedScrollController,
-                              itemBuilder: (_, index) {
-                                final fileName = _extractGitFilename(repoState.unstaged[index]);
-                                final (String, Color) repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0,2).trim()]!;
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(8),
-                                      onTap: () {},
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                        decoration: BoxDecoration(
-                                          color: widget.appTheme.isDark
-                                              ? Colors.white.withValues(alpha: 0.03)
-                                              : Colors.black.withValues(alpha: 0.03),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: repoIndicator.$2.withValues(alpha: 0.2),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            // File icon
-                                            Container(
-                                              width: 32,
-                                              height: 32,
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: repoIndicator.$2.withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: (() {
-                                                try {
-                                                  return languages.singleWhere(
-                                                    (lang) => lang.extension.contains(
-                                                      path.extension(path.basename(fileName)).replaceAll('.', '')
-                                                    )
-                                                  ).icon;
-                                                } catch (e) {
-                                                  return Icon(
-                                                    Icons.insert_drive_file,
-                                                    size: 18,
-                                                    color: repoIndicator.$2,
-                                                  );
-                                                }
-                                              })(),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            // File info
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    path.basename(fileName),
-                                                    style: TextStyle(
-                                                      fontSize: 13.5,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: repoIndicator.$2,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    fileName,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.5),
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            // Status badge
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: repoIndicator.$2.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                repoIndicator.$1,
-                                                style: TextStyle(
-                                                  color: repoIndicator.$2,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Tooltip(
-                                              message: "Discard Change",
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.circular(4),
-                                                onTap: () {
-                                                  final repoBloc = context.read<RepoStatusBloc>();
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) => BlocProvider.value(
-                                                      value: repoBloc,
-                                                      child: AlertDialog(
-                                                        title: Text(
-                                                          "Are you sure want to discard the changes?",
-                                                          style: TextStyle(color: Colors.grey[400], fontSize: 20)
-                                                        ),
-                                                        backgroundColor: widget.appTheme.isDark
-                                                            ? const Color(0xff2b2b2b)
-                                                            : const Color.fromARGB(255, 240, 240, 240),
-                                                        icon: const Icon(Icons.info_outline, size: 35),
-                                                        iconColor: Colors.blue,
-                                                        actionsAlignment: MainAxisAlignment.center,
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () => Navigator.of(context).pop(),
-                                                            child: const Text(
-                                                              "Cancel",
-                                                              style: TextStyle(color: Colors.red, fontSize: 17),
-                                                            )
-                                                          ),
-                                                          const SizedBox(width: 25),
-                                                          TextButton(
-                                                            onPressed: () async {
-                                                              await gitRestoreFile(fileName, widget.workSpace);
-                                                              if (context.mounted) {
-                                                                try {
-                                                                  repoBloc.add(LoadRepoStatus(widget.workSpace));
-                                                                } catch (_) {}
-                                                                Navigator.of(context).pop();
-                                                              }
-                                                            },
-                                                            child: const Text(
-                                                              "Yes",
-                                                              style: TextStyle(color: Colors.blue, fontSize: 17),
-                                                            )
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(
-                                                    FontAwesomeIcons.arrowRotateLeft,
-                                                    size: 16,
-                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            // Stage button
-                                            Tooltip(
-                                              message: "Stage Changes",
-                                              child: InkWell(
-                                                borderRadius: BorderRadius.circular(4),
-                                                onTap: () async {
-                                                  await stageChange(fileName, widget.workSpace);
-                                                  if (context.mounted) {
-                                                    try {
-                                                      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                    } catch (_) {}
-                                                  }
-                                                },
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(
-                                                    Icons.add_circle_outline,
-                                                    size: 18,
-                                                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            Divider(
-                              thickness: 0.1,
-                              endIndent: 12,
-                              color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                            ),
-                            _buildCollapsibleCommitGraph()
-                          ],
-                        )
-                      ]
-                    ],
-                  );
-                }
-              )
-            ],
-          ],
+      Text(
+        "The folder currently open\ndosen't hava a Git repository.\nYou can initialize a repository\nwhich will enable source control\nfeatures powered by Git.",
+        textAlign: TextAlign.start,
+        style: TextStyle(
+          color: widget.appTheme.isDark
+              ? Colors.grey[400]
+              : widget.appTheme.selectScreenCardTextColor,
         ),
       ),
-    ) : Center(
-          child: Text(
-            "Cannot initalize a git repository in the temp directory.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: widget.appTheme.selectScreenCardTextColor
+      const SizedBox(height: 12),
+      ElevatedButton(
+        onPressed: _showInitializeRepoDialog,
+        style: ButtonStyle(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(5)),
+            ),
+          ),
+          backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+          foregroundColor: WidgetStatePropertyAll(Colors.white),
+          textStyle: WidgetStatePropertyAll(
+            TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        child: const Text("Initialize Repository"),
+      ),
+      const SizedBox(height: 13.5),
+      Text(
+        "You can directly publish this\nfolder to a GitHub repository.\nOnce published, you'll have\naccess to source control featured\npowered by Git and GitHub",
+        textAlign: TextAlign.start,
+        style: TextStyle(
+          color: widget.appTheme.isDark
+              ? Colors.grey[400]
+              : widget.appTheme.selectScreenCardTextColor,
+        ),
+      ),
+      const SizedBox(height: 13.5),
+      SizedBox(
+        width: 200,
+        child: ElevatedButton(
+          onPressed: _showPublishToGithubDialog,
+          style: const ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(5)),
+              ),
+            ),
+            backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
+            foregroundColor: WidgetStatePropertyAll(Colors.white),
+            textStyle: WidgetStatePropertyAll(
+              TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(FontAwesomeIcons.github, color: Colors.white),
+              SizedBox(width: 8),
+              Text("Publish to Github"),
+            ],
+          ),
+        ),
+      ),
+    ];
+    return !isTemp
+        ? SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 25, left: 10),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      "SOURCE CONTROL",
+                      style: TextStyle(
+                        fontWeight: widget.appTheme.isDark
+                            ? FontWeight.w300
+                            : FontWeight.w500,
+                        color: widget.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 13.5),
+                  if (!_isARepo) ...noRepoFound,
+                  if (_isARepo) ...[
+                    BlocBuilder<GithubAuthCubit, bool>(
+                      builder: (context, isSignedIn) {
+                        return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                          builder: (context, repoState) {
+                            return _buildGitActionsRow(context, repoState, isSignedIn);
+                          },
+                        );
+                      },
+                    ),
+                    BlocBuilder<GitCommitBloc, GitCommitState>(
+                      builder: (context, commitState) {
+                        return SizedBox(
+                          height: 50,
+                          width: 250,
+                          child: TextField(
+                            controller: _commitController,
+                            keyboardType: TextInputType.url,
+                            style: const TextStyle(color: Colors.grey),
+                            cursorColor: Colors.grey,
+                            onChanged: (val) {
+                              context.read<GitCommitBloc>().add(
+                                GitCommitEvent(commitMessage: val),
+                              );
+                            },
+                            decoration: InputDecoration(
+                              suffixIcon: IconButton(
+                                onPressed: () {},
+                                icon: SvgPicture.asset(
+                                  'assets/icons/ai.svg',
+                                  height: 20,
+                                  width: 20,
+                                ),
+                              ),
+                              hintText: "Commit message",
+                              hintStyle: TextStyle(
+                                color: widget.appTheme.selectScreenCardTextColor
+                                    .withAlpha(120),
+                              ),
+                              border: const OutlineInputBorder(),
+                              focusedBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xff0e639c),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    BlocBuilder<GithubAuthCubit, bool>(
+                      builder: (context, isSignedIn) {
+                        return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                          builder: (_, repoState) {
+                            return Column(
+                              children: [
+                                if (repoState is RepoStatusLoaded)
+                                  _buildCommitButton(context, repoState, isSignedIn),
+                                if (repoState is RepoStatusLoading || repoState is RepoStatusInitial) ...[
+                                  const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 20),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  ),
+                                ] else if (repoState is RepoStatusError) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      'Error: ${repoState.message}',
+                                      style: TextStyle(
+                                        color: widget.appTheme.selectScreenCardTextColor,
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (repoState is RepoStatusLoaded) ...[
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (repoState.currentBranch != null)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                FontAwesomeIcons.codeBranch,
+                                                size: 15,
+                                                color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                repoState.currentBranch!,
+                                                style: TextStyle(
+                                                  color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (repoState.unpushedCount >0) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange.withAlpha(40),
+                                                    borderRadius:BorderRadius.circular(10),
+                                                  ),
+                                                  child: Text(
+                                                    '↑${repoState.unpushedCount}',
+                                                    style: const TextStyle(
+                                                      color: Colors.orange,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      if (repoState.staged.isNotEmpty)
+                                        _buildCollapsibleChangesList(
+                                          title: "Staged Changes",
+                                          isExpanded: _stagedExpanded,
+                                          onToggle: () => setState(() => _stagedExpanded =!_stagedExpanded),
+                                          itemCount: repoState.staged.length,
+                                          actionButton: Tooltip(
+                                            message: "Unstage All Changes",
+                                            child: IconButton(
+                                              onPressed: () async {
+                                                await unstageAll(
+                                                  widget.workSpace,
+                                                );
+                                                try {
+                                                  if (context.mounted) {
+                                                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                  }
+                                                } catch (_) {}
+                                              },
+                                              icon: Text(
+                                                "—",
+                                                style: TextStyle(
+                                                  color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          controller: _stagedScrollController,
+                                          itemBuilder: (_, index) {
+                                            final fileName =
+                                                _extractGitFilename(
+                                                  repoState.staged[index],
+                                                );
+                                            final (String, Color)
+                                            repoIndicator =
+                                                gitFileStatus[repoState.staged[index].substring(0, 2).trim()]!;
+                                            return Padding(
+                                              padding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 3,
+                                                ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  onTap: () {},
+                                                  child: Container(
+                                                    padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 10,
+                                                      ),
+                                                    decoration: BoxDecoration(
+                                                      color: widget.appTheme.isDark
+                                                        ? Colors.white.withValues(alpha: 0.03)
+                                                        : Colors.black.withValues(alpha: 0.03),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border.all(
+                                                        color: repoIndicator.$2.withValues(alpha: 0.2),
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 32,
+                                                          height: 32,
+                                                          padding: const EdgeInsets.all(6),
+                                                          decoration: BoxDecoration(
+                                                            color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                            borderRadius: BorderRadius.circular(6),
+                                                          ),
+                                                          child: (() {
+                                                            try {
+                                                              return languages.singleWhere((lang) => 
+                                                                lang.extension.contains(
+                                                                  path.extension(path.basename(fileName),).replaceAll('.','',)
+                                                                )).icon;
+                                                            } catch (e) {
+                                                              return Icon(
+                                                                Icons .insert_drive_file,
+                                                                size: 18,
+                                                                color: repoIndicator.$2,
+                                                              );
+                                                            }
+                                                          })(),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 12,
+                                                        ),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Text(path.basename(fileName),
+                                                                style: TextStyle(
+                                                                  fontSize: 13.5,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: repoIndicator.$2,
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 2,
+                                                              ),
+                                                              Text(
+                                                                fileName,
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 3,
+                                                            ),
+                                                          decoration: BoxDecoration(
+                                                            color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: Text(
+                                                            repoIndicator.$1,
+                                                            style: TextStyle(
+                                                              color: repoIndicator.$2,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 11,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Tooltip(
+                                                          message:"Unstage Changes",
+                                                          child: InkWell(
+                                                            borderRadius:BorderRadius.circular(4),
+                                                            onTap: () async {
+                                                              await unstageChange(fileName,widget.workSpace);
+                                                              if (context.mounted) {
+                                                                try {
+                                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                                } catch (_) {}
+                                                              }
+                                                            },
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(6),
+                                                              child: Icon(
+                                                                Icons.remove_circle_outline,
+                                                                size: 18,
+                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      if (repoState.unstaged.isNotEmpty)
+                                        _buildCollapsibleChangesList(
+                                          title: "Unstaged Changes",
+                                          isExpanded: _unstagedExpanded,
+                                          onToggle: () => setState(
+                                            () => _unstagedExpanded =
+                                                !_unstagedExpanded,
+                                          ),
+                                          itemCount: repoState.unstaged.length,
+                                          actionButton: Tooltip(
+                                            message: "Stage All Changes",
+                                            child: IconButton(
+                                              onPressed: () async {
+                                                await stageAll(
+                                                  widget.workSpace,
+                                                );
+                                                if (context.mounted) {
+                                                  try {
+                                                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                  } catch (_) {}
+                                                }
+                                              },
+                                              icon: Icon(
+                                                Icons.add,
+                                                color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                              ),
+                                            ),
+                                          ),
+                                          controller: _unstagedScrollController,
+                                          itemBuilder: (_, index) {
+                                            final fileName =_extractGitFilename(repoState.unstaged[index]);
+                                            final (String, Color)
+                                            repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0, 2).trim()]!;
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 3),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:BorderRadius.circular(8),
+                                                  onTap: () {},
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10,),
+                                                    decoration: BoxDecoration(
+                                                      color: widget.appTheme.isDark
+                                                        ? Colors.white.withValues(alpha: 0.03)
+                                                        : Colors.black.withValues(alpha: 0.03),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border.all(
+                                                        color: repoIndicator.$2.withValues(alpha: 0.2),
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 32,
+                                                          height: 32,
+                                                          padding: const EdgeInsets.all(6),
+                                                          decoration: BoxDecoration(
+                                                            color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                            borderRadius: BorderRadius.circular(6),
+                                                          ),
+                                                          child: (() {
+                                                            try {
+                                                              return languages.singleWhere((lang)
+                                                                => lang.extension.contains(path.extension(
+                                                                    path.basename(fileName)).replaceAll('.', ''),
+                                                                    ),
+                                                                  ).icon;
+                                                            } catch (e) {
+                                                              return Icon(
+                                                                Icons.insert_drive_file,
+                                                                size: 18,
+                                                                color: repoIndicator.$2,
+                                                              );
+                                                            }
+                                                          })(),
+                                                        ),
+                                                        const SizedBox(width: 12,),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Text(path.basename(fileName),
+                                                                style: TextStyle(
+                                                                  fontSize:13.5,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: repoIndicator.$2,
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                              const SizedBox(height: 2),
+                                                              Text(
+                                                                fileName,
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 6,vertical: 3),
+                                                          decoration: BoxDecoration(
+                                                            color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: Text(
+                                                            repoIndicator.$1,
+                                                            style: TextStyle(
+                                                              color: repoIndicator.$2,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 11,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Tooltip(
+                                                          message: "Discard Change",
+                                                          child: InkWell(
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            onTap: () {
+                                                              final repoBloc = context.read<RepoStatusBloc>();
+                                                              showDialog(
+                                                                context: context,
+                                                                builder: (context) => BlocProvider.value(
+                                                                  value: repoBloc,
+                                                                  child: AlertDialog(
+                                                                    title: Text(
+                                                                      "Are you sure want to discard the changes?",
+                                                                      style: TextStyle(
+                                                                        color: Colors.grey[400],
+                                                                        fontSize: 20,
+                                                                      ),
+                                                                    ),
+                                                                    backgroundColor:widget.appTheme.isDark
+                                                                        ? const Color(0xff2b2b2b)
+                                                                        : const Color.fromARGB(255,240,240,240),
+                                                                    icon: const Icon(Icons.info_outline, size: 35),
+                                                                    iconColor: Colors.blue,
+                                                                    actionsAlignment:MainAxisAlignment.center,
+                                                                    actions: [
+                                                                      TextButton(
+                                                                        onPressed: () => Navigator.of(context,).pop(),
+                                                                        child: const Text(
+                                                                          "Cancel",
+                                                                          style: TextStyle(
+                                                                            color:Colors.red,
+                                                                            fontSize:17,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(width:25),
+                                                                      TextButton(
+                                                                        onPressed: () async {
+                                                                          await gitRestoreFile(fileName, widget.workSpace);
+                                                                          if (context.mounted) {
+                                                                            try {
+                                                                              repoBloc.add(LoadRepoStatus(widget.workSpace));
+                                                                            } catch (_) {}
+                                                                            Navigator.of(context,).pop();
+                                                                          }
+                                                                        },
+                                                                        child: const Text(
+                                                                          "Yes",
+                                                                          style: TextStyle(
+                                                                            color: Colors.blue,
+                                                                            fontSize: 17,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(6),
+                                                              child: Icon(
+                                                                FontAwesomeIcons.arrowRotateLeft,
+                                                                size: 16,
+                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Tooltip(
+                                                          message: "Stage Changes",
+                                                          child: InkWell(
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            onTap: () async {
+                                                              await stageChange(fileName, widget.workSpace);
+                                                              if (context.mounted) {
+                                                                try {
+                                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                                } catch (_) {}
+                                                              }
+                                                            },
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(6),
+                                                              child: Icon(
+                                                                Icons.add_circle_outline,
+                                                                size: 18,
+                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      Divider(thickness: 0.1,endIndent: 12,color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                      ),
+                                      _buildCollapsibleCommitGraph(),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
             ),
           )
-        );
+        : Center(
+            child: Text(
+              "Cannot initalize a git repository in the temp directory.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: widget.appTheme.selectScreenCardTextColor,
+              ),
+            ),
+          );
   }
 }
 
@@ -3614,35 +6819,52 @@ class APITesting extends StatelessWidget {
     required this.apiUrlController,
     required this.appTheme,
     required this.paramTabController,
-    required this.apiTabController
+    required this.apiTabController,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28,horizontal: 15),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 15),
       child: BlocBuilder<ApiBloc, ApiState>(
         builder: (context, webState) {
-          Map<TextEditingController,TextEditingController> paramControllers = {
-            for (int _ in Iterable.generate(webState.params.length + 1)) 
-              TextEditingController() : TextEditingController()
+          Map<TextEditingController, TextEditingController> paramControllers = {
+            for (int _ in Iterable.generate(webState.params.length + 1))
+              TextEditingController(): TextEditingController(),
           };
-          Map<TextEditingController,TextEditingController> headerControllers = {
-            for (int _ in Iterable.generate(webState.headers.length + 1)) 
-              TextEditingController() : TextEditingController()
-          };
-          if(webState.params.isNotEmpty){
-            for(int index = 0; index < webState.params.length; index++){
-              paramControllers.keys.toList()[index].text = webState.params.keys.toList()[index];
-              paramControllers.values.toList()[index].text = webState.params.values.toList()[index];
-              params[webState.params.keys.toList()[index]] = webState.params.values.toList()[index];
+          Map<TextEditingController, TextEditingController> headerControllers =
+              {
+                for (int _ in Iterable.generate(webState.headers.length + 1))
+                  TextEditingController(): TextEditingController(),
+              };
+          if (webState.params.isNotEmpty) {
+            for (int index = 0; index < webState.params.length; index++) {
+              paramControllers.keys.toList()[index].text = webState.params.keys
+                  .toList()[index];
+              paramControllers.values.toList()[index].text = webState
+                  .params
+                  .values
+                  .toList()[index];
+              params[webState.params.keys.toList()[index]] = webState
+                  .params
+                  .values
+                  .toList()[index];
             }
           }
-          if(webState.headers.isNotEmpty){
-            for(int index = 0; index < webState.headers.length; index++){
-              headerControllers.keys.toList()[index].text = webState.headers.keys.toList()[index];
-              headerControllers.values.toList()[index].text = webState.headers.values.toList()[index];
-              headers[webState.headers.keys.toList()[index]] = webState.headers.values.toList()[index];
+          if (webState.headers.isNotEmpty) {
+            for (int index = 0; index < webState.headers.length; index++) {
+              headerControllers.keys.toList()[index].text = webState
+                  .headers
+                  .keys
+                  .toList()[index];
+              headerControllers.values.toList()[index].text = webState
+                  .headers
+                  .values
+                  .toList()[index];
+              headers[webState.headers.keys.toList()[index]] = webState
+                  .headers
+                  .values
+                  .toList()[index];
             }
           }
           apiUrlController.text = webState.url ?? "Enter URL";
@@ -3654,23 +6876,29 @@ class APITesting extends StatelessWidget {
                 "API TESTING",
                 style: TextStyle(
                   color: appTheme.selectScreenCardTextColor,
-                  fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                )
+                  fontWeight: appTheme.isDark
+                      ? FontWeight.w300
+                      : FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 15),
               DropdownButtonHideUnderline(
                 child: DropdownButton(
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
                   value: webState.method,
-                  dropdownColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 241, 241, 241),
-                  items: [  
+                  dropdownColor: appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : const Color.fromARGB(255, 241, 241, 241),
+                  items: [
                     DropdownMenuItem(
                       value: "POST",
                       child: Text(
                         "POST",
                         style: TextStyle(
                           color: const Color(0xffe0790b),
-                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                          fontWeight: appTheme.isDark
+                              ? FontWeight.w500
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -3680,7 +6908,9 @@ class APITesting extends StatelessWidget {
                         "GET",
                         style: TextStyle(
                           color: const Color(0xff26cda3),
-                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                          fontWeight: appTheme.isDark
+                              ? FontWeight.w500
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -3690,7 +6920,9 @@ class APITesting extends StatelessWidget {
                         "PUT",
                         style: TextStyle(
                           color: const Color(0xff097bed),
-                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                          fontWeight: appTheme.isDark
+                              ? FontWeight.w500
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -3700,14 +6932,17 @@ class APITesting extends StatelessWidget {
                         "DELETE",
                         style: TextStyle(
                           color: const Color(0xfff22814),
-                          fontWeight: appTheme.isDark ? FontWeight.w500 : FontWeight.w600
+                          fontWeight: appTheme.isDark
+                              ? FontWeight.w500
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                  onChanged: (value) async{
+                  onChanged: (value) async {
                     context.read<ApiBloc>().add(ApiEvent(method: value!));
-                  }),
+                  },
+                ),
               ),
               SizedBox(
                 height: 50,
@@ -3717,15 +6952,15 @@ class APITesting extends StatelessWidget {
                   keyboardType: TextInputType.url,
                   style: const TextStyle(color: Colors.grey),
                   cursorColor: Colors.grey,
-                  onChanged: (val){
+                  onChanged: (val) {
                     context.read<ApiBloc>().add(GetUrl(url: val));
                   },
                   decoration: const InputDecoration(
                     hintText: "Enter Url",
                     border: OutlineInputBorder(),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xff0e639c))
-                    )
+                      borderSide: BorderSide(color: Color(0xff0e639c)),
+                    ),
                   ),
                 ),
               ),
@@ -3733,163 +6968,262 @@ class APITesting extends StatelessWidget {
               TabBar(
                 labelPadding: const EdgeInsets.symmetric(horizontal: 2),
                 controller: paramTabController,
-                dividerColor: appTheme.isDark? 
-                    const Color.fromARGB(255, 61, 61, 61) :
-                    const Color.fromARGB(255, 182, 182, 182),
+                dividerColor: appTheme.isDark
+                    ? const Color.fromARGB(255, 61, 61, 61)
+                    : const Color.fromARGB(255, 182, 182, 182),
                 dividerHeight: 1.5,
-                unselectedLabelColor: appTheme.isDark ? 
-                    Colors.grey : 
-                    const Color.fromARGB(255, 102, 102, 102),
+                unselectedLabelColor: appTheme.isDark
+                    ? Colors.grey
+                    : const Color.fromARGB(255, 102, 102, 102),
                 labelColor: const Color.fromARGB(255, 62, 142, 195),
                 indicatorColor: const Color(0xff0e639c),
                 indicatorWeight: 2.5,
-                tabs: const[
-                Tab(text: "Params"),
-                Tab(text: "Headers"),
-                Tab(text: "Body")
-              ]),
+                tabs: const [
+                  Tab(text: "Params"),
+                  Tab(text: "Headers"),
+                  Tab(text: "Body"),
+                ],
+              ),
               const SizedBox(height: 15),
               SizedBox(
-                height: 60 * (((){
-                    if(webState.params.isEmpty && webState.headers.isEmpty){
-                      return 1.0;
-                    }
-                    if(webState.params.length > webState.headers.length){
-                      return webState.params.length.toDouble() + 1.0;
-                    }
-                    return webState.headers.length.toDouble() + 1.0;
-                  })()),
+                height:
+                    60 *
+                    ((() {
+                      if (webState.params.isEmpty && webState.headers.isEmpty) {
+                        return 1.0;
+                      }
+                      if (webState.params.length > webState.headers.length) {
+                        return webState.params.length.toDouble() + 1.0;
+                      }
+                      return webState.headers.length.toDouble() + 1.0;
+                    })()),
                 child: TabBarView(
                   controller: paramTabController,
-                  children:  [
+                  children: [
                     Column(
-                      children: List.generate(
-                        webState.params.length + 1,
-                        (index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Row(children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                cursorColor: Colors.grey,
-                                style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                controller: paramControllers.keys.toList()[index],
-                                textAlignVertical: TextAlignVertical.top,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                      children: List.generate(webState.params.length + 1, (
+                        index,
+                      ) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  cursorColor: Colors.grey,
+                                  style: TextStyle(
+                                    color: appTheme.selectScreenCardTextColor,
                                   ),
-                                  border: OutlineInputBorder()
+                                  controller: paramControllers.keys
+                                      .toList()[index],
+                                  textAlignVertical: TextAlignVertical.top,
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 8.5,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color(0xff0e639c),
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              flex: 5,
-                              child: TextField(
-                                cursorColor: Colors.grey,
-                                style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                controller: paramControllers.values.toList()[index],
-                                textAlignVertical: TextAlignVertical.top,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                              const SizedBox(width: 5),
+                              Expanded(
+                                flex: 5,
+                                child: TextField(
+                                  cursorColor: Colors.grey,
+                                  style: TextStyle(
+                                    color: appTheme.selectScreenCardTextColor,
                                   ),
-                                  border: OutlineInputBorder()
+                                  controller: paramControllers.values
+                                      .toList()[index],
+                                  textAlignVertical: TextAlignVertical.top,
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 8.5,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color(0xff0e639c),
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                if (index == webState.params.length) {
-                                  if (paramControllers.keys.toList()[index].text.isNotEmpty &&
-                                      paramControllers.values.toList()[index].text.isNotEmpty) {
-                                    params.addEntries({
-                                      paramControllers.keys.toList()[index].text:
-                                          paramControllers.values.toList()[index].text
-                                    }.entries);
+                              IconButton(
+                                onPressed: () {
+                                  if (index == webState.params.length) {
+                                    if (paramControllers.keys
+                                            .toList()[index]
+                                            .text
+                                            .isNotEmpty &&
+                                        paramControllers.values
+                                            .toList()[index]
+                                            .text
+                                            .isNotEmpty) {
+                                      params.addEntries(
+                                        {
+                                          paramControllers.keys
+                                              .toList()[index]
+                                              .text: paramControllers.values
+                                              .toList()[index]
+                                              .text,
+                                        }.entries,
+                                      );
+                                    }
+                                  } else {
+                                    params.remove(
+                                      paramControllers.keys
+                                          .toList()[index]
+                                          .text,
+                                    );
                                   }
-                                } else {
-                                  params.remove(paramControllers.keys.toList()[index].text);
-                                }
-                                context.read<ApiBloc>().add(GetParams(params: params));
-                                String baseUrl = apiUrlController.text.split('?')[0];
-                                String queryString = '';
-                                if (params.isNotEmpty) {
-                                  queryString = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
-                                }
-                                String newUrl = queryString.isNotEmpty ? '$baseUrl?$queryString' : baseUrl;
-                                apiUrlController.value = apiUrlController.value.copyWith(
-                                  text: newUrl,
-                                  selection: TextSelection.collapsed(offset: newUrl.length),
-                                );
-                                context.read<ApiBloc>().add(GetUrl(url: newUrl));
-                              },
-                              icon: Icon(
-                                index == webState.params.length ? Icons.add : Icons.remove,
-                                color: Colors.grey,
+                                  context.read<ApiBloc>().add(
+                                    GetParams(params: params),
+                                  );
+                                  String baseUrl = apiUrlController.text.split(
+                                    '?',
+                                  )[0];
+                                  String queryString = '';
+                                  if (params.isNotEmpty) {
+                                    queryString = params.entries
+                                        .map(
+                                          (entry) =>
+                                              '${entry.key}=${entry.value}',
+                                        )
+                                        .join('&');
+                                  }
+                                  String newUrl = queryString.isNotEmpty
+                                      ? '$baseUrl?$queryString'
+                                      : baseUrl;
+                                  apiUrlController.value = apiUrlController
+                                      .value
+                                      .copyWith(
+                                        text: newUrl,
+                                        selection: TextSelection.collapsed(
+                                          offset: newUrl.length,
+                                        ),
+                                      );
+                                  context.read<ApiBloc>().add(
+                                    GetUrl(url: newUrl),
+                                  );
+                                },
+                                icon: Icon(
+                                  index == webState.params.length
+                                      ? Icons.add
+                                      : Icons.remove,
+                                  color: Colors.grey,
+                                ),
                               ),
-                            ),
-                            ]),
-                          );
-                        })),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
                     Column(
-                      children: List.generate(
-                        webState.headers.length + 1,
-                        (index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Row(children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                cursorColor: Colors.grey,
-                                style: const TextStyle(color: Colors.grey),
-                                controller: headerControllers.keys.toList()[index],
-                                textAlignVertical: TextAlignVertical.top,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                      children: List.generate(webState.headers.length + 1, (
+                        index,
+                      ) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  cursorColor: Colors.grey,
+                                  style: const TextStyle(color: Colors.grey),
+                                  controller: headerControllers.keys
+                                      .toList()[index],
+                                  textAlignVertical: TextAlignVertical.top,
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 8.5,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color(0xff0e639c),
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(),
                                   ),
-                                  border: OutlineInputBorder()
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              flex: 5,
-                              child: TextField(
-                                cursorColor: Colors.grey,
-                                style: const TextStyle(color: Colors.grey),
-                                controller: headerControllers.values.toList()[index],
-                                textAlignVertical: TextAlignVertical.top,
-                                decoration: const InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(vertical: 0,horizontal: 8.5),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xff0e639c))
+                              const SizedBox(width: 5),
+                              Expanded(
+                                flex: 5,
+                                child: TextField(
+                                  cursorColor: Colors.grey,
+                                  style: const TextStyle(color: Colors.grey),
+                                  controller: headerControllers.values
+                                      .toList()[index],
+                                  textAlignVertical: TextAlignVertical.top,
+                                  decoration: const InputDecoration(
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 8.5,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Color(0xff0e639c),
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(),
                                   ),
-                                  border: OutlineInputBorder()
                                 ),
                               ),
-                            ),
-                            IconButton(onPressed: (){
-                              if(index == webState.headers.length){
-                                if(headerControllers.keys.toList()[index].text.isNotEmpty && headerControllers.values.toList()[index].text.isNotEmpty) {
-                                  headers.addEntries({headerControllers.keys.toList()[index].text:headerControllers.values.toList()[index].text}.entries);
-                                }
-                              }
-                              else{
-                                headers.remove(headerControllers.keys.toList()[index].text);
-                              }
-                              context.read<ApiBloc>().add(GetHeaders(headers: headers));
-                            }, icon: Icon(index == webState.headers.length? Icons.add : Icons.remove,color: Colors.grey))
-                            ]),
-                          );
-                        })),
+                              IconButton(
+                                onPressed: () {
+                                  if (index == webState.headers.length) {
+                                    if (headerControllers.keys
+                                            .toList()[index]
+                                            .text
+                                            .isNotEmpty &&
+                                        headerControllers.values
+                                            .toList()[index]
+                                            .text
+                                            .isNotEmpty) {
+                                      headers.addEntries(
+                                        {
+                                          headerControllers.keys
+                                              .toList()[index]
+                                              .text: headerControllers.values
+                                              .toList()[index]
+                                              .text,
+                                        }.entries,
+                                      );
+                                    }
+                                  } else {
+                                    headers.remove(
+                                      headerControllers.keys
+                                          .toList()[index]
+                                          .text,
+                                    );
+                                  }
+                                  context.read<ApiBloc>().add(
+                                    GetHeaders(headers: headers),
+                                  );
+                                },
+                                icon: Icon(
+                                  index == webState.headers.length
+                                      ? Icons.add
+                                      : Icons.remove,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
                     const Padding(
                       padding: EdgeInsets.only(bottom: 7),
                       child: TextField(
@@ -3900,78 +7234,100 @@ class APITesting extends StatelessWidget {
                         minLines: null,
                         decoration: InputDecoration(
                           focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xff0e639c))
+                            borderSide: BorderSide(color: Color(0xff0e639c)),
                           ),
-                          border: OutlineInputBorder()
+                          border: OutlineInputBorder(),
                         ),
                         expands: true,
                       ),
-                    )
-                  ]
+                    ),
+                  ],
                 ),
               ),
               SizedBox(
                 width: 100,
                 child: ElevatedButton(
-                  onPressed: () async{
-                    Map<String,dynamic> data = 
-                      await sendRequest(
-                        url: apiUrlController.text,
-                        method: webState.method,
-                        headers: webState.headers
-                      );
-                    if(context.mounted) {
+                  onPressed: () async {
+                    Map<String, dynamic> data = await sendRequest(
+                      url: apiUrlController.text,
+                      method: webState.method,
+                      headers: webState.headers,
+                    );
+                    if (context.mounted) {
                       context.read<ApiBloc>().add(GotApiData(data: data));
                     }
-                  }, 
-                    style: const ButtonStyle(
+                  },
+                  style: const ButtonStyle(
                     shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8)))),
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                      ),
+                    ),
                     backgroundColor: WidgetStatePropertyAll(Color(0xff0e639c)),
                     foregroundColor: WidgetStatePropertyAll(Colors.white),
-                    textStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.bold))),
-                  child: const Text("Send")),
-              ),
-              webState.data == null 
-                ? const SizedBox.shrink()
-                : Align(
-                  alignment: Alignment.bottomCenter,
-                  child: TabBar(
-                    controller: apiTabController,
-                    dividerColor: const Color.fromARGB(255, 61, 61, 61),
-                    dividerHeight: 1.5,
-                    unselectedLabelColor: Colors.grey,
-                    labelColor: const Color.fromARGB(255, 62, 142, 195),
-                    indicatorColor: const Color(0xff0e639c),
-                    indicatorWeight: 2.5,
-                    tabs: const [
-                      Tab(child: Text("{ }",style: TextStyle(fontSize: 22))), 
-                      Tab(icon: Icon(FontAwesomeIcons.html5)),
-                      Tab(icon: Icon(Icons.raw_on_sharp,size: 35))
-                    ]),
-                ),
-              const SizedBox(height: 20),
-              webState.data == null 
-                ? const SizedBox.shrink()
-                : Expanded(
-                  child: TabBarView(
-                    controller: apiTabController,
-                    children: [
-                      JsonWidget(
-                        expandIcon: const Icon(Icons.keyboard_arrow_down_sharp, color: Colors.grey),
-                        collapseIcon: const Icon(Icons.keyboard_arrow_right_sharp, color: Colors.grey),
-                        json: webState.data!
-                      ),
-                      InAppWebView(
-                        onWebViewCreated: (InAppWebViewController webViewController) {
-                          webViewController.loadData(data: webState.data!['body']);
-                        },
-                      ),
-                      SingleChildScrollView(child: 
-                        Text(webState.data!.toString(),style: const TextStyle(color: Colors.grey)))
-                    ]
+                    textStyle: WidgetStatePropertyAll(
+                      TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
+                  child: const Text("Send"),
                 ),
+              ),
+              webState.data == null
+                  ? const SizedBox.shrink()
+                  : Align(
+                      alignment: Alignment.bottomCenter,
+                      child: TabBar(
+                        controller: apiTabController,
+                        dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                        dividerHeight: 1.5,
+                        unselectedLabelColor: Colors.grey,
+                        labelColor: const Color.fromARGB(255, 62, 142, 195),
+                        indicatorColor: const Color(0xff0e639c),
+                        indicatorWeight: 2.5,
+                        tabs: const [
+                          Tab(
+                            child: Text("{ }", style: TextStyle(fontSize: 22)),
+                          ),
+                          Tab(icon: Icon(FontAwesomeIcons.html5)),
+                          Tab(icon: Icon(Icons.raw_on_sharp, size: 35)),
+                        ],
+                      ),
+                    ),
+              const SizedBox(height: 20),
+              webState.data == null
+                  ? const SizedBox.shrink()
+                  : Expanded(
+                      child: TabBarView(
+                        controller: apiTabController,
+                        children: [
+                          JsonWidget(
+                            expandIcon: const Icon(
+                              Icons.keyboard_arrow_down_sharp,
+                              color: Colors.grey,
+                            ),
+                            collapseIcon: const Icon(
+                              Icons.keyboard_arrow_right_sharp,
+                              color: Colors.grey,
+                            ),
+                            json: webState.data!,
+                          ),
+                          InAppWebView(
+                            onWebViewCreated:
+                                (InAppWebViewController webViewController) {
+                                  webViewController.loadData(
+                                    data: webState.data!['body'],
+                                  );
+                                },
+                          ),
+                          SingleChildScrollView(
+                            child: Text(
+                              webState.data!.toString(),
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ],
           );
         },
@@ -4067,8 +7423,6 @@ class _AIChatState extends State<AIChat> {
     );
 
     try {
-      
-      
       StringBuffer responseBuffer = StringBuffer();
       final streamedResponse = await client.send(request);
       streamedResponse.stream
@@ -4120,9 +7474,7 @@ class _AIChatState extends State<AIChat> {
                   );
                   aiChatBloc.add(AIChatEvent(updated));
                 }
-              } catch (_) {
-                
-              }
+              } catch (_) {}
               client.close();
             },
           );
@@ -4266,7 +7618,15 @@ class _AIChatState extends State<AIChat> {
                               SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: languages.singleWhere((item) => item.extension.contains(path.extension(widget.filePath).substring(1))).icon,
+                                child: languages
+                                    .singleWhere(
+                                      (item) => item.extension.contains(
+                                        path
+                                            .extension(widget.filePath)
+                                            .substring(1),
+                                      ),
+                                    )
+                                    .icon,
                               ),
                               SizedBox(width: 3),
                               Text(
@@ -4375,11 +7735,7 @@ class _AIChatState extends State<AIChat> {
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;
   final ConfigBloc uiBloc;
-  const SettingsTab({
-    super.key,
-    required this.appTheme,
-    required this.uiBloc
-  });
+  const SettingsTab({super.key, required this.appTheme, required this.uiBloc});
 
   @override
   Widget build(BuildContext context) {
@@ -4394,161 +7750,249 @@ class SettingsTab extends StatelessWidget {
               "SETTINGS",
               style: TextStyle(
                 fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                color: appTheme.selectScreenCardTextColor
+                color: appTheme.selectScreenCardTextColor,
               ),
             ),
           ),
           const SizedBox(height: 15),
-          settingsTile(() {
-            showDialog(context: context, builder: (context)=>
-            BlocProvider<ConfigBloc>.value(
-              value: uiBloc,
-              child: BlocBuilder<ConfigBloc, ConfigState>(
-                builder: (context, configState) {
-                  final String currentTheme = configState.codeForgeConfig['theme'];
-                  return AlertDialog(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                    insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
-                    titlePadding: const EdgeInsets.all(15),
-                    title: Card(
-                      color: const Color.fromARGB(255, 37, 37, 37),
-                      child: ListTile(
-                        leading: const Icon(Icons.color_lens,color: Colors.white,size: 30),
-                        title: const Text("Select a theme"),
-                        subtitle: Text("${highlightThemes.length} themes available"),
-                        titleTextStyle: const TextStyle(fontSize: 25),
-                        subtitleTextStyle: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                    content: 
-                    Scrollbar(
-                      thumbVisibility: true,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: SingleChildScrollView(
-                          primary: true,
-                          child: Column(
-                            children: highlightThemes.keys.toList().map((e)=>Card(
-                              elevation: 0,
-                              color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                child: ListTile(
-                                  iconColor: Colors.grey,
-                                  leading: e==currentTheme? const Icon(Icons.radio_button_checked_sharp,color: Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
-                                  onTap: () async{
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final currentState = configState.codeForgeConfig;
-                                    currentState['theme'] = e;
-                                    await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                    if (context.mounted) {
-                                      context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                  title: Text(e.capitalize(),style: TextStyle(color: Colors.grey[400]))),
-                                )).toList()
+          settingsTile(
+            () {
+              showDialog(
+                context: context,
+                builder: (context) => BlocProvider<ConfigBloc>.value(
+                  value: uiBloc,
+                  child: BlocBuilder<ConfigBloc, ConfigState>(
+                    builder: (context, configState) {
+                      final String currentTheme =
+                          configState.codeForgeConfig['theme'];
+                      return AlertDialog(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                        ),
+                        insetPadding: const EdgeInsets.only(
+                          bottom: 120,
+                          top: 190,
+                          left: 45,
+                          right: 45,
+                        ),
+                        titlePadding: const EdgeInsets.all(15),
+                        title: Card(
+                          color: const Color.fromARGB(255, 37, 37, 37),
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.color_lens,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            title: const Text("Select a theme"),
+                            subtitle: Text(
+                              "${highlightThemes.length} themes available",
+                            ),
+                            titleTextStyle: const TextStyle(fontSize: 25),
+                            subtitleTextStyle: const TextStyle(
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
-                      )
-                    )
-                  );
-                },
-              ),
-            )
-            );
-          }, 'Themes',
-            Icon(
-              Icons.color_lens, 
-              size: 24,
-              color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100)
-            ), appTheme.isDark
-          ),
-          settingsTile((){
-          showDialog(context: context, builder: (context)=>
-          BlocProvider<ConfigBloc>.value(
-            value: uiBloc,
-            child: BlocBuilder<ConfigBloc,ConfigState>(
-              builder: (context, configState){
-                final String currentFont = configState.codeForgeConfig['fontFamily'];
-                return AlertDialog(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                  insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
-                  titlePadding: const EdgeInsets.all(15),
-                  backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                  title: Card(
-                    color: const Color.fromARGB(255, 37, 37, 37),
-                    child: ListTile(
-                      leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
-                      title: const Text(" Select a font   "),
-                      subtitle: Text("   ${fonts.length} fonts available"),
-                      titleTextStyle: const TextStyle(fontSize: 25),
-                      subtitleTextStyle: const TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                  content:Scrollbar(
-                    thumbVisibility: true,
-                    child:Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: SingleChildScrollView(
-                        primary: true,
-                        child: Column(
-                          children: fonts.map(
-                            (e) => Card(
-                              color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                              elevation: 0,
-                              child:
-                              ListTile(
-                                onTap: () async{
-                                  final currentState = configState.codeForgeConfig;
-                                  currentState['fontFamily'] = e;
-                                  final prefs = await SharedPreferences.getInstance();
-                                  await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                  if (context.mounted) {
-                                    context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                                    Navigator.of(context).pop();
-                                  }
-                                },
-                                iconColor: Colors.grey,
-                                leading: e == currentFont ? 
-                                  const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
-                                  const Icon(Icons.radio_button_off_sharp),
-                                title: Text(e.capitalize(), style: TextStyle(color: appTheme.selectScreenCardTextColor))
-                              )
-                            )
-                          ).toList()
+                        backgroundColor: const Color.fromARGB(255, 61, 61, 61),
+                        content: Scrollbar(
+                          thumbVisibility: true,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: SingleChildScrollView(
+                              primary: true,
+                              child: Column(
+                                children: highlightThemes.keys
+                                    .toList()
+                                    .map(
+                                      (e) => Card(
+                                        elevation: 0,
+                                        color: e == currentTheme
+                                            ? const Color.fromARGB(
+                                                160,
+                                                82,
+                                                82,
+                                                82,
+                                              )
+                                            : Colors.transparent,
+                                        child: ListTile(
+                                          iconColor: Colors.grey,
+                                          leading: e == currentTheme
+                                              ? const Icon(
+                                                  Icons
+                                                      .radio_button_checked_sharp,
+                                                  color: Color(0xff39a2f2),
+                                                )
+                                              : const Icon(
+                                                  Icons.radio_button_off_sharp,
+                                                ),
+                                          onTap: () async {
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            final currentState =
+                                                configState.codeForgeConfig;
+                                            currentState['theme'] = e;
+                                            await prefs.setString(
+                                              'codeForgeConfig',
+                                              jsonEncode(currentState),
+                                            );
+                                            if (context.mounted) {
+                                              context.read<ConfigBloc>().add(
+                                                ChangeConfigEvent(currentState),
+                                              );
+                                              Navigator.of(context).pop();
+                                            }
+                                          },
+                                          title: Text(
+                                            e.capitalize(),
+                                            style: TextStyle(
+                                              color: Colors.grey[400],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                  )
-                );  
-              }
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+            'Themes',
+            Icon(
+              Icons.color_lens,
+              size: 24,
+              color: appTheme.isDark
+                  ? Colors.grey
+                  : const Color.fromARGB(255, 100, 100, 100),
             ),
-          ));
-        }, "Fonts", Icon(
-          FontAwesomeIcons.font,
-          color: appTheme.isDark ? Colors.grey : const Color.fromARGB(255, 100, 100, 100),
-          size: 21
-        ),appTheme.isDark
-      )
-      ],
+            appTheme.isDark,
+          ),
+          settingsTile(
+            () {
+              showDialog(
+                context: context,
+                builder: (context) => BlocProvider<ConfigBloc>.value(
+                  value: uiBloc,
+                  child: BlocBuilder<ConfigBloc, ConfigState>(
+                    builder: (context, configState) {
+                      final String currentFont =
+                          configState.codeForgeConfig['fontFamily'];
+                      return AlertDialog(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                        ),
+                        insetPadding: const EdgeInsets.only(
+                          bottom: 120,
+                          top: 190,
+                          left: 45,
+                          right: 45,
+                        ),
+                        titlePadding: const EdgeInsets.all(15),
+                        backgroundColor: const Color.fromARGB(255, 61, 61, 61),
+                        title: Card(
+                          color: const Color.fromARGB(255, 37, 37, 37),
+                          child: ListTile(
+                            leading: const Icon(
+                              FontAwesomeIcons.font,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            title: const Text(" Select a font   "),
+                            subtitle: Text(
+                              "   ${fonts.length} fonts available",
+                            ),
+                            titleTextStyle: const TextStyle(fontSize: 25),
+                            subtitleTextStyle: const TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                        content: Scrollbar(
+                          thumbVisibility: true,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: SingleChildScrollView(
+                              primary: true,
+                              child: Column(
+                                children: fonts
+                                    .map(
+                                      (e) => Card(
+                                        color: e == currentFont
+                                          ? const Color.fromARGB(160,82,82,82)
+                                          : Colors.transparent,
+                                        elevation: 0,
+                                        child: ListTile(
+                                          onTap: () async {
+                                            final currentState = configState.codeForgeConfig;
+                                            currentState['fontFamily'] = e;
+                                            final prefs = await SharedPreferences.getInstance();
+                                            await prefs.setString(
+                                              'codeForgeConfig',
+                                              jsonEncode(currentState),
+                                            );
+                                            if (context.mounted) {
+                                              context.read<ConfigBloc>().add(ChangeConfigEvent(currentState),);
+                                              Navigator.of(context).pop();
+                                            }
+                                          },
+                                          iconColor: Colors.grey,
+                                          leading: e == currentFont
+                                              ? const Icon(
+                                                  Icons.radio_button_checked_sharp,
+                                                  color: Color(0xff39a2f2),
+                                                )
+                                              : const Icon(Icons.radio_button_off_sharp),
+                                          title: Text(
+                                            e.capitalize(),
+                                            style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+            "Fonts",
+            Icon(
+              FontAwesomeIcons.font,
+              color: appTheme.isDark
+                ? Colors.grey
+                : const Color.fromARGB(255, 100, 100, 100),
+              size: 21,
+            ),
+            appTheme.isDark,
+          ),
+        ],
       ),
     );
   }
 }
 
-
-
 const List<Color> _gitGraphColors = [
-  Color(0xFF4EC9B0), 
-  Color(0xFFCE9178), 
-  Color(0xFF569CD6), 
-  Color(0xFFB5CEA8), 
-  Color(0xFFC586C0), 
-  Color(0xFFDCDCAA), 
-  Color(0xFF4FC1FF), 
-  Color(0xFFD16969), 
-  Color(0xFF6A9955), 
-  Color(0xFFD7BA7D), 
+  Color(0xFF4EC9B0),
+  Color(0xFFCE9178),
+  Color(0xFF569CD6),
+  Color(0xFFB5CEA8),
+  Color(0xFFC586C0),
+  Color(0xFFDCDCAA),
+  Color(0xFF4FC1FF),
+  Color(0xFFD16969),
+  Color(0xFF6A9955),
+  Color(0xFFD7BA7D),
 ];
 
 Color _getGraphColor(int index) {
@@ -4596,11 +8040,7 @@ class VSCodeGitGraphPainter extends CustomPainter {
       linePaint.color = color;
 
       if (line.isPassThrough) {
-        canvas.drawLine(
-          Offset(fromX, 0),
-          Offset(fromX, rowHeight),
-          linePaint,
-        );
+        canvas.drawLine(Offset(fromX, 0), Offset(fromX, rowHeight), linePaint);
       } else if (line.fromLane == line.toLane) {
         canvas.drawLine(
           Offset(fromX, commitY + 5),
@@ -4609,20 +8049,14 @@ class VSCodeGitGraphPainter extends CustomPainter {
         );
       } else {
         final path = Path();
-        
+
         if (line.toLane > line.fromLane) {
           path.moveTo(fromX, commitY + 5);
           path.lineTo(fromX, commitY + 10);
-          path.quadraticBezierTo(
-            fromX, rowHeight - 4,
-            toX, rowHeight,
-          );
+          path.quadraticBezierTo(fromX, rowHeight - 4, toX, rowHeight);
         } else {
           path.moveTo(fromX, commitY + 5);
-          path.quadraticBezierTo(
-            fromX, rowHeight - 4,
-            toX, rowHeight,
-          );
+          path.quadraticBezierTo(fromX, rowHeight - 4, toX, rowHeight);
         }
         canvas.drawPath(path, linePaint);
       }
@@ -4636,7 +8070,7 @@ class VSCodeGitGraphPainter extends CustomPainter {
     );
 
     final nodeColor = _getGraphColor(rowInfo.colorIndex);
-    
+
     if (rowInfo.commit.isMerge) {
       nodePaint.color = nodeColor;
       canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
@@ -4652,11 +8086,11 @@ class VSCodeGitGraphPainter extends CustomPainter {
       if (line.fromLane > maxLaneInRow) maxLaneInRow = line.fromLane;
       if (line.toLane > maxLaneInRow) maxLaneInRow = line.toLane;
     }
-    
+
     final graphWidth = (maxLaneInRow + 1) * laneWidth + 12;
     double textStartX = graphWidth;
     final availableWidth = maxWidth - textStartX;
-    
+
     if (availableWidth > 50) {
       if (rowInfo.commit.isMerge) {
         final badgePainter = TextPainter(
@@ -4671,19 +8105,19 @@ class VSCodeGitGraphPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
         );
         badgePainter.layout();
-        
+
         final badgeWidth = badgePainter.width + 8;
         final badgeHeight = badgePainter.height + 2;
         final badgeRect = RRect.fromRectAndRadius(
           Rect.fromLTWH(textStartX, 8, badgeWidth, badgeHeight),
           const Radius.circular(3),
         );
-        
+
         final badgeBgPaint = Paint()
           ..color = _getGraphColor(rowInfo.colorIndex).withAlpha(40)
           ..style = PaintingStyle.fill;
         canvas.drawRRect(badgeRect, badgeBgPaint);
-        
+
         final badgeBorderPaint = Paint()
           ..color = _getGraphColor(rowInfo.colorIndex).withAlpha(100)
           ..style = PaintingStyle.stroke
@@ -4692,24 +8126,23 @@ class VSCodeGitGraphPainter extends CustomPainter {
         badgePainter.paint(canvas, Offset(textStartX + 4, 8));
         textStartX += badgeWidth + 6;
       }
-      
+
       final messagePainter = TextPainter(
         text: TextSpan(
           text: rowInfo.commit.message,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            height: 1.2,
-          ),
+          style: TextStyle(color: textColor, fontSize: 13, height: 1.2),
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
         ellipsis: '...',
       );
-      messagePainter.layout(maxWidth: availableWidth - (rowInfo.commit.isMerge ? 50 : 0));
+      messagePainter.layout(
+        maxWidth: availableWidth - (rowInfo.commit.isMerge ? 50 : 0),
+      );
       messagePainter.paint(canvas, Offset(textStartX, 6));
-      
-      final authorHash = '${rowInfo.commit.author} • ${rowInfo.commit.hash.substring(0, 7)}';
+
+      final authorHash =
+          '${rowInfo.commit.author} • ${rowInfo.commit.hash.substring(0, 7)}';
       final authorPainter = TextPainter(
         text: TextSpan(
           text: authorHash,
@@ -4730,9 +8163,9 @@ class VSCodeGitGraphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant VSCodeGitGraphPainter oldDelegate) {
-    return oldDelegate.rowInfo != rowInfo || 
-           oldDelegate.maxWidth != maxWidth ||
-           oldDelegate.textColor != textColor;
+    return oldDelegate.rowInfo != rowInfo ||
+        oldDelegate.maxWidth != maxWidth ||
+        oldDelegate.textColor != textColor;
   }
 }
 
@@ -4740,7 +8173,11 @@ class GitCommitGraph extends StatelessWidget {
   final List<CommitNode> commits;
   final AppTheme appTheme;
 
-  const GitCommitGraph({super.key, required this.commits, required this.appTheme});
+  const GitCommitGraph({
+    super.key,
+    required this.commits,
+    required this.appTheme,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -4767,7 +8204,8 @@ class GitCommitGraph extends StatelessWidget {
                   rowInfo: rowInfo,
                   isDark: appTheme.isDark,
                   textColor: appTheme.selectScreenCardTextColor,
-                  secondaryTextColor: appTheme.selectScreenCardTextColor.withAlpha(150),
+                  secondaryTextColor: appTheme.selectScreenCardTextColor
+                      .withAlpha(150),
                   maxWidth: contentWidth,
                 ),
               ),
