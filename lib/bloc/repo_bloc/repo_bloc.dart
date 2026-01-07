@@ -18,7 +18,15 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
     LoadRepoStatus event,
     Emitter<RepoStatusState> emit,
   ) async {
-    emit(const RepoStatusLoading());
+    // Preserve existing state while loading - don't emit RepoStatusLoading
+    // to prevent UI rebuild/flicker
+    List<CommitNode>? existingCommits;
+    if (state is RepoStatusLoaded) {
+      existingCommits = (state as RepoStatusLoaded).commits;
+    } else {
+      // Only show loading indicator if this is the first load
+      emit(const RepoStatusLoading());
+    }
     try {
       final res = await getRepoStatus(event.workspace);
       final stdout = (res.stdout ?? '').toString();
@@ -53,11 +61,22 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
           ? await getUnpushedCommitCount(event.workspace)
           : 0;
 
+      // Load commits if they weren't previously loaded
+      List<CommitNode>? commits = existingCommits;
+      if (commits == null) {
+        try {
+          commits = await getGraph(event.workspace);
+        } catch (_) {
+          commits = [];
+        }
+      }
+
       emit(
         RepoStatusLoaded(
           staged: staged,
           unstaged: unstaged,
           rawOutput: stdout,
+          commits: commits,
           currentBranch: currentBranch,
           branches: branches,
           remoteBranches: remoteBranches,
@@ -73,17 +92,12 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
       emit(RepoStatusError(message: e.toString()));
     }
   }
-
   Future<void> _onLoadCommitGraph(
     LoadCommitGraph event,
     Emitter<RepoStatusState> emit,
   ) async {
-    final currentState = state;
-    if (currentState is RepoStatusLoaded) {
-      emit(currentState.copyWith(commits: null));
-    } else {
-      emit(const RepoStatusLoading());
-    }
+    // Don't emit loading state - keep showing existing commits while loading new ones
+    // This prevents the flicker of "Loading commits..." text
 
     try {
       final commits = await getGraph(event.workspace);

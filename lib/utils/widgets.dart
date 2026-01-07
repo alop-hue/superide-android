@@ -2648,6 +2648,8 @@ class _SourceControlState extends State<SourceControl> {
   late final ScrollController _commitGraphScrollController;
   final ScrollController _stagedScrollController = ScrollController();
   final ScrollController _unstagedScrollController = ScrollController();
+  StreamSubscription<FileSystemEvent>? _gitWatcher;
+  DateTime? _lastGitRefresh;
 
   @override
   void initState() {
@@ -2668,13 +2670,39 @@ class _SourceControlState extends State<SourceControl> {
     _commitGraphScrollController = ScrollController();
 
     if (widget.isRepoThere) {
-      context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+      // Only load if bloc state is initial (first time) to prevent rebuild on drawer reopen
+      final currentState = context.read<RepoStatusBloc>().state;
+      if (currentState is RepoStatusInitial) {
+        // Load status - commits are loaded automatically as part of status load
+        context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+      }
+      _setupGitWatcher();
     }
     super.initState();
   }
 
+  void _setupGitWatcher() {
+    _gitWatcher?.cancel();
+    final gitDir = Directory(path.join(widget.workSpace, '.git'));
+    if (gitDir.existsSync()) {
+      _gitWatcher = gitDir.watch(recursive: true).listen((event) {
+        // Debounce: only refresh if mounted and at least 2 seconds since last refresh
+        if (mounted) {
+          final now = DateTime.now();
+          if (_lastGitRefresh == null ||
+              now.difference(_lastGitRefresh!).inSeconds >= 2) {
+            _lastGitRefresh = now;
+            // Refresh git status when .git directory changes
+            context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+          }
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _gitWatcher?.cancel();
     _commitSub.cancel();
     _commitController.dispose();
     _commitGraphScrollController.dispose();
@@ -2690,6 +2718,7 @@ class _SourceControlState extends State<SourceControl> {
         context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
         if (widget.isRepoThere) {
           context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+          _setupGitWatcher();
         }
       } catch (_) {}
     }
@@ -3066,6 +3095,7 @@ class _SourceControlState extends State<SourceControl> {
   // ===================== Branch Dialog Methods =====================
 
   void _showCreateBranchDialog(BuildContext context) {
+    final repoBloc = context.read<RepoStatusBloc>();
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -3181,18 +3211,18 @@ class _SourceControlState extends State<SourceControl> {
                         widget.workSpace,
                         controller.text.trim(),
                       );
-                      if (context.mounted) {
+                      if (dialogContext.mounted) {
                         if (result.exitCode == 0) {
                           _showSuccessSnackBar(
-                            context,
+                            dialogContext,
                             'Branch created and checked out',
                           );
-                          context.read<RepoStatusBloc>().add(
-                                LoadRepoStatus(widget.workSpace),
-                              );
+                          repoBloc.add(
+                            LoadRepoStatus(widget.workSpace),
+                          );
                         } else {
                           _showErrorSnackBar(
-                            context,
+                            dialogContext,
                             'Failed: ${result.stderr}',
                           );
                         }
@@ -3224,6 +3254,7 @@ class _SourceControlState extends State<SourceControl> {
     BuildContext context,
     List<String> branches,
   ) {
+    final repoBloc = context.read<RepoStatusBloc>();
     final controller = TextEditingController();
     String? selectedBranch;
     showDialog(
@@ -3383,18 +3414,18 @@ class _SourceControlState extends State<SourceControl> {
                           controller.text.trim(),
                           fromRef: selectedBranch,
                         );
-                        if (context.mounted) {
+                        if (dialogContext.mounted) {
                           if (result.exitCode == 0) {
                             _showSuccessSnackBar(
-                              context,
+                              dialogContext,
                               'Branch created from $selectedBranch',
                             );
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Failed: ${result.stderr}',
                             );
                           }
@@ -3428,6 +3459,7 @@ class _SourceControlState extends State<SourceControl> {
     List<String> branches,
     String? currentBranch,
   ) {
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedBranch;
     showDialog(
       context: context,
@@ -3561,24 +3593,24 @@ class _SourceControlState extends State<SourceControl> {
                       onPressed: () async {
                         if (selectedBranch == null) return;
                         Navigator.pop(dialogContext);
-                        _showLoadingDialog(context, 'Merging...');
+                        _showLoadingDialog(dialogContext, 'Merging...');
                         final result = await gitMergeBranch(
                           widget.workSpace,
                           selectedBranch!,
                         );
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
                           if (result.exitCode == 0) {
                             _showSuccessSnackBar(
-                              context,
+                              dialogContext,
                               'Merged $selectedBranch',
                             );
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Merge failed: ${result.stderr}',
                             );
                           }
@@ -3612,6 +3644,7 @@ class _SourceControlState extends State<SourceControl> {
     List<String> branches,
     String? currentBranch,
   ) {
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedBranch;
     showDialog(
       context: context,
@@ -3745,24 +3778,24 @@ class _SourceControlState extends State<SourceControl> {
                       onPressed: () async {
                         if (selectedBranch == null) return;
                         Navigator.pop(dialogContext);
-                        _showLoadingDialog(context, 'Rebasing...');
+                        _showLoadingDialog(dialogContext, 'Rebasing...');
                         final result = await gitRebaseBranch(
                           widget.workSpace,
                           selectedBranch!,
                         );
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
                           if (result.exitCode == 0) {
                             _showSuccessSnackBar(
-                              context,
+                              dialogContext,
                               'Rebased onto $selectedBranch',
                             );
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Rebase failed: ${result.stderr}',
                             );
                           }
@@ -3792,6 +3825,7 @@ class _SourceControlState extends State<SourceControl> {
   }
 
   void _showRenameBranchDialog(BuildContext context, List<String> branches) {
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedBranch;
     final controller = TextEditingController();
     showDialog(
@@ -3954,15 +3988,15 @@ class _SourceControlState extends State<SourceControl> {
                           selectedBranch!,
                           controller.text.trim(),
                         );
-                        if (context.mounted) {
+                        if (dialogContext.mounted) {
                           if (result.exitCode == 0) {
-                            _showSuccessSnackBar(context, 'Branch renamed');
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            _showSuccessSnackBar(dialogContext, 'Branch renamed');
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Failed: ${result.stderr}',
                             );
                           }
@@ -3996,6 +4030,7 @@ class _SourceControlState extends State<SourceControl> {
     List<String> branches,
     String? currentBranch,
   ) {
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedBranch;
     showDialog(
       context: context,
@@ -4065,13 +4100,12 @@ class _SourceControlState extends State<SourceControl> {
                   decoration: InputDecoration(
                     labelText: 'Branch to delete',
                     labelStyle: TextStyle(
-                      color: widget.appTheme.selectScreenCardTextColor
-                          .withValues(alpha: 0.6),
+                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
                     ),
                     filled: true,
                     fillColor: widget.appTheme.isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.black.withValues(alpha: 0.05),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
@@ -4124,15 +4158,15 @@ class _SourceControlState extends State<SourceControl> {
                           widget.workSpace,
                           selectedBranch!,
                         );
-                        if (context.mounted) {
+                        if (dialogContext.mounted) {
                           if (result.exitCode == 0) {
-                            _showSuccessSnackBar(context, 'Branch deleted');
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            _showSuccessSnackBar(dialogContext, 'Branch deleted');
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Failed: ${result.stderr}',
                             );
                           }
@@ -4165,6 +4199,7 @@ class _SourceControlState extends State<SourceControl> {
     BuildContext context,
     List<String> remoteBranches,
   ) {
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedBranch;
     showDialog(
       context: context,
@@ -4287,20 +4322,20 @@ class _SourceControlState extends State<SourceControl> {
                       onPressed: () async {
                         if (selectedBranch == null) return;
                         Navigator.pop(dialogContext);
-                        _showLoadingDialog(context, 'Deleting remote branch...');
+                        _showLoadingDialog(dialogContext, 'Deleting remote branch...');
                         final result = await gitDeleteRemoteBranch(
                           widget.workSpace,
                           selectedBranch!,
                         );
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
                           if (result.exitCode == 0) {
-                            _showSuccessSnackBar(context, 'Remote branch deleted');
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            _showSuccessSnackBar(dialogContext, 'Remote branch deleted');
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
-                            _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                            _showErrorSnackBar(dialogContext, 'Failed: ${result.stderr}');
                           }
                         }
                       },
@@ -4352,6 +4387,7 @@ class _SourceControlState extends State<SourceControl> {
     bool includeUntracked = false,
     bool stagedOnly = false,
   }) {
+    final repoBloc = context.read<RepoStatusBloc>();
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -4475,15 +4511,15 @@ class _SourceControlState extends State<SourceControl> {
                         includeUntracked: includeUntracked,
                         stagedOnly: stagedOnly,
                       );
-                      if (context.mounted) {
+                      if (dialogContext.mounted) {
                         if (result.exitCode == 0) {
-                          _showSuccessSnackBar(context, 'Changes stashed');
-                          context.read<RepoStatusBloc>().add(
-                                LoadRepoStatus(widget.workSpace),
-                              );
+                          _showSuccessSnackBar(dialogContext, 'Changes stashed');
+                          repoBloc.add(
+                            LoadRepoStatus(widget.workSpace),
+                          );
                         } else {
                           _showErrorSnackBar(
-                            context,
+                            dialogContext,
                             'Failed: ${result.stderr}',
                           );
                         }
@@ -4520,6 +4556,7 @@ class _SourceControlState extends State<SourceControl> {
       _showErrorSnackBar(context, 'No stashes available');
       return;
     }
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedStash;
     showDialog(
       context: context,
@@ -4577,17 +4614,17 @@ class _SourceControlState extends State<SourceControl> {
                         widget.workSpace,
                         stashRef: selectedStash,
                       );
-                if (context.mounted) {
+                if (dialogContext.mounted) {
                   if (result.exitCode == 0) {
                     _showSuccessSnackBar(
-                      context,
+                      dialogContext,
                       pop ? 'Stash popped' : 'Stash applied',
                     );
-                    context.read<RepoStatusBloc>().add(
+                    repoBloc.add(
                       LoadRepoStatus(widget.workSpace),
                     );
                   } else {
-                    _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                    _showErrorSnackBar(dialogContext, 'Failed: ${result.stderr}');
                   }
                 }
               },
@@ -4607,6 +4644,7 @@ class _SourceControlState extends State<SourceControl> {
       _showErrorSnackBar(context, 'No stashes available');
       return;
     }
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedStash;
     showDialog(
       context: context,
@@ -4659,14 +4697,14 @@ class _SourceControlState extends State<SourceControl> {
                   widget.workSpace,
                   stashRef: selectedStash,
                 );
-                if (context.mounted) {
+                if (dialogContext.mounted) {
                   if (result.exitCode == 0) {
-                    _showSuccessSnackBar(context, 'Stash dropped');
-                    context.read<RepoStatusBloc>().add(
+                    _showSuccessSnackBar(dialogContext, 'Stash dropped');
+                    repoBloc.add(
                       LoadRepoStatus(widget.workSpace),
                     );
                   } else {
-                    _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                    _showErrorSnackBar(dialogContext, 'Failed: ${result.stderr}');
                   }
                 }
               },
@@ -4679,6 +4717,7 @@ class _SourceControlState extends State<SourceControl> {
   }
 
   void _showDropAllStashesDialog(BuildContext context) {
+    final repoBloc = context.read<RepoStatusBloc>();
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -4704,14 +4743,14 @@ class _SourceControlState extends State<SourceControl> {
             onPressed: () async {
               Navigator.pop(dialogContext);
               final result = await gitStashClear(widget.workSpace);
-              if (context.mounted) {
+              if (dialogContext.mounted) {
                 if (result.exitCode == 0) {
-                  _showSuccessSnackBar(context, 'All stashes dropped');
-                  context.read<RepoStatusBloc>().add(
+                  _showSuccessSnackBar(dialogContext, 'All stashes dropped');
+                  repoBloc.add(
                     LoadRepoStatus(widget.workSpace),
                   );
                 } else {
-                  _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                  _showErrorSnackBar(dialogContext, 'Failed: ${result.stderr}');
                 }
               }
             },
@@ -4822,6 +4861,7 @@ class _SourceControlState extends State<SourceControl> {
   // ===================== Tag Dialog Methods =====================
 
   void _showCreateTagDialog(BuildContext context) {
+    final repoBloc = context.read<RepoStatusBloc>();
     final nameController = TextEditingController();
     final messageController = TextEditingController();
     showDialog(
@@ -4970,15 +5010,15 @@ class _SourceControlState extends State<SourceControl> {
                             ? null
                             : messageController.text.trim(),
                       );
-                      if (context.mounted) {
+                      if (dialogContext.mounted) {
                         if (result.exitCode == 0) {
-                          _showSuccessSnackBar(context, 'Tag created');
-                          context.read<RepoStatusBloc>().add(
-                                LoadRepoStatus(widget.workSpace),
-                              );
+                          _showSuccessSnackBar(dialogContext, 'Tag created');
+                          repoBloc.add(
+                            LoadRepoStatus(widget.workSpace),
+                          );
                         } else {
                           _showErrorSnackBar(
-                            context,
+                            dialogContext,
                             'Failed: ${result.stderr}',
                           );
                         }
@@ -5011,6 +5051,7 @@ class _SourceControlState extends State<SourceControl> {
       _showErrorSnackBar(context, 'No tags available');
       return;
     }
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedTag;
     showDialog(
       context: context,
@@ -5138,14 +5179,14 @@ class _SourceControlState extends State<SourceControl> {
                           widget.workSpace,
                           selectedTag!,
                         );
-                        if (context.mounted) {
+                        if (dialogContext.mounted) {
                           if (result.exitCode == 0) {
-                            _showSuccessSnackBar(context, 'Tag deleted');
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            _showSuccessSnackBar(dialogContext, 'Tag deleted');
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
-                            _showErrorSnackBar(context, 'Failed: ${result.stderr}');
+                            _showErrorSnackBar(dialogContext, 'Failed: ${result.stderr}');
                           }
                         }
                       },
@@ -5177,6 +5218,7 @@ class _SourceControlState extends State<SourceControl> {
       _showErrorSnackBar(context, 'No tags available');
       return;
     }
+    final repoBloc = context.read<RepoStatusBloc>();
     String? selectedTag;
     showDialog(
       context: context,
@@ -5300,21 +5342,21 @@ class _SourceControlState extends State<SourceControl> {
                       onPressed: () async {
                         if (selectedTag == null) return;
                         Navigator.pop(dialogContext);
-                        _showLoadingDialog(context, 'Deleting remote tag...');
+                        _showLoadingDialog(dialogContext, 'Deleting remote tag...');
                         final result = await gitDeleteRemoteTag(
                           widget.workSpace,
                           selectedTag!,
                         );
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
                           if (result.exitCode == 0) {
-                            _showSuccessSnackBar(context, 'Remote tag deleted');
-                            context.read<RepoStatusBloc>().add(
-                                  LoadRepoStatus(widget.workSpace),
-                                );
+                            _showSuccessSnackBar(dialogContext, 'Remote tag deleted');
+                            repoBloc.add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
                           } else {
                             _showErrorSnackBar(
-                              context,
+                              dialogContext,
                               'Failed: ${result.stderr}',
                             );
                           }
@@ -5356,6 +5398,153 @@ class _SourceControlState extends State<SourceControl> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          if (repoState is RepoStatusLoaded && repoState.currentBranch != null)
+          Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: PopupMenuButton<String>(
+                tooltip: 'Switch branch',
+                color: widget.appTheme.isDark
+                    ? const Color(0xff2b2b2b)
+                    : Colors.white,
+                onSelected: (branch) async {
+                  if (branch != repoState.currentBranch) {
+                    _showLoadingDialog(context, 'Switching to $branch...');
+                    final result = await gitCheckoutBranch(widget.workSpace, branch);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (result.exitCode == 0) {
+                        _showSuccessSnackBar(context, 'Switched to $branch');
+                        context.read<RepoStatusBloc>().add(
+                              LoadRepoStatus(widget.workSpace),
+                            );
+                        context.read<RepoStatusBloc>().add(
+                              LoadCommitGraph(widget.workSpace),
+                            );
+                      } else {
+                        _showErrorSnackBar(
+                          context,
+                          'Failed: ${result.stderr}',
+                        );
+                      }
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  ...repoState.branches.map(
+                    (branch) => PopupMenuItem<String>(
+                      value: branch,
+                      child: Row(
+                        children: [
+                          Icon(
+                            branch == repoState.currentBranch
+                                ? Icons.check
+                                : FontAwesomeIcons.codeBranch,
+                            size: 14,
+                            color: branch == repoState.currentBranch
+                                ? Colors.green
+                                : widget.appTheme.selectScreenCardTextColor
+                                    .withAlpha(150),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            branch,
+                            style: TextStyle(
+                              color: widget.appTheme.selectScreenCardTextColor,
+                              fontWeight: branch == repoState.currentBranch
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (repoState.remoteBranches.isNotEmpty) ...[
+                    const PopupMenuDivider(),
+                    PopupMenuItem<String>(
+                      enabled: false,
+                      child: Text(
+                        'Remote Branches',
+                        style: TextStyle(
+                          color: widget.appTheme.selectScreenCardTextColor
+                              .withAlpha(100),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    ...repoState.remoteBranches
+                        .where((rb) => !repoState.branches.contains(
+                              rb.replaceFirst('origin/', ''),
+                            ))
+                        .map(
+                          (branch) => PopupMenuItem<String>(
+                            value: branch,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.cloud_outlined,
+                                  size: 14,
+                                  color: widget
+                                      .appTheme.selectScreenCardTextColor
+                                      .withAlpha(150),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  branch,
+                                  style: TextStyle(
+                                    color: widget
+                                        .appTheme.selectScreenCardTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                  ],
+                ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.codeBranch,
+                      size: 15,
+                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      repoState.currentBranch!,
+                      style: TextStyle(
+                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                        fontSize: 13,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      size: 16,
+                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                    ),
+                    if (repoState.unpushedCount > 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withAlpha(40),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '↑${repoState.unpushedCount}',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          const Expanded(child: SizedBox()),
           Tooltip(
             message: 'Pull',
             child: IconButton(
@@ -6342,47 +6531,6 @@ class _SourceControlState extends State<SourceControl> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      if (repoState.currentBranch != null)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                FontAwesomeIcons.codeBranch,
-                                                size: 15,
-                                                color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                repoState.currentBranch!,
-                                                style: TextStyle(
-                                                  color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                              if (repoState.unpushedCount >0) ...[
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.orange.withAlpha(40),
-                                                    borderRadius:BorderRadius.circular(10),
-                                                  ),
-                                                  child: Text(
-                                                    '↑${repoState.unpushedCount}',
-                                                    style: const TextStyle(
-                                                      color: Colors.orange,
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
                                       if (repoState.staged.isNotEmpty)
                                         _buildCollapsibleChangesList(
                                           title: "Staged Changes",

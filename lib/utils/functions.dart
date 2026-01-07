@@ -212,6 +212,7 @@ List<String> _getGitignorePatterns() {
     '',
     '# Language Server Protocol (LSP) cache directories',
     '.ccls-cache/',
+    'jdt.ls-java-project'
     '.clangd/',
     '.cache/',
     'compile_commands.json',
@@ -552,10 +553,10 @@ Future<List<String>> gitListBranches(
   );
   if (result.exitCode != 0) return [];
   return (result.stdout as String)
-      .split('\n')
-      .map((b) => b.replaceFirst('*', '').trim())
-      .where((b) => b.isNotEmpty)
-      .toList();
+    .split('\n')
+    .map((b) => b.replaceFirst('*', '').trim())
+    .where((b) => b.isNotEmpty)
+    .toList();
 }
 
 Future<String?> gitCurrentBranch(String workspacePath) async {
@@ -567,7 +568,32 @@ Future<String?> gitCurrentBranch(String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
   if (result.exitCode != 0) return null;
-  return (result.stdout as String).trim();
+  final branch = (result.stdout as String).trim();
+  
+  if (branch.isEmpty) {
+    final descResult = await Process.run(
+      "$binDir/git",
+      ["describe", "--tags", "--exact-match", "HEAD"],
+      workingDirectory: workspacePath,
+      environment: gitEnvs(sharedPath),
+    );
+    if (descResult.exitCode == 0) {
+      return (descResult.stdout as String).trim();
+    }
+    
+    final refResult = await Process.run(
+      "$binDir/git",
+      ["rev-parse", "--short", "HEAD"],
+      workingDirectory: workspacePath,
+      environment: gitEnvs(sharedPath),
+    );
+    if (refResult.exitCode == 0) {
+      return (refResult.stdout as String).trim();
+    }
+    return "HEAD";
+  }
+  
+  return branch;
 }
 
 Future<ProcessResult> gitCreateBranch(
@@ -1376,10 +1402,16 @@ Future<LspConfig?> startLspServer({
           ];
         } else if (ext == 'java') {
           return [
-            '-Dlog.protocol=true',
-            '-Dlog.level=ALL',
+            "-Declipse.application=org.eclipse.jdt.ls.core.id1",
+            "-Dosgi.bundles.defaultStartLevel=4",
+            "-Declipse.product=org.eclipse.jdt.ls.core.product",
+            "-Dlog.level=ALL",
+            "-Xmx1G",
+            "--add-modules=ALL-SYSTEM",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
             "-jar",
-            "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.0.v20250519-0528.jar",
+            "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
             "-configuration",
             "$extensionDir/JDT-LS/config_linux_arm",
             "-data",
@@ -1389,42 +1421,28 @@ Future<LspConfig?> startLspServer({
         }
         if (ext == 'py') {
           return [
-            extensions
-                .singleWhere((item) => item.fileExtension[0] == "py")
-                .serverFile[0],
+            extensions.singleWhere((item) => item.fileExtension[0] == "py").serverFile[0],
             ...args,
           ];
         }
 
         if (ext == 'html') {
           return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "html"),
-                )
-                .serverFile[0],
+            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "html")).serverFile[0],
             ...args,
           ];
         }
 
         if (ext == 'css') {
           return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "css"),
-                )
-                .serverFile[1],
+            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "css")).serverFile[1],
             ...args,
           ];
         }
 
         if (ext == 'json') {
           return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "json"),
-                )
-                .serverFile[2],
+            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "json")).serverFile[2],
             ...args,
           ];
         }
@@ -1436,8 +1454,7 @@ Future<LspConfig?> startLspServer({
       environment: {
         ...environment ?? {},
         'VSDROID_SHARED_PATH': sharedPath,
-        'LD_LIBRARY_PATH':
-            '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+        'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
         'JAVA_HOME': '$runtimeDir/java-21-openjdk',
       },
       workspacePath: workspacePath,

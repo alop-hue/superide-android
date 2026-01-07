@@ -113,10 +113,10 @@ final langjava = Language(
   details: 'A platform-independent language for enterprise and web apps.',
   language: builtinAllLanguages['java'],
   helloWorld:'public class tempCode{\n  public static void main(String[] args){ \n    System.out.println("Hello, World!");\n  }\n}',
-  icon: SvgPicture.asset('assets/material_icons/java.svg',height: 35,width: 35),
+  icon: SvgPicture.asset('assets/material_icons/java.svg', height: 35,width: 35),
   command: 'javac',
   type: 'compiled',
-  // lspExecutable: "/data/data/com.vsdroid/bin/java",
+  lspExecutable: "/data/data/com.vsdroid/bin/java",
 );
 final langc = Language(
   name: 'C',
@@ -709,7 +709,7 @@ final basedpyright = Extension(
   parentName: "basedpyright",
   archiveSize: 8.4,
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/basedpyright.zip",
-  icon: Image.asset("assets/icons/based_pyright_logo.png"),
+  icon: Image.asset("assets/icons/based_pyright_logo.png", height: 55, width: 55),
   fileExtension: ["py"],
   serverFile: ["/data/data/com.vsdroid/extensions/basedpyright/langserver.index.js"]
 );
@@ -732,7 +732,23 @@ final vscodeExtractedLSPs = Extension(
   ]
 );
 
+final jdtLs = Extension(
+  name: "JDT-LS",
+  details: "The Eclipse JDT-LS language server for java.\nNote: Open JDK installation is required.",
+  archiveName: "JDT-LS.zip",
+  parentName: "JDT-LS",
+  archiveSize: 47,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/JDT-LS.zip",
+  icon: Padding(
+    padding: const EdgeInsets.only(right: 18),
+    child: SvgPicture.asset("assets/icons/eclipse.svg", height: 35, width: 35),
+  ),
+  fileExtension: ["java"],
+  serverFile: []
+);
+
 final List<Extension> extensions = [
   basedpyright,
-  vscodeExtractedLSPs
+  vscodeExtractedLSPs,
+  jdtLs
 ];
