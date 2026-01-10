@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
+import 'package:vsdroid/utils/constants.dart';
 
 final txt = Mode();
 final unknown = Mode();
@@ -233,7 +234,7 @@ final langswift = Language(
 );
 final langkotlin = Language(
   name: 'Kotlin',
-  extension: ['kt'],
+  extension: ['kt', 'kts'],
   details: 'Modern JVM language, popular for Android development.',
   language: builtinAllLanguages['kotlin'],
   helloWorld: 'fun main(){\n println("Hello, World!")\n}',
@@ -247,7 +248,7 @@ final langcsharp = Language(
   details: 'A modern, object-oriented language for Windows apps and games.',
   language: builtinAllLanguages['csharp'],
   helloWorld:'using System;\n\nclass Program{\n static void Main(){\n  Console.WriteLine("Hello, World!");\n  }\n }',
-  command: 'csc',
+  command: 'mcs',
   icon: SvgPicture.asset('assets/material_icons/csharp.svg',height: 35,width: 35),
   type: 'compiled'
 );
@@ -339,12 +340,14 @@ final langlua = Language(
 );
 final langbash = Language(
   name: 'Bash',
-  extension: ['sh','bash'],
+  extension: ['sh', 'bash', 'zsh'],
   details: 'A shell scripting language for automating Unix-based tasks.',
   language: builtinAllLanguages['bash'],
   helloWorld: 'echo "Hello, World!"',
   command: 'bash',
   icon: SvgPicture.asset('assets/material_icons/console.svg',height: 35,width: 35),
+  lspExecutable: '$binDir/node',
+  args: ["start"],
   type: 'interpreted'
 );
 final langhaskell = Language(
@@ -681,17 +684,6 @@ final rubyRunTime = RunTime(
   icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35)
 );
 
-final monoRunTime = RunTime(
-  name: "Mono",
-  details: "The Mono runtime for C# and F#.",
-  version: "6.12.0",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/mono.zip",
-  archiveName: "mono.zip",
-  archiveSize: 16,
-  parentName: "mono",
-  icon: SvgPicture.asset('assets/material_icons/csharp.svg',height: 35,width: 35)
-);
-
 final List<RunTime> runtimes = [
   pythonRunTime,
   nodeRunTime,
@@ -699,7 +691,6 @@ final List<RunTime> runtimes = [
   java17RunTime,
   kotlinRunTime,
   rubyRunTime,
-  monoRunTime
 ];
 
 final basedpyright = Extension(
@@ -724,11 +715,11 @@ final vscodeExtractedLSPs = Extension(
   icon: Image.asset("assets/icons/html-css.png"),
   fileExtension: ["html", "css", "md", "json"],
   serverFile: [
-    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/html-language-server/node/htmlServerMain.js",
-    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/css-language-server/node/cssServerMain.js",
-    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/json-language-server/node/jsonServerMain.js",
-    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/markdown-language-server/node/main.js",
-    "/data/data/com.vsdroid/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/eslint-language-server/eslintServer.js",
+    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/html-language-server/node/htmlServerMain.js",
+    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/css-language-server/node/cssServerMain.js",
+    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/json-language-server/node/jsonServerMain.js",
+    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/markdown-language-server/node/main.js",
+    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/eslint-language-server/eslintServer.js",
   ]
 );
 
@@ -747,8 +738,21 @@ final jdtLs = Extension(
   serverFile: []
 );
 
+final bashLsp = Extension(
+  name: "bash-language-server",
+  details: "Language server for dart\nNote: Nodejs runtime is required",
+  archiveName: "bash-language-server.zip",
+  parentName: "bash-language-server",
+  archiveSize: 4,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/bash-language-server.zip",
+  icon: Image.asset("assets/icons/bash.png"),
+  fileExtension: ["sh", "bash", "zsh"],
+  serverFile: ["$extensionDir/bash-language-server/node_modules/bash-language-server/out/cli.js"]
+);
+
 final List<Extension> extensions = [
   basedpyright,
   vscodeExtractedLSPs,
-  jdtLs
+  jdtLs,
+  bashLsp
 ];

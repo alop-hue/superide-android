@@ -50,11 +50,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'VSDROID_SHARED_PATH': sharedPath,
       'LD_LIBRARY_PATH': '$sharedPath:$runtimesDir/ruby:$runtimesDir/mono:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$sharedPath/libc++_shared.so', 
-      'VSDROID_BIN_PATH': binDir,
+      'PREFIX': "/data/data/com.vsdroid",
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
-      'MONO_PATH': '$runtimesDir/mono/mono/4.5',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'TERMINFO': '$runtimesDir/mono/terminfo'
     };
     _startPty(
       "$sharedPath/libbash.so",

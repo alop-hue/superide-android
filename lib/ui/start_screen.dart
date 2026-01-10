@@ -93,7 +93,7 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'mono', 'csc', 'kotlinc',
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'kotlinc',
       'git'
     ];
 
