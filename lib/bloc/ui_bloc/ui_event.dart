@@ -141,6 +141,35 @@ class AIChatEvent extends UiEvent {
   AIChatEvent(this.aiConversation);
 }
 
+// Chat Session Events
+sealed class ChatSessionEvent extends UiEvent {}
+
+class LoadChatSessions extends ChatSessionEvent {}
+
+class CreateNewSession extends ChatSessionEvent {}
+
+class SelectSession extends ChatSessionEvent {
+  final String sessionId;
+  SelectSession(this.sessionId);
+}
+
+class UpdateCurrentSession extends ChatSessionEvent {
+  final List<AIConversation> conversations;
+  final String? title;
+  UpdateCurrentSession({required this.conversations, this.title});
+}
+
+class DeleteSession extends ChatSessionEvent {
+  final String sessionId;
+  DeleteSession(this.sessionId);
+}
+
+class UpdateSessionTitle extends ChatSessionEvent {
+  final String sessionId;
+  final String title;
+  UpdateSessionTitle({required this.sessionId, required this.title});
+}
+
 class GitCommitEvent extends UiEvent {
   final String commitMessage;
 

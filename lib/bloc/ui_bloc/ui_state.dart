@@ -185,6 +185,29 @@ class AIChatState {
   AIChatState(this.aiConversation);
 }
 
+class ChatSessionState {
+  final List<ChatSession> sessions;
+  final ChatSession? currentSession;
+  final bool isLoading;
+
+  ChatSessionState({
+    required this.sessions,
+    this.currentSession,
+    this.isLoading = false,
+  });
+
+  ChatSessionState copyWith({
+    List<ChatSession>? sessions,
+    ChatSession? currentSession,
+    bool? isLoading,
+    bool clearCurrentSession = false,
+  }) => ChatSessionState(
+    sessions: sessions ?? this.sessions,
+    currentSession: clearCurrentSession ? null : (currentSession ?? this.currentSession),
+    isLoading: isLoading ?? this.isLoading,
+  );
+}
+
 class GitCommitState {
   final String commitMessage;
 

@@ -13,6 +13,7 @@ import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
@@ -46,8 +47,9 @@ String _extractGitFilename(String gitStatusLine) {
 void _refreshRepoStatusForFile(BuildContext context, File file) {
   try {
     final root = _findRepoRoot(file);
-    if (root != null)
+    if (root != null) {
       context.read<RepoStatusBloc>().add(LoadRepoStatus(root.path));
+    }
   } catch (_) {}
 }
 
@@ -929,7 +931,7 @@ class _EditorPageState extends State<EditorArea>
   bool get wantKeepAlive => true;
 }
 
-//-------------------DirectoryTreeViewer-----------------------
+
 
 class DirectoryTreeViewerCustom extends StatefulWidget {
   final String rootPath;
@@ -1817,7 +1819,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 }
 
-//-------------------FindWord----------------------------------
+
 
 class FindWordWidget extends StatefulWidget {
   final AppTheme appTheme;
@@ -2621,7 +2623,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
   }
 }
 
-//--------------------SourceControl----------------------------
+
 
 class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
@@ -2670,10 +2672,8 @@ class _SourceControlState extends State<SourceControl> {
     _commitGraphScrollController = ScrollController();
 
     if (widget.isRepoThere) {
-      // Only load if bloc state is initial (first time) to prevent rebuild on drawer reopen
       final currentState = context.read<RepoStatusBloc>().state;
       if (currentState is RepoStatusInitial) {
-        // Load status - commits are loaded automatically as part of status load
         context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
       }
       _setupGitWatcher();
@@ -2686,13 +2686,11 @@ class _SourceControlState extends State<SourceControl> {
     final gitDir = Directory(path.join(widget.workSpace, '.git'));
     if (gitDir.existsSync()) {
       _gitWatcher = gitDir.watch(recursive: true).listen((event) {
-        // Debounce: only refresh if mounted and at least 2 seconds since last refresh
         if (mounted) {
           final now = DateTime.now();
           if (_lastGitRefresh == null ||
               now.difference(_lastGitRefresh!).inSeconds >= 2) {
             _lastGitRefresh = now;
-            // Refresh git status when .git directory changes
             context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
           }
         }
@@ -2935,7 +2933,7 @@ class _SourceControlState extends State<SourceControl> {
     );
   }
 
-  // ===================== Git Action Methods =====================
+  
 
   Future<void> _performPush(BuildContext context) async {
     _showLoadingDialog(context, 'Pushing...');
@@ -3092,7 +3090,7 @@ class _SourceControlState extends State<SourceControl> {
     );
   }
 
-  // ===================== Branch Dialog Methods =====================
+  
 
   void _showCreateBranchDialog(BuildContext context) {
     final repoBloc = context.read<RepoStatusBloc>();
@@ -3315,7 +3313,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -3406,8 +3404,9 @@ class _SourceControlState extends State<SourceControl> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () async {
-                        if (controller.text.trim().isEmpty ||
-                            selectedBranch == null) return;
+                        if (controller.text.trim().isEmpty || selectedBranch == null) {
+                          return;
+                        }
                         Navigator.pop(dialogContext);
                         final result = await gitCreateBranch(
                           widget.workSpace,
@@ -3528,7 +3527,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -3713,7 +3712,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -3886,7 +3885,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -3980,8 +3979,7 @@ class _SourceControlState extends State<SourceControl> {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selectedBranch == null ||
-                            controller.text.trim().isEmpty) return;
+                        if (selectedBranch == null || controller.text.trim().isEmpty) return;
                         Navigator.pop(dialogContext);
                         final result = await gitRenameBranch(
                           widget.workSpace,
@@ -4090,7 +4088,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -4259,7 +4257,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedBranch,
+                  initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -4380,7 +4378,7 @@ class _SourceControlState extends State<SourceControl> {
     }
   }
 
-  // ===================== Stash Dialog Methods =====================
+  
 
   void _showStashDialog(
     BuildContext context, {
@@ -4570,7 +4568,7 @@ class _SourceControlState extends State<SourceControl> {
             style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
           ),
           content: DropdownButtonFormField<String>(
-            value: selectedStash,
+            initialValue: selectedStash,
             dropdownColor: widget.appTheme.isDark
                 ? const Color(0xff2b2b2b)
                 : Colors.white,
@@ -4658,7 +4656,7 @@ class _SourceControlState extends State<SourceControl> {
             style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
           ),
           content: DropdownButtonFormField<String>(
-            value: selectedStash,
+            initialValue: selectedStash,
             dropdownColor: widget.appTheme.isDark
                 ? const Color(0xff2b2b2b)
                 : Colors.white,
@@ -4789,7 +4787,7 @@ class _SourceControlState extends State<SourceControl> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedStash,
+                  initialValue: selectedStash,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -4858,7 +4856,7 @@ class _SourceControlState extends State<SourceControl> {
     );
   }
 
-  // ===================== Tag Dialog Methods =====================
+  
 
   void _showCreateTagDialog(BuildContext context) {
     final repoBloc = context.read<RepoStatusBloc>();
@@ -5111,7 +5109,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedTag,
+                  initialValue: selectedTag,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -5278,7 +5276,7 @@ class _SourceControlState extends State<SourceControl> {
                 ),
                 const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
-                  value: selectedTag,
+                  initialValue: selectedTag,
                   dropdownColor: widget.appTheme.isDark
                       ? const Color(0xff2b2b2b)
                       : Colors.white,
@@ -5385,7 +5383,7 @@ class _SourceControlState extends State<SourceControl> {
     );
   }
 
-  // ===================== Popup Menu Builder =====================
+  
 
   Widget _buildGitActionsRow(
     BuildContext context,
@@ -5399,152 +5397,153 @@ class _SourceControlState extends State<SourceControl> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (repoState is RepoStatusLoaded && repoState.currentBranch != null)
-          Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: PopupMenuButton<String>(
-                tooltip: 'Switch branch',
-                color: widget.appTheme.isDark
-                    ? const Color(0xff2b2b2b)
-                    : Colors.white,
-                onSelected: (branch) async {
-                  if (branch != repoState.currentBranch) {
-                    _showLoadingDialog(context, 'Switching to $branch...');
-                    final result = await gitCheckoutBranch(widget.workSpace, branch);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      if (result.exitCode == 0) {
-                        _showSuccessSnackBar(context, 'Switched to $branch');
-                        context.read<RepoStatusBloc>().add(
-                              LoadRepoStatus(widget.workSpace),
-                            );
-                        context.read<RepoStatusBloc>().add(
-                              LoadCommitGraph(widget.workSpace),
-                            );
-                      } else {
-                        _showErrorSnackBar(
-                          context,
-                          'Failed: ${result.stderr}',
-                        );
+          Expanded(
+            child: Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: PopupMenuButton<String>(
+                  tooltip: 'Switch branch',
+                  color: widget.appTheme.isDark
+                      ? const Color(0xff2b2b2b)
+                      : Colors.white,
+                  onSelected: (branch) async {
+                    if (branch != repoState.currentBranch) {
+                      _showLoadingDialog(context, 'Switching to $branch...');
+                      final result = await gitCheckoutBranch(widget.workSpace, branch);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        if (result.exitCode == 0) {
+                          _showSuccessSnackBar(context, 'Switched to $branch');
+                          context.read<RepoStatusBloc>().add(
+                                LoadRepoStatus(widget.workSpace),
+                              );
+                          context.read<RepoStatusBloc>().add(
+                                LoadCommitGraph(widget.workSpace),
+                              );
+                        } else {
+                          _showErrorSnackBar(
+                            context,
+                            'Failed: ${result.stderr}',
+                          );
+                        }
                       }
                     }
-                  }
-                },
-                itemBuilder: (context) => [
-                  ...repoState.branches.map(
-                    (branch) => PopupMenuItem<String>(
-                      value: branch,
-                      child: Row(
-                        children: [
-                          Icon(
-                            branch == repoState.currentBranch
+                  },
+                  itemBuilder: (context) => [
+                    ...repoState.branches.map(
+                      (branch) => PopupMenuItem<String>(
+                        value: branch,
+                        child: Row(
+                          children: [
+                            Icon(
+                              branch == repoState.currentBranch
                                 ? Icons.check
                                 : FontAwesomeIcons.codeBranch,
-                            size: 14,
-                            color: branch == repoState.currentBranch
+                              size: 14,
+                              color: branch == repoState.currentBranch
                                 ? Colors.green
-                                : widget.appTheme.selectScreenCardTextColor
-                                    .withAlpha(150),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            branch,
-                            style: TextStyle(
-                              color: widget.appTheme.selectScreenCardTextColor,
-                              fontWeight: branch == repoState.currentBranch
+                                : widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              branch,
+                              style: TextStyle(
+                                color: widget.appTheme.selectScreenCardTextColor,
+                                fontWeight: branch == repoState.currentBranch
                                   ? FontWeight.bold
                                   : FontWeight.normal,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (repoState.remoteBranches.isNotEmpty) ...[
-                    const PopupMenuDivider(),
-                    PopupMenuItem<String>(
-                      enabled: false,
-                      child: Text(
-                        'Remote Branches',
-                        style: TextStyle(
-                          color: widget.appTheme.selectScreenCardTextColor
-                              .withAlpha(100),
-                          fontSize: 12,
+                          ],
                         ),
                       ),
                     ),
-                    ...repoState.remoteBranches
-                        .where((rb) => !repoState.branches.contains(
-                              rb.replaceFirst('origin/', ''),
-                            ))
-                        .map(
-                          (branch) => PopupMenuItem<String>(
-                            value: branch,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.cloud_outlined,
-                                  size: 14,
-                                  color: widget
-                                      .appTheme.selectScreenCardTextColor
-                                      .withAlpha(150),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  branch,
-                                  style: TextStyle(
-                                    color: widget
-                                        .appTheme.selectScreenCardTextColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                  ],
-                ],
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.codeBranch,
-                      size: 15,
-                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      repoState.currentBranch!,
-                      style: TextStyle(
-                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                        fontSize: 13,
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      size: 16,
-                      color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
-                    ),
-                    if (repoState.unpushedCount > 0) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withAlpha(40),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                    if (repoState.remoteBranches.isNotEmpty) ...[
+                      const PopupMenuDivider(),
+                      PopupMenuItem<String>(
+                        enabled: false,
                         child: Text(
-                          '↑${repoState.unpushedCount}',
-                          style: const TextStyle(
-                            color: Colors.orange,
-                            fontSize: 11,
+                          'Remote Branches',
+                          style: TextStyle(
+                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(100),
+                            fontSize: 12,
                           ),
                         ),
                       ),
+                      ...repoState.remoteBranches
+                          .where((rb) => !repoState.branches.contains(rb.replaceFirst('origin/', '')))
+                          .map(
+                            (branch) => PopupMenuItem<String>(
+                              value: branch,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.cloud_outlined,
+                                    size: 14,
+                                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      branch,
+                                      style: TextStyle(
+                                        color: widget.appTheme.selectScreenCardTextColor,
+                                      ),
+                                      overflow: TextOverflow.ellipsis
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                     ],
                   ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        FontAwesomeIcons.codeBranch,
+                        size: 15,
+                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                      ),
+                      const SizedBox(width: 3),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          repoState.currentBranch!,
+                          style: TextStyle(
+                            color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        size: 16,
+                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                      ),
+                      if (repoState.unpushedCount > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withAlpha(40),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '↑${repoState.unpushedCount}',
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          const Expanded(child: SizedBox()),
+          ),
           Tooltip(
             message: 'Pull',
             child: IconButton(
@@ -5645,9 +5644,9 @@ class _SourceControlState extends State<SourceControl> {
         offset: const Offset(200, 0),
         color: widget.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
         onSelected: (value) {
-          // Close the parent popup menu first
+          
           Navigator.pop(context);
-          // Then handle the action after a short delay to allow the menu to close
+          
           Future.microtask(() {
             if(mounted) {
               _handleGitMenuAction(context, value, loaded, isSignedIn);
@@ -5807,7 +5806,7 @@ class _SourceControlState extends State<SourceControl> {
     }
   }
 
-  // ===================== Dynamic Commit Button Builder =====================
+  
 
   Widget _buildCommitButton(
     BuildContext context,
@@ -6953,7 +6952,7 @@ class _SourceControlState extends State<SourceControl> {
   }
 }
 
-//--------------------API Testing------------------------------
+
 
 class APITesting extends StatelessWidget {
   final Map<String, String> params, headers;
@@ -7484,7 +7483,7 @@ class APITesting extends StatelessWidget {
   }
 }
 
-//--------------------AI Chat----------------------------------
+
 
 class AIChat extends StatefulWidget {
   final String filePath;
@@ -7496,154 +7495,402 @@ class AIChat extends StatefulWidget {
 
 class _AIChatState extends State<AIChat> {
   final TextEditingController _promptController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
   }
 
-  void _sendPrompt(Models chatModel, List<AIConversation> currentList) async {
+  @override
+  void dispose() {
+    _promptController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  
+  List<Map<String, String>> _buildChatHistory(List<AIConversation> conversations) {
+    final List<Map<String, String>> history = [];
+    for (final conv in conversations) {
+      history.add({"role": "user", "content": conv.userRequest});
+      if (conv.modelResponse != null && conv.modelResponse!.isNotEmpty) {
+        history.add({"role": "assistant", "content": conv.modelResponse!});
+      }
+    }
+    return history;
+  }
+
+  
+  List<Map<String, dynamic>> _buildGeminiHistory(List<AIConversation> conversations) {
+    final List<Map<String, dynamic>> history = [];
+    for (final conv in conversations) {
+      history.add({
+        "role": "user",
+        "parts": [{"text": conv.userRequest}]
+      });
+      if (conv.modelResponse != null && conv.modelResponse!.isNotEmpty) {
+        history.add({
+          "role": "model",
+          "parts": [{"text": conv.modelResponse!}]
+        });
+      }
+    }
+    return history;
+  }
+
+  
+  String? _parseStreamChunk(String chunk, Models chatModel) {
+    final buffer = StringBuffer();
+    
+    switch (chatModel) {
+      case Gemini():
+        
+        for (final line in chunk.split('\n')) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
+            final data = trimmed.substring(6).trim();
+            if (data.isEmpty) continue;
+            try {
+              final json = jsonDecode(data);
+              final text = json["candidates"]?[0]?["content"]?["parts"]?[0]?["text"];
+              if (text != null) buffer.write(text);
+            } catch (_) {}
+          } else if (trimmed.isNotEmpty && !trimmed.startsWith(':')) {
+            
+            try {
+              final json = jsonDecode(trimmed);
+              if (json is List && json.isNotEmpty) {
+                for (final item in json) {
+                  final text = item["candidates"]?[0]?["content"]?["parts"]?[0]?["text"];
+                  if (text != null) buffer.write(text);
+                }
+              } else if (json is Map) {
+                final text = json["candidates"]?[0]?["content"]?["parts"]?[0]?["text"];
+                if (text != null) buffer.write(text);
+              }
+            } catch (_) {}
+          }
+        }
+        
+      case Claude():
+        
+        for (final line in chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6).trim();
+            if (data == '[DONE]' || data.isEmpty) continue;
+            try {
+              final json = jsonDecode(data);
+              final type = json["type"];
+              if (type == "content_block_delta") {
+                final text = json["delta"]?["text"];
+                if (text != null) buffer.write(text);
+              }
+            } catch (_) {}
+          }
+        }
+        
+      case OpenAI():
+      case Grok():
+      case DeepSeek():
+      case Gorq():
+      case TogetherAi():
+      case Sonar():
+      case OpenRouter():
+      case FireWorks():
+      case CustomModel():
+        
+        for (final line in chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6).trim();
+            if (data == '[DONE]' || data.isEmpty) continue;
+            try {
+              final json = jsonDecode(data);
+              final content = json["choices"]?[0]?["delta"]?["content"];
+              if (content != null) buffer.write(content);
+            } catch (_) {}
+          }
+        }
+    }
+    
+    return buffer.isEmpty ? null : buffer.toString();
+  }
+
+  
+  String _getStreamingUrl(Models chatModel) {
+    switch (chatModel) {
+      case Gemini():
+        
+        
+        
+        final uri = Uri.parse(chatModel.url);
+        final newPath = uri.path.replaceFirst(':generateContent', ':streamGenerateContent');
+        final newParams = Map<String, String>.from(uri.queryParameters);
+        newParams['alt'] = 'sse';
+        return uri.replace(path: newPath, queryParameters: newParams).toString();
+      case Claude():
+        return chatModel.url; 
+      default:
+        return chatModel.url; 
+    }
+  }
+
+  
+  Map<String, dynamic> _buildRequestBody(Models chatModel, String prompt, List<AIConversation> history) {
+    switch (chatModel) {
+      case Gemini():
+        final geminiHistory = _buildGeminiHistory(history);
+        geminiHistory.add({
+          "role": "user",
+          "parts": [{"text": prompt}]
+        });
+        return {
+          "contents": geminiHistory,
+          "generationConfig": {
+            "temperature": 1.0,
+            "maxOutputTokens": 8192,
+            "topP": 0.8,
+            "topK": 10,
+          },
+        };
+      case Claude():
+        final messages = _buildChatHistory(history);
+        messages.add({"role": "user", "content": prompt});
+        return {
+          "model": chatModel.model,
+          "max_tokens": 4096,
+          "stream": true,
+          "messages": messages,
+        };
+      case OpenAI():
+        final messages = _buildChatHistory(history);
+        messages.add({"role": "user", "content": prompt});
+        return {
+          "model": chatModel.model,
+          "stream": true,
+          "messages": messages,
+        };
+      case Grok():
+      case DeepSeek():
+      case Gorq():
+      case TogetherAi():
+      case Sonar():
+      case OpenRouter():
+      case FireWorks():
+        final messages = _buildChatHistory(history);
+        messages.add({"role": "user", "content": prompt});
+        return {
+          "model": chatModel.model,
+          "stream": true,
+          "messages": messages,
+        };
+      case CustomModel():
+        final messages = _buildChatHistory(history);
+        messages.add({"role": "user", "content": prompt});
+        return {
+          "model": chatModel.model,
+          "stream": true,
+          "messages": messages,
+        };
+    }
+  }
+
+  void _sendPrompt(Models chatModel, List<AIConversation> currentList, String? sessionId) async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) return;
 
-    final aiChatBloc = context.read<AIChatBloc>();
+    final chatSessionBloc = context.read<ChatSessionBloc>();
+    final isFirstMessage = currentList.isEmpty;
 
-    final newList = currentList
-        .map((c) => AIConversation(c.userRequest, c.modelResponse))
-        .toList();
-    newList.add(AIConversation(prompt, null));
-    aiChatBloc.add(AIChatEvent(newList));
+    final newList = currentList.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
+    newList.add(AIConversation(prompt, ""));
+    
+    chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
 
     final int index = newList.length - 1;
     _promptController.clear();
 
-    final url = Uri.parse(chatModel.url);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    final url = Uri.parse(_getStreamingUrl(chatModel));
     final client = http.Client();
     final request = http.Request('POST', url);
     request.headers.addAll(chatModel.headers);
-    request.body = jsonEncode(
-      (() {
-        switch (chatModel) {
-          case Gemini():
-            return {
-              "contents": [
-                {
-                  "parts": [
-                    {"text": prompt},
-                  ],
-                },
-              ],
-              "generationConfig": {
-                "stopSequences": ["Title"],
-                "temperature": 1.0,
-                "maxOutputTokens": 800,
-                "topP": 0.8,
-                "topK": 10,
-              },
-            };
-          case OpenAI():
-            return {"model": chatModel.model, "input": prompt};
-          case Claude():
-            return {
-              "model": chatModel.model,
-              "max_tokens": 1024,
-              "messages": [
-                {"role": "user", "content": prompt},
-              ],
-            };
-          case Grok():
-          case DeepSeek():
-          case Gorq():
-          case TogetherAi():
-          case Sonar():
-          case OpenRouter():
-          case FireWorks():
-            return {
-              "model": chatModel.model,
-              "messages": [
-                {"role": "user", "content": prompt},
-              ],
-            };
-          case CustomModel():
-            ;
-        }
-      })(),
-    );
+    
+    final historyForRequest = currentList;
+    request.body = jsonEncode(_buildRequestBody(chatModel, prompt, historyForRequest));
 
     try {
-      StringBuffer responseBuffer = StringBuffer();
       final streamedResponse = await client.send(request);
-      streamedResponse.stream
-          .transform(utf8.decoder)
-          .listen(
-            (chunk) {
-              responseBuffer.write(chunk);
-              /* String parsed;
+      final StringBuffer fullResponse = StringBuffer();
+      
+      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+        final parsed = _parseStreamChunk(chunk, chatModel);
+        if (parsed != null) {
+          fullResponse.write(parsed);
+          
+          final currentSession = chatSessionBloc.state.currentSession;
+          if (currentSession != null) {
+            final updated = currentSession.conversations
+                .map((c) => AIConversation(c.userRequest, c.modelResponse))
+                .toList();
+
+            if (index < updated.length) {
+              updated[index] = updated[index].copyWith(
+                modelResponse: fullResponse.toString(),
+              );
+              chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+            }
+          }
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            }
+          });
+        }
+      }
+
+      if (fullResponse.isEmpty) {
+        final fallbackClient = http.Client();
         try {
-          print(chunk);
-          parsed = chatModel.responseParser(jsonDecode(chunk));
-          print("\n****************\n");
-          print(parsed);
-        } catch (e) {
-          print(chunk);
-          print(e);
-          parsed = chatModel.responseParser(jsonDecode(chunk));
-        }
-
-        final updated = aiChatBloc.state.aiConversation
-            .map((c) => AIConversation(c.userRequest, c.modelResponse))
-            .toList();
-
-        if (index < updated.length) {
-          updated[index] = updated[index].copyWith(modelResponse: parsed);
-          aiChatBloc.add(AIChatEvent(updated));
-        }
-      }, onError: (err) {
-        final updated = aiChatBloc.state.aiConversation
-            .map((c) => AIConversation(c.userRequest, c.modelResponse))
-            .toList();
-        if (index < updated.length) {
-          updated[index] =
-              updated[index].copyWith(modelResponse: 'Error: ${err.toString()}');
-          aiChatBloc.add(AIChatEvent(updated));
-        } */
-            },
-            onDone: () {
-              try {
-                final json = jsonDecode(responseBuffer.toString());
-                final parsed = chatModel.responseParser(json);
-                final updated = aiChatBloc.state.aiConversation
-                    .map((c) => AIConversation(c.userRequest, c.modelResponse))
-                    .toList();
-
-                if (index < updated.length) {
-                  updated[index] = updated[index].copyWith(
-                    modelResponse: parsed,
-                  );
-                  aiChatBloc.add(AIChatEvent(updated));
-                }
-              } catch (_) {}
-              client.close();
-            },
+          final response = await fallbackClient.post(
+            Uri.parse(chatModel.url),
+            headers: chatModel.headers,
+            body: jsonEncode(_buildRequestBody(chatModel, prompt, historyForRequest)..remove('stream')),
           );
+          if (response.statusCode == 200) {
+            final json = jsonDecode(response.body);
+            final parsed = chatModel.responseParser(json);
+            final currentSession = chatSessionBloc.state.currentSession;
+            if (currentSession != null) {
+              final updated = currentSession.conversations
+                  .map((c) => AIConversation(c.userRequest, c.modelResponse))
+                  .toList();
+              if (index < updated.length) {
+                updated[index] = updated[index].copyWith(modelResponse: parsed);
+                chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+              }
+            }
+          }
+        } finally {
+          fallbackClient.close();
+        }
+      }
+      
+      client.close();
+      
+      if (isFirstMessage && fullResponse.isNotEmpty) {
+        _generateTitle(chatModel, prompt, fullResponse.toString());
+      }
     } catch (e) {
-      final updated = aiChatBloc.state.aiConversation
-          .map((c) => AIConversation(c.userRequest, c.modelResponse))
-          .toList();
-      if (index < updated.length) {
-        updated[index] = updated[index].copyWith(
-          modelResponse: 'Failed to send request: ${e.toString()}',
-        );
-        aiChatBloc.add(AIChatEvent(updated));
+      final currentSession = chatSessionBloc.state.currentSession;
+      if (currentSession != null) {
+        final updated = currentSession.conversations
+            .map((c) => AIConversation(c.userRequest, c.modelResponse))
+            .toList();
+        if (index < updated.length) {
+          updated[index] = updated[index].copyWith(
+            modelResponse: 'Failed to send request: ${e.toString()}',
+          );
+          chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+        }
       }
       client.close();
+    }
+  }
+
+  Future<void> _generateTitle(Models chatModel, String userPrompt, String aiResponse) async {
+    final chatSessionBloc = context.read<ChatSessionBloc>();
+    final currentSession = chatSessionBloc.state.currentSession;
+    if (currentSession == null) return;
+
+    try {
+      final titlePrompt = "Generate a very short title (max 5 words) for this conversation. Only respond with the title, nothing else.\n\nUser: $userPrompt\n\nAssistant: ${aiResponse.substring(0, aiResponse.length > 200 ? 200 : aiResponse.length)}";
+      
+      final url = Uri.parse(chatModel.url);
+      final titleRequest = http.Request('POST', url);
+      titleRequest.headers.addAll(chatModel.headers);
+      
+      Map<String, dynamic> requestBody;
+      switch (chatModel) {
+        case Gemini():
+          requestBody = {
+            "contents": [
+              {
+                "parts": [{"text": titlePrompt}]
+              }
+            ],
+            "generationConfig": {
+              "temperature": 0.7,
+              "maxOutputTokens": 50,
+            },
+          };
+        default:
+          requestBody = {
+            "model": chatModel.model,
+            "messages": [
+              {"role": "user", "content": titlePrompt}
+            ],
+            "max_tokens": 50,
+            "temperature": 0.7,
+          };
+      }
+      
+      titleRequest.body = jsonEncode(requestBody);
+      
+      final client = http.Client();
+      final httpResponse = await client.post(url, headers: chatModel.headers, body: titleRequest.body);
+      
+      if (httpResponse.statusCode == 200) {
+        final json = jsonDecode(httpResponse.body);
+        try {
+          String title = chatModel.responseParser(json);
+          
+          title = title.replaceAll('"', '').replaceAll('\n', ' ').replaceAll('*', '').trim();
+          
+          title = title.replaceFirst(RegExp(r'^(Title:|Topic:|Subject:)\s*', caseSensitive: false), '');
+          if (title.length > 50) title = title.substring(0, 50);
+          if (title.isNotEmpty && title.toLowerCase() != 'ai completion not available') {
+            chatSessionBloc.add(UpdateSessionTitle(
+              sessionId: currentSession.id,
+              title: title,
+            ));
+          }
+        } catch (e) {
+          
+          final fallbackTitle = userPrompt.split(' ').take(5).join(' ');
+          chatSessionBloc.add(UpdateSessionTitle(
+            sessionId: currentSession.id,
+            title: fallbackTitle,
+          ));
+        }
+      }
+      client.close();
+    } catch (e) {
+      
+      try {
+        final fallbackTitle = userPrompt.split(' ').take(5).join(' ');
+        chatSessionBloc.add(UpdateSessionTitle(
+          sessionId: currentSession.id,
+          title: fallbackTitle,
+        ));
+      } catch (_) {}
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppThemeBloc, AppThemeState>(
-      builder: (context, configState) {
+      builder: (context, appThemeState) {
         return BlocBuilder<AIBloc, AIState>(
           builder: (context, aiState) {
             final Models? chatModel = aiState.chatModel;
@@ -7656,13 +7903,15 @@ class _AIChatState extends State<AIChat> {
                   "Chat Model is not configured. Go to the settings and create one.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: configState.appTheme.selectScreenCardTextColor,
+                    color: appThemeState.appTheme.selectScreenCardTextColor,
                   ),
                 ),
               );
             }
-            return BlocBuilder<AIChatBloc, AIChatState>(
-              builder: (context, aiChatState) {
+            return BlocBuilder<ChatSessionBloc, ChatSessionState>(
+              builder: (context, sessionState) {
+                final conversations = sessionState.currentSession?.conversations ?? [];
+                final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
                 return SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -7670,58 +7919,55 @@ class _AIChatState extends State<AIChat> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(
-                            bottom: 10,
+                            bottom: 5,
                             top: 10,
                             left: 10,
                           ),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              "AI CHAT",
-                              style: TextStyle(
-                                fontWeight: configState.appTheme.isDark
-                                    ? FontWeight.w300
-                                    : FontWeight.w500,
-                                color: configState
-                                    .appTheme
-                                    .selectScreenCardTextColor,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  sessionTitle,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 16,
+                                    color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
+                              IconButton(
+                                onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
+                                icon: Icon(
+                                  Icons.history,
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                                ),
+                                tooltip: 'Chat History',
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1.5),
+                                child: IconButton(
+                                  onPressed: () {
+                                    context.read<ChatSessionBloc>().add(CreateNewSession());
+                                  },
+                                  icon: Icon(
+                                    Icons.add_comment_outlined,
+                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                                    size: 21,
+                                  ),
+                                  tooltip: 'New Chat',
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(
-                                Icons.attach_file,
-                                color: configState
-                                    .appTheme
-                                    .selectScreenCardTextColor
-                                    .withAlpha(200),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(
-                                Icons.history,
-                                color: configState
-                                    .appTheme
-                                    .selectScreenCardTextColor
-                                    .withAlpha(200),
-                              ),
-                            ),
-                          ],
                         ),
                         TextField(
                           controller: _promptController,
-                          cursorColor:
-                              configState.appTheme.selectScreenCardTextColor,
+                          cursorColor: appThemeState.appTheme.selectScreenCardTextColor,
                           textAlignVertical: TextAlignVertical.top,
                           style: TextStyle(
-                            color:
-                                configState.appTheme.selectScreenCardTextColor,
+                            color: appThemeState.appTheme.selectScreenCardTextColor,
                           ),
                           maxLines: null,
                           decoration: InputDecoration(
@@ -7730,16 +7976,12 @@ class _AIChatState extends State<AIChat> {
                             ),
                             suffix: IconButton(
                               onPressed: () async {
-                                final List<AIConversation> currentAIChatState =
-                                    List.from(aiChatState.aiConversation);
-                                _sendPrompt(chatModel!, currentAIChatState);
+                                _sendPrompt(chatModel!, conversations, sessionState.currentSession?.id);
                                 _promptController.clear();
                               },
                               icon: Icon(
                                 Icons.send,
-                                color: configState
-                                    .appTheme
-                                    .selectScreenCardTextColor,
+                                color: appThemeState.appTheme.selectScreenCardTextColor,
                               ),
                             ),
                             contentPadding: EdgeInsets.symmetric(
@@ -7748,10 +7990,7 @@ class _AIChatState extends State<AIChat> {
                             ),
                             labelText: 'Ask AI',
                             labelStyle: TextStyle(
-                              color: configState
-                                  .appTheme
-                                  .selectScreenCardTextColor
-                                  .withAlpha(150),
+                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -7766,101 +8005,130 @@ class _AIChatState extends State<AIChat> {
                               SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: languages
-                                    .singleWhere(
-                                      (item) => item.extension.contains(
-                                        path
-                                            .extension(widget.filePath)
-                                            .substring(1),
-                                      ),
-                                    )
-                                    .icon,
+                                child: languages.singleWhere(
+                                  (item) => item.extension.contains(
+                                    path.extension(widget.filePath).substring(1),
+                                  ),
+                                ).icon,
                               ),
                               SizedBox(width: 3),
                               Text(
                                 path.basename(widget.filePath),
                                 style: TextStyle(
-                                  color: configState
-                                      .appTheme
-                                      .selectScreenCardTextColor
-                                      .withAlpha(150),
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: aiChatState.aiConversation.length,
-                            itemBuilder: (context, index) {
-                              final isDark = configState.appTheme.isDark;
-                              final config = isDark
-                                  ? MarkdownConfig(
-                                      configs: [
-                                        PConfig(
-                                          textStyle: TextStyle(
-                                            color: configState
-                                                .appTheme
-                                                .selectScreenCardTextColor,
+                          child: BlocBuilder<ConfigBloc, ConfigState>(
+                            builder: (context, configState) {
+                              final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
+                              return ListView.builder(
+                                controller: _scrollController,
+                                itemCount: conversations.length,
+                                itemBuilder: (context, index) {
+                                  final isDark = appThemeState.appTheme.isDark;
+                                  final config = isDark
+                                    ? MarkdownConfig.darkConfig.copy(
+                                        configs: [
+                                          PConfig(
+                                            textStyle: TextStyle(
+                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                            ),
                                           ),
+                                          PreConfig(
+                                            language: languages.singleWhere(
+                                              (item) => item.extension.contains(
+                                                path.extension(widget.filePath).substring(1),
+                                              )
+                                            ).name.toLowerCase(),
+                                            theme: theme,
+                                            styleNotMatched: TextStyle(
+                                              color: theme['root']!.color
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: theme['root']!.backgroundColor
+                                            )
+                                          )
+                                        ],
+                                      )
+                                    : MarkdownConfig.defaultConfig;
+                                  final conv = conversations[index];
+                                  final hasResponse =
+                                      conv.modelResponse != null &&
+                                      conv.modelResponse!.isNotEmpty;
+                                  final isStreaming = conv.modelResponse != null && conv.modelResponse!.isEmpty;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Column(
+                                      children: [
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 6.5,
+                                            ),
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 5,
+                                                horizontal: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blueAccent.withAlpha(
+                                                  200,
+                                                ),
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: Radius.circular(16),
+                                                  topRight: Radius.zero,
+                                                  bottomLeft: Radius.circular(16),
+                                                  bottomRight: Radius.circular(16),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                conv.userRequest,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: hasResponse
+                                            ? MarkdownBlock(
+                                                data: conv.modelResponse!,
+                                                config: config,
+                                              )
+                                            : isStreaming
+                                              ? Row(
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'Thinking...',
+                                                      style: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                        fontStyle: FontStyle.italic,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                )
+                                              : const SizedBox.shrink(),
                                         ),
                                       ],
-                                    )
-                                  : MarkdownConfig.defaultConfig;
-                              final conv = aiChatState.aiConversation[index];
-                              final hasResponse =
-                                  conv.modelResponse != null &&
-                                  conv.modelResponse!.isNotEmpty;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Column(
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6.5,
-                                        ),
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 5,
-                                            horizontal: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blueAccent.withAlpha(
-                                              200,
-                                            ),
-                                            borderRadius: BorderRadius.only(
-                                              topLeft: Radius.circular(16),
-                                              topRight: Radius.zero,
-                                              bottomLeft: Radius.circular(16),
-                                              bottomRight: Radius.circular(16),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            aiChatState
-                                                .aiConversation[index]
-                                                .userRequest,
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
                                     ),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: hasResponse
-                                          ? MarkdownBlock(
-                                              data: aiChatState
-                                                  .aiConversation[index]
-                                                  .modelResponse!,
-                                              config: config,
-                                            )
-                                          : const LinearProgressIndicator(),
-                                    ),
-                                  ],
-                                ),
+                                  );
+                                },
                               );
                             },
                           ),
@@ -7876,9 +8144,241 @@ class _AIChatState extends State<AIChat> {
       },
     );
   }
+
+  void _showHistoryDialog(BuildContext context, AppTheme appTheme, ChatSessionState initialState) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => BlocBuilder<ChatSessionBloc, ChatSessionState>(
+        builder: (context, sessionState) {
+          return AlertDialog(
+            backgroundColor: appTheme.isDark ? const Color(0xff1e1e2e) : Colors.white,
+            title: Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  color: appTheme.selectScreenCardTextColor,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Chat History',
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: sessionState.sessions.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 48,
+                          color: appTheme.selectScreenCardTextColor.withAlpha(100),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No chat history yet',
+                          style: TextStyle(
+                            color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: sessionState.sessions.length,
+                    itemBuilder: (context, index) {
+                      final session = sessionState.sessions[index];
+                      final isSelected = sessionState.currentSession?.id == session.id;
+                      return Card(
+                        color: isSelected
+                          ? (appTheme.isDark ? const Color(0xff3d3d5c) : Colors.blue.withAlpha(30))
+                          : (appTheme.isDark ? const Color(0xff2a2a3e) : Colors.grey.shade100),
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.chat,
+                            color: isSelected
+                              ? Colors.blue
+                              : appTheme.selectScreenCardTextColor.withAlpha(150),
+                          ),
+                          title: Text(
+                            session.title,
+                            style: TextStyle(
+                              color: appTheme.selectScreenCardTextColor,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            _formatDate(session.createdAt),
+                            style: TextStyle(
+                              color: appTheme.selectScreenCardTextColor.withAlpha(100),
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: Colors.red.withAlpha(180),
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              _showDeleteConfirmation(context, appTheme, session.id, session.title);
+                            },
+                          ),
+                          onTap: () {
+                            context.read<ChatSessionBloc>().add(SelectSession(session.id));
+                            Navigator.of(dialogContext).pop();
+                          },
+                        ),
+                      );
+                    },
+                  ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(
+                  'Close',
+                  style: TextStyle(
+                    color: appTheme.isDark ? Colors.blue.shade300 : Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, AppTheme appTheme, String sessionId, String sessionTitle) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: appTheme.isDark ? const Color(0xff1e1e2e) : Colors.white,
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Delete Chat',
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this chat?',
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: appTheme.isDark 
+                  ? Colors.white.withAlpha(10) 
+                  : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.chat,
+                    size: 20,
+                    color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      sessionTitle,
+                      style: TextStyle(
+                        color: appTheme.selectScreenCardTextColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: appTheme.isDark ? Colors.white70 : Colors.grey.shade700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<ChatSessionBloc>().add(DeleteSession(sessionId));
+              Navigator.of(dialogContext).pop();
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    
+    if (diff.inDays == 0) {
+      return 'Today ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      return 'Yesterday';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays} days ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
 }
 
-//--------------------Settings---------------------------------
+
 
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;
@@ -7911,8 +8411,7 @@ class SettingsTab extends StatelessWidget {
                   value: uiBloc,
                   child: BlocBuilder<ConfigBloc, ConfigState>(
                     builder: (context, configState) {
-                      final String currentTheme =
-                          configState.codeForgeConfig['theme'];
+                      final String currentTheme = configState.codeForgeConfig['theme'];
                       return AlertDialog(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 15,
@@ -7956,29 +8455,19 @@ class SettingsTab extends StatelessWidget {
                                       (e) => Card(
                                         elevation: 0,
                                         color: e == currentTheme
-                                            ? const Color.fromARGB(
-                                                160,
-                                                82,
-                                                82,
-                                                82,
-                                              )
+                                            ? const Color.fromARGB(160,82,82,82,)
                                             : Colors.transparent,
                                         child: ListTile(
                                           iconColor: Colors.grey,
                                           leading: e == currentTheme
                                               ? const Icon(
-                                                  Icons
-                                                      .radio_button_checked_sharp,
+                                                  Icons.radio_button_checked_sharp,
                                                   color: Color(0xff39a2f2),
                                                 )
-                                              : const Icon(
-                                                  Icons.radio_button_off_sharp,
-                                                ),
+                                              : const Icon(Icons.radio_button_off_sharp,),
                                           onTap: () async {
-                                            final prefs =
-                                                await SharedPreferences.getInstance();
-                                            final currentState =
-                                                configState.codeForgeConfig;
+                                            final prefs = await SharedPreferences.getInstance();
+                                            final currentState = configState.codeForgeConfig;
                                             currentState['theme'] = e;
                                             await prefs.setString(
                                               'codeForgeConfig',

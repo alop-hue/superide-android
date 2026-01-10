@@ -166,10 +166,10 @@ Future<void> initRepo(String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
 
-  await createGitignoreIfNeeded(workspacePath);
+  // await createGitignoreIfNeeded(workspacePath);
 }
 
-Future<void> createGitignoreIfNeeded(String workspacePath) async {
+/* Future<void> createGitignoreIfNeeded(String workspacePath) async {
   final gitignoreFile = File('$workspacePath/.gitignore');
 
   if (await gitignoreFile.exists()) {
@@ -198,9 +198,9 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
   } else {
     await gitignoreFile.writeAsString(_getGitignorePatterns().join('\n'));
   }
-}
+} */
 
-List<String> _getGitignorePatterns() {
+/* List<String> _getGitignorePatterns() {
   return [
     '# VSdroid and Editor files',
     '.vscode/',
@@ -305,7 +305,7 @@ List<String> _getGitignorePatterns() {
     '*.rar',
     '*.7z',
   ];
-}
+} */
 
 Future<ProcessResult> getRepoStatus(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -1634,6 +1634,56 @@ class AIConversation {
 
   AIConversation copyWith({String? modelResponse}) =>
       AIConversation(userRequest, modelResponse);
+
+  Map<String, dynamic> toJson() => {
+    'userRequest': userRequest,
+    'modelResponse': modelResponse,
+  };
+
+  factory AIConversation.fromJson(Map<String, dynamic> json) => AIConversation(
+    json['userRequest'] as String,
+    json['modelResponse'] as String?,
+  );
+}
+
+class ChatSession {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  final List<AIConversation> conversations;
+
+  ChatSession({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.conversations,
+  });
+
+  ChatSession copyWith({
+    String? title,
+    List<AIConversation>? conversations,
+  }) => ChatSession(
+    id: id,
+    title: title ?? this.title,
+    createdAt: createdAt,
+    conversations: conversations ?? this.conversations,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+    'conversations': conversations.map((c) => c.toJson()).toList(),
+  };
+
+  factory ChatSession.fromJson(Map<String, dynamic> json) => ChatSession(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    conversations: (json['conversations'] as List)
+        .map((c) => AIConversation.fromJson(c as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class CommitNode {

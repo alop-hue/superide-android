@@ -164,62 +164,186 @@ int main() {
                         )
                       ),
                       settingsTile(() {
-                        showDialog(context: context, builder: (context) {
-                        final String currentTheme = theme;
-                          WidgetsBinding.instance.addPostFrameCallback((_){
-                            final selectedIndex = highlightThemes.keys.toList().indexOf(currentTheme);
-                            themeScroll.jumpTo(selectedIndex * 58);
-                          });
-                          return AlertDialog(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                            insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
-                            titlePadding: const EdgeInsets.all(15),
-                            title: Card(
-                              color: const Color.fromARGB(255, 37, 37, 37),
-                              child: ListTile(
-                                leading: const Icon(Icons.color_lens,color: Colors.white,size: 30),
-                                title: const Text("Select a theme"),
-                                subtitle: Text("${highlightThemes.length} themes available"),
-                                titleTextStyle: const TextStyle(fontSize: 25),
-                                subtitleTextStyle: const TextStyle(color: Colors.grey),
-                              ),
-                            ),
-                            backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                            content: 
-                            Scrollbar(
-                              controller: themeScroll,
-                              thumbVisibility: true,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: SingleChildScrollView(
-                                  controller: themeScroll,
-                                  child: Column(
-                                    children: highlightThemes.keys.toList().map((e)=>Card(
-                                      elevation: 0,
-                                      color: e==currentTheme?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                      child: ListTile(
-                                        iconColor: Colors.grey,
-                                        leading: e==currentTheme?const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):const Icon(Icons.radio_button_off_sharp),
-                                        onTap: () async{
-                                          final prefs = await SharedPreferences.getInstance();
-                                          final currentState = configState.codeForgeConfig;
-                                          currentState['theme'] = e;
-                                          await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                          if (context.mounted) {
-                                            context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                                            Navigator.of(context).pop();
-                                          }
-                                        },
-                                        title: Text(e.capitalize())
-                                      ))).toList()
+                        showDialog(context: context, builder: (dialogContext) {
+                          String selectedTheme = theme;
+                          return StatefulBuilder(
+                            builder: (context, setDialogState) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (themeScroll.hasClients) {
+                                  final selectedIndex = highlightThemes.keys.toList().indexOf(selectedTheme);
+                                  if (selectedIndex >= 0) {
+                                    themeScroll.jumpTo(selectedIndex * 72);
+                                  }
+                                }
+                              });
+                              return AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                backgroundColor: appThemeState.appTheme.isDark 
+                                  ? const Color(0xff1e1e2e) 
+                                  : Colors.white,
+                                title: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: appThemeState.appTheme.isDark
+                                        ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
+                                        : [Colors.blue.shade100, Colors.blue.shade50],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.palette_outlined,
+                                        color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade700,
+                                        size: 28,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              "Editor Theme",
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade900,
+                                              ),
+                                            ),
+                                            Text(
+                                              "${highlightThemes.length} themes available",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: appThemeState.appTheme.isDark 
+                                                  ? Colors.white70 
+                                                  : Colors.blue.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              )
-                            )
+                                content: SizedBox(
+                                  width: double.maxFinite,
+                                  height: 400,
+                                  child: Scrollbar(
+                                    controller: themeScroll,
+                                    thumbVisibility: true,
+                                    child: ListView.builder(
+                                      controller: themeScroll,
+                                      itemCount: highlightThemes.length,
+                                      itemBuilder: (context, index) {
+                                        final themeName = highlightThemes.keys.elementAt(index);
+                                        final themeData = highlightThemes[themeName]!;
+                                        final isSelected = themeName == selectedTheme;
+                                        final bgColor = themeData['root']?.backgroundColor ?? Colors.grey;
+                                        final textColor = themeData['root']?.color ?? Colors.white;
+                                        
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(12),
+                                              onTap: () async {
+                                                setDialogState(() => selectedTheme = themeName);
+                                                final prefs = await SharedPreferences.getInstance();
+                                                final currentState = configState.codeForgeConfig;
+                                                currentState['theme'] = themeName;
+                                                await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                                if (context.mounted) {
+                                                  context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                                                  Navigator.of(dialogContext).pop();
+                                                }
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                    ? (appThemeState.appTheme.isDark 
+                                                        ? Colors.blue.withAlpha(40) 
+                                                        : Colors.blue.withAlpha(30))
+                                                    : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: isSelected 
+                                                      ? Colors.blue 
+                                                      : Colors.transparent,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    
+                                                    Container(
+                                                      width: 48,
+                                                      height: 48,
+                                                      decoration: BoxDecoration(
+                                                        color: bgColor,
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        border: Border.all(
+                                                          color: appThemeState.appTheme.isDark 
+                                                            ? Colors.white24 
+                                                            : Colors.black12,
+                                                        ),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          'Aa',
+                                                          style: TextStyle(
+                                                            color: textColor,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 16,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 16),
+                                                    Expanded(
+                                                      child: Text(
+                                                        themeName.capitalize(),
+                                                        style: TextStyle(
+                                                          color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (isSelected)
+                                                      Icon(
+                                                        Icons.check_circle,
+                                                        color: Colors.blue,
+                                                        size: 24,
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(dialogContext).pop(),
+                                    child: Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        color: appThemeState.appTheme.isDark 
+                                          ? Colors.white70 
+                                          : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           );
-                        }
-                         
-                        );
+                        });
                       }, 'Editor Theme',
                         Icon(Icons.color_lens, size: 22, color: appThemeState.appTheme.selectScreenCardTextColor),
                         appThemeState.appTheme.isDark,
@@ -227,64 +351,186 @@ int main() {
                       ),
                       settingsTile(
                         (){
-                          showDialog(context: context, builder: (context) {
-                            final String currentFont = configState.codeForgeConfig['fontFamily'];
-                            WidgetsBinding.instance.addPostFrameCallback((_){
-                              final selectedIndex = fonts.indexOf(currentFont);
-                              fontScroll.jumpTo(selectedIndex * 58);
-                            });
-                            return AlertDialog(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 15),
-                              insetPadding: const EdgeInsets.only(bottom: 120,top: 190,left: 45,right: 45),
-                              titlePadding: const EdgeInsets.all(15),
-                              backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                              title: Card(
-                                color: const Color.fromARGB(255, 37, 37, 37),
-                                child: ListTile(
-                                  leading: const Icon(FontAwesomeIcons.font,color: Colors.white,size: 30),
-                                  title: const Text(" Select a font   "),
-                                  subtitle: Text("   ${fonts.length} fonts available"),
-                                  titleTextStyle: const TextStyle(fontSize: 25),
-                                  subtitleTextStyle: const TextStyle(color: Colors.grey),
-                                ),
-                              ),
-                              content:Scrollbar(
-                                controller: fontScroll,
-                                thumbVisibility: true,
-                                child:Padding(
-                                  padding: const EdgeInsets.only(bottom: 20),
-                                  child: SingleChildScrollView(
-                                    controller: fontScroll,
-                                    child: Column(
-                                      children: fonts.map(
-                                        (e) => Card(
-                                          color: e==currentFont?const Color.fromARGB(160, 82, 82, 82):Colors.transparent,
-                                          elevation: 0,
-                                          child:
-                                          ListTile(
-                                            onTap: () async{
-                                              final currentState = configState.codeForgeConfig;
-                                              currentState['fontFamily'] = e;
-                                              final prefs = await SharedPreferences.getInstance();
-                                              await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                              if (context.mounted) {
-                                                context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                                                Navigator.of(context).pop();
-                                              }
-                                            },
-                                            iconColor: Colors.grey,
-                                            leading: e == currentFont ? 
-                                              const Icon(Icons.radio_button_checked_sharp,color:Color(0xff39a2f2)):
-                                              const Icon(Icons.radio_button_off_sharp),
-                                            title: Text(e.capitalize())
-                                          )
-                                        )
-                                      ).toList()
+                          showDialog(context: context, builder: (dialogContext) {
+                            String selectedFont = configState.codeForgeConfig['fontFamily'];
+                            return StatefulBuilder(
+                              builder: (context, setDialogState) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (fontScroll.hasClients) {
+                                    final selectedIndex = fonts.indexOf(selectedFont);
+                                    if (selectedIndex >= 0) {
+                                      fontScroll.jumpTo(selectedIndex * 72);
+                                    }
+                                  }
+                                });
+                                return AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  backgroundColor: appThemeState.appTheme.isDark 
+                                    ? const Color(0xff1e1e2e) 
+                                    : Colors.white,
+                                  title: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: appThemeState.appTheme.isDark
+                                          ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
+                                          : [Colors.purple.shade100, Colors.purple.shade50],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          FontAwesomeIcons.font,
+                                          color: appThemeState.appTheme.isDark ? Colors.white : Colors.purple.shade700,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Font Style",
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: appThemeState.appTheme.isDark ? Colors.white : Colors.purple.shade900,
+                                                ),
+                                              ),
+                                              Text(
+                                                "${fonts.length} fonts available",
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: appThemeState.appTheme.isDark 
+                                                    ? Colors.white70 
+                                                    : Colors.purple.shade700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                )
-                              )
-                            );  
+                                  content: SizedBox(
+                                    width: double.maxFinite,
+                                    height: 400,
+                                    child: Scrollbar(
+                                      controller: fontScroll,
+                                      thumbVisibility: true,
+                                      child: ListView.builder(
+                                        controller: fontScroll,
+                                        itemCount: fonts.length,
+                                        itemBuilder: (context, index) {
+                                          final fontName = fonts[index];
+                                          final isSelected = fontName == selectedFont;
+                                          
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 4),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(12),
+                                                onTap: () async {
+                                                  setDialogState(() => selectedFont = fontName);
+                                                  final currentState = configState.codeForgeConfig;
+                                                  currentState['fontFamily'] = fontName;
+                                                  final prefs = await SharedPreferences.getInstance();
+                                                  await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                                  if (context.mounted) {
+                                                    context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                                                    Navigator.of(dialogContext).pop();
+                                                  }
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                      ? (appThemeState.appTheme.isDark 
+                                                          ? Colors.purple.withAlpha(40) 
+                                                          : Colors.purple.withAlpha(30))
+                                                      : Colors.transparent,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: isSelected 
+                                                        ? Colors.purple 
+                                                        : Colors.transparent,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      
+                                                      Container(
+                                                        width: 48,
+                                                        height: 48,
+                                                        decoration: BoxDecoration(
+                                                          color: appThemeState.appTheme.isDark 
+                                                            ? const Color(0xff2a2a3e) 
+                                                            : Colors.grey.shade100,
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          border: Border.all(
+                                                            color: appThemeState.appTheme.isDark 
+                                                              ? Colors.white24 
+                                                              : Colors.black12,
+                                                          ),
+                                                        ),
+                                                        child: Center(
+                                                          child: Text(
+                                                            'Aa',
+                                                            style: TextStyle(
+                                                              fontFamily: fontName,
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 16,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 16),
+                                                      Expanded(
+                                                        child: Text(
+                                                          fontName.capitalize(),
+                                                          style: TextStyle(
+                                                            fontFamily: fontName,
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (isSelected)
+                                                        Icon(
+                                                          Icons.check_circle,
+                                                          color: Colors.purple,
+                                                          size: 24,
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dialogContext).pop(),
+                                      child: Text(
+                                        'Cancel',
+                                        style: TextStyle(
+                                          color: appThemeState.appTheme.isDark 
+                                            ? Colors.white70 
+                                            : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
                           });
                         },
                         "Font Style",

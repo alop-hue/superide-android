@@ -4,6 +4,7 @@ import 'package:html/dom_parsing.dart';
 import 'package:html/parser.dart';
 import 'package:markdown/markdown.dart' as m;
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:re_highlight/styles/atom-one-dark.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/themes.dart';
 
@@ -29,8 +30,8 @@ class MdView extends StatelessWidget {
           data: data,
           config: config.copy(configs: [
             PreConfig(
-              theme: editorTheme,
-              styleNotMatched: TextStyle(color:editorTheme['root']!.color),
+              theme: editorTheme ?? atomOneDarkTheme,
+              styleNotMatched: TextStyle(color:editorTheme!['root']!.color),
               decoration: BoxDecoration(
                 color: editorTheme['root']!.backgroundColor!,
                 borderRadius: BorderRadius.zero,
@@ -54,10 +55,10 @@ class MdView extends StatelessWidget {
   }
 }
 
-/// Regex to match HTML tags
+
 final RegExp htmlRep = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
 
-/// Custom text node that handles HTML content
+
 class CustomTextNode extends ElementNode {
   final String text;
   final MarkdownConfig config;
@@ -88,7 +89,7 @@ class CustomTextNode extends ElementNode {
   }
 }
 
-/// Parse HTML text to SpanNodes
+
 List<SpanNode> parseHtml(
   m.Text node, {
   ValueCallback<dynamic>? onError,

@@ -74,18 +74,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     }
   }
 
-  /// Callback when tab changes - apply workspace search highlighting to the new active tab
   void _onTabChanged() {
     if (tabController == null || !tabController!.indexIsChanging) return;
     
-    // Get the workspace search state and apply to newly active editor
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _applyWorkspaceSearchToActiveEditor();
     });
   }
 
-  /// Apply workspace search highlighting to the currently active editor
   void _applyWorkspaceSearchToActiveEditor() {
     if (!mounted) return;
     
@@ -102,36 +99,28 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
       final editor = editorState.activeEditors[activeIndex];
       _applySearchHighlighting(editor, searchState.query, searchState);
     } catch (_) {
-      // Context might not have the bloc available yet
     }
   }
 
-  /// Apply search highlighting to an editor without showing the find panel
   void _applySearchHighlighting(ActiveEditors editor, String query, WorkspaceSearchState searchState) {
     if (editor.findController == null) return;
     
     final findController = editor.findController!;
     
-    // Set search options to match workspace search settings
     findController.caseSensitive = searchState.matchCase;
     findController.matchWholeWord = searchState.matchWholeWord;
     findController.isRegex = searchState.isRegex;
     
-    // Apply highlighting without scrolling (just highlight the matches)
     findController.findInputController.text = query;
     findController.find(query, scrollToMatch: false);
   }
 
-  /// Clear search highlighting from an editor
   void _clearSearchHighlighting(ActiveEditors editor) {
     if (editor.findController == null) return;
     editor.findController!.find('', scrollToMatch: false);
     editor.findController!.findInputController.clear();
   }
 
-  /// Navigate to a specific match on or near the target line.
-  /// Uses manual match calculation and navigation since find() positions
-  /// based on cursor which may not update synchronously.
   void _goToMatchNearLine(ActiveEditors editor, int targetLine, String searchQuery) {
     if (editor.findController == null) return;
     
@@ -139,26 +128,22 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     final codeController = editor.controller;
     final text = codeController.text;
     
-    // First trigger find to populate matches
     findController.findInputController.text = searchQuery;
     findController.find(searchQuery);
     
     if (findController.matchCount == 0) return;
     
-    // Calculate character offset for the start of target line
     final lines = text.split('\n');
     int targetCharOffset = 0;
     for (int i = 0; i < targetLine - 1 && i < lines.length; i++) {
-      targetCharOffset += lines[i].length + 1; // +1 for newline
+      targetCharOffset += lines[i].length + 1;
     }
     
-    // Calculate end of target line
     int targetLineEnd = targetCharOffset;
     if (targetLine - 1 < lines.length) {
       targetLineEnd += lines[targetLine - 1].length;
     }
     
-    // Find all occurrences of the search query in text
     final lowerText = findController.caseSensitive ? text : text.toLowerCase();
     final lowerQuery = findController.caseSensitive ? searchQuery : searchQuery.toLowerCase();
     
@@ -173,20 +158,16 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     
     if (matchPositions.isEmpty) return;
     
-    // Find which match index is on or closest to the target line
     int bestMatchIndex = 0;
     for (int i = 0; i < matchPositions.length; i++) {
       final matchStart = matchPositions[i];
       
-      // Check if this match is on the target line
       if (matchStart >= targetCharOffset && matchStart <= targetLineEnd) {
         bestMatchIndex = i;
         break;
       }
     }
     
-    // Navigate to the target match using next() from current position
-    // findController.currentMatchIndex is where we are now (usually 0 after find())
     final currentIdx = findController.currentMatchIndex;
     final diff = bestMatchIndex - currentIdx;
     
@@ -337,9 +318,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
         );
         final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
         
-        if (isRepoThere) {
+        /* if (isRepoThere) {
           createGitignoreIfNeeded(widget.rootDir);
-        }
+        } */
         
         final initalUndoController = UndoRedoController();
         final initialFindController = FindController(initialController);
