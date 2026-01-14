@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
-
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:code_forge/code_forge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/ai.dart';
+import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
 import '../../utils/themes.dart';
 
@@ -377,5 +378,504 @@ class DownloadManagerBloc extends Cubit<DownloadManagerState> {
       downloadProgress: newProgress,
       extractionProgress: newExtractionProgress
     ));
+  }
+}
+
+/// Bloc for managing GitHub Copilot state
+class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
+  CopilotLsp? _client;
+  CopilotCompletionManager? _completionManager;
+  StreamSubscription? _progressSubscription;
+  StreamSubscription? _notificationSubscription;
+  
+  static const String _storageKey = 'copilot_config';
+
+  CopilotBloc() : super(CopilotState.initial()) {
+    on<CopilotAutoInit>(_onAutoInit);
+    on<CopilotInitialize>(_onInitialize);
+    on<CopilotSignInInitiate>(_onSignInInitiate);
+    on<CopilotExecuteSignIn>(_onExecuteSignIn);
+    on<CopilotSignInConfirm>(_onSignInConfirm);
+    on<CopilotSignOut>(_onSignOut);
+    on<CopilotCheckStatus>(_onCheckStatus);
+    on<CopilotUpdateStatus>(_onUpdateStatus);
+    on<CopilotSetEnabled>(_onSetEnabled);
+    on<CopilotSetCompletion>(_onSetCompletion);
+    on<CopilotClearCompletion>(_onClearCompletion);
+    on<CopilotAcceptCompletion>(_onAcceptCompletion);
+    on<CopilotRejectCompletion>(_onRejectCompletion);
+    on<CopilotRequestCompletion>(_onRequestCompletion);
+    on<CopilotChatCreate>(_onChatCreate);
+    on<CopilotChatSend>(_onChatSend);
+    on<CopilotChatClear>(_onChatClear);
+    on<CopilotChatAddMessage>(_onChatAddMessage);
+    on<CopilotChatSetStreaming>(_onChatSetStreaming);
+    on<CopilotDispose>(_onDispose);
+    on<_CopilotInternalUpdateMessages>(_onInternalUpdateMessages);
+  }
+
+  CopilotLsp? get client => _client;
+  CopilotCompletionManager? get completionManager => _completionManager;
+
+  /// Auto-initialize Copilot and check status on app startup
+  Future<void> _onAutoInit(CopilotAutoInit event, Emitter<CopilotState> emit) async {
+    // Check if copilot-language-server exists
+    final configPath = '/data/data/com.vsdroid/files';
+    final extensionDir = '/data/data/com.vsdroid/files/extensions';
+    final copilotPath = '$extensionDir/copilot-language-server';
+    
+    if (!Directory(copilotPath).existsSync()) {
+      debugPrint('Copilot extension not installed, skipping auto-init');
+      return;
+    }
+    
+    // Initialize Copilot
+    add(CopilotInitialize(configPath: configPath));
+  }
+
+  Future<void> _onInitialize(CopilotInitialize event, Emitter<CopilotState> emit) async {
+    if (state.status == CopilotStatus.initializing) return;
+    
+    emit(state.copyWith(status: CopilotStatus.initializing));
+    
+    try {
+      // Load saved configuration first
+      await _loadConfig(emit);
+      
+      _client = await CopilotLsp.start(
+        configPath: event.configPath,
+        workspacePath: event.workspacePath,
+      );
+      
+      await _client!.initialize();
+      
+      // Setup completion manager
+      _completionManager = CopilotCompletionManager(
+        client: _client!,
+        debounceDelay: Duration(milliseconds: event.debounceMs),
+        onCompletionReady: (completion) {
+          if (completion != null) {
+            add(CopilotSetCompletion(
+              text: completion.text,
+              displayText: completion.displayText,
+              uuid: completion.uuid,
+            ));
+          } else {
+            add(CopilotClearCompletion());
+          }
+        },
+        onCompletionCleared: () {
+          add(CopilotClearCompletion());
+        },
+      );
+      
+      // Listen to progress stream for chat
+      _progressSubscription = _client!.progressStream.listen((progress) {
+        _handleProgress(progress);
+      });
+      
+      // Listen to notifications
+      _notificationSubscription = _client!.notificationStream.listen((notification) {
+        debugPrint('Copilot notification: $notification');
+      });
+      
+      // Check status
+      final statusPayload = await _client!.checkStatus();
+      
+      CopilotStatus newStatus;
+      if (statusPayload.isOk || statusPayload.isAlreadySignedIn) {
+        newStatus = CopilotStatus.signedIn;
+      } else if (statusPayload.isNotAuthorized) {
+        newStatus = CopilotStatus.notAuthorized;
+      } else {
+        newStatus = CopilotStatus.notSignedIn;
+      }
+      
+      emit(state.copyWith(
+        status: newStatus,
+        user: statusPayload.user,
+        isInitialized: true,
+      ));
+      
+      // Save config
+      await _saveConfig(true);
+    } catch (e) {
+      debugPrint('Copilot initialization error: $e');
+      emit(state.copyWith(
+        status: CopilotStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onSignInInitiate(CopilotSignInInitiate event, Emitter<CopilotState> emit) async {
+    if (_client == null) return;
+    
+    emit(state.copyWith(status: CopilotStatus.signingIn));
+    
+    try {
+      final payload = await _client!.signIn();
+      
+      if (payload.isAlreadySignedIn) {
+        emit(state.copyWith(
+          status: CopilotStatus.signedIn,
+          user: payload.user,
+        ));
+        return;
+      }
+      
+      emit(state.copyWith(
+        signInPayload: payload,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        status: CopilotStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onExecuteSignIn(CopilotExecuteSignIn event, Emitter<CopilotState> emit) async {
+    if (_client == null) return;
+    
+    try {
+      await _client!.executeCommand(event.command);
+      // The status will be updated via notification listener
+      // Start listening for status changes
+      _notificationSubscription?.cancel();
+      _notificationSubscription = _client!.notificationStream.listen((notification) {
+        if (notification['type'] == 'status' || notification['type'] == 'statusNotification') {
+          // Check status after receiving notification
+          add(CopilotCheckStatus());
+        }
+      });
+    } catch (e) {
+      debugPrint('Execute sign-in command error: $e');
+      emit(state.copyWith(
+        status: CopilotStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onSignInConfirm(CopilotSignInConfirm event, Emitter<CopilotState> emit) async {
+    if (_client == null) return;
+    
+    try {
+      final payload = await _client!.signInConfirm(event.userCode);
+      
+      if (payload.isOk || payload.isAlreadySignedIn) {
+        emit(state.copyWith(
+          status: CopilotStatus.signedIn,
+          user: payload.user,
+          signInPayload: null,
+        ));
+        await _saveConfig(true);
+      } else if (payload.isNotAuthorized) {
+        emit(state.copyWith(
+          status: CopilotStatus.notAuthorized,
+          signInPayload: null,
+        ));
+      } else {
+        emit(state.copyWith(
+          status: CopilotStatus.notSignedIn,
+          signInPayload: null,
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        status: CopilotStatus.error,
+        error: e.toString(),
+        signInPayload: null,
+      ));
+    }
+  }
+
+  Future<void> _onSignOut(CopilotSignOut event, Emitter<CopilotState> emit) async {
+    if (_client == null) return;
+    
+    try {
+      await _client!.signOut();
+      emit(state.copyWith(
+        status: CopilotStatus.notSignedIn,
+        user: null,
+        signInPayload: null,
+      ));
+      await _saveConfig(false);
+    } catch (e) {
+      emit(state.copyWith(
+        status: CopilotStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onCheckStatus(CopilotCheckStatus event, Emitter<CopilotState> emit) async {
+    if (_client == null) return;
+    
+    try {
+      final payload = await _client!.checkStatus();
+      
+      CopilotStatus newStatus;
+      if (payload.isOk || payload.isAlreadySignedIn) {
+        newStatus = CopilotStatus.signedIn;
+      } else if (payload.isNotAuthorized) {
+        newStatus = CopilotStatus.notAuthorized;
+      } else {
+        newStatus = CopilotStatus.notSignedIn;
+      }
+      
+      emit(state.copyWith(
+        status: newStatus,
+        user: payload.user,
+      ));
+    } catch (e) {
+      debugPrint('Check status error: $e');
+    }
+  }
+
+  void _onUpdateStatus(CopilotUpdateStatus event, Emitter<CopilotState> emit) {
+    emit(state.copyWith(status: event.status));
+  }
+
+  Future<void> _onSetEnabled(CopilotSetEnabled event, Emitter<CopilotState> emit) async {
+    emit(state.copyWith(isEnabled: event.isEnabled));
+    
+    if (!event.isEnabled) {
+      _completionManager?.cancel();
+    }
+  }
+
+  void _onSetCompletion(CopilotSetCompletion event, Emitter<CopilotState> emit) {
+    emit(state.copyWith(
+      currentCompletion: CopilotCompletionData(
+        text: event.text,
+        displayText: event.displayText,
+        uuid: event.uuid,
+      ),
+    ));
+  }
+
+  void _onClearCompletion(CopilotClearCompletion event, Emitter<CopilotState> emit) {
+    emit(state.copyWith(clearCompletion: true));
+  }
+
+  Future<void> _onAcceptCompletion(CopilotAcceptCompletion event, Emitter<CopilotState> emit) async {
+    await _completionManager?.acceptCompletion();
+    emit(state.copyWith(clearCompletion: true));
+  }
+
+  Future<void> _onRejectCompletion(CopilotRejectCompletion event, Emitter<CopilotState> emit) async {
+    await _completionManager?.rejectCompletions();
+    emit(state.copyWith(clearCompletion: true));
+  }
+
+  void _onRequestCompletion(CopilotRequestCompletion event, Emitter<CopilotState> emit) {
+    if (!state.isEnabled || state.status != CopilotStatus.signedIn) return;
+    
+    if (event.immediate) {
+      _completionManager?.fetchCompletionsNow(
+        filePath: event.filePath,
+        content: event.content,
+        line: event.line,
+        character: event.character,
+        languageId: event.languageId,
+      );
+    } else {
+      _completionManager?.requestCompletions(
+        filePath: event.filePath,
+        content: event.content,
+        line: event.line,
+        character: event.character,
+        languageId: event.languageId,
+      );
+    }
+  }
+
+  Future<void> _onChatCreate(CopilotChatCreate event, Emitter<CopilotState> emit) async {
+    if (_client == null || state.status != CopilotStatus.signedIn) return;
+    
+    emit(state.copyWith(
+      chatMessages: [],
+      isChatStreaming: true,
+    ));
+    
+    try {
+      await _client!.createConversation(
+        initialMessage: event.message,
+        filePath: event.filePath,
+        content: event.content,
+        languageId: event.languageId,
+        line: event.line,
+        character: event.character,
+      );
+      
+      // Add user message
+      add(CopilotChatAddMessage(CopilotChatMessage(
+        role: 'user',
+        content: event.message,
+        timestamp: DateTime.now(),
+      )));
+    } catch (e) {
+      emit(state.copyWith(
+        isChatStreaming: false,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onChatSend(CopilotChatSend event, Emitter<CopilotState> emit) async {
+    if (_client == null || state.status != CopilotStatus.signedIn) return;
+    
+    emit(state.copyWith(isChatStreaming: true));
+    
+    // Add user message
+    add(CopilotChatAddMessage(CopilotChatMessage(
+      role: 'user',
+      content: event.message,
+      timestamp: DateTime.now(),
+    )));
+    
+    try {
+      await _client!.conversationTurn(
+        message: event.message,
+        filePath: event.filePath,
+        content: event.content,
+        languageId: event.languageId,
+        line: event.line,
+        character: event.character,
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        isChatStreaming: false,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  void _onChatClear(CopilotChatClear event, Emitter<CopilotState> emit) {
+    _client?.destroyConversation();
+    emit(state.copyWith(
+      chatMessages: [],
+      isChatStreaming: false,
+    ));
+  }
+
+  void _onChatAddMessage(CopilotChatAddMessage event, Emitter<CopilotState> emit) {
+    final messages = List<CopilotChatMessage>.from(state.chatMessages);
+    messages.add(event.message);
+    emit(state.copyWith(chatMessages: messages));
+  }
+
+  void _onChatSetStreaming(CopilotChatSetStreaming event, Emitter<CopilotState> emit) {
+    emit(state.copyWith(isChatStreaming: event.isStreaming));
+  }
+
+  void _onInternalUpdateMessages(_CopilotInternalUpdateMessages event, Emitter<CopilotState> emit) {
+    emit(state.copyWith(chatMessages: event.messages));
+  }
+
+  void _handleProgress(Map<String, dynamic> progress) {
+    final value = progress['value'];
+    
+    if (value is Map<String, dynamic>) {
+      final kind = value['kind'];
+      
+      if (kind == 'report') {
+        final reply = value['reply'] as String?;
+        if (reply != null && reply.isNotEmpty) {
+          // Update or add assistant message
+          final messages = List<CopilotChatMessage>.from(state.chatMessages);
+          
+          // Find existing assistant message being streamed
+          final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
+          
+          if (lastAssistantIndex >= 0) {
+            messages[lastAssistantIndex] = CopilotChatMessage(
+              role: 'assistant',
+              content: reply,
+              timestamp: messages[lastAssistantIndex].timestamp,
+              isStreaming: true,
+            );
+          } else {
+            messages.add(CopilotChatMessage(
+              role: 'assistant',
+              content: reply,
+              timestamp: DateTime.now(),
+              isStreaming: true,
+            ));
+          }
+          
+          add(CopilotChatSetStreaming(true));
+          add(_CopilotInternalUpdateMessages(messages));
+        }
+      } else if (kind == 'end') {
+        // Finalize the assistant message
+        final messages = List<CopilotChatMessage>.from(state.chatMessages);
+        final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
+        
+        if (lastAssistantIndex >= 0) {
+          messages[lastAssistantIndex] = CopilotChatMessage(
+            role: 'assistant',
+            content: messages[lastAssistantIndex].content,
+            timestamp: messages[lastAssistantIndex].timestamp,
+            isStreaming: false,
+          );
+        }
+        
+        add(CopilotChatSetStreaming(false));
+        add(_CopilotInternalUpdateMessages(messages));
+      }
+    }
+  }
+
+  Future<void> _onDispose(CopilotDispose event, Emitter<CopilotState> emit) async {
+    _progressSubscription?.cancel();
+    _notificationSubscription?.cancel();
+    _completionManager?.dispose();
+    _client?.dispose();
+    _client = null;
+    _completionManager = null;
+    
+    emit(CopilotState.initial());
+  }
+
+  Future<void> _saveConfig(bool isSignedIn) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, jsonEncode({
+      'isSignedIn': isSignedIn,
+      'isEnabled': state.isEnabled,
+    }));
+  }
+
+  Future<void> _loadConfig(Emitter<CopilotState> emit) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final configStr = prefs.getString(_storageKey);
+      
+      if (configStr != null) {
+        final config = jsonDecode(configStr) as Map<String, dynamic>;
+        final wasSignedIn = config['isSignedIn'] as bool? ?? false;
+        final isEnabled = config['isEnabled'] as bool? ?? true;
+        
+        emit(state.copyWith(
+          isEnabled: isEnabled,
+          // Don't set status yet - will be determined by checkStatus after init
+        ));
+        
+        debugPrint('Loaded Copilot config: signedIn=$wasSignedIn, enabled=$isEnabled');
+      }
+    } catch (e) {
+      debugPrint('Failed to load Copilot config: $e');
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _progressSubscription?.cancel();
+    _notificationSubscription?.cancel();
+    _completionManager?.dispose();
+    _client?.dispose();
+    return super.close();
   }
 }

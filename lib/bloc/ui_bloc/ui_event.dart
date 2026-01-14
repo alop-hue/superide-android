@@ -205,3 +205,148 @@ class UpdateSearchOptions extends WorkspaceSearchEvent {
 }
 
 class ClearSearchResults extends WorkspaceSearchEvent {}
+
+// ================== Copilot Events ==================
+
+sealed class CopilotEvent extends UiEvent {}
+
+/// Auto-initialize Copilot and check status on app startup
+class CopilotAutoInit extends CopilotEvent {}
+
+class CopilotInitialize extends CopilotEvent {
+  final String configPath;
+  final String? workspacePath;
+  final int debounceMs;
+
+  CopilotInitialize({
+    required this.configPath,
+    this.workspacePath,
+    this.debounceMs = 500,
+  });
+}
+
+class CopilotSignInInitiate extends CopilotEvent {}
+
+/// Execute the sign-in command to open the browser
+class CopilotExecuteSignIn extends CopilotEvent {
+  final Map<String, dynamic> command;
+
+  CopilotExecuteSignIn(this.command);
+}
+
+class CopilotSignInConfirm extends CopilotEvent {
+  final String userCode;
+
+  CopilotSignInConfirm(this.userCode);
+}
+
+class CopilotSignOut extends CopilotEvent {}
+
+class CopilotCheckStatus extends CopilotEvent {}
+
+class CopilotUpdateStatus extends CopilotEvent {
+  final CopilotStatus status;
+
+  CopilotUpdateStatus(this.status);
+}
+
+class CopilotSetEnabled extends CopilotEvent {
+  final bool isEnabled;
+
+  CopilotSetEnabled(this.isEnabled);
+}
+
+class CopilotSetCompletion extends CopilotEvent {
+  final String text;
+  final String displayText;
+  final String uuid;
+
+  CopilotSetCompletion({
+    required this.text,
+    required this.displayText,
+    required this.uuid,
+  });
+}
+
+class CopilotClearCompletion extends CopilotEvent {}
+
+class CopilotAcceptCompletion extends CopilotEvent {}
+
+class CopilotRejectCompletion extends CopilotEvent {}
+
+class CopilotRequestCompletion extends CopilotEvent {
+  final String filePath;
+  final String content;
+  final int line;
+  final int character;
+  final String languageId;
+  final bool immediate;
+
+  CopilotRequestCompletion({
+    required this.filePath,
+    required this.content,
+    required this.line,
+    required this.character,
+    required this.languageId,
+    this.immediate = false,
+  });
+}
+
+class CopilotChatCreate extends CopilotEvent {
+  final String message;
+  final String? filePath;
+  final String? content;
+  final String? languageId;
+  final int? line;
+  final int? character;
+
+  CopilotChatCreate({
+    required this.message,
+    this.filePath,
+    this.content,
+    this.languageId,
+    this.line,
+    this.character,
+  });
+}
+
+class CopilotChatSend extends CopilotEvent {
+  final String message;
+  final String? filePath;
+  final String? content;
+  final String? languageId;
+  final int? line;
+  final int? character;
+
+  CopilotChatSend({
+    required this.message,
+    this.filePath,
+    this.content,
+    this.languageId,
+    this.line,
+    this.character,
+  });
+}
+
+class CopilotChatClear extends CopilotEvent {}
+
+class CopilotChatAddMessage extends CopilotEvent {
+  final CopilotChatMessage message;
+
+  CopilotChatAddMessage(this.message);
+}
+
+class CopilotChatSetStreaming extends CopilotEvent {
+  final bool isStreaming;
+
+  CopilotChatSetStreaming(this.isStreaming);
+}
+
+class CopilotDispose extends CopilotEvent {}
+
+// Internal events for handling callbacks
+class _CopilotInternalUpdateMessages extends CopilotEvent {
+  final List<CopilotChatMessage> messages;
+
+  _CopilotInternalUpdateMessages(this.messages);
+}

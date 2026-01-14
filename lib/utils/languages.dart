@@ -700,7 +700,13 @@ final basedpyright = Extension(
   parentName: "basedpyright",
   archiveSize: 8.4,
   url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/basedpyright.zip",
-  icon: Image.asset("assets/icons/based_pyright_logo.png", height: 55, width: 55),
+  icon: Image.asset(
+    "assets/icons/based_pyright_logo.png",
+    height: 55,
+    width: 55,
+    color: Colors.grey,
+    colorBlendMode: BlendMode.srcIn
+  ),
   fileExtension: ["py"],
   serverFile: ["/data/data/com.vsdroid/extensions/basedpyright/langserver.index.js"]
 );
@@ -740,7 +746,7 @@ final jdtLs = Extension(
 
 final bashLsp = Extension(
   name: "bash-language-server",
-  details: "Language server for dart\nNote: Nodejs runtime is required",
+  details: "Language server for bash/shell-script.\nNote: Nodejs runtime is required",
   archiveName: "bash-language-server.zip",
   parentName: "bash-language-server",
   archiveSize: 4,
@@ -750,7 +756,28 @@ final bashLsp = Extension(
   serverFile: ["$extensionDir/bash-language-server/node_modules/bash-language-server/out/cli.js"]
 );
 
+final copilot = Extension(
+  name: "Github Copilot",
+  details: "Enable github copilot in the editor.\nNote: Nodejs runtime is required",
+  archiveName: "copilot-language-server.zip",
+  parentName: "copilot-language-server",
+  archiveSize: 12,
+  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/copilot-language-server.zip",
+  icon: SvgPicture.asset(
+    "assets/icons/github-copilot-icon.svg",
+    height: 35,
+    width: 35,
+    colorFilter: ColorFilter.mode(
+      Colors.grey,
+      BlendMode.srcIn
+    ),
+  ),
+  fileExtension: [],
+  serverFile: ["$extensionDir/copilot-language-server/language-server.js"]
+);
+
 final List<Extension> extensions = [
+  copilot,
   basedpyright,
   vscodeExtractedLSPs,
   jdtLs,

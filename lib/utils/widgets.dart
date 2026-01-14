@@ -17,6 +17,7 @@ import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
+import '../utils/ai.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
@@ -270,14 +271,26 @@ class _CodeEditorState extends State<CodeEditor>
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
   Timer? _saveTimer, _statusRefreshTimer;
+  Timer? _copilotDebounceTimer;
+  StreamSubscription<CopilotState>? _copilotSubscription;
+  String? _currentCopilotUuid;
+  bool _isRequestingCopilot = false;
 
   @override
   void initState() {
     super.initState();
     final controller = widget.codeController;
     final generalState = context.read<GeneralBloc>().state;
+    
+    // Setup Copilot completions listener
+    _setupCopilotListener();
+    
     controller.addListener(() {
       if (!mounted) return;
+      
+      // Request Copilot completion on text changes
+      _requestCopilotCompletion();
+      
       if (generalState.generalSettings['autoSave'] ?? true) {
         _saveTimer?.cancel();
         _saveTimer = Timer(const Duration(milliseconds: 85), () {
@@ -295,10 +308,92 @@ class _CodeEditorState extends State<CodeEditor>
     });
   }
 
+  void _setupCopilotListener() {
+    final copilotBloc = context.read<CopilotBloc>();
+    _copilotSubscription = copilotBloc.stream.listen((state) {
+      if (!mounted) return;
+      
+      final completion = state.currentCompletion;
+      if (completion != null && completion.uuid != _currentCopilotUuid) {
+        _currentCopilotUuid = completion.uuid;
+        _displayCopilotGhostText(completion);
+      } else if (completion == null && _currentCopilotUuid != null) {
+        _currentCopilotUuid = null;
+        widget.codeController.clearGhostText();
+      }
+    });
+  }
+
+  void _displayCopilotGhostText(CopilotCompletionData completion) {
+    final controller = widget.codeController;
+    final cursor = controller.selection.start;
+    
+    // Calculate line and column from cursor position
+    final text = controller.text;
+    final lines = text.substring(0, cursor).split('\n');
+    final line = lines.length - 1;
+    final column = lines.last.length;
+    
+    controller.setGhostText(GhostText(
+      line: line,
+      column: column,
+      text: completion.displayText,
+      style: TextStyle(
+        color: Colors.grey.withOpacity(0.6),
+        fontStyle: FontStyle.italic,
+      ),
+      shouldPersist: false,
+    ));
+  }
+
+  void _requestCopilotCompletion() {
+    // Prevent recursive calls
+    if (_isRequestingCopilot) return;
+    
+    _copilotDebounceTimer?.cancel();
+    
+    final copilotBloc = context.read<CopilotBloc>();
+    final state = copilotBloc.state;
+    
+    // Only request if Copilot is enabled and signed in
+    if (!state.isEnabled || state.status != CopilotStatus.signedIn) {
+      return;
+    }
+    
+    // Clear current ghost text while typing (without triggering listener)
+    _isRequestingCopilot = true;
+    widget.codeController.clearGhostText();
+    _currentCopilotUuid = null;
+    _isRequestingCopilot = false;
+    
+    _copilotDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      
+      final controller = widget.codeController;
+      final cursor = controller.selection.start;
+      final text = controller.text;
+      
+      // Calculate line and character
+      final lines = text.substring(0, cursor).split('\n');
+      final line = lines.length - 1;
+      final character = lines.last.length;
+      
+      copilotBloc.add(CopilotRequestCompletion(
+        filePath: widget.filePath.path,
+        content: text,
+        line: line,
+        character: character,
+        languageId: widget.language.name.toLowerCase(),
+      ));
+    });
+  }
+
   @override
   void dispose() {
     _saveTimer?.cancel();
     _statusRefreshTimer?.cancel();
+    _copilotDebounceTimer?.cancel();
+    _copilotSubscription?.cancel();
     super.dispose();
   }
 
@@ -332,15 +427,6 @@ class _CodeEditorState extends State<CodeEditor>
                   return CodeForge(
                     language: widget.language.language,
                     filePath: widget.filePath.path,
-                    aiCompletion: aiState.completionModel != null
-                        ? AiCompletion(
-                            completionType: aiState.showSuggestionOntap
-                                ? CompletionType.manual
-                                : CompletionType.mixed,
-                            enableCompletion: aiState.isEnabled,
-                            model: aiState.completionModel!,
-                          )
-                        : null,
                     enableGuideLines:
                         configState.codeForgeConfig['indentLineStatus'],
                     selectionStyle: CodeSelectionStyle(
@@ -853,7 +939,7 @@ class _EditorPageState extends State<EditorArea>
                       ),
                       padding: EdgeInsets.zero,
                       onPressed: () {
-                        final codeModel = context
+                        /* final codeModel = context
                             .read<AIBloc>()
                             .state
                             .modelSelected['code'];
@@ -870,7 +956,7 @@ class _EditorPageState extends State<EditorArea>
                               duration: const Duration(seconds: 2),
                             ),
                           );
-                        }
+                        } */
                       },
                       icon: SvgPicture.asset(
                         "assets/icons/ai.svg",
@@ -7493,9 +7579,31 @@ class AIChat extends StatefulWidget {
   State<AIChat> createState() => _AIChatState();
 }
 
+enum ChatMode { ask, agent }
+
+class _ModelOption {
+  final String id;
+  final String name;
+  final String? provider;
+  final Widget icon;
+  final bool isCopilot;
+  _ModelOption({
+    required this.id,
+    required this.name,
+    this.provider,
+    required this.icon,
+    this.isCopilot = false,
+  });
+}
+
 class _AIChatState extends State<AIChat> {
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool _useCopilot = false;
+  ChatMode _chatMode = ChatMode.ask;
+  int _requestsUsed = 0;
+  int _maxRequests = 2000; // Monthly limit for premium
+  double _responseRate = 1.0; // 1x normal speed
 
   @override
   void initState() {
@@ -7507,6 +7615,290 @@ class _AIChatState extends State<AIChat> {
     _promptController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // VS Code style mode selector (Ask/Agent)
+  Widget _buildModeSelector(Color textColor, bool isDark) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withAlpha(15) : Colors.black.withAlpha(8),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(15),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ChatMode>(
+          value: _chatMode,
+          isDense: true,
+          icon: Icon(Icons.arrow_drop_down, color: textColor.withAlpha(150), size: 18),
+          dropdownColor: isDark ? const Color(0xff2d2d2d) : Colors.white,
+          style: TextStyle(color: textColor, fontSize: 13),
+          items: [
+            DropdownMenuItem(
+              value: ChatMode.ask,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chat_bubble_outline, size: 14, color: textColor.withAlpha(180)),
+                  const SizedBox(width: 6),
+                  Text('Ask', style: TextStyle(color: textColor, fontSize: 13)),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: ChatMode.agent,
+              enabled: false, // Agent mode not implemented yet
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.smart_toy_outlined, size: 14, color: textColor.withAlpha(100)),
+                  const SizedBox(width: 6),
+                  Text('Agent', style: TextStyle(color: textColor.withAlpha(100), fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withAlpha(30),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text('Soon', style: TextStyle(color: Colors.orange, fontSize: 9)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (mode) {
+            if (mode != null && mode == ChatMode.ask) {
+              setState(() => _chatMode = mode);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  // Model selector dropdown
+  Widget _buildModelSelector(
+    BuildContext context, 
+    AIState aiState, 
+    CopilotState copilotState, 
+    Color textColor, 
+    bool isDark,
+  ) {
+    final isCopilotAvailable = copilotState.status == CopilotStatus.signedIn;
+    final hasExternalModels = aiState.config.isNotEmpty;
+    
+    // Build list of available models
+    final List<_ModelOption> models = [];
+    
+    // Add Copilot if available
+    if (isCopilotAvailable) {
+      models.add(_ModelOption(
+        id: 'copilot',
+        name: 'GitHub Copilot',
+        icon: SvgPicture.asset(
+          'assets/icons/github-copilot-icon.svg',
+          height: 14,
+          width: 14,
+          colorFilter: ColorFilter.mode(Colors.green, BlendMode.srcIn),
+        ),
+        isCopilot: true,
+      ));
+    }
+    
+    // Add external models
+    if (hasExternalModels) {
+      for (final entry in aiState.config.entries) {
+        final config = entry.value as Map<String, dynamic>;
+        final provider = config['apiProvider'] as String? ?? 'Unknown';
+        final modelName = config['model'] as String? ?? entry.key;
+        models.add(_ModelOption(
+          id: entry.key,
+          name: modelName,
+          provider: provider,
+          icon: _getProviderIcon(provider, textColor),
+          isCopilot: false,
+        ));
+      }
+    }
+    
+    if (models.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Find current selection
+    final currentModelId = _useCopilot ? 'copilot' : (aiState.modelSelected['chat'] ?? models.first.id);
+    
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withAlpha(15) : Colors.black.withAlpha(8),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(15),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: currentModelId,
+          isDense: true,
+          isExpanded: true,
+          icon: Icon(Icons.arrow_drop_down, color: textColor.withAlpha(150), size: 18),
+          dropdownColor: isDark ? const Color(0xff2d2d2d) : Colors.white,
+          style: TextStyle(color: textColor, fontSize: 13),
+          items: models.map((model) {
+            return DropdownMenuItem<String>(
+              value: model.id,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  model.icon,
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      model.name,
+                      style: TextStyle(color: textColor, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (model.provider != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${model.provider})',
+                      style: TextStyle(color: textColor.withAlpha(100), fontSize: 11),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (modelId) {
+            if (modelId == null) return;
+            setState(() {
+              if (modelId == 'copilot') {
+                _useCopilot = true;
+              } else {
+                _useCopilot = false;
+                // Update selected model
+                context.read<AIBloc>().add(ModelSelectEvent({'chat': modelId}));
+              }
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _getProviderIcon(String provider, Color textColor) {
+    IconData iconData;
+    Color color;
+    
+    switch (provider.toLowerCase()) {
+      case 'openai':
+        iconData = Icons.auto_awesome;
+        color = Colors.green;
+        break;
+      case 'google':
+      case 'gemini':
+        iconData = Icons.auto_awesome;
+        color = Colors.blue;
+        break;
+      case 'anthropic':
+      case 'claude':
+        iconData = Icons.psychology;
+        color = Colors.orange;
+        break;
+      case 'openrouter':
+        iconData = Icons.route;
+        color = Colors.purple;
+        break;
+      default:
+        iconData = Icons.smart_toy_outlined;
+        color = textColor.withAlpha(150);
+    }
+    
+    return Icon(iconData, size: 14, color: color);
+  }
+
+  // Rate selector (1x, 0.5x, 2x, etc.)
+  Widget _buildRateSelector(Color textColor, bool isDark) {
+    final rates = [0.5, 1.0, 1.5, 2.0, 3.0];
+    
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<double>(
+          value: _responseRate,
+          isDense: true,
+          icon: const SizedBox.shrink(),
+          dropdownColor: isDark ? const Color(0xff2d2d2d) : Colors.white,
+          style: TextStyle(color: textColor, fontSize: 11),
+          items: rates.map((rate) {
+            return DropdownMenuItem<double>(
+              value: rate,
+              child: Text(
+                '${rate}x',
+                style: TextStyle(
+                  color: rate == _responseRate ? Colors.blue : textColor,
+                  fontSize: 11,
+                  fontWeight: rate == _responseRate ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (rate) {
+            if (rate != null) {
+              setState(() => _responseRate = rate);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  // Premium usage indicator
+  Widget _buildUsageIndicator(Color textColor, bool isDark) {
+    final usagePercent = (_requestsUsed / _maxRequests * 100).clamp(0, 100);
+    final usageColor = usagePercent > 80 
+        ? Colors.red 
+        : usagePercent > 50 
+            ? Colors.orange 
+            : Colors.green;
+    
+    return Tooltip(
+      message: '$_requestsUsed / $_maxRequests premium requests used',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bolt, size: 12, color: usageColor),
+            const SizedBox(width: 4),
+            Text(
+              '${usagePercent.toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: usageColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   
@@ -7887,6 +8279,112 @@ class _AIChatState extends State<AIChat> {
     }
   }
 
+  void _sendCopilotPrompt(List<AIConversation> currentList, String? sessionId) async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) return;
+
+    final copilotBloc = context.read<CopilotBloc>();
+    final chatSessionBloc = context.read<ChatSessionBloc>();
+
+    // Check if Copilot is ready
+    if (copilotBloc.state.status != CopilotStatus.signedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to GitHub Copilot first'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final newList = currentList.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
+    newList.add(AIConversation(prompt, ""));
+    
+    chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+
+    final int index = newList.length - 1;
+    _promptController.clear();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    // Get file context if available
+    String? fileContent;
+    String? languageId;
+    try {
+      final file = File(widget.filePath);
+      if (await file.exists()) {
+        fileContent = await file.readAsString();
+        final ext = path.extension(widget.filePath).substring(1);
+        languageId = languages
+            .firstWhere((l) => l.extension.contains(ext), orElse: () => languages.first)
+            .name
+            .toLowerCase();
+      }
+    } catch (_) {}
+
+    // Send to Copilot chat
+    copilotBloc.add(CopilotChatSend(
+      message: prompt,
+      filePath: widget.filePath,
+      content: fileContent,
+      languageId: languageId,
+    ));
+
+    // Listen for streaming response
+    StreamSubscription<CopilotState>? subscription;
+    subscription = copilotBloc.stream.listen((state) {
+      // Find the assistant message
+      final assistantMessage = state.chatMessages.lastWhere(
+        (m) => m.role == 'assistant',
+        orElse: () => CopilotChatMessage(role: 'none', content: '', timestamp: DateTime.now()),
+      );
+
+      if (assistantMessage.role == 'assistant') {
+        final currentSession = chatSessionBloc.state.currentSession;
+        if (currentSession != null) {
+          final updated = currentSession.conversations
+              .map((c) => AIConversation(c.userRequest, c.modelResponse))
+              .toList();
+
+          if (index < updated.length) {
+            updated[index] = updated[index].copyWith(
+              modelResponse: assistantMessage.content,
+            );
+            chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+          }
+
+          // Cancel subscription if not streaming anymore
+          if (!assistantMessage.isStreaming && assistantMessage.content.isNotEmpty) {
+            subscription?.cancel();
+            
+            // Generate title for first message
+            if (index == 0 && assistantMessage.content.isNotEmpty) {
+              final fallbackTitle = prompt.split(' ').take(5).join(' ');
+              chatSessionBloc.add(UpdateSessionTitle(
+                sessionId: currentSession.id,
+                title: fallbackTitle,
+              ));
+            }
+          }
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AppThemeBloc, AppThemeState>(
@@ -7894,70 +8392,101 @@ class _AIChatState extends State<AIChat> {
         return BlocBuilder<AIBloc, AIState>(
           builder: (context, aiState) {
             final Models? chatModel = aiState.chatModel;
-            if (aiState.config.isEmpty ||
+            final bool externalModelConfigured = !(aiState.config.isEmpty ||
                 aiState.modelSelected.isEmpty ||
                 aiState.modelSelected['chat'] == null ||
-                aiState.config[aiState.modelSelected['chat']] == null) {
-              return Center(
-                child: Text(
-                  "Chat Model is not configured. Go to the settings and create one.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: appThemeState.appTheme.selectScreenCardTextColor,
-                  ),
-                ),
-              );
-            }
+                aiState.config[aiState.modelSelected['chat']] == null);
+            
+            return BlocBuilder<CopilotBloc, CopilotState>(
+              builder: (context, copilotState) {
+                final bool copilotAvailable = copilotState.status == CopilotStatus.signedIn && 
+                                               copilotState.isEnabled;
+                
+                // Show error message only if BOTH external models AND copilot are unavailable
+                if (!externalModelConfigured && !copilotAvailable) {
+                  return Center(
+                    child: Text(
+                      "Chat Model is not configured. Either create a model in settings or sign in with GitHub Copilot.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: appThemeState.appTheme.selectScreenCardTextColor,
+                      ),
+                    ),
+                  );
+                }
+                
             return BlocBuilder<ChatSessionBloc, ChatSessionState>(
               builder: (context, sessionState) {
                 final conversations = sessionState.currentSession?.conversations ?? [];
                 final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
+                final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+                final isDark = appThemeState.appTheme.isDark;
+                
                 return SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 5,
-                            top: 10,
-                            left: 10,
-                          ),
-                          child: Row(
+                        // VS Code style header
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  sessionTitle,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 16,
-                                    color: appThemeState.appTheme.selectScreenCardTextColor,
+                              // First row: Mode selector and actions
+                              Row(
+                                children: [
+                                  // Mode dropdown (Ask/Agent)
+                                  _buildModeSelector(textColor, isDark),
+                                  const SizedBox(width: 8),
+                                  // Model selector
+                                  Expanded(
+                                    child: _buildModelSelector(
+                                      context, 
+                                      aiState, 
+                                      copilotState, 
+                                      textColor, 
+                                      isDark,
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
-                                icon: Icon(
-                                  Icons.history,
-                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
-                                ),
-                                tooltip: 'Chat History',
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 1.5),
-                                child: IconButton(
-                                  onPressed: () {
-                                    context.read<ChatSessionBloc>().add(CreateNewSession());
-                                  },
-                                  icon: Icon(
-                                    Icons.add_comment_outlined,
-                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
-                                    size: 21,
+                                  // Actions
+                                  IconButton(
+                                    onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
+                                    icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
+                                    tooltip: 'Chat History',
+                                    visualDensity: VisualDensity.compact,
                                   ),
-                                  tooltip: 'New Chat',
-                                ),
+                                  IconButton(
+                                    onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
+                                    icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
+                                    tooltip: 'New Chat',
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Second row: Session title and rate/usage
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      sessionTitle,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                        color: textColor.withAlpha(180),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // Rate selector
+                                  if (_useCopilot) ...[
+                                    _buildRateSelector(textColor, isDark),
+                                    const SizedBox(width: 8),
+                                    // Usage indicator
+                                    _buildUsageIndicator(textColor, isDark),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -7976,8 +8505,12 @@ class _AIChatState extends State<AIChat> {
                             ),
                             suffix: IconButton(
                               onPressed: () async {
-                                _sendPrompt(chatModel!, conversations, sessionState.currentSession?.id);
-                                _promptController.clear();
+                                if (_useCopilot) {
+                                  _sendCopilotPrompt(conversations, sessionState.currentSession?.id);
+                                } else {
+                                  _sendPrompt(chatModel!, conversations, sessionState.currentSession?.id);
+                                  _promptController.clear();
+                                }
                               },
                               icon: Icon(
                                 Icons.send,
@@ -8141,7 +8674,9 @@ class _AIChatState extends State<AIChat> {
             );
           },
         );
-      },
+      }
+    );
+    }
     );
   }
 
@@ -8377,8 +8912,6 @@ class _AIChatState extends State<AIChat> {
     }
   }
 }
-
-
 
 class SettingsTab extends StatelessWidget {
   final AppTheme appTheme;

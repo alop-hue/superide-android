@@ -317,3 +317,109 @@ class DownloadManagerState {
     return fullyCompleted.contains(index);
   }
 }
+
+// ================== Copilot State ==================
+
+enum CopilotStatus {
+  notInitialized,
+  initializing,
+  notSignedIn,
+  signingIn,
+  signedIn,
+  notAuthorized,
+  error,
+}
+
+class CopilotCompletionData {
+  final String text;
+  final String displayText;
+  final String uuid;
+
+  CopilotCompletionData({
+    required this.text,
+    required this.displayText,
+    required this.uuid,
+  });
+}
+
+class CopilotChatMessage {
+  final String role;
+  final String content;
+  final DateTime timestamp;
+  final bool isStreaming;
+
+  CopilotChatMessage({
+    required this.role,
+    required this.content,
+    required this.timestamp,
+    this.isStreaming = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'role': role,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory CopilotChatMessage.fromJson(Map<String, dynamic> json) => CopilotChatMessage(
+    role: json['role'],
+    content: json['content'],
+    timestamp: DateTime.parse(json['timestamp']),
+  );
+}
+
+class CopilotState {
+  final CopilotStatus status;
+  final String? user;
+  final String? error;
+  final bool isInitialized;
+  final bool isEnabled;
+  final CopilotSignInPayload? signInPayload;
+  final CopilotCompletionData? currentCompletion;
+  final List<CopilotChatMessage> chatMessages;
+  final bool isChatStreaming;
+
+  CopilotState({
+    required this.status,
+    this.user,
+    this.error,
+    this.isInitialized = false,
+    this.isEnabled = true,
+    this.signInPayload,
+    this.currentCompletion,
+    this.chatMessages = const [],
+    this.isChatStreaming = false,
+  });
+
+  factory CopilotState.initial() => CopilotState(
+    status: CopilotStatus.notInitialized,
+  );
+
+  bool get isSignedIn => status == CopilotStatus.signedIn;
+  bool get canUseCompletion => isSignedIn && isEnabled;
+
+  CopilotState copyWith({
+    CopilotStatus? status,
+    String? user,
+    String? error,
+    bool? isInitialized,
+    bool? isEnabled,
+    CopilotSignInPayload? signInPayload,
+    CopilotCompletionData? currentCompletion,
+    bool clearCompletion = false,
+    List<CopilotChatMessage>? chatMessages,
+    bool? isChatStreaming,
+  }) {
+    return CopilotState(
+      status: status ?? this.status,
+      user: user ?? this.user,
+      error: error,
+      isInitialized: isInitialized ?? this.isInitialized,
+      isEnabled: isEnabled ?? this.isEnabled,
+      signInPayload: signInPayload ?? this.signInPayload,
+      currentCompletion: clearCompletion ? null : (currentCompletion ?? this.currentCompletion),
+      chatMessages: chatMessages ?? this.chatMessages,
+      isChatStreaming: isChatStreaming ?? this.isChatStreaming,
+    );
+  }
+}

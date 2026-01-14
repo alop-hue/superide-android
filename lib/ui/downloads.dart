@@ -125,6 +125,11 @@ class _DownloadManagerState extends State<DownloadManager> {
       if (await archiveFile.exists()) {
         await archiveFile.delete();
       }
+
+      if(archiveName == "copilot-language-server.zip"){
+        final String sharedPath = await NativeChannel.getLibraryPath();
+        await Process.run("ln", ["-sf", "$sharedPath/librg.so", "$extensionDir/copilot-language-server/bin/linux/arm64/rg"]);
+      }
       
       downloadBloc.markFullyCompleted(index);
     } catch (e) {
@@ -242,7 +247,6 @@ class _DownloadManagerState extends State<DownloadManager> {
                                 }
                               }
                               
-                              
                               final zipExistsButNotExtracted = archiveFile.existsSync() && !parentDir.existsSync();
                               if (zipExistsButNotExtracted && !isExtracting) {
                                 
@@ -259,7 +263,6 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   ),
                                 );
                               }
-                              
                               
                               final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(index);
                               
@@ -345,9 +348,6 @@ class _DownloadManagerState extends State<DownloadManager> {
                               
                               return GestureDetector(
                                 onTap: () async {
-                                  if (!(await Directory(downloadsDir).exists())) {
-                                    await Directory(downloadsDir).create(recursive: true);
-                                  }
                                   
                                   if (!context.mounted) return;
                                   _startDownload(
@@ -382,6 +382,7 @@ class _DownloadManagerState extends State<DownloadManager> {
               child: ListView.builder(
                 itemCount: extensions.length,
                 itemBuilder: (_, index) {
+                  final extensionIndex = index + runtimes.length;
                   final exten = extensions[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -417,13 +418,13 @@ class _DownloadManagerState extends State<DownloadManager> {
                           width: 100,
                           child: BlocBuilder<DownloadManagerBloc, DownloadManagerState>(
                             builder: (context, downloadState) {
-                              final percent = downloadState.downloadProgress[index] ?? 0;
+                              final percent = downloadState.downloadProgress[extensionIndex] ?? 0;
                               final File archiveFile = File("$extensionDir/${extensions[index].archiveName}");
                               final Directory parentDir = Directory("$extensionDir/${extensions[index].parentName}");
                               
                               
-                              final isExtracting = downloadState.isExtracting(index);
-                              final extractionPercent = downloadState.extractionProgress[index] ?? 0;
+                              final isExtracting = downloadState.isExtracting(extensionIndex);
+                              final extractionPercent = downloadState.extractionProgress[extensionIndex] ?? 0;
                               
                               
                               if (isExtracting) {
@@ -473,7 +474,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                               }
                               
                               
-                              final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(index);
+                              final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(extensionIndex);
                               
                               if (isFullyInstalled) {
                                 return IconButton(
@@ -509,9 +510,9 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               if (parentDir.existsSync()) {
                                                 parentDir.deleteSync(recursive: true);
                                               }
-                                              context.read<DownloadManagerBloc>().removeDownload(index);
+                                              context.read<DownloadManagerBloc>().removeDownload(extensionIndex);
                                               setState(() {
-                                                loadingIndexes.remove(index);
+                                                loadingIndexes.remove(extensionIndex);
                                               });
                                               Navigator.of(context).pop(true);
                                             },
@@ -540,7 +541,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                 );
                               }
                               
-                              if (loadingIndexes.contains(index)) {
+                              if (loadingIndexes.contains(extensionIndex)) {
                                 return LinearPercentIndicator(
                                   progressColor: Colors.blueAccent.withAlpha(180),
                                   percent: 0.0,
@@ -564,7 +565,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   if (!context.mounted) return;
                                   _startDownload(
                                     context,
-                                    index,
+                                    extensionIndex,
                                     extensions[index].url,
                                     extensions[index].archiveName,
                                     downloadsDir,

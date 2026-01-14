@@ -82,6 +82,7 @@ class _StartScreenState extends State<StartScreen> {
     }
     
     await setupFilesDir();
+    await setupProjectDir();
 
     final String sharedPath = await NativeChannel.getLibraryPath();
 

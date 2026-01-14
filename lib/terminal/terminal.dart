@@ -135,7 +135,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       .listen(terminal.write);
 
     pty.exitCode.then((code) {
-      terminal.write("[Program finished with exit code $code]");
+      terminal.write("\r\n\n[Program finished with exit code $code]");
     });
 
     terminal.onOutput = (data) {

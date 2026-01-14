@@ -1,11 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:vsdroid/utils/constants.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
@@ -54,6 +58,823 @@ int main() {
     "FireWorks",
     ];
   
+  Widget _buildCopilotButton(BuildContext context, CopilotState copilotState, AppThemeState appThemeState) {
+    final status = copilotState.status;
+    String buttonText;
+    Color buttonColor;
+    VoidCallback? onPressed;
+    bool showLoading = false;
+    
+    switch (status) {
+      case CopilotStatus.notInitialized:
+      case CopilotStatus.notSignedIn:
+        buttonText = "Sign in with GitHub Copilot";
+        buttonColor = Colors.lightBlue;
+        onPressed = () => _startCopilotSignIn(context, appThemeState);
+        break;
+      case CopilotStatus.initializing:
+      case CopilotStatus.signingIn:
+        buttonText = "Connecting...";
+        buttonColor = Colors.grey;
+        showLoading = true;
+        onPressed = null;
+        break;
+      case CopilotStatus.signedIn:
+        buttonText = copilotState.user != null 
+            ? "Signed in as ${copilotState.user}"
+            : "GitHub Copilot Connected";
+        buttonColor = Colors.green;
+        onPressed = () => _showCopilotSettings(context, copilotState, appThemeState);
+        break;
+      case CopilotStatus.notAuthorized:
+        buttonText = "Copilot Not Authorized";
+        buttonColor = Colors.orange;
+        onPressed = () => _showNotAuthorizedDialog(context, appThemeState);
+        break;
+      case CopilotStatus.error:
+        buttonText = "Connection Error";
+        buttonColor = Colors.red;
+        onPressed = () => _startCopilotSignIn(context, appThemeState);
+        break;
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.only(top: 15),
+      child: SizedBox(
+        width: 280,
+        height: 45,
+        child: ElevatedButton(
+          onPressed: (){
+            if(!(Directory("$extensionDir/copilot-language-server").existsSync())){
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    "GitHub Copilot extension is not installed.\nPlease go to the extensions page and download it first.",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  backgroundColor: Colors.redAccent,
+                  duration: Duration(seconds: 4),
+                )
+              );
+              return;
+            }
+            onPressed?.call();
+          },
+          style: ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            backgroundColor: WidgetStatePropertyAll(buttonColor),
+          ),
+          child: showLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Row(
+                  spacing: 7.5,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/github-copilot-icon.svg',
+                      height: 20,
+                      width: 20,
+                      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                    ),
+                    Flexible(
+                      child: Text(
+                        buttonText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  void _startCopilotSignIn(BuildContext context, AppThemeState appThemeState) async {
+    final copilotBloc = context.read<CopilotBloc>();
+    
+    if (copilotBloc.state.status == CopilotStatus.notInitialized) {
+      final configPath = '/data/data/com.vsdroid/files';
+      copilotBloc.add(CopilotInitialize(configPath: configPath));
+      
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    copilotBloc.add(CopilotSignInInitiate());
+    
+    if (context.mounted) {
+      _showSignInDialog(context, appThemeState);
+    }
+  }
+
+  void _showSignInDialog(BuildContext context, AppThemeState appThemeState) {
+    final isDark = appThemeState.appTheme.isDark;
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return BlocBuilder<CopilotBloc, CopilotState>(
+          builder: (context, state) {
+            if (state.status == CopilotStatus.signedIn) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Text('Signed in as ${state.user ?? "user"}'),
+                        ],
+                      ),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                }
+              });
+            }
+            
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                width: 340,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                        : [const Color(0xfffafafa), const Color(0xfff0f0f0)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff0078d4).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: SvgPicture.asset(
+                            'assets/icons/github-copilot-icon.svg',
+                            height: 28,
+                            width: 28,
+                            colorFilter: ColorFilter.mode(
+                              isDark ? Colors.white : const Color(0xff0078d4),
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'GitHub Copilot',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                'Sign in to continue',
+                                style: TextStyle(
+                                  color: textColor.withOpacity(0.6),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: Icon(
+                            Icons.close,
+                            color: textColor.withOpacity(0.5),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Content
+                    _buildSignInDialogContent(state, context, appThemeState),
+                    const SizedBox(height: 24),
+                    // Actions
+                    if (state.signInPayload != null && state.status != CopilotStatus.signedIn)
+                      _buildSignInButton(context, state, isDark),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSignInButton(BuildContext context, CopilotState state, bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: () async {
+          // Copy code to clipboard first
+          final code = state.signInPayload!.userCode;
+          if (code != null) {
+            await Clipboard.setData(ClipboardData(text: code));
+          }
+          
+          // Open browser using URL launcher
+          const url = 'https://github.com/login/device';
+          final uri = Uri.parse(url);
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            debugPrint('Failed to launch URL: $e');
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xff238636),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.open_in_browser, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Sign in with GitHub',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignInDialogContent(CopilotState state, BuildContext context, AppThemeState appThemeState) {
+    final isDark = appThemeState.appTheme.isDark;
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    
+    if (state.status == CopilotStatus.signingIn && state.signInPayload == null) {
+      return SizedBox(
+        height: 120,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDark ? Colors.white : const Color(0xff0078d4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Connecting to GitHub...',
+              style: TextStyle(
+                color: textColor.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (state.signInPayload != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // User code display
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark 
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark 
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.1),
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Your code',
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.6),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SelectableText(
+                  state.signInPayload!.userCode ?? '',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 6,
+                    fontFamily: 'monospace',
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Copy button
+          TextButton.icon(
+            onPressed: () {
+              final code = state.signInPayload!.userCode;
+              if (code != null) {
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Row(
+                      children: [
+                        Icon(Icons.check, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('Code copied!'),
+                      ],
+                    ),
+                    backgroundColor: const Color(0xff238636),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              Icons.copy_rounded,
+              size: 18,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+            label: Text(
+              'Copy code',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Instructions
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xff0078d4).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: isDark ? Colors.lightBlueAccent : const Color(0xff0078d4),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Click the button below to open GitHub.\nPaste the code when prompted.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textColor.withOpacity(0.8),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    
+    if (state.status == CopilotStatus.error) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              state.error ?? 'An error occurred',
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                context.read<CopilotBloc>().add(CopilotSignInInitiate());
+              },
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
+
+  void _showCopilotSettings(BuildContext context, CopilotState state, AppThemeState appThemeState) {
+    final isDark = appThemeState.appTheme.isDark;
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 340,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [const Color(0xfffafafa), const Color(0xfff0f0f0)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/icons/github-copilot-icon.svg',
+                        height: 28,
+                        width: 28,
+                        colorFilter: ColorFilter.mode(
+                          Colors.green,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'GitHub Copilot',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Connected',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: Icon(
+                        Icons.close,
+                        color: textColor.withOpacity(0.5),
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // User info
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark 
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.black.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff238636).withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Color(0xff238636),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            state.user ?? 'User',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'GitHub Account',
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Enable/Disable toggle
+                BlocBuilder<CopilotBloc, CopilotState>(
+                  builder: (context, copilotState) {
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.03),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                copilotState.isEnabled 
+                                    ? Icons.auto_awesome 
+                                    : Icons.auto_awesome_outlined,
+                                color: copilotState.isEnabled 
+                                    ? const Color(0xff238636)
+                                    : textColor.withOpacity(0.5),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Enable Copilot',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: copilotState.isEnabled,
+                            activeColor: const Color(0xff238636),
+                            onChanged: (value) {
+                              context.read<CopilotBloc>().add(CopilotSetEnabled(value));
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                
+                // Sign out button
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      context.read<CopilotBloc>().add(CopilotSignOut());
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Row(
+                            children: [
+                              Icon(Icons.logout, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text('Signed out from Copilot'),
+                            ],
+                          ),
+                          backgroundColor: Colors.grey[700],
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Sign Out'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNotAuthorizedDialog(BuildContext context, AppThemeState appThemeState) {
+    final isDark = appThemeState.appTheme.isDark;
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 340,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                    : [const Color(0xfffafafa), const Color(0xfff0f0f0)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Warning icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 48,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Title
+                Text(
+                  'Not Authorized',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Description
+                Text(
+                  'Your GitHub account does not have access to GitHub Copilot. Please ensure you have an active Copilot subscription.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.7),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Action button
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Got it',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override void dispose() {
     scrollController.dispose();
     themeScroll.dispose();
@@ -665,39 +1486,10 @@ int main() {
                             spacing: 10,
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 15),
-                                child: SizedBox(
-                                  width: 250,
-                                  height: 45,
-                                  child: ElevatedButton(
-                                    onPressed: (){},
-                                    style: ButtonStyle(
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(8))),
-                                      backgroundColor: WidgetStatePropertyAll(Colors.lightBlue)
-                                    ),
-                                    child: Row(
-                                      spacing: 7.5,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        SvgPicture.asset(
-                                          'assets/icons/github-copilot-icon.svg',
-                                          height: 20,
-                                          width: 20,
-                                          colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                                        ),
-                                        Text(
-                                          "GitHub Copilot",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15.5,
-                                            fontWeight: FontWeight.bold
-                                          ),
-                                        )
-                                      ],
-                                    )
-                                  ),
-                                ),
+                              BlocBuilder<CopilotBloc, CopilotState>(
+                                builder: (context, copilotState) {
+                                  return _buildCopilotButton(context, copilotState, appThemeState);
+                                },
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 10),

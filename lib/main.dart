@@ -63,6 +63,7 @@ class MainApp extends StatelessWidget {
           jsonDecode(modelSelected),
           jsonDecode(codeForgeConfig)['manualCompletion'] as bool
         )),
+        BlocProvider(create: (_) => CopilotBloc()..add(CopilotAutoInit())),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {
