@@ -210,7 +210,6 @@ class ClearSearchResults extends WorkspaceSearchEvent {}
 
 sealed class CopilotEvent extends UiEvent {}
 
-/// Auto-initialize Copilot and check status on app startup
 class CopilotAutoInit extends CopilotEvent {}
 
 class CopilotInitialize extends CopilotEvent {
@@ -227,7 +226,6 @@ class CopilotInitialize extends CopilotEvent {
 
 class CopilotSignInInitiate extends CopilotEvent {}
 
-/// Execute the sign-in command to open the browser
 class CopilotExecuteSignIn extends CopilotEvent {
   final Map<String, dynamic> command;
 
@@ -344,7 +342,6 @@ class CopilotChatSetStreaming extends CopilotEvent {
 
 class CopilotDispose extends CopilotEvent {}
 
-// Internal events for handling callbacks
 class _CopilotInternalUpdateMessages extends CopilotEvent {
   final List<CopilotChatMessage> messages;
 

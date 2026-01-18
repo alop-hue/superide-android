@@ -76,7 +76,6 @@ class CopilotCompletion {
   }
 }
 
-/// Copilot conversation turn entry
 class CopilotConversationEntry {
   final String kind;
   final String conversationId;

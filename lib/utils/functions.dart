@@ -1421,7 +1421,7 @@ Future<LspConfig?> startLspServer({
         }
         if (['py', 'sh', 'bash', 'zsh'].contains(ext)) {
           return [
-            extensions.singleWhere((item) => item.fileExtension[0] == ext).serverFile[0],
+            extensions.singleWhere((item) => item.fileExtension.isNotEmpty && item.fileExtension.contains(ext)).serverFile[0],
             ...args,
           ];
         }

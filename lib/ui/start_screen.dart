@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../ui/home.dart';
 import '../utils/functions.dart';
@@ -51,10 +53,10 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeApp();
+    _initializeApp(context);
   }
 
-  Future<void> _initializeApp() async {
+  Future<void> _initializeApp(BuildContext context) async {
     final downdir = Directory(downloadsDir);
     final gitCore = "$binDir/git-core";
     final binDirectory = Directory(binDir);
@@ -168,10 +170,11 @@ class _StartScreenState extends State<StartScreen> {
 
     setState(() {
       isDone = true;
+      context.read<CopilotBloc>().add(CopilotAutoInit());
     });
 
     Future.delayed(Duration(milliseconds: 0), () {
-      if (mounted) {
+      if (context.mounted) {
         Navigator.of(context).pushReplacement(PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => const SelectType(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {

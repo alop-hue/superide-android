@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vsdroid/utils/constants.dart';
 import '../../utils/ai.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
@@ -381,7 +382,6 @@ class DownloadManagerBloc extends Cubit<DownloadManagerState> {
   }
 }
 
-/// Bloc for managing GitHub Copilot state
 class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
   CopilotLsp? _client;
   CopilotCompletionManager? _completionManager;
@@ -417,19 +417,14 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
   CopilotLsp? get client => _client;
   CopilotCompletionManager? get completionManager => _completionManager;
 
-  /// Auto-initialize Copilot and check status on app startup
-  Future<void> _onAutoInit(CopilotAutoInit event, Emitter<CopilotState> emit) async {
-    // Check if copilot-language-server exists
+  void _onAutoInit(CopilotAutoInit event, Emitter<CopilotState> emit) {
     final configPath = '/data/data/com.vsdroid/files';
-    final extensionDir = '/data/data/com.vsdroid/files/extensions';
     final copilotPath = '$extensionDir/copilot-language-server';
     
     if (!Directory(copilotPath).existsSync()) {
       debugPrint('Copilot extension not installed, skipping auto-init');
       return;
     }
-    
-    // Initialize Copilot
     add(CopilotInitialize(configPath: configPath));
   }
 
@@ -439,7 +434,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     emit(state.copyWith(status: CopilotStatus.initializing));
     
     try {
-      // Load saved configuration first
       await _loadConfig(emit);
       
       _client = await CopilotLsp.start(
@@ -449,7 +443,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
       
       await _client!.initialize();
       
-      // Setup completion manager
       _completionManager = CopilotCompletionManager(
         client: _client!,
         debounceDelay: Duration(milliseconds: event.debounceMs),
@@ -469,17 +462,14 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         },
       );
       
-      // Listen to progress stream for chat
       _progressSubscription = _client!.progressStream.listen((progress) {
         _handleProgress(progress);
       });
       
-      // Listen to notifications
       _notificationSubscription = _client!.notificationStream.listen((notification) {
         debugPrint('Copilot notification: $notification');
       });
       
-      // Check status
       final statusPayload = await _client!.checkStatus();
       
       CopilotStatus newStatus;
@@ -497,7 +487,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         isInitialized: true,
       ));
       
-      // Save config
       await _saveConfig(true);
     } catch (e) {
       debugPrint('Copilot initialization error: $e');
@@ -540,12 +529,9 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     
     try {
       await _client!.executeCommand(event.command);
-      // The status will be updated via notification listener
-      // Start listening for status changes
       _notificationSubscription?.cancel();
       _notificationSubscription = _client!.notificationStream.listen((notification) {
         if (notification['type'] == 'status' || notification['type'] == 'statusNotification') {
-          // Check status after receiving notification
           add(CopilotCheckStatus());
         }
       });
@@ -710,7 +696,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         character: event.character,
       );
       
-      // Add user message
       add(CopilotChatAddMessage(CopilotChatMessage(
         role: 'user',
         content: event.message,
@@ -729,7 +714,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     
     emit(state.copyWith(isChatStreaming: true));
     
-    // Add user message
     add(CopilotChatAddMessage(CopilotChatMessage(
       role: 'user',
       content: event.message,
@@ -784,10 +768,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
       if (kind == 'report') {
         final reply = value['reply'] as String?;
         if (reply != null && reply.isNotEmpty) {
-          // Update or add assistant message
           final messages = List<CopilotChatMessage>.from(state.chatMessages);
-          
-          // Find existing assistant message being streamed
           final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
           
           if (lastAssistantIndex >= 0) {
@@ -810,7 +791,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
           add(_CopilotInternalUpdateMessages(messages));
         }
       } else if (kind == 'end') {
-        // Finalize the assistant message
         final messages = List<CopilotChatMessage>.from(state.chatMessages);
         final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
         
@@ -852,7 +832,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final configStr = prefs.getString(_storageKey);
-      
       if (configStr != null) {
         final config = jsonDecode(configStr) as Map<String, dynamic>;
         final wasSignedIn = config['isSignedIn'] as bool? ?? false;
@@ -860,7 +839,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         
         emit(state.copyWith(
           isEnabled: isEnabled,
-          // Don't set status yet - will be determined by checkStatus after init
         ));
         
         debugPrint('Loaded Copilot config: signedIn=$wasSignedIn, enabled=$isEnabled');

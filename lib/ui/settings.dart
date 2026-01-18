@@ -237,7 +237,6 @@ int main() {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header
                     Row(
                       children: [
                         Container(
@@ -290,10 +289,8 @@ int main() {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    // Content
                     _buildSignInDialogContent(state, context, appThemeState),
                     const SizedBox(height: 24),
-                    // Actions
                     if (state.signInPayload != null && state.status != CopilotStatus.signedIn)
                       _buildSignInButton(context, state, isDark),
                   ],
@@ -312,13 +309,11 @@ int main() {
       height: 48,
       child: ElevatedButton(
         onPressed: () async {
-          // Copy code to clipboard first
           final code = state.signInPayload!.userCode;
           if (code != null) {
             await Clipboard.setData(ClipboardData(text: code));
           }
           
-          // Open browser using URL launcher
           const url = 'https://github.com/login/device';
           final uri = Uri.parse(url);
           try {
@@ -390,7 +385,6 @@ int main() {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // User code display
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -430,7 +424,6 @@ int main() {
             ),
           ),
           const SizedBox(height: 16),
-          // Copy button
           TextButton.icon(
             onPressed: () {
               final code = state.signInPayload!.userCode;
@@ -466,7 +459,6 @@ int main() {
             ),
           ),
           const SizedBox(height: 12),
-          // Instructions
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -732,7 +724,6 @@ int main() {
                 ),
                 const SizedBox(height: 24),
                 
-                // Sign out button
                 SizedBox(
                   width: double.infinity,
                   height: 44,

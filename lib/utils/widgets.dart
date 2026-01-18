@@ -7617,7 +7617,6 @@ class _AIChatState extends State<AIChat> {
     super.dispose();
   }
 
-  // VS Code style mode selector (Ask/Agent)
   Widget _buildModeSelector(Color textColor, bool isDark) {
     return Container(
       height: 32,
@@ -7680,7 +7679,6 @@ class _AIChatState extends State<AIChat> {
     );
   }
 
-  // Model selector dropdown
   Widget _buildModelSelector(
     BuildContext context, 
     AIState aiState, 
@@ -7690,11 +7688,8 @@ class _AIChatState extends State<AIChat> {
   ) {
     final isCopilotAvailable = copilotState.status == CopilotStatus.signedIn;
     final hasExternalModels = aiState.config.isNotEmpty;
-    
-    // Build list of available models
     final List<_ModelOption> models = [];
     
-    // Add Copilot if available
     if (isCopilotAvailable) {
       models.add(_ModelOption(
         id: 'copilot',
@@ -7709,7 +7704,6 @@ class _AIChatState extends State<AIChat> {
       ));
     }
     
-    // Add external models
     if (hasExternalModels) {
       for (final entry in aiState.config.entries) {
         final config = entry.value as Map<String, dynamic>;
@@ -7729,7 +7723,6 @@ class _AIChatState extends State<AIChat> {
       return const SizedBox.shrink();
     }
     
-    // Find current selection
     final currentModelId = _useCopilot ? 'copilot' : (aiState.modelSelected['chat'] ?? models.first.id);
     
     return Container(
@@ -7783,7 +7776,6 @@ class _AIChatState extends State<AIChat> {
                 _useCopilot = true;
               } else {
                 _useCopilot = false;
-                // Update selected model
                 context.read<AIBloc>().add(ModelSelectEvent({'chat': modelId}));
               }
             });
@@ -7824,7 +7816,6 @@ class _AIChatState extends State<AIChat> {
     return Icon(iconData, size: 14, color: color);
   }
 
-  // Rate selector (1x, 0.5x, 2x, etc.)
   Widget _buildRateSelector(Color textColor, bool isDark) {
     final rates = [0.5, 1.0, 1.5, 2.0, 3.0];
     
@@ -7865,7 +7856,6 @@ class _AIChatState extends State<AIChat> {
     );
   }
 
-  // Premium usage indicator
   Widget _buildUsageIndicator(Color textColor, bool isDark) {
     final usagePercent = (_requestsUsed / _maxRequests * 100).clamp(0, 100);
     final usageColor = usagePercent > 80 
@@ -8286,7 +8276,6 @@ class _AIChatState extends State<AIChat> {
     final copilotBloc = context.read<CopilotBloc>();
     final chatSessionBloc = context.read<ChatSessionBloc>();
 
-    // Check if Copilot is ready
     if (copilotBloc.state.status != CopilotStatus.signedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -8315,7 +8304,6 @@ class _AIChatState extends State<AIChat> {
       }
     });
 
-    // Get file context if available
     String? fileContent;
     String? languageId;
     try {
@@ -8330,7 +8318,6 @@ class _AIChatState extends State<AIChat> {
       }
     } catch (_) {}
 
-    // Send to Copilot chat
     copilotBloc.add(CopilotChatSend(
       message: prompt,
       filePath: widget.filePath,
@@ -8338,10 +8325,8 @@ class _AIChatState extends State<AIChat> {
       languageId: languageId,
     ));
 
-    // Listen for streaming response
     StreamSubscription<CopilotState>? subscription;
     subscription = copilotBloc.stream.listen((state) {
-      // Find the assistant message
       final assistantMessage = state.chatMessages.lastWhere(
         (m) => m.role == 'assistant',
         orElse: () => CopilotChatMessage(role: 'none', content: '', timestamp: DateTime.now()),
@@ -8361,11 +8346,9 @@ class _AIChatState extends State<AIChat> {
             chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
           }
 
-          // Cancel subscription if not streaming anymore
           if (!assistantMessage.isStreaming && assistantMessage.content.isNotEmpty) {
             subscription?.cancel();
             
-            // Generate title for first message
             if (index == 0 && assistantMessage.content.isNotEmpty) {
               final fallbackTitle = prompt.split(' ').take(5).join(' ');
               chatSessionBloc.add(UpdateSessionTitle(
@@ -8399,8 +8382,7 @@ class _AIChatState extends State<AIChat> {
             
             return BlocBuilder<CopilotBloc, CopilotState>(
               builder: (context, copilotState) {
-                final bool copilotAvailable = copilotState.status == CopilotStatus.signedIn && 
-                                               copilotState.isEnabled;
+                final bool copilotAvailable = copilotState.status == CopilotStatus.signedIn && copilotState.isEnabled;
                 
                 // Show error message only if BOTH external models AND copilot are unavailable
                 if (!externalModelConfigured && !copilotAvailable) {
@@ -8427,44 +8409,40 @@ class _AIChatState extends State<AIChat> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Column(
                       children: [
-                        // VS Code style header
                         Container(
                           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                           child: Column(
                             children: [
-                              // First row: Mode selector and actions
-                              Row(
+                              Column(
+                                spacing: 3.5,
                                 children: [
-                                  // Mode dropdown (Ask/Agent)
-                                  _buildModeSelector(textColor, isDark),
-                                  const SizedBox(width: 8),
-                                  // Model selector
-                                  Expanded(
-                                    child: _buildModelSelector(
-                                      context, 
-                                      aiState, 
-                                      copilotState, 
-                                      textColor, 
-                                      isDark,
-                                    ),
+                                  _buildModelSelector(
+                                    context, 
+                                    aiState, 
+                                    copilotState, 
+                                    textColor, 
+                                    isDark,
                                   ),
-                                  // Actions
-                                  IconButton(
-                                    onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
-                                    icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
-                                    tooltip: 'Chat History',
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  IconButton(
-                                    onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
-                                    icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
-                                    tooltip: 'New Chat',
-                                    visualDensity: VisualDensity.compact,
+                                  Row(
+                                    children: [
+                                      Expanded(child: _buildModeSelector(textColor, isDark)),
+                                      IconButton(
+                                        onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
+                                        icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
+                                        tooltip: 'Chat History',
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      IconButton(
+                                        onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
+                                        icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
+                                        tooltip: 'New Chat',
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              // Second row: Session title and rate/usage
                               Row(
                                 children: [
                                   Expanded(
@@ -8479,11 +8457,9 @@ class _AIChatState extends State<AIChat> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  // Rate selector
                                   if (_useCopilot) ...[
                                     _buildRateSelector(textColor, isDark),
                                     const SizedBox(width: 8),
-                                    // Usage indicator
                                     _buildUsageIndicator(textColor, isDark),
                                   ],
                                 ],
