@@ -1013,17 +1013,17 @@ Future<String> gitHubSignIn() async {
     }
 
     final response = await http
-        .post(
-          Uri.parse('$backEndHandler/github/oauth'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'code': code}),
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            return http.Response('Backend connection timeout', 408);
-          },
-        );
+      .post(
+        Uri.parse('$backEndHandler/github/oauth'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'code': code}),
+      )
+      .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          return http.Response('Backend connection timeout', 408);
+        },
+      );
 
     if (response.statusCode != 200) {
       return ('${response.statusCode}: ${response.body}');

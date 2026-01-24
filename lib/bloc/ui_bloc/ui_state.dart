@@ -378,6 +378,7 @@ class CopilotState {
   final CopilotCompletionData? currentCompletion;
   final List<CopilotChatMessage> chatMessages;
   final bool isChatStreaming;
+  final List<Map<String, dynamic>> models;
 
   CopilotState({
     required this.status,
@@ -389,6 +390,7 @@ class CopilotState {
     this.currentCompletion,
     this.chatMessages = const [],
     this.isChatStreaming = false,
+    this.models = const [],
   });
 
   factory CopilotState.initial() => CopilotState(
@@ -409,6 +411,7 @@ class CopilotState {
     bool clearCompletion = false,
     List<CopilotChatMessage>? chatMessages,
     bool? isChatStreaming,
+    List<Map<String, dynamic>>? models,
   }) {
     return CopilotState(
       status: status ?? this.status,
@@ -420,6 +423,7 @@ class CopilotState {
       currentCompletion: clearCompletion ? null : (currentCompletion ?? this.currentCompletion),
       chatMessages: chatMessages ?? this.chatMessages,
       isChatStreaming: isChatStreaming ?? this.isChatStreaming,
+      models: models ?? this.models,
     );
   }
 }

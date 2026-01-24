@@ -17,7 +17,7 @@ import '../terminal/terminal.dart';
 import '../utils/languages.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';
-import '../utils/widgets.dart';
+import 'widgets.dart';
 
 class EditorPage extends StatefulWidget {
   final Language languageDetails;
@@ -580,14 +580,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   workspacePath: widget.rootDir,
                                   onFileOpen: (file, lineNumber, searchQuery) async {
                                     final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
-                                    
-                                    // Check if file is already open
                                     final existingIndex = currentState.indexWhere(
                                       (editor) => editor.filePath.path == file.path,
                                     );
                                     
                                     if (existingIndex >= 0) {
-                                      // File already open, switch to it
                                       for (int i = 0; i < currentState.length; i++) {
                                         currentState[i].isActive = i == existingIndex;
                                       }
@@ -596,14 +593,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         if (tabController != null && existingIndex < tabController!.length) {
                                           tabController!.animateTo(existingIndex);
                                         }
-                                        // Trigger find with the search query
                                         final editor = currentState[existingIndex];
                                         if (editor.findController != null && searchQuery.isNotEmpty) {
                                           _goToMatchNearLine(editor, lineNumber, searchQuery);
                                         }
                                       });
                                     } else {
-                                      // Open new file
                                       for (ActiveEditors item in currentState) {
                                         item.isActive = false;
                                       }
@@ -642,9 +637,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                           if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
                                             tabController!.animateTo(newIndex);
                                           }
-                                          // Trigger find with the search query after file loads
                                           if (searchQuery.isNotEmpty) {
-                                            // Small delay to ensure the editor is fully loaded
                                             Future.delayed(const Duration(milliseconds: 100), () {
                                               _goToMatchNearLine(currentState.last, lineNumber, searchQuery);
                                             });

@@ -14,7 +14,7 @@ import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
-import '../utils/widgets.dart';
+import 'widgets.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -127,37 +127,37 @@ int main() {
             backgroundColor: WidgetStatePropertyAll(buttonColor),
           ),
           child: showLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Row(
-                  spacing: 7.5,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/icons/github-copilot-icon.svg',
-                      height: 20,
-                      width: 20,
-                      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                    ),
-                    Flexible(
-                      child: Text(
-                        buttonText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
+              )
+            : Row(
+                spacing: 7.5,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/github-copilot-icon.svg',
+                    height: 20,
+                    width: 20,
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  ),
+                  Flexible(
+                    child: Text(
+                      buttonText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
         ),
       ),
     );
@@ -228,7 +228,7 @@ int main() {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -242,7 +242,7 @@ int main() {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xff0078d4).withOpacity(0.1),
+                            color: const Color(0xff0078d4).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: SvgPicture.asset(
@@ -271,7 +271,7 @@ int main() {
                               Text(
                                 'Sign in to continue',
                                 style: TextStyle(
-                                  color: textColor.withOpacity(0.6),
+                                  color: textColor.withValues(alpha: 0.6),
                                   fontSize: 13,
                                 ),
                               ),
@@ -282,7 +282,7 @@ int main() {
                           onPressed: () => Navigator.of(dialogContext).pop(),
                           icon: Icon(
                             Icons.close,
-                            color: textColor.withOpacity(0.5),
+                            color: textColor.withValues(alpha: 0.5),
                             size: 20,
                           ),
                         ),
@@ -372,7 +372,7 @@ int main() {
             Text(
               'Connecting to GitHub...',
               style: TextStyle(
-                color: textColor.withOpacity(0.7),
+                color: textColor.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -390,13 +390,13 @@ int main() {
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
               color: isDark 
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isDark 
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.1),
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
               ),
             ),
             child: Column(
@@ -404,7 +404,7 @@ int main() {
                 Text(
                   'Your code',
                   style: TextStyle(
-                    color: textColor.withOpacity(0.6),
+                    color: textColor.withValues(alpha: 0.6),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -462,7 +462,7 @@ int main() {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xff0078d4).withOpacity(0.1),
+              color: const Color(0xff0078d4).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -478,7 +478,7 @@ int main() {
                     'Click the button below to open GitHub.\nPaste the code when prompted.',
                     style: TextStyle(
                       fontSize: 12,
-                      color: textColor.withOpacity(0.8),
+                      color: textColor.withValues(alpha: 0.8),
                       height: 1.4,
                     ),
                   ),
@@ -494,7 +494,7 @@ int main() {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
+          color: Colors.red.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -545,7 +545,7 @@ int main() {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -560,7 +560,7 @@ int main() {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: SvgPicture.asset(
@@ -614,7 +614,7 @@ int main() {
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       icon: Icon(
                         Icons.close,
-                        color: textColor.withOpacity(0.5),
+                        color: textColor.withValues(alpha: 0.5),
                         size: 20,
                       ),
                     ),
@@ -628,8 +628,8 @@ int main() {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: isDark 
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.black.withOpacity(0.03),
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -638,7 +638,7 @@ int main() {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xff238636).withOpacity(0.2),
+                          color: const Color(0xff238636).withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -662,7 +662,7 @@ int main() {
                           Text(
                             'GitHub Account',
                             style: TextStyle(
-                              color: textColor.withOpacity(0.5),
+                              color: textColor.withValues(alpha: 0.5),
                               fontSize: 12,
                             ),
                           ),
@@ -681,8 +681,8 @@ int main() {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: isDark 
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.black.withOpacity(0.03),
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -696,7 +696,7 @@ int main() {
                                     : Icons.auto_awesome_outlined,
                                 color: copilotState.isEnabled 
                                     ? const Color(0xff238636)
-                                    : textColor.withOpacity(0.5),
+                                    : textColor.withValues(alpha: 0.5),
                                 size: 20,
                               ),
                               const SizedBox(width: 12),
@@ -712,7 +712,7 @@ int main() {
                           ),
                           Switch(
                             value: copilotState.isEnabled,
-                            activeColor: const Color(0xff238636),
+                            activeThumbColor: const Color(0xff238636),
                             onChanged: (value) {
                               context.read<CopilotBloc>().add(CopilotSetEnabled(value));
                             },
@@ -750,7 +750,7 @@ int main() {
                     label: const Text('Sign Out'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                      side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -788,7 +788,7 @@ int main() {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -801,7 +801,7 @@ int main() {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -828,7 +828,7 @@ int main() {
                   'Your GitHub account does not have access to GitHub Copilot. Please ensure you have an active Copilot subscription.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: textColor.withOpacity(0.7),
+                    color: textColor.withValues(alpha: 0.7),
                     fontSize: 14,
                     height: 1.5,
                   ),

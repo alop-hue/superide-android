@@ -251,7 +251,7 @@ class CopilotLsp {
         _notificationController.add({'type': 'featureFlags', 'data': params});
       }
       
-      else if (method == 'LogMessage') {
+      else if (method == 'window/logMessage') {
         _notificationController.add({'type': 'log', 'data': params});
       }
       
@@ -413,6 +413,19 @@ class CopilotLsp {
     }
     
     return payload;
+  }
+
+  Future<void> didChangeConfiguration() async {
+    await _sendNotification(
+      method: 'workspace/didChangeConfiguration',
+      params: {
+        "settings": {
+          'telementary': {
+            'telementaryLevel': "all"
+          },
+        },
+      }
+    );
   }
 
   Future<CopilotSignInPayload> signIn() async {
@@ -616,134 +629,64 @@ class CopilotLsp {
     );
   }
 
-  Future<String?> createConversation({
-    required String initialMessage,
-    String? filePath,
-    String? content,
-    String? languageId,
-    int? line,
-    int? character,
-  }) async {
-    if (_accountStatus != CopilotAccountStatus.signedIn) {
-      return null;
-    }
-    
-    final workDoneToken = 'copilot_chat_${DateTime.now().millisecondsSinceEpoch}';
-    
-    Map<String, dynamic>? doc;
-    if (filePath != null && content != null && languageId != null) {
-      doc = {
-        'source': content,
-        'tabSize': 2,
-        'indentSize': 1,
-        'insertSpaces': true,
-        'path': filePath,
-        'uri': Uri.file(filePath).toString(),
-        'relativePath': filePath.split('/').last,
-        'languageId': languageId,
-        'position': {
-          'line': line ?? 0,
-          'character': character ?? 0,
-        },
-        'version': _openDocuments[filePath] ?? 1,
-      };
-    }
-    
-    final response = await _sendRequest(
-      method: 'conversation/create',
+  Future<Map<String, dynamic>> getInLineCompletions(String filePath, int line, int character) async {
+    if (!_openDocuments.containsKey(filePath)) return {};
+    final version = _openDocuments[filePath]!;
+    final data = await _sendRequest(
+      method: 'textDocument/inlineCompletion',
       params: {
-        'turns': [
-          {'request': initialMessage},
-        ],
-        'capabilities': {
-          'allSkills': true,
-          'skills': [],
+        'textDocument': {
+          'uri': Uri.file(filePath).toString(),
+          'version': version
         },
-        'workDoneToken': workDoneToken,
-        'computeSuggestions': true,
-        'source': 'panel',
-        if (doc != null) 'doc': doc,
-      },
-      timeout: const Duration(minutes: 2),
-    );
-    
-    final result = response['result'] as Map<String, dynamic>? ?? {};
-    _conversationId = result['conversationId'] as String?;
-    
-    return _conversationId;
-  }
-
-  Future<void> conversationTurn({
-    required String message,
-    String? filePath,
-    String? content,
-    String? languageId,
-    int? line,
-    int? character,
-  }) async {
-    if (_conversationId == null || _accountStatus != CopilotAccountStatus.signedIn) {
-      return;
-    }
-    
-    final workDoneToken = 'copilot_chat_${DateTime.now().millisecondsSinceEpoch}';
-    
-    Map<String, dynamic>? doc;
-    if (filePath != null && content != null && languageId != null) {
-      doc = {
-        'source': content,
-        'tabSize': 2,
-        'indentSize': 1,
-        'insertSpaces': true,
-        'path': filePath,
-        'uri': Uri.file(filePath).toString(),
-        'relativePath': filePath.split('/').last,
-        'languageId': languageId,
-        'position': {
-          'line': line ?? 0,
-          'character': character ?? 0,
-        },
-        'version': _openDocuments[filePath] ?? 1,
-      };
-    }
-    
-    await _sendRequest(
-      method: 'conversation/turn',
-      params: {
-        'conversationId': _conversationId,
-        'message': message,
-        'workDoneToken': workDoneToken,
-        'computeSuggestions': true,
-        'references': [],
-        'source': 'panel',
-        if (doc != null) 'doc': doc,
-      },
-      timeout: const Duration(minutes: 2),
-    );
-  }
-
-  Future<void> destroyConversation() async {
-    if (_conversationId == null) return;
-    
-    await _sendRequest(
-      method: 'conversation/destroy',
-      params: {
-        'conversationId': _conversationId,
-        'options': {},
+        'position': {'line': line, 'character': character},
+        'context': {'triggerKind': 1},
+        "formattingOptions": {
+          "tabSize": 4,
+          "insertSpaces": true
+        }
       },
     );
-    
-    _conversationId = null;
+    return data;
   }
 
-  Future<void> rateConversation({
-    required String turnId,
-    required int rating,
-  }) async {
-    await _sendRequest(
-      method: 'conversation/rating',
+  Future<Map<String, dynamic>> getInLineEdits(String filePath, int line, int character) async {
+    if (!_openDocuments.containsKey(filePath)) return {};
+    final version = _openDocuments[filePath]!;
+    final data = await _sendRequest(
+      method: 'textDocument/copilotInlineEdit',
       params: {
-        'turnId': turnId,
-        'rating': rating,
+        'textDocument': {
+          'uri': Uri.file(filePath).toString(),
+          'version': version
+        },
+        'position': {'line': line, 'character': character},
+      },
+    );
+    return data;
+  }
+
+  Future<Map<String, dynamic>> getPanelCompletions(String filePath, int line, int character) async {
+    if (!_openDocuments.containsKey(filePath)) return {};
+    final version = _openDocuments[filePath]!;
+    final data = await _sendRequest(
+      method: 'textDocument/copilotPanelCompletion',
+      params: {
+        'textDocument': {
+          'uri': Uri.file(filePath).toString(),
+          'version': version
+        },
+        'position': {'line': line, 'character': character},
+      },
+    );
+    return data;
+  }
+
+  Future<void> updateCompletionStatus(Map<String, dynamic> item) async {
+    await _sendNotification(
+      method: 'textDocument/didShowCompletion',
+      params: {
+        'item': item
       },
     );
   }

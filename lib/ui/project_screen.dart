@@ -8,7 +8,7 @@ import '../ui/folder_page.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';
-import '../utils/widgets.dart';
+import 'widgets.dart';
 
 class ProjectScreen extends StatefulWidget {
   const ProjectScreen({super.key});

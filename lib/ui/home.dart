@@ -25,7 +25,7 @@ import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
-import '../utils/widgets.dart';
+import 'widgets.dart';
 
 class SelectType extends StatefulWidget {
   const  SelectType({super.key});
@@ -272,32 +272,48 @@ class _SelectTypeState extends State<SelectType> {
                     return SizeTransition(sizeFactor: animation, child: child);
                   }
                 )),
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(FontAwesomeIcons.github),
-                    BlocBuilder<GithubAuthCubit, bool>(
-                      builder: (context, loggedIn) {
-                        return loggedIn ? Positioned(
-                          right: -2,
-                          top: -2,
-                          child: Container(
-                            width: 11,
-                            height: 11,
-                            decoration: BoxDecoration(
-                              color: const Color(0xff238636),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: appThemestate.appTheme.scaffoldBg,
-                                width: 1.5,
-                              ),
-                            ),
+                icon: BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                  builder: (context, authState) {
+                    final loggedIn = authState.isSignedIn;
+                    final user = authState.user;
+                    
+                    if (loggedIn && user != null) {
+                      return Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: appThemestate.appTheme.scaffoldBg,
+                            width: 1.5,
                           ),
-                        ) : SizedBox.shrink();
-                      },
-                    )
-                  ],
-                )
+                        ),
+                        child: ClipOval(
+                          child: Image.network(
+                            user.avatarUrl,
+                            width: 34,
+                            height: 34,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 34,
+                                height: 34,
+                                color: const Color(0xff238636),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    } else {
+                      return const Icon(FontAwesomeIcons.github);
+                    }
+                  },
+                ),
               ),
             ),
           ]),

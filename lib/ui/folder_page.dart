@@ -9,7 +9,7 @@ import '../bloc/ui_bloc/ui_bloc.dart';
 import '../ui/editor_page.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
-import '../utils/widgets.dart';
+import 'widgets.dart';
 
 class FolderPage extends StatelessWidget {
   final Directory dir;

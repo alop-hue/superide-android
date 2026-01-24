@@ -340,6 +340,8 @@ class CopilotChatSetStreaming extends CopilotEvent {
   CopilotChatSetStreaming(this.isStreaming);
 }
 
+class CopilotFetchModels extends CopilotEvent {}
+
 class CopilotDispose extends CopilotEvent {}
 
 class _CopilotInternalUpdateMessages extends CopilotEvent {
