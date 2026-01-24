@@ -88,26 +88,28 @@ class CopilotChat {
         requestBody['tools'] = tools;
       }
 
-      final response = await http.post(
-        Uri.parse('https://api.individual.githubcopilot.com/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'VSdroid/1.0.0',
-        },
-        body: jsonEncode(requestBody),
-      );
+      final client = http.Client();
+      final request = http.Request('POST', Uri.parse('https://api.individual.githubcopilot.com/chat/completions'));
+      request.headers.addAll({
+        'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json',
+        'User-Agent': 'VSdroid/1.0.0',
+      });
+      request.body = jsonEncode(requestBody);
 
-      if (response.statusCode != 200) {
-        throw Exception(response.body);
+      final streamedResponse = await client.send(request);
+
+      if (streamedResponse.statusCode != 200) {
+        final body = await streamedResponse.stream.bytesToString();
+        throw Exception(body);
       }
 
-      final lines = response.body.split('\n');
+      final lines = streamedResponse.stream.transform(utf8.decoder).transform(const LineSplitter());
       Map<String, dynamic>? finalMessage;
       List<Map<String, dynamic>> toolCallDeltas = [];
 
-      for (var line in lines) {
+      await for (var line in lines) {
         if (line.startsWith('data: ')) {
           final data = line.substring(6);
           if (data == '[DONE]') break;
@@ -147,6 +149,8 @@ class CopilotChat {
           }
         }
       }
+
+      client.close();
 
       if (finalMessage == null) {
         throw Exception('No message received from stream');

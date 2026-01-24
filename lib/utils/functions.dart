@@ -453,6 +453,82 @@ Future<void> gitRestoreFile(String fileName, String workspacePath) async {
   );
 }
 
+class GitDiffResult {
+  final String diffText;
+  final List<(int startLine, int endLine)> addedRanges;
+  final List<(int startLine, int endLine)> removedRanges;
+  final List<(int startLine, int endLine)> modifiedRanges;
+
+  GitDiffResult({
+    required this.diffText,
+    required this.addedRanges,
+    required this.removedRanges,
+    required this.modifiedRanges,
+  });
+}
+
+Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
+  final sharedPath = await NativeChannel.getLibraryPath();
+  final result = await Process.run(
+    "$binDir/git",
+    ["diff", fileName],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+
+  final diffText = result.stdout as String;
+  final addedRanges = <(int, int)>[];
+  final removedRanges = <(int, int)>[];
+  final modifiedRanges = <(int, int)>[];
+
+  final lines = diffText.split('\n');
+  int currentLine = 0;
+  bool inHunk = false;
+  int hunkStartLine = 0;
+
+  for (final line in lines) {
+    if (line.startsWith('@@')) {
+      final match = RegExp(r'@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@').firstMatch(line);
+      if (match != null) {
+        hunkStartLine = int.parse(match.group(1)!);
+        currentLine = hunkStartLine - 1;
+        inHunk = true;
+      }
+    } else if (inHunk) {
+      currentLine++;
+      if (line.startsWith('+')) {
+        if (addedRanges.isEmpty || addedRanges.last.$2 + 1 != currentLine) {
+          addedRanges.add((currentLine, currentLine));
+        } else {
+          addedRanges.last = (addedRanges.last.$1, currentLine);
+        }
+      } else if (line.startsWith('-')) {
+        if (removedRanges.isEmpty || removedRanges.last.$2 + 1 != currentLine) {
+          removedRanges.add((currentLine, currentLine));
+        } else {
+          removedRanges.last = (removedRanges.last.$1, currentLine);
+        }
+      } else if (line.startsWith(' ')) {
+        if ((addedRanges.isNotEmpty && addedRanges.last.$2 + 1 == currentLine) ||
+            (removedRanges.isNotEmpty && removedRanges.last.$2 + 1 == currentLine)) {
+          if (modifiedRanges.isEmpty || modifiedRanges.last.$2 + 1 != currentLine) {
+            modifiedRanges.add((currentLine, currentLine));
+          } else {
+            modifiedRanges.last = (modifiedRanges.last.$1, currentLine);
+          }
+        }
+      }
+    }
+  }
+
+  return GitDiffResult(
+    diffText: diffText,
+    addedRanges: addedRanges,
+    removedRanges: removedRanges,
+    modifiedRanges: modifiedRanges,
+  );
+}
+
 Future<ProcessResult> gitPush(
   String workspacePath, {
   String? remote,
@@ -1015,7 +1091,7 @@ Future<String> gitHubSignIn() async {
     final response = await http
       .post(
         Uri.parse('$backEndHandler/github/oauth'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
         body: jsonEncode({'code': code}),
       )
       .timeout(
@@ -1578,6 +1654,7 @@ class ActiveEditors {
   final UndoRedoController undoRedoController;
   bool isActive;
   FindController? findController;
+  String? customTitle;
 
   ActiveEditors({
     required this.filePath,
@@ -1586,6 +1663,7 @@ class ActiveEditors {
     required this.undoRedoController,
     required this.isActive,
     this.findController,
+    this.customTitle,
   });
 }
 

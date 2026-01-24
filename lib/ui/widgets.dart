@@ -2716,11 +2716,13 @@ class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
   final String workSpace;
   final bool isRepoThere;
+  final Function(String fileName, String workspacePath)? onOpenDiffView;
   const SourceControl({
     super.key,
     required this.appTheme,
     required this.workSpace,
     required this.isRepoThere,
+    this.onOpenDiffView,
   });
 
   @override
@@ -6828,9 +6830,11 @@ class _SourceControlState extends State<SourceControl> {
                                                 color: Colors.transparent,
                                                 child: InkWell(
                                                   borderRadius:BorderRadius.circular(8),
-                                                  onTap: () {},
+                                                  onTap: () {
+                                                    widget.onOpenDiffView?.call(fileName, widget.workSpace);
+                                                  },
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10,),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                                     decoration: BoxDecoration(
                                                       color: widget.appTheme.isDark
                                                         ? Colors.white.withValues(alpha: 0.03)
@@ -8821,245 +8825,6 @@ class _AIChatState extends State<AIChat> {
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
-  }
-}
-
-class SettingsTab extends StatelessWidget {
-  final AppTheme appTheme;
-  final ConfigBloc uiBloc;
-  const SettingsTab({super.key, required this.appTheme, required this.uiBloc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 45),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Text(
-              "SETTINGS",
-              style: TextStyle(
-                fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                color: appTheme.selectScreenCardTextColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          settingsTile(
-            () {
-              showDialog(
-                context: context,
-                builder: (context) => BlocProvider<ConfigBloc>.value(
-                  value: uiBloc,
-                  child: BlocBuilder<ConfigBloc, ConfigState>(
-                    builder: (context, configState) {
-                      final String currentTheme = configState.codeForgeConfig['theme'];
-                      return AlertDialog(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                        ),
-                        insetPadding: const EdgeInsets.only(
-                          bottom: 120,
-                          top: 190,
-                          left: 45,
-                          right: 45,
-                        ),
-                        titlePadding: const EdgeInsets.all(15),
-                        title: Card(
-                          color: const Color.fromARGB(255, 37, 37, 37),
-                          child: ListTile(
-                            leading: const Icon(
-                              Icons.color_lens,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            title: const Text("Select a theme"),
-                            subtitle: Text(
-                              "${highlightThemes.length} themes available",
-                            ),
-                            titleTextStyle: const TextStyle(fontSize: 25),
-                            subtitleTextStyle: const TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                        backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                        content: Scrollbar(
-                          thumbVisibility: true,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: SingleChildScrollView(
-                              primary: true,
-                              child: Column(
-                                children: highlightThemes.keys
-                                    .toList()
-                                    .map(
-                                      (e) => Card(
-                                        elevation: 0,
-                                        color: e == currentTheme
-                                            ? const Color.fromARGB(160,82,82,82,)
-                                            : Colors.transparent,
-                                        child: ListTile(
-                                          iconColor: Colors.grey,
-                                          leading: e == currentTheme
-                                              ? const Icon(
-                                                  Icons.radio_button_checked_sharp,
-                                                  color: Color(0xff39a2f2),
-                                                )
-                                              : const Icon(Icons.radio_button_off_sharp,),
-                                          onTap: () async {
-                                            final prefs = await SharedPreferences.getInstance();
-                                            final currentState = configState.codeForgeConfig;
-                                            currentState['theme'] = e;
-                                            await prefs.setString(
-                                              'codeForgeConfig',
-                                              jsonEncode(currentState),
-                                            );
-                                            if (context.mounted) {
-                                              context.read<ConfigBloc>().add(
-                                                ChangeConfigEvent(currentState),
-                                              );
-                                              Navigator.of(context).pop();
-                                            }
-                                          },
-                                          title: Text(
-                                            e.capitalize(),
-                                            style: TextStyle(
-                                              color: Colors.grey[400],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-            'Themes',
-            Icon(
-              Icons.color_lens,
-              size: 24,
-              color: appTheme.isDark
-                  ? Colors.grey
-                  : const Color.fromARGB(255, 100, 100, 100),
-            ),
-            appTheme.isDark,
-          ),
-          settingsTile(
-            () {
-              showDialog(
-                context: context,
-                builder: (context) => BlocProvider<ConfigBloc>.value(
-                  value: uiBloc,
-                  child: BlocBuilder<ConfigBloc, ConfigState>(
-                    builder: (context, configState) {
-                      final String currentFont =
-                          configState.codeForgeConfig['fontFamily'];
-                      return AlertDialog(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                        ),
-                        insetPadding: const EdgeInsets.only(
-                          bottom: 120,
-                          top: 190,
-                          left: 45,
-                          right: 45,
-                        ),
-                        titlePadding: const EdgeInsets.all(15),
-                        backgroundColor: const Color.fromARGB(255, 61, 61, 61),
-                        title: Card(
-                          color: const Color.fromARGB(255, 37, 37, 37),
-                          child: ListTile(
-                            leading: const Icon(
-                              FontAwesomeIcons.font,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            title: const Text(" Select a font   "),
-                            subtitle: Text(
-                              "   ${fonts.length} fonts available",
-                            ),
-                            titleTextStyle: const TextStyle(fontSize: 25),
-                            subtitleTextStyle: const TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                        content: Scrollbar(
-                          thumbVisibility: true,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: SingleChildScrollView(
-                              primary: true,
-                              child: Column(
-                                children: fonts
-                                    .map(
-                                      (e) => Card(
-                                        color: e == currentFont
-                                          ? const Color.fromARGB(160,82,82,82)
-                                          : Colors.transparent,
-                                        elevation: 0,
-                                        child: ListTile(
-                                          onTap: () async {
-                                            final currentState = configState.codeForgeConfig;
-                                            currentState['fontFamily'] = e;
-                                            final prefs = await SharedPreferences.getInstance();
-                                            await prefs.setString(
-                                              'codeForgeConfig',
-                                              jsonEncode(currentState),
-                                            );
-                                            if (context.mounted) {
-                                              context.read<ConfigBloc>().add(ChangeConfigEvent(currentState),);
-                                              Navigator.of(context).pop();
-                                            }
-                                          },
-                                          iconColor: Colors.grey,
-                                          leading: e == currentFont
-                                              ? const Icon(
-                                                  Icons.radio_button_checked_sharp,
-                                                  color: Color(0xff39a2f2),
-                                                )
-                                              : const Icon(Icons.radio_button_off_sharp),
-                                          title: Text(
-                                            e.capitalize(),
-                                            style: TextStyle(color: appTheme.selectScreenCardTextColor),
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
-            "Fonts",
-            Icon(
-              FontAwesomeIcons.font,
-              color: appTheme.isDark
-                ? Colors.grey
-                : const Color.fromARGB(255, 100, 100, 100),
-              size: 21,
-            ),
-            appTheme.isDark,
-          ),
-        ],
-      ),
-    );
   }
 }
 

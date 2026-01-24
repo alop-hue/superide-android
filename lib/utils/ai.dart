@@ -114,7 +114,7 @@ sealed class OpenAiCompatible extends Models {
 
   @override
   Map<String, String> get headers => {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json; charset=utf-8",
     "Authorization": "Bearer $apiKey",
   };
 
@@ -146,7 +146,7 @@ class Gemini extends Models {
   @override
   final String url, apiKey, model;
   @override
-  Map<String, String> get headers => {'Content-Type': 'application/json'};
+  Map<String, String> get headers => {'Content-Type': 'application/json; charset=utf-8'};
   int? temperature, maxOutputTokens, topP, topK, stopSequences;
 
   Gemini({
@@ -219,7 +219,7 @@ class OpenAI extends Models {
 
   @override
   Map<String, String> get headers => {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     'Authorization': 'Bearer $apiKey',
   };
 
@@ -249,7 +249,7 @@ class Claude extends Models {
 
   @override
   Map<String, String> get headers => {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     'x-api-key': apiKey,
   };
 
@@ -419,7 +419,7 @@ class CustomModel extends Models {
 
   @override
   Map<String, String> get headers {
-    final headers = {'Content-Type': 'application/json', ...customHeaders};
+    final headers = {'Content-Type': 'application/json; charset=utf-8', ...customHeaders};
 
     return headers;
   }

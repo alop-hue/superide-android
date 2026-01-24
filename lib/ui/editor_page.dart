@@ -647,7 +647,75 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     }
                                   },
                                 ),
-                                SourceControl(appTheme: appTheme, workSpace: widget.rootDir, isRepoThere: isRepoThere),
+                                SourceControl(
+                                  appTheme: appTheme, 
+                                  workSpace: widget.rootDir, 
+                                  isRepoThere: isRepoThere,
+                                  onOpenDiffView: (fileName, workspacePath) async {
+                                    try {
+                                      final diffResult = await getGitDiff(fileName, workspacePath);
+                                      final file = File(path.join(workspacePath, fileName));
+                                      
+                                      if (!await file.exists()) return;
+                                      
+                                      final lang = languages.firstWhere(
+                                        (language) => language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
+                                        orElse: () => languages[0]
+                                      );
+                                      
+                                      final newController = CodeForgeController();
+                                      newController.readOnly = true;
+                                      
+                                      // TODO: Implement setGitDiffDecorations in CodeForgeController
+                                      newController.setGitDiffDecorations(
+                                        addedRanges: diffResult.addedRanges,
+                                        removedRanges: diffResult.removedRanges,
+                                        modifiedRanges: diffResult.modifiedRanges,
+                                        addedColor: const Color(0xFF4CAF50),
+                                        removedColor: const Color(0xFFE53935),
+                                        modifiedColor: const Color(0xFF2196F3),
+                                      );
+                                      
+                                      final content = await file.readAsString();
+                                      newController.text = content;
+                                      
+                                      final newEditor = ActiveEditors(
+                                        controller: newController,
+                                        undoRedoController: UndoRedoController(),
+                                        filePath: file,
+                                        isActive: true,
+                                        languageDetails: lang,
+                                        findController: FindController(newController),
+                                        customTitle: '${path.basename(fileName)}(Working Tree)',
+                                      );
+                                      
+                                      final currentState = List<ActiveEditors>.from(editorState.activeEditors);
+                                      for (final editor in currentState) {
+                                        editor.isActive = false;
+                                      }
+                                      currentState.add(newEditor);
+                                      
+                                      if (context.mounted) {
+                                        context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          final newIndex = currentState.length - 1;
+                                          if (tabController != null && tabController!.length > newIndex) {
+                                            tabController!.animateTo(newIndex);
+                                          }
+                                        });
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Failed to open diff view: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
                                 APITesting(
                                   params: params,
                                   headers: headers,
@@ -659,7 +727,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 AIChat(filePath: editorState.activeEditors.isNotEmpty
                                   ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.path
                                   : ''),
-                                SettingsTab(appTheme: appTheme, uiBloc: uiBloc)
                               ],
                             )
                           )
@@ -674,7 +741,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                       child: tabController == null
                         ? Text(
                             editorState.activeEditors.isNotEmpty
-                              ? path.basename(editorState.activeEditors[0].filePath.path)
+                              ? (editorState.activeEditors[0].customTitle ?? path.basename(editorState.activeEditors[0].filePath.path))
                               : '',
                             style: TextStyle(color: appTheme.selectScreenCardTextColor)
                           )
@@ -684,7 +751,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               int idx = tabController!.index;
                               if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
                               final fileName = editorState.activeEditors.isNotEmpty
-                                ? path.basename(editorState.activeEditors[idx].filePath.path)
+                                ? (editorState.activeEditors[idx].customTitle ?? path.basename(editorState.activeEditors[idx].filePath.path))
                                 : '';
                               return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
                             },
