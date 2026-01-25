@@ -1471,8 +1471,40 @@ int main() {
                       settingsDivider,
                       const SizedBox(height: 20),
                       settingsType("AI Configuration", appThemeState.appTheme.isDark),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff0078d4).withValues(alpha: 0.1),
+                          border: Border.all(
+                            color: const Color(0xff0078d4).withValues(alpha: 0.3),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: const Color(0xff0078d4),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                "Note: The Copilot sign-in that is given below only provides code completion.\n"
+                                "Sign in with GitHub from the home screen to enable copilot chat and agentic coding.",
+                                style: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       BlocBuilder<AIBloc, AIState>(
                         builder: (context, aiState) {
+                          final copilotState = context.watch<CopilotBloc>().state;
+                          final hasAI = aiState.config.isNotEmpty || copilotState.status == CopilotStatus.signedIn;
                           return Column(
                             spacing: 10,
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1482,19 +1514,9 @@ int main() {
                                   return _buildCopilotButton(context, copilotState, appThemeState);
                                 },
                               ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                child: Text(
-                                  "OR",
-                                  style: TextStyle(
-                                    color: appThemeState.appTheme.selectScreenCardTextColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15
-                                  ),
-                                ),
-                              ),
+                              const SizedBox(height: 5),
                               SizedBox(
-                                width: 250,
+                                width: 280,
                                 height: 45,
                                 child: ElevatedButton(
                                     onPressed: (){
@@ -1780,7 +1802,7 @@ int main() {
                                       children: [
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: appThemeState.appTheme.isDark ? Colors.indigo : Colors.grey[200],
+                                            color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
                                             borderRadius: BorderRadius.vertical(top: Radius.circular(10))
                                           ),
                                           alignment: Alignment.centerLeft,
@@ -1800,75 +1822,96 @@ int main() {
                                         ),
                                         Padding(
                                           padding: const EdgeInsets.all(10),
-                                          child: aiState.config.isEmpty ? Text(
-                                            "No models created yet", 
-                                            style: TextStyle(
-                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                              fontSize: 16
-                                            )
-                                          ) : Column(
-                                            children: aiState.config.entries.map((e) {
-                                              return Card(
-                                              color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
-                                              child: ListTile(
-                                                dense: true,
-                                                leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
-                                                title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                subtitle: Text(e.value['modelName'], style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
-                                                trailing: IconButton(
-                                                  icon: Icon(Icons.delete,color: Colors.red),
-                                                  onPressed: () async{
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) => AlertDialog(
-                                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                                        title: Text(
-                                                          'Delete model ${e.key}?',
-                                                          style: TextStyle(
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                            fontSize: 20
-                                                          ),
-                                                        ),
-                                                        content: Text(
-                                                          "Are you sure you want to delete this model? This action cannot be undone.",
-                                                          style: TextStyle(
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                            fontSize: 16
-                                                          )
-                                                        ),
-                                                        actions: [
-                                                          ElevatedButton(
-                                                            onPressed: ()=> Navigator.of(context).pop(),
-                                                            child: Text('Cancel')
-                                                          ),
-                                                          ElevatedButton(
-                                                            onPressed: () async{
-                                                              final currentState = aiState.config;
-                                                              currentState.remove(e.key);
-                                                              final prefs = await SharedPreferences.getInstance();
-                                                              prefs.setString('aiConfig', jsonEncode(currentState));
-                                                              if(context.mounted) {
-                                                                context.read<AIBloc>().add(AIConfigEvent(currentState));
-                                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                                  SnackBar(content: Text("Successfully deleted model ${e.key}"))
-                                                                );
-                                                                Navigator.of(context).pop(true);
-                                                              }
-                                                            },
-                                                            style: ButtonStyle(
-                                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
-                                                            ),
-                                                            child: Text('Delete', style: TextStyle(color: Colors.white))
-                                                          )
-                                                        ],
-                                                      )
-                                                    );
-                                                  }
+                                          child: Builder(builder: (ctx) {
+                                            final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
+                                            if (!copilotSignedIn && aiState.config.isEmpty) {
+                                              return Text(
+                                                "No models created yet",
+                                                style: TextStyle(
+                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                  fontSize: 16
+                                                )
+                                              );
+                                            }
+
+                                            final List<Widget> modelCards = [];
+                                            if (copilotSignedIn) {
+                                              modelCards.add(Card(
+                                                color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
+                                                child: ListTile(
+                                                  dense: true,
+                                                  leading: Icon(Icons.cloud, color: appThemeState.appTheme.selectScreenCardTextColor),
+                                                  title: Text('Copilot', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                  subtitle: Text('Copilot service (signed in)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                  trailing: null,
                                                 ),
-                                              ),
-                                            );
-                                            }).toList()
-                                          ),
+                                              ));
+                                            }
+
+                                            modelCards.addAll(aiState.config.entries.map((e) {
+                                              return Card(
+                                                color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
+                                                child: ListTile(
+                                                  dense: true,
+                                                  leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
+                                                  title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                  subtitle: Text(e.value['modelName'], style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                  trailing: IconButton(
+                                                    icon: Icon(Icons.delete,color: Colors.red),
+                                                    onPressed: () async{
+                                                      showDialog(
+                                                        context: context,
+                                                        builder: (context) => AlertDialog(
+                                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                          title: Text(
+                                                            'Delete model ${e.key}?',
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              fontSize: 20
+                                                            ),
+                                                          ),
+                                                          content: Text(
+                                                            "Are you sure you want to delete this model? This action cannot be undone.",
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                              fontSize: 16
+                                                            )
+                                                          ),
+                                                          actions: [
+                                                            ElevatedButton(
+                                                              onPressed: ()=> Navigator.of(context).pop(),
+                                                              child: Text('Cancel')
+                                                            ),
+                                                            ElevatedButton(
+                                                              onPressed: () async{
+                                                                final currentState = aiState.config;
+                                                                currentState.remove(e.key);
+                                                                final prefs = await SharedPreferences.getInstance();
+                                                                prefs.setString('aiConfig', jsonEncode(currentState));
+                                                                if(context.mounted) {
+                                                                  context.read<AIBloc>().add(AIConfigEvent(currentState));
+                                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                                    SnackBar(content: Text("Successfully deleted model ${e.key}"))
+                                                                  );
+                                                                  Navigator.of(context).pop(true);
+                                                                }
+                                                              },
+                                                              style: ButtonStyle(
+                                                                backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                              ),
+                                                              child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                            )
+                                                          ],
+                                                        )
+                                                      );
+                                                    }
+                                                  ),
+                                                ),
+                                              );
+                                            }));
+
+                                            return Column(children: modelCards);
+                                          })
                                         ),
                                       ],
                                     ),
@@ -1884,7 +1927,7 @@ int main() {
                                   size: 19
                                 ),
                                 appThemeState.appTheme.isDark,
-                                isEnabled: aiState.config.isNotEmpty,
+                                isEnabled: hasAI,
                                 trailing: SizedBox(
                                   height: 30,
                                   width: 55,
@@ -1892,9 +1935,9 @@ int main() {
                                     toggleColor: Color(0xff002b6e),
                                     inactiveToggleColor: Colors.white,
                                     activeColor: Color(0xffb0c6fe),
-                                    value: aiState.config.isNotEmpty && aiState.isEnabled, 
+                                    value: hasAI && aiState.isEnabled, 
                                     onToggle: (value) async{
-                                      if(aiState.config.isNotEmpty){
+                                      if(hasAI){
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
                                           final currentValue = configState.codeForgeConfig;
@@ -1905,7 +1948,7 @@ int main() {
                                       }
                                       else{
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                          SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
                                         );
                                       }
                                     }
@@ -1914,7 +1957,7 @@ int main() {
                               ),
                               settingsTile(
                                 null,
-                                "Show on tapping the AI icon",
+                                "Manual completion",
                                 Icon(
                                   Icons.touch_app_rounded,
                                   color: appThemeState.appTheme.selectScreenCardTextColor,
@@ -1927,9 +1970,9 @@ int main() {
                                     toggleColor: Color(0xff002b6e),
                                     inactiveToggleColor: Colors.white,
                                     activeColor: Color(0xffb0c6fe),
-                                    value: aiState.config.isNotEmpty && aiState.showSuggestionOntap && aiState.isEnabled,
+                                    value: hasAI && aiState.showSuggestionOntap && aiState.isEnabled,
                                     onToggle: (val) async{
-                                      if(aiState.config.isNotEmpty){
+                                      if(hasAI){
                                         final prefs = await SharedPreferences.getInstance();
                                         if(context.mounted){
                                           context.read<AIBloc>().add(AIModeEvent(val));
@@ -1940,14 +1983,14 @@ int main() {
                                       }
                                       else{
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text("No AI models created yet. Please create a model first."))
+                                          SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
                                         );
                                       }
                                     }
                                   ),
                                 ),
-                                subTitle: aiState.showSuggestionOntap ? "Suggestion shows only on tapping the AI icon located in the bottom right corner.\nRcommended, less api usage" 
-                                : "Suggestion on every 1.5 seconds if user stops typing.\nHigh api usage",
+                                subTitle: aiState.showSuggestionOntap ? "Tap AI icon for suggestions\nLower API usage" 
+                                : "Auto-suggest after 1.5s pause\nHigher API usage",
                               ),
                               settingsTile(
                                 () async{
@@ -1982,35 +2025,46 @@ int main() {
                                         content: SizedBox(
                                           height: 300,
                                           width: 250,
-                                          child: RadioGroup<String>(
-                                            groupValue: aiState.modelSelected['code'] ?? "",
-                                            onChanged: (val) async {
-                                              final currentState = aiState.modelSelected;
-                                              currentState['code'] = val!;
-                                              final prefs = await SharedPreferences.getInstance();
-                                              prefs.setString('modelSelected', jsonEncode(currentState));
+                                          child: Builder(builder: (ctx) {
+                                            final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
+                                            final initialSelected = (aiState.modelSelected['code'] != null && (aiState.modelSelected['code'] as String).isNotEmpty)
+                                                ? aiState.modelSelected['code'] as String
+                                                : (copilotSignedIn ? 'copilot' : '');
 
-                                              if (context.mounted) {
-                                                context.read<AIBloc>().add(ModelSelectEvent(currentState));
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text("Successfully selected model $val")),
-                                                );
-                                                Navigator.of(context).pop(true);
-                                              }
-                                            },
-                                            child: ListView(
-                                              children: List.generate(aiState.config.length, (index) {
-                                                return RadioListTile<String>(
-                                                  value: aiState.config.entries.elementAt(index).key,
-                                                  title: Text(aiState.config.entries.elementAt(index).key),
-                                                  activeColor: appThemeState.appTheme.isDark
-                                                      ? const Color(0xffb0c6fe)
-                                                      : const Color(0xff181a26),
-                                                );
-                                              }),
-                                            ),
-                                          ),
+                                            return RadioGroup<String>(
+                                              groupValue: initialSelected,
+                                              onChanged: (val) async {
+                                                final currentState = aiState.modelSelected;
+                                                currentState['code'] = val!;
+                                                final prefs = await SharedPreferences.getInstance();
+                                                prefs.setString('modelSelected', jsonEncode(currentState));
 
+                                                if (context.mounted) {
+                                                  context.read<AIBloc>().add(ModelSelectEvent(currentState));
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text("Successfully selected model $val")),
+                                                  );
+                                                  Navigator.of(context).pop(true);
+                                                }
+                                              },
+                                              child: ListView(
+                                                children: [
+                                                  if (copilotSignedIn)
+                                                    RadioListTile<String>(
+                                                      value: 'copilot',
+                                                      title: Text('Copilot'),
+                                                      subtitle: Text('Copilot service'),
+                                                      activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
+                                                    ),
+                                                  ...aiState.config.entries.map((entry) => RadioListTile<String>(
+                                                        value: entry.key,
+                                                        title: Text(entry.key),
+                                                        activeColor: appThemeState.appTheme.isDark ? const Color(0xffb0c6fe) : const Color(0xff181a26),
+                                                      )),
+                                                ],
+                                              ),
+                                            );
+                                          }),
                                         ),
                                       )
                                     );

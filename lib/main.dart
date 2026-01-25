@@ -57,14 +57,15 @@ class MainApp extends StatelessWidget {
             "autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool,
           }
         )),
-        BlocProvider(create: (_) => AIBloc(
+        BlocProvider(create: (_) => CopilotBloc()),
+        BlocProvider(create: (_) => CopilotChatBloc()),
+        BlocProvider(create: (context) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,
           jsonDecode(modelSelected),
-          jsonDecode(codeForgeConfig)['manualCompletion'] as bool
+          jsonDecode(codeForgeConfig)['manualCompletion'] as bool,
+          copilotBloc: context.read<CopilotBloc>(),
         )),
-        BlocProvider(create: (_) => CopilotBloc()),
-        BlocProvider(create: (_) => CopilotChatBloc()),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {
