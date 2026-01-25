@@ -5,6 +5,7 @@ const certDir = "/data/data/com.vsdroid/certs";
 const runtimesDir = "/data/data/com.vsdroid/runtimes";
 const projectDir = "/data/data/com.vsdroid/VSdroid/Projects";
 const templateDir = "/data/data/com.vsdroid/VSdroid/Templates";
+const tempDir = "/data/data/com.vsdroid/temps";
 const filesDir = "/data/data/com.vsdroid/VSdroid/Files";
 const extensionDir = "/data/data/com.vsdroid/extensions";
 const homeDir = "/data/data/com.vsdroid/home";

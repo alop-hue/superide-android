@@ -830,8 +830,7 @@ class EditorArea extends StatefulWidget {
   State<EditorArea> createState() => _EditorPageState();
 }
 
-class _EditorPageState extends State<EditorArea>
-    with AutomaticKeepAliveClientMixin {
+class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMixin {
   late final ActiveEditors editor;
   late final AppTheme appTheme;
   late final CodeForgeController controller;
@@ -904,7 +903,7 @@ class _EditorPageState extends State<EditorArea>
                     ),
                   ),
                   bottomTool(
-                    undoRedoController.canUndo && appTheme.isDark,
+                    appTheme.isDark,
                     Icons.undo,
                     () {
                       if (undoRedoController.canUndo) {
@@ -913,7 +912,7 @@ class _EditorPageState extends State<EditorArea>
                     },
                   ),
                   bottomTool(
-                    undoRedoController.canRedo && appTheme.isDark,
+                    appTheme.isDark,
                     Icons.redo,
                     () {
                       if (undoRedoController.canRedo) {
@@ -2716,13 +2715,15 @@ class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
   final String workSpace;
   final bool isRepoThere;
-  final Function(String fileName, String workspacePath)? onOpenDiffView;
+  final Function(String fileName, String workspacePath, ActiveEditorsBloc bloc)? onOpenDiffView;
+  final ActiveEditorsBloc? activeEditorsBloc;
   const SourceControl({
     super.key,
     required this.appTheme,
     required this.workSpace,
     required this.isRepoThere,
     this.onOpenDiffView,
+    this.activeEditorsBloc,
   });
 
   @override
@@ -6831,7 +6832,7 @@ class _SourceControlState extends State<SourceControl> {
                                                 child: InkWell(
                                                   borderRadius:BorderRadius.circular(8),
                                                   onTap: () {
-                                                    widget.onOpenDiffView?.call(fileName, widget.workSpace);
+                                                    widget.onOpenDiffView?.call(fileName, widget.workSpace, widget.activeEditorsBloc!);
                                                   },
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -6954,6 +6955,13 @@ class _SourceControlState extends State<SourceControl> {
                                                                         onPressed: () async {
                                                                           await gitRestoreFile(fileName, widget.workSpace);
                                                                           if (context.mounted) {
+                                                                            final activeEditor = widget.activeEditorsBloc;
+                                                                            if(activeEditor != null){
+                                                                              final currentController = activeEditor.state.activeEditors.singleWhere(
+                                                                                (item) => item.isActive
+                                                                              ).controller;
+                                                                              currentController.refetchFile();
+                                                                            }
                                                                             try {
                                                                               repoBloc.add(LoadRepoStatus(widget.workSpace));
                                                                             } catch (_) {}

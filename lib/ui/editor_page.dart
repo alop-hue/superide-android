@@ -11,6 +11,7 @@ import 'package:path/path.dart' as path;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'package:vsdroid/ui/mdview.dart';
+import 'package:vsdroid/utils/constants.dart';
 import 'webview.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -351,7 +352,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
               previous.matchWholeWord != current.matchWholeWord ||
               previous.isRegex != current.isRegex,
             listener: (context, searchState) {
-              // Apply workspace search highlighting to all open editors
               final editorState = context.read<ActiveEditorsBloc>().state;
               for (final editor in editorState.activeEditors) {
                 if (searchState.query.isEmpty) {
@@ -418,12 +418,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   ),
                                   bgColor: state.stackIndex == 4 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent,
                                   padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 5)
-                                ),
-                                drawerButtons(
-                                  () => context.read<StackBloc>().add(StackIndexChange(stackValue: 5)),
-                                  Icons.settings,
-                                  color: state.stackIndex == 5 ?appTheme.editorPageToolSelectedColor:appTheme.editorPageToolColor,
-                                  bgColor: state.stackIndex == 5 ? appTheme.editorPageToolSelectedBgColor:Colors.transparent
                                 ),
                               ],
                             ),
@@ -561,7 +555,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                                 if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
                                                   tabController!.animateTo(newIndex);
                                                 }
-                                                // Apply workspace search highlighting to the new editor
                                                 _applyWorkspaceSearchToActiveEditor();
                                               });
                                             }
@@ -651,11 +644,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   appTheme: appTheme, 
                                   workSpace: widget.rootDir, 
                                   isRepoThere: isRepoThere,
-                                  onOpenDiffView: (fileName, workspacePath) async {
+                                  activeEditorsBloc: BlocProvider.of<ActiveEditorsBloc>(context, listen: false),
+                                  onOpenDiffView: (fileName, workspacePath, bloc) async {
                                     try {
                                       final diffResult = await getGitDiff(fileName, workspacePath);
                                       final file = File(path.join(workspacePath, fileName));
-                                      
                                       if (!await file.exists()) return;
                                       
                                       final lang = languages.firstWhere(
@@ -663,26 +656,27 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         orElse: () => languages[0]
                                       );
                                       
+                                      final tempFile = File("$tempDir/(Working Tree)${path.basename(fileName)}");
+                                      if(!(await tempFile.exists())){
+                                        await tempFile.create(recursive: true);
+                                      }
+                                      await tempFile.writeAsString(diffResult.diffText);
+                                      
                                       final newController = CodeForgeController();
                                       newController.readOnly = true;
                                       
-                                      // TODO: Implement setGitDiffDecorations in CodeForgeController
                                       newController.setGitDiffDecorations(
                                         addedRanges: diffResult.addedRanges,
                                         removedRanges: diffResult.removedRanges,
-                                        modifiedRanges: diffResult.modifiedRanges,
-                                        addedColor: const Color(0xFF4CAF50),
-                                        removedColor: const Color(0xFFE53935),
+                                        addedColor: const Color.fromARGB(255, 0, 255, 8),
+                                        removedColor: const Color.fromARGB(255, 255, 0, 0),
                                         modifiedColor: const Color(0xFF2196F3),
                                       );
-                                      
-                                      final content = await file.readAsString();
-                                      newController.text = content;
                                       
                                       final newEditor = ActiveEditors(
                                         controller: newController,
                                         undoRedoController: UndoRedoController(),
-                                        filePath: file,
+                                        filePath: tempFile,
                                         isActive: true,
                                         languageDetails: lang,
                                         findController: FindController(newController),
@@ -696,10 +690,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       currentState.add(newEditor);
                                       
                                       if (context.mounted) {
-                                        context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                        mruOrder.insert(0, currentState.length - 1);
+                                        bloc.add(ActiveEditorsEvent(currentState));
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
                                           final newIndex = currentState.length - 1;
-                                          if (tabController != null && tabController!.length > newIndex) {
+                                          if (tabController != null && newIndex >= 0) {
                                             tabController!.animateTo(newIndex);
                                           }
                                         });
@@ -804,12 +799,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             ),
                             IconButton(
                               padding: EdgeInsets.zero,
-                              onPressed: () {
+                              onPressed: () async {
                                 final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
                                 if(currentState.length <= 1){
                                   Navigator.of(context).pop();
                                   return;
                                 }
+                                
+                                if (currentState[index].customTitle?.contains("(Working Tree)") == true) {
+                                  try {
+                                    await currentState[index].filePath.delete();
+                                  } catch (e) {
+                                    debugPrint(e.toString());
+                                  }
+                                }
+                                
                                 final wasActive = currentState[index].isActive;
                                 currentState.removeAt(index);
                                 mruOrder.remove(index);
@@ -820,7 +824,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                     currentState[i].isActive = i == newActive;
                                   }
                                 }
-                                context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                if(context.mounted){
+                                  context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                }
+
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                   final newIndex = currentState.indexWhere((item) => item.isActive == true);
                                   if (tabController != null && newIndex >= 0 && newIndex < tabController!.length) {
@@ -1033,9 +1040,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                       IconButton(
                         onPressed: () async {
                           if (editorState.activeEditors.isEmpty) return;
-                          final Directory tempDir = Directory('/data/data/com.vsdroid/temps');
-                            if(!tempDir.existsSync()){
-                              tempDir.createSync(recursive: true);
+                          final Directory temp = Directory(tempDir);
+                            if(!temp.existsSync()){
+                              temp.createSync(recursive: true);
                             }
                             final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
                               ? editorState.activeEditors[tabController!.index]
@@ -1054,31 +1061,31 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               }
                               break;
                             case '.c':
-                              final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
-                              final String runCommand = 'clangloader ${tempDir.path}/libtemp.so';
+                              final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                              final String runCommand = 'clangloader ${temp.path}/libtemp.so';
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.cpp':
                             case '.c++':
                             case '.cc':
-                              final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${tempDir.path}/libtemp.so";
-                              final String runCommand = 'clangloader ${tempDir.path}/libtemp.so';
+                              final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                              final String runCommand = 'clangloader ${temp.path}/libtemp.so';
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.java':
-                              final String compileCommand = "javac ${filePath.path} -d ${tempDir.path}";
-                              final String runCommand = "cd ${tempDir.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                              final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
+                              final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.kt':
                             case '.kts':
-                              final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${tempDir.path}/temp.jar';
-                              final String runCommand = 'java -jar ${tempDir.path}/temp.jar';
+                              final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
+                              final String runCommand = 'java -jar ${temp.path}/temp.jar';
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.ts':
-                              final String compileCommand = "tsc ${filePath.path} --outDir ${tempDir.path}";
-                              final String runCommand = "node ${tempDir.path}/${path.basenameWithoutExtension(filePath.path)}.js";
+                              final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
+                              final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
                               runCode(context, compileCommand, runCommand, widget.rootDir);
                               break;
                             case '.md':

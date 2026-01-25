@@ -85,6 +85,7 @@ class _StartScreenState extends State<StartScreen> {
     
     await setupFilesDir();
     await setupProjectDir();
+    await setupTempDir();
 
     final String sharedPath = await NativeChannel.getLibraryPath();
 
@@ -190,27 +191,27 @@ class _StartScreenState extends State<StartScreen> {
     return Scaffold(
       body: Center(
         child: isDone
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text("Setting things up..."),
-                  const SizedBox(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 60),
-                    child: LinearPercentIndicator(
-                      progressColor: Colors.blue,
-                      percent: progress,
-                      width: 300,
-                      lineHeight: 10,
-                      barRadius: Radius.circular(15),
-                    ),
+          ? const CircularProgressIndicator()
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text("Setting things up..."),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.only(left: 60),
+                  child: LinearPercentIndicator(
+                    progressColor: Colors.blue,
+                    percent: progress,
+                    width: 300,
+                    lineHeight: 10,
+                    barRadius: Radius.circular(15),
                   ),
-                  const SizedBox(height: 10),
-                  Text("${(progress * 100).toStringAsFixed(0)}%"),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+                Text("${(progress * 100).toStringAsFixed(0)}%"),
+              ],
+            ),
       ),
     );
   }
