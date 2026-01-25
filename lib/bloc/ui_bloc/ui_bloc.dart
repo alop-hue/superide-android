@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../../utils/ai.dart';
-import '../../utils/agentic_tools.dart';
 import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
@@ -384,11 +383,8 @@ class DownloadManagerBloc extends Cubit<DownloadManagerState> {
 
 class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
   CopilotLsp? _client;
-  CopilotChat? _chatClient;
   CopilotCompletionManager? _completionManager;
-  StreamSubscription? _progressSubscription;
   StreamSubscription? _notificationSubscription;
-  StreamSubscription? _conversationSubscription;
   bool _expectingSignIn = false;
   
   static const String _storageKey = 'copilot_config';
@@ -407,18 +403,10 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     on<CopilotAcceptCompletion>(_onAcceptCompletion);
     on<CopilotRejectCompletion>(_onRejectCompletion);
     on<CopilotRequestCompletion>(_onRequestCompletion);
-    on<CopilotChatCreate>(_onChatCreate);
-    on<CopilotChatSend>(_onChatSend);
-    on<CopilotChatClear>(_onChatClear);
-    on<CopilotChatAddMessage>(_onChatAddMessage);
-    on<CopilotChatSetStreaming>(_onChatSetStreaming);
-    on<CopilotFetchModels>(_onFetchModels);
     on<CopilotDispose>(_onDispose);
-    on<_CopilotInternalUpdateMessages>(_onInternalUpdateMessages);
   }
 
   CopilotLsp? get client => _client;
-  CopilotChat? get chatClient => _chatClient;
   CopilotCompletionManager? get completionManager => _completionManager;
 
   void _onAutoInit(CopilotAutoInit event, Emitter<CopilotState> emit) {
@@ -442,7 +430,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
       
       _client = await CopilotLsp.start(
         configPath: event.configPath,
-        workspacePath: event.workspacePath,
+        workspacePath: event.workspacePath ?? '',
       );
 
       await _client!.initialize();
@@ -472,45 +460,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
           add(CopilotClearCompletion());
         },
       );
-      
-      _progressSubscription = _client!.progressStream.listen((progress) {
-        _handleProgress(progress);
-      });
-      
-      final authToken = await CopilotChat.loadAuthToken();
-      if (authToken != null) {
-        _chatClient = CopilotChat(
-          authToken: authToken,
-          agenticTools: AgenticTools(workspacePath: event.workspacePath ?? event.configPath),
-        );
-        _conversationSubscription = _chatClient!.conversationStream.listen((data) {
-          if (data['type'] == 'conversationEntry') {
-            add(CopilotChatAddMessage(CopilotChatMessage(
-              role: 'assistant',
-              content: data['data']['reply'],
-              timestamp: DateTime.now(),
-            )));
-            add(CopilotChatSetStreaming(false));
-          } else if (data['type'] == 'error') {
-            emit(state.copyWith(
-              isChatStreaming: false,
-              error: data['data']['message'],
-            ));
-          }
-        });
-        
-        try {
-          final models = await _chatClient!.getCopilotModels();
-          final data = models['data'] as List<dynamic>? ?? [];
-          final filteredModels = data.where((model) {
-            final policy = model['policy'] as Map<String, dynamic>?;
-            return policy != null && policy['state'] == 'enabled';
-          }).toList().cast<Map<String, dynamic>>();
-          emit(state.copyWith(models: filteredModels));
-        } catch (e) {
-          debugPrint('Failed to fetch Copilot models: $e');
-        }
-      }
       
       final statusPayload = await _client!.checkStatus();
       
@@ -617,7 +566,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         status: CopilotStatus.notSignedIn,
         user: null,
         signInPayload: null,
-        models: [],
       ));
       await _saveConfig(false);
     } catch (e) {
@@ -647,44 +595,6 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         status: newStatus,
         user: payload.user,
       ));
-      
-      if (newStatus == CopilotStatus.signedIn && _chatClient == null) {
-        final authToken = await CopilotChat.loadAuthToken();
-        if (authToken != null) {
-          _chatClient = CopilotChat(
-            authToken: authToken,
-            agenticTools: AgenticTools(workspacePath: '/data/data/com.vsdroid/files'),
-          );
-          _conversationSubscription = _chatClient!.conversationStream.listen((data) {
-            if (data['type'] == 'conversationEntry') {
-              add(CopilotChatAddMessage(CopilotChatMessage(
-                role: 'assistant',
-                content: data['data']['reply'],
-                timestamp: DateTime.now(),
-              )));
-              add(CopilotChatSetStreaming(false));
-            } else if (data['type'] == 'error') {
-              emit(state.copyWith(
-                isChatStreaming: false,
-                error: data['data']['message'],
-              ));
-            }
-          });
-          
-          // Fetch copilot models
-          try {
-            final models = await _chatClient!.getCopilotModels();
-            final data = models['data'] as List<dynamic>? ?? [];
-            final filteredModels = data.where((model) {
-              final policy = model['policy'] as Map<String, dynamic>?;
-              return policy != null && policy['state'] == 'enabled';
-            }).toList().cast<Map<String, dynamic>>();
-            emit(state.copyWith(models: filteredModels));
-          } catch (e) {
-            debugPrint('Failed to fetch Copilot models: $e');
-          }
-        }
-      }
     } catch (e) {
       debugPrint('Check status error: $e');
     }
@@ -748,187 +658,11 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
     }
   }
 
-  Future<void> _onChatCreate(CopilotChatCreate event, Emitter<CopilotState> emit) async {
-    if (_chatClient == null) return;
-    
-    emit(state.copyWith(
-      chatMessages: [],
-      isChatStreaming: true,
-    ));
-    
-    try {
-      await _chatClient!.createConversation(
-        initialMessage: event.message,
-        filePath: event.filePath,
-        content: event.content,
-        languageId: event.languageId,
-        line: event.line,
-        character: event.character,
-      );
-      
-      add(CopilotChatAddMessage(CopilotChatMessage(
-        role: 'user',
-        content: event.message,
-        timestamp: DateTime.now(),
-      )));
-    } catch (e) {
-      emit(state.copyWith(
-        isChatStreaming: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  Future<void> _onChatSend(CopilotChatSend event, Emitter<CopilotState> emit) async {
-    if (_chatClient == null) return;
-    
-    emit(state.copyWith(isChatStreaming: true));
-    
-    add(CopilotChatAddMessage(CopilotChatMessage(
-      role: 'user',
-      content: event.message,
-      timestamp: DateTime.now(),
-    )));
-    
-    try {
-      await _chatClient!.conversationTurn(
-        message: event.message,
-        filePath: event.filePath,
-        content: event.content,
-        languageId: event.languageId,
-        line: event.line,
-        character: event.character,
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        isChatStreaming: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  void _onChatClear(CopilotChatClear event, Emitter<CopilotState> emit) {
-    _chatClient?.destroyConversation();
-    emit(state.copyWith(
-      chatMessages: [],
-      isChatStreaming: false,
-    ));
-  }
-
-  void _onChatAddMessage(CopilotChatAddMessage event, Emitter<CopilotState> emit) {
-    final messages = List<CopilotChatMessage>.from(state.chatMessages);
-    messages.add(event.message);
-    emit(state.copyWith(chatMessages: messages));
-  }
-
-  void _onChatSetStreaming(CopilotChatSetStreaming event, Emitter<CopilotState> emit) {
-    emit(state.copyWith(isChatStreaming: event.isStreaming));
-  }
-
-  Future<void> _onFetchModels(CopilotFetchModels event, Emitter<CopilotState> emit) async {
-    if (_chatClient == null) {
-      final authToken = await CopilotChat.loadAuthToken();
-      if (authToken != null) {
-        _chatClient = CopilotChat(
-          authToken: authToken,
-          agenticTools: AgenticTools(workspacePath: '/data/data/com.vsdroid/files'),
-        );
-        _conversationSubscription = _chatClient!.conversationStream.listen((data) {
-          if (data['type'] == 'conversationEntry') {
-            add(CopilotChatAddMessage(CopilotChatMessage(
-              role: 'assistant',
-              content: data['data']['reply'],
-              timestamp: DateTime.now(),
-            )));
-            add(CopilotChatSetStreaming(false));
-          } else if (data['type'] == 'error') {
-            emit(state.copyWith(
-              isChatStreaming: false,
-              error: data['data']['message'],
-            ));
-          }
-        });
-      }
-    }
-
-    if (_chatClient != null) {
-      try {
-        final models = await _chatClient!.getCopilotModels();
-        final data = models['data'] as List<dynamic>? ?? [];
-        final filteredModels = data.where((model) {
-          final policy = model['policy'] as Map<String, dynamic>?;
-          return policy != null && policy['state'] == 'enabled';
-        }).toList().cast<Map<String, dynamic>>();
-        emit(state.copyWith(models: filteredModels));
-      } catch (e) {
-        debugPrint('Failed to fetch Copilot models: $e');
-      }
-    }
-  }
-
-  void _onInternalUpdateMessages(_CopilotInternalUpdateMessages event, Emitter<CopilotState> emit) {
-    emit(state.copyWith(chatMessages: event.messages));
-  }
-
-  void _handleProgress(Map<String, dynamic> progress) {
-    final value = progress['value'];
-    
-    if (value is Map<String, dynamic>) {
-      final kind = value['kind'];
-      
-      if (kind == 'report') {
-        final reply = value['reply'] as String?;
-        if (reply != null && reply.isNotEmpty) {
-          final messages = List<CopilotChatMessage>.from(state.chatMessages);
-          final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
-          
-          if (lastAssistantIndex >= 0) {
-            messages[lastAssistantIndex] = CopilotChatMessage(
-              role: 'assistant',
-              content: reply,
-              timestamp: messages[lastAssistantIndex].timestamp,
-              isStreaming: true,
-            );
-          } else {
-            messages.add(CopilotChatMessage(
-              role: 'assistant',
-              content: reply,
-              timestamp: DateTime.now(),
-              isStreaming: true,
-            ));
-          }
-          
-          add(CopilotChatSetStreaming(true));
-          add(_CopilotInternalUpdateMessages(messages));
-        }
-      } else if (kind == 'end') {
-        final messages = List<CopilotChatMessage>.from(state.chatMessages);
-        final lastAssistantIndex = messages.lastIndexWhere((m) => m.role == 'assistant' && m.isStreaming);
-        
-        if (lastAssistantIndex >= 0) {
-          messages[lastAssistantIndex] = CopilotChatMessage(
-            role: 'assistant',
-            content: messages[lastAssistantIndex].content,
-            timestamp: messages[lastAssistantIndex].timestamp,
-            isStreaming: false,
-          );
-        }
-        
-        add(CopilotChatSetStreaming(false));
-        add(_CopilotInternalUpdateMessages(messages));
-      }
-    }
-  }
-
   Future<void> _onDispose(CopilotDispose event, Emitter<CopilotState> emit) async {
-    _progressSubscription?.cancel();
     _notificationSubscription?.cancel();
-    _conversationSubscription?.cancel();
     _completionManager?.dispose();
     _client?.dispose();
-    _chatClient?.dispose();
     _client = null;
-    _chatClient = null;
     _completionManager = null;
     
     emit(CopilotState.initial());
@@ -964,10 +698,166 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
 
   @override
   Future<void> close() {
-    _progressSubscription?.cancel();
     _notificationSubscription?.cancel();
     _completionManager?.dispose();
     _client?.dispose();
+    return super.close();
+  }
+}
+
+class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
+  CopilotChat? _chatClient;
+  StreamSubscription? _conversationSubscription;
+
+  CopilotChatBloc() : super(CopilotChatState.initial()) {
+    on<CopilotChatCreate>(_onChatCreate);
+    on<CopilotChatSend>(_onChatSend);
+    on<CopilotChatClear>(_onChatClear);
+    on<CopilotChatAddMessage>(_onChatAddMessage);
+    on<CopilotChatSetStreaming>(_onChatSetStreaming);
+    on<CopilotChatFetchModels>(_onChatFetchModels);
+    on<CopilotChatDispose>(_onChatDispose);
+    on<_CopilotChatInternalUpdateMessages>(_onInternalUpdateMessages);
+
+    _initializeChatClient();
+  }
+
+  CopilotChat? get chatClient => _chatClient;
+
+  Future<void> _initializeChatClient() async {
+    final authToken = await CopilotChat.loadAuthToken();
+    if (authToken != null) {
+      _chatClient = CopilotChat(
+        authToken: authToken,
+      );
+      _conversationSubscription = _chatClient!.conversationStream.listen((data) {
+        if (data['type'] == 'conversationEntry') {
+          add(CopilotChatAddMessage(CopilotChatMessage(
+            role: 'assistant',
+            content: data['data']['reply'],
+            timestamp: DateTime.now(),
+          )));
+          add(CopilotChatSetStreaming(false));
+        } else if (data['type'] == 'error') {
+          add(CopilotChatSetStreaming(false));
+        }
+      });
+    }
+  }
+
+  Future<void> _onChatCreate(CopilotChatCreate event, Emitter<CopilotChatState> emit) async {
+    if (_chatClient == null) return;
+
+    emit(state.copyWith(
+      chatMessages: [],
+      isChatStreaming: true,
+    ));
+
+    try {
+      await _chatClient!.createConversation(
+        initialMessage: event.message,
+        filePath: event.filePath,
+        content: event.content,
+        languageId: event.languageId,
+        line: event.line,
+        character: event.character,
+      );
+
+      add(CopilotChatAddMessage(CopilotChatMessage(
+        role: 'user',
+        content: event.message,
+        timestamp: DateTime.now(),
+      )));
+    } catch (e) {
+      emit(state.copyWith(
+        isChatStreaming: false,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onChatSend(CopilotChatSend event, Emitter<CopilotChatState> emit) async {
+    if (_chatClient == null) return;
+
+    emit(state.copyWith(isChatStreaming: true));
+
+    add(CopilotChatAddMessage(CopilotChatMessage(
+      role: 'user',
+      content: event.message,
+      timestamp: DateTime.now(),
+    )));
+
+    try {
+      await _chatClient!.conversationTurn(
+        message: event.message,
+        filePath: event.filePath,
+        content: event.content,
+        languageId: event.languageId,
+        line: event.line,
+        character: event.character,
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        isChatStreaming: false,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  void _onChatClear(CopilotChatClear event, Emitter<CopilotChatState> emit) {
+    _chatClient?.destroyConversation();
+    emit(state.copyWith(
+      chatMessages: [],
+      isChatStreaming: false,
+    ));
+  }
+
+  void _onChatAddMessage(CopilotChatAddMessage event, Emitter<CopilotChatState> emit) {
+    final messages = List<CopilotChatMessage>.from(state.chatMessages);
+    messages.add(event.message);
+    emit(state.copyWith(chatMessages: messages));
+  }
+
+  void _onChatSetStreaming(CopilotChatSetStreaming event, Emitter<CopilotChatState> emit) {
+    emit(state.copyWith(isChatStreaming: event.isStreaming));
+  }
+
+  Future<void> _onChatFetchModels(CopilotChatFetchModels event, Emitter<CopilotChatState> emit) async {
+    if (_chatClient == null) {
+      await _initializeChatClient();
+    }
+
+    if (_chatClient != null) {
+      try {
+        final models = await _chatClient!.getCopilotModels();
+        final data = models['data'] as List<dynamic>? ?? [];
+        final filteredModels = data.where((model) {
+          final policy = model['policy'] as Map<String, dynamic>?;
+          return policy != null && policy['state'] == 'enabled';
+        }).toList().cast<Map<String, dynamic>>();
+        emit(state.copyWith(models: filteredModels));
+      } catch (e) {
+        debugPrint('Failed to fetch Copilot models: $e');
+      }
+    }
+  }
+
+  void _onInternalUpdateMessages(_CopilotChatInternalUpdateMessages event, Emitter<CopilotChatState> emit) {
+    emit(state.copyWith(chatMessages: event.messages));
+  }
+
+  Future<void> _onChatDispose(CopilotChatDispose event, Emitter<CopilotChatState> emit) async {
+    _conversationSubscription?.cancel();
+    _chatClient?.dispose();
+    _chatClient = null;
+
+    emit(CopilotChatState.initial());
+  }
+
+  @override
+  Future<void> close() {
+    _conversationSubscription?.cancel();
+    _chatClient?.dispose();
     return super.close();
   }
 }

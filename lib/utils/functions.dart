@@ -1467,7 +1467,7 @@ Future<LspConfig?> startLspServer({
           ];
         } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
           return [
-            '--init={"clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
+            '--init={"cache":{"directory":"$tempDir"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
           ];
         } else if (ext == 'java') {
           return [

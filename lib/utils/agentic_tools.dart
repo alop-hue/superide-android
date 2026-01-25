@@ -192,7 +192,7 @@ class AgenticTools {
   }
 
   
-  List<Map<String, dynamic>> getTools() {
+  List<Map<String, dynamic>> getTools({bool readAccessOnly = false}) {
     return [
       {
         "type": "function",
@@ -211,7 +211,7 @@ class AgenticTools {
           }
         }
       },
-      {
+      if(!readAccessOnly) {
         "type": "function",
         "function": {
           "name": "writeFile",
@@ -282,7 +282,7 @@ class AgenticTools {
           }
         }
       },
-      {
+      if(!readAccessOnly){
         "type": "function",
         "function": {
           "name": "editFile",

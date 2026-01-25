@@ -283,13 +283,11 @@ class _CodeEditorState extends State<CodeEditor>
     final controller = widget.codeController;
     final generalState = context.read<GeneralBloc>().state;
     
-    // Setup Copilot completions listener
     _setupCopilotListener();
     
     controller.addListener(() {
       if (!mounted) return;
       
-      // Request Copilot completion on text changes
       _requestCopilotCompletion();
       
       if (generalState.generalSettings['autoSave'] ?? true) {
@@ -328,8 +326,6 @@ class _CodeEditorState extends State<CodeEditor>
   void _displayCopilotGhostText(CopilotCompletionData completion) {
     final controller = widget.codeController;
     final cursor = controller.selection.start;
-    
-    // Calculate line and column from cursor position
     final text = controller.text;
     final lines = text.substring(0, cursor).split('\n');
     final line = lines.length - 1;
@@ -348,7 +344,6 @@ class _CodeEditorState extends State<CodeEditor>
   }
 
   void _requestCopilotCompletion() {
-    // Prevent recursive calls
     if (_isRequestingCopilot) return;
     
     _copilotDebounceTimer?.cancel();
@@ -356,12 +351,10 @@ class _CodeEditorState extends State<CodeEditor>
     final copilotBloc = context.read<CopilotBloc>();
     final state = copilotBloc.state;
     
-    // Only request if Copilot is enabled and signed in
     if (!state.isEnabled || state.status != CopilotStatus.signedIn) {
       return;
     }
     
-    // Clear current ghost text while typing (without triggering listener)
     _isRequestingCopilot = true;
     widget.codeController.clearGhostText();
     _currentCopilotUuid = null;
@@ -373,8 +366,6 @@ class _CodeEditorState extends State<CodeEditor>
       final controller = widget.codeController;
       final cursor = controller.selection.start;
       final text = controller.text;
-      
-      // Calculate line and character
       final lines = text.substring(0, cursor).split('\n');
       final line = lines.length - 1;
       final character = lines.last.length;
@@ -428,19 +419,14 @@ class _CodeEditorState extends State<CodeEditor>
                   return CodeForge(
                     language: widget.language.language,
                     filePath: widget.filePath.path,
-                    enableGuideLines:
-                        configState.codeForgeConfig['indentLineStatus'],
+                    enableGuideLines: configState.codeForgeConfig['indentLineStatus'],
                     selectionStyle: CodeSelectionStyle(
                       selectionColor: Colors.blueAccent.withAlpha(80),
                       cursorBubbleColor: Colors.blue,
                     ),
                     matchHighlightStyle: const MatchHighlightStyle(
-                      currentMatchStyle: TextStyle(
-                        backgroundColor: Color(0xFFFFA726),
-                      ),
-                      otherMatchStyle: TextStyle(
-                        backgroundColor: Color(0x55FFFF00),
-                      ),
+                      currentMatchStyle: TextStyle(backgroundColor: Color(0xFFFFA726)),
+                      otherMatchStyle: TextStyle(backgroundColor: Color(0x55FFFF00)),
                     ),
                     editorTheme:
                         highlightThemes[configState.codeForgeConfig['theme']],
@@ -449,6 +435,7 @@ class _CodeEditorState extends State<CodeEditor>
                       fontSize: configState.fontSize,
                     ),
                     controller: codeController,
+                    undoController: widget.undoRedoController,
                     findController: widget.findController,
                     finderBuilder: (context, findController) {
                       return FindPanelWidget(
@@ -5473,8 +5460,6 @@ class _SourceControlState extends State<SourceControl> {
     );
   }
 
-  
-
   Widget _buildGitActionsRow(
     BuildContext context,
     RepoStatusState repoState,
@@ -5895,8 +5880,6 @@ class _SourceControlState extends State<SourceControl> {
       }
     }
   }
-
-  
 
   Widget _buildCommitButton(
     BuildContext context,
@@ -7701,7 +7684,7 @@ class _AIChatState extends State<AIChat> {
   Widget _buildModelSelector(
     BuildContext context, 
     AIState aiState, 
-    CopilotState copilotState, 
+    CopilotChatState chatState, 
     Color textColor, 
     bool isDark,
     bool githubSignedIn,
@@ -7711,7 +7694,7 @@ class _AIChatState extends State<AIChat> {
     final List<_ModelOption> models = [];
     
     if (isCopilotAvailable) {
-      for (final model in copilotState.models) {
+      for (final model in chatState.models) {
         final id = model['id'] as String;
         final name = model['name'] as String;
         models.add(_ModelOption(
@@ -8140,7 +8123,7 @@ class _AIChatState extends State<AIChat> {
     if (currentSession == null) return;
 
     try {
-      final titlePrompt = "Generate a very short title (max 5 words) for this conversation. Only respond with the title, nothing else.\n\nUser: $userPrompt\n\nAssistant: ${aiResponse.substring(0, aiResponse.length > 200 ? 200 : aiResponse.length)}";
+      final titlePrompt = "Generate a short title (max 5 words) for this conversation. Only respond with the title, nothing else.\n\nUser: $userPrompt\n\nAssistant: ${aiResponse.substring(0, aiResponse.length > 200 ? 200 : aiResponse.length)}";
       
       final url = Uri.parse(chatModel.url);
       final titleRequest = http.Request('POST', url);
@@ -8217,10 +8200,10 @@ class _AIChatState extends State<AIChat> {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) return;
 
-    final copilotBloc = context.read<CopilotBloc>();
+    final copilotChatBloc = context.read<CopilotChatBloc>();
     final chatSessionBloc = context.read<ChatSessionBloc>();
 
-    if (copilotBloc.chatClient == null) {
+    if (copilotChatBloc.chatClient == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Copilot chat not available'),
@@ -8251,7 +8234,7 @@ class _AIChatState extends State<AIChat> {
     try {
       final messages = _buildChatHistory(currentList);
       messages.add({'role': 'user', 'content': prompt});
-      final response = await copilotBloc.chatClient!.chatWithModel(
+      final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,
         chatMode: _chatMode,
@@ -8327,12 +8310,6 @@ class _AIChatState extends State<AIChat> {
                         final githubSignedIn = authState.isSignedIn;
                         final bool copilotModelsAvailable = githubSignedIn;
                         
-                        if (githubSignedIn && copilotState.models.isEmpty) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            context.read<CopilotBloc>().add(CopilotFetchModels());
-                          });
-                        }
-                        
                         if (!externalModelConfigured && !copilotModelsAvailable) {
                           return Center(
                             child: Text(
@@ -8345,7 +8322,15 @@ class _AIChatState extends State<AIChat> {
                           );
                         }
                         
-                        return SafeArea(
+                        return BlocBuilder<CopilotChatBloc, CopilotChatState>(
+                          builder: (context, chatState) {
+                            if (githubSignedIn && chatState.models.isEmpty) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                context.read<CopilotChatBloc>().add(CopilotChatFetchModels());
+                              });
+                            }
+                            
+                            return SafeArea(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Column(
@@ -8360,7 +8345,7 @@ class _AIChatState extends State<AIChat> {
                                           _buildModelSelector(
                                             context, 
                                             aiState, 
-                                            copilotState, 
+                                            chatState, 
                                             textColor, 
                                             isDark,
                                             githubSignedIn,
@@ -8419,7 +8404,7 @@ class _AIChatState extends State<AIChat> {
                             suffix: IconButton(
                               onPressed: () async {
                                 final selectedModel = _selectedModelId ?? '';
-                                if (copilotState.models.any((model) => model['id'] == selectedModel)) {
+                                if (chatState.models.any((model) => model['id'] == selectedModel)) {
                                   _sendCopilotChatPrompt(conversations, sessionState.currentSession?.id, selectedModel);
                                 } else if (chatModel != null) {
                                   _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
@@ -8596,6 +8581,8 @@ class _AIChatState extends State<AIChat> {
           },
         );
       }
+    );
+    }
     );
     }
     );

@@ -290,7 +290,11 @@ class CopilotRequestCompletion extends CopilotEvent {
   });
 }
 
-class CopilotChatCreate extends CopilotEvent {
+class CopilotDispose extends CopilotEvent {}
+
+sealed class CopilotChatEvent extends UiEvent {}
+
+class CopilotChatCreate extends CopilotChatEvent {
   final String message;
   final String? filePath;
   final String? content;
@@ -308,7 +312,7 @@ class CopilotChatCreate extends CopilotEvent {
   });
 }
 
-class CopilotChatSend extends CopilotEvent {
+class CopilotChatSend extends CopilotChatEvent {
   final String message;
   final String? filePath;
   final String? content;
@@ -326,26 +330,26 @@ class CopilotChatSend extends CopilotEvent {
   });
 }
 
-class CopilotChatClear extends CopilotEvent {}
+class CopilotChatClear extends CopilotChatEvent {}
 
-class CopilotChatAddMessage extends CopilotEvent {
+class CopilotChatAddMessage extends CopilotChatEvent {
   final CopilotChatMessage message;
 
   CopilotChatAddMessage(this.message);
 }
 
-class CopilotChatSetStreaming extends CopilotEvent {
+class CopilotChatSetStreaming extends CopilotChatEvent {
   final bool isStreaming;
 
   CopilotChatSetStreaming(this.isStreaming);
 }
 
-class CopilotFetchModels extends CopilotEvent {}
+class CopilotChatFetchModels extends CopilotChatEvent {}
 
-class CopilotDispose extends CopilotEvent {}
+class CopilotChatDispose extends CopilotChatEvent {}
 
-class _CopilotInternalUpdateMessages extends CopilotEvent {
+class _CopilotChatInternalUpdateMessages extends CopilotChatEvent {
   final List<CopilotChatMessage> messages;
 
-  _CopilotInternalUpdateMessages(this.messages);
+  _CopilotChatInternalUpdateMessages(this.messages);
 }

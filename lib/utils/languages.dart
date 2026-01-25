@@ -156,18 +156,20 @@ final langhtml = Language(
   extension: ['html','htm'],
   details: 'The standard markup language for creating web pages.',
   language: builtinAllLanguages['xml'],
-  helloWorld:'''
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8"> 
-              <meta name="viewport" content="width=device-width initial-scale=1.0">
-              <meta http-equiv="X-UA-Compatible" content="ie=edge">
-            </head>
-            <body>
-              <h1>Hello World</h1>
-            </body>
-            </html>''',
+  helloWorld:
+  '''
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  </head>
+  <body>
+    <h1>Hello World</h1>
+  </body>
+  </html>
+''',
   icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
   args: ["--stdio"],
   lspExecutable: "/data/data/com.vsdroid/bin/node",
@@ -199,13 +201,13 @@ final langless = Language(
   icon: SvgPicture.asset('assets/material_icons/less.svg',height: 35,width: 35),
 );
 final langphp = Language(
-    name: 'PHP',
-    extension: ['php'],
-    details: 'A server-side language for dynamic web development.',
-    language: builtinAllLanguages['php'],
-    helloWorld: '<?php echo "Hello, World!"; ?>',
-    icon: SvgPicture.asset('assets/material_icons/php.svg',height: 35,width: 35),
-    command: 'php');
+  name: 'PHP',
+  extension: ['php'],
+  details: 'A server-side language for dynamic web development.',
+  language: builtinAllLanguages['php'],
+  helloWorld: '<?php echo "Hello, World!"; ?>',
+  icon: SvgPicture.asset('assets/material_icons/php.svg',height: 35,width: 35),
+  command: 'php');
 final langsql = Language(
   name: 'SQL',
   extension: ['sql'],

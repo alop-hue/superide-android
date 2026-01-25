@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:vsdroid/utils/copilot_lsp.dart';
@@ -10,8 +8,10 @@ import 'agentic_tools.dart';
 
 class CopilotChat {
   final String authToken;
-  final AgenticTools agenticTools;
+
+  AgenticTools? _agenticTools;
   
+  set agenticTools(AgenticTools tools) => _agenticTools = tools;
   String? _conversationId;
   final CopilotAccountStatus _accountStatus = CopilotAccountStatus.signedIn;
   List<Map<String, dynamic>> _conversationMessages = [];
@@ -20,7 +20,6 @@ class CopilotChat {
   Stream<Map<String, dynamic>> get conversationStream => _conversationController.stream;
   
   static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
-    // First try to get GitHub OAuth token (gho_ prefix) for REST API
     try {
       const FlutterSecureStorage storage = FlutterSecureStorage();
       final githubToken = await storage.read(key: 'github_access_token');
@@ -28,29 +27,13 @@ class CopilotChat {
         return githubToken;
       }
     } catch (e) {
-      debugPrint('Failed to read GitHub token from secure storage: $e');
+      return "Failed to retrive the Github token. Make sure you're signed in with github.";
     }
 
-    // Fall back to Copilot SDK token (ghu_ prefix) for LSP suggestions
-    try {
-      final file = File('/data/data/com.vsdroid/files/github-copilot/apps.json');
-      if (!await file.exists()) {
-        return null;
-      }
-      final content = await file.readAsString();
-      final json = jsonDecode(content) as Map<String, dynamic>;
-      final key = json.keys.firstWhere((k) => k.startsWith('github.com:'), orElse: () => '');
-      if (key.isEmpty) {
-        return null;
-      }
-      return json[key]['oauth_token'];
-    } catch (e) {
-      debugPrint('Failed to read token from apps.json: $e');
-      return null;
-    }
+    return "Failed to retrive the Github token. Make sure you're signed in with github.";
   }
   
-  CopilotChat({required this.authToken, required this.agenticTools});
+  CopilotChat({required this.authToken});
 
   Future<Map<String, dynamic>> getCopilotModels() async {
     final response = await http.get(
@@ -74,7 +57,7 @@ class CopilotChat {
     required List<Map<String, dynamic>> messages,
     ChatMode chatMode = ChatMode.ask,
   }) async {
-    final tools = chatMode == ChatMode.agent ? agenticTools.getTools() : [];
+    final tools = chatMode == ChatMode.agent ? _agenticTools?.getTools() ?? [] : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
 
     while (true) {
@@ -174,39 +157,40 @@ class CopilotChat {
         String result;
 
         try {
+          final errorMessage = "Failed to call $functionName";
           switch (functionName) {
             case 'readFile':
-              final res = await agenticTools.readFile(args['filePath']);
+              final res = await _agenticTools?.readFile(args['filePath']) ?? ToolResult.error(errorMessage);
               result = res.success ? (res.data ?? 'No content') : (res.error ?? 'Error reading file');
               break;
             case 'writeFile':
-              final res = await agenticTools.writeFile(args['filePath'], args['content']);
+              final res = await _agenticTools?.writeFile(args['filePath'], args['content']) ?? ToolResult.error(errorMessage);
               result = res.success ? 'File written successfully' : (res.error ?? 'Error writing file');
               break;
             case 'listFiles':
-              final res = await agenticTools.listFiles(
+              final res = await _agenticTools?.listFiles(
                 args['directoryPath'],
                 pattern: args['pattern'],
                 recursive: args['recursive'] ?? false,
-              );
+              ) ?? ToolResult.error(errorMessage);
               result = res.success ? (res.data?.join('\n') ?? 'No files') : (res.error ?? 'Error listing files');
               break;
             case 'searchInFiles':
-              final res = await agenticTools.searchInFiles(
+              final res = await _agenticTools?.searchInFiles(
                 args['query'],
                 filePattern: args['filePattern'],
                 caseSensitive: args['caseSensitive'] ?? false,
-              );
+              ) ?? ToolResult.error(errorMessage);
               result = res.success
                   ? (res.data?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}').join('\n') ?? 'No results')
                   : (res.error ?? 'Error searching files');
               break;
             case 'editFile':
-              final res = await agenticTools.editFile(args['filePath'], args['oldText'], args['newText']);
+              final res = await _agenticTools?.editFile(args['filePath'], args['oldText'], args['newText']) ?? ToolResult.error(errorMessage);
               result = res.success ? 'File edited successfully' : (res.error ?? 'Error editing file');
               break;
             case 'getFileInfo':
-              final res = await agenticTools.getFileInfo(args['filePath']);
+              final res = await _agenticTools?.getFileInfo(args['filePath']) ?? ToolResult.error(errorMessage);
               result = res.success
                   ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
                   : (res.error ?? 'Error getting file info');

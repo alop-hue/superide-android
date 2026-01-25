@@ -376,9 +376,6 @@ class CopilotState {
   final bool isEnabled;
   final CopilotSignInPayload? signInPayload;
   final CopilotCompletionData? currentCompletion;
-  final List<CopilotChatMessage> chatMessages;
-  final bool isChatStreaming;
-  final List<Map<String, dynamic>> models;
 
   CopilotState({
     required this.status,
@@ -388,9 +385,6 @@ class CopilotState {
     this.isEnabled = true,
     this.signInPayload,
     this.currentCompletion,
-    this.chatMessages = const [],
-    this.isChatStreaming = false,
-    this.models = const [],
   });
 
   factory CopilotState.initial() => CopilotState(
@@ -409,9 +403,6 @@ class CopilotState {
     CopilotSignInPayload? signInPayload,
     CopilotCompletionData? currentCompletion,
     bool clearCompletion = false,
-    List<CopilotChatMessage>? chatMessages,
-    bool? isChatStreaming,
-    List<Map<String, dynamic>>? models,
   }) {
     return CopilotState(
       status: status ?? this.status,
@@ -421,9 +412,38 @@ class CopilotState {
       isEnabled: isEnabled ?? this.isEnabled,
       signInPayload: signInPayload ?? this.signInPayload,
       currentCompletion: clearCompletion ? null : (currentCompletion ?? this.currentCompletion),
+    );
+  }
+}
+
+// ================== Copilot Chat State ==================
+
+class CopilotChatState {
+  final List<CopilotChatMessage> chatMessages;
+  final bool isChatStreaming;
+  final List<Map<String, dynamic>> models;
+  final String? error;
+
+  CopilotChatState({
+    this.chatMessages = const [],
+    this.isChatStreaming = false,
+    this.models = const [],
+    this.error,
+  });
+
+  factory CopilotChatState.initial() => CopilotChatState();
+
+  CopilotChatState copyWith({
+    List<CopilotChatMessage>? chatMessages,
+    bool? isChatStreaming,
+    List<Map<String, dynamic>>? models,
+    String? error,
+  }) {
+    return CopilotChatState(
       chatMessages: chatMessages ?? this.chatMessages,
       isChatStreaming: isChatStreaming ?? this.isChatStreaming,
       models: models ?? this.models,
+      error: error,
     );
   }
 }

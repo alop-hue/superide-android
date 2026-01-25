@@ -3,7 +3,9 @@ import 'package:re_highlight/styles/all.dart';
 import 'package:xterm/xterm.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-final Map<String, Map<String, TextStyle>> highlightThemes = builtinAllThemes;
+final Map<String, Map<String, TextStyle>> highlightThemes = builtinAllThemes..removeWhere(
+  (k, v) => v['root']?.backgroundColor == null || v['root']?.color == null
+);
 
 final fonts = [
   'monospace',
