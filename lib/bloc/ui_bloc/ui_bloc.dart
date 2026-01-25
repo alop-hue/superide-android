@@ -710,13 +710,7 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   StreamSubscription? _conversationSubscription;
 
   CopilotChatBloc() : super(CopilotChatState.initial()) {
-    on<CopilotChatCreate>(_onChatCreate);
-    on<CopilotChatSend>(_onChatSend);
-    on<CopilotChatClear>(_onChatClear);
-    on<CopilotChatAddMessage>(_onChatAddMessage);
-    on<CopilotChatSetStreaming>(_onChatSetStreaming);
     on<CopilotChatFetchModels>(_onChatFetchModels);
-    on<CopilotChatDispose>(_onChatDispose);
     on<_CopilotChatInternalUpdateMessages>(_onInternalUpdateMessages);
 
     _initializeChatClient();
@@ -730,96 +724,7 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
       _chatClient = CopilotChat(
         authToken: authToken,
       );
-      _conversationSubscription = _chatClient!.conversationStream.listen((data) {
-        if (data['type'] == 'conversationEntry') {
-          add(CopilotChatAddMessage(CopilotChatMessage(
-            role: 'assistant',
-            content: data['data']['reply'],
-            timestamp: DateTime.now(),
-          )));
-          add(CopilotChatSetStreaming(false));
-        } else if (data['type'] == 'error') {
-          add(CopilotChatSetStreaming(false));
-        }
-      });
     }
-  }
-
-  Future<void> _onChatCreate(CopilotChatCreate event, Emitter<CopilotChatState> emit) async {
-    if (_chatClient == null) return;
-
-    emit(state.copyWith(
-      chatMessages: [],
-      isChatStreaming: true,
-    ));
-
-    try {
-      await _chatClient!.createConversation(
-        initialMessage: event.message,
-        filePath: event.filePath,
-        content: event.content,
-        languageId: event.languageId,
-        line: event.line,
-        character: event.character,
-      );
-
-      add(CopilotChatAddMessage(CopilotChatMessage(
-        role: 'user',
-        content: event.message,
-        timestamp: DateTime.now(),
-      )));
-    } catch (e) {
-      emit(state.copyWith(
-        isChatStreaming: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  Future<void> _onChatSend(CopilotChatSend event, Emitter<CopilotChatState> emit) async {
-    if (_chatClient == null) return;
-
-    emit(state.copyWith(isChatStreaming: true));
-
-    add(CopilotChatAddMessage(CopilotChatMessage(
-      role: 'user',
-      content: event.message,
-      timestamp: DateTime.now(),
-    )));
-
-    try {
-      await _chatClient!.conversationTurn(
-        message: event.message,
-        filePath: event.filePath,
-        content: event.content,
-        languageId: event.languageId,
-        line: event.line,
-        character: event.character,
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        isChatStreaming: false,
-        error: e.toString(),
-      ));
-    }
-  }
-
-  void _onChatClear(CopilotChatClear event, Emitter<CopilotChatState> emit) {
-    _chatClient?.destroyConversation();
-    emit(state.copyWith(
-      chatMessages: [],
-      isChatStreaming: false,
-    ));
-  }
-
-  void _onChatAddMessage(CopilotChatAddMessage event, Emitter<CopilotChatState> emit) {
-    final messages = List<CopilotChatMessage>.from(state.chatMessages);
-    messages.add(event.message);
-    emit(state.copyWith(chatMessages: messages));
-  }
-
-  void _onChatSetStreaming(CopilotChatSetStreaming event, Emitter<CopilotChatState> emit) {
-    emit(state.copyWith(isChatStreaming: event.isStreaming));
   }
 
   Future<void> _onChatFetchModels(CopilotChatFetchModels event, Emitter<CopilotChatState> emit) async {
@@ -844,14 +749,6 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
 
   void _onInternalUpdateMessages(_CopilotChatInternalUpdateMessages event, Emitter<CopilotChatState> emit) {
     emit(state.copyWith(chatMessages: event.messages));
-  }
-
-  Future<void> _onChatDispose(CopilotChatDispose event, Emitter<CopilotChatState> emit) async {
-    _conversationSubscription?.cancel();
-    _chatClient?.dispose();
-    _chatClient = null;
-
-    emit(CopilotChatState.initial());
   }
 
   @override

@@ -276,8 +276,8 @@ class WorkspaceSearchState {
 class DownloadManagerState {
   final Map<int, double> downloadProgress;
   final Map<int, double> extractionProgress;
-  final Set<int> extractingItems; // Items currently being extracted
-  final Set<int> fullyCompleted; // Items with extraction complete
+  final Set<int> extractingItems;
+  final Set<int> fullyCompleted;
 
   DownloadManagerState({
     required this.downloadProgress,
@@ -366,6 +366,20 @@ class CopilotChatMessage {
     content: json['content'],
     timestamp: DateTime.parse(json['timestamp']),
   );
+
+  CopilotChatMessage copyWith({
+    String? role,
+    String? content,
+    DateTime? timestamp,
+    bool? isStreaming,
+  }) {
+    return CopilotChatMessage(
+      role: role ?? this.role,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
 }
 
 class CopilotState {

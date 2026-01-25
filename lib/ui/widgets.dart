@@ -15,6 +15,7 @@ import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vsdroid/utils/agentic_tools.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/ai.dart';
@@ -7570,16 +7571,19 @@ class APITesting extends StatelessWidget {
 
 
 class AIChat extends StatefulWidget {
-  final String filePath;
-  const AIChat({required this.filePath, super.key});
+  final String filePath, workspacePath;
+  const AIChat({
+    required this.filePath,
+    required this.workspacePath, 
+    super.key
+  });
 
   @override
   State<AIChat> createState() => _AIChatState();
 }
 
 class _ModelOption {
-  final String id;
-  final String name;
+  final String id, name;
   final String? provider;
   final Widget icon;
   final bool isCopilot;
@@ -8196,7 +8200,7 @@ class _AIChatState extends State<AIChat> {
     }
   }
 
-  void _sendCopilotChatPrompt(List<AIConversation> currentList, String? sessionId, String modelId) async {
+  void _sendCopilotChatPrompt(List<AIConversation> currentList, String? sessionId, String modelId, String workspacePath) async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) return;
 
@@ -8234,10 +8238,15 @@ class _AIChatState extends State<AIChat> {
     try {
       final messages = _buildChatHistory(currentList);
       messages.add({'role': 'user', 'content': prompt});
+      copilotChatBloc.chatClient!.agenticTools = AgenticTools(workspacePath: workspacePath);
       final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,
         chatMode: _chatMode,
+        onPartial: (partial) {
+          newList[index] = newList[index].copyWith(modelResponse: (newList[index].modelResponse ?? "") + partial);
+          chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+        },
       );
       
       final currentSession = chatSessionBloc.state.currentSession;
@@ -8293,44 +8302,42 @@ class _AIChatState extends State<AIChat> {
             final bool externalModelConfigured = !(aiState.config.isEmpty ||
                 aiState.modelSelected.isEmpty ||
                 aiState.modelSelected['chat'] == null ||
-                aiState.config[aiState.modelSelected['chat']] == null);
-            
-            return BlocBuilder<CopilotBloc, CopilotState>(
-              builder: (context, copilotState) {
+                aiState.config[aiState.modelSelected['chat']] == null
+              );
                 
-                return BlocBuilder<ChatSessionBloc, ChatSessionState>(
-                  builder: (context, sessionState) {
-                    final conversations = sessionState.currentSession?.conversations ?? [];
-                    final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
-                    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-                    final isDark = appThemeState.appTheme.isDark;
+            return BlocBuilder<ChatSessionBloc, ChatSessionState>(
+              builder: (context, sessionState) {
+                final conversations = sessionState.currentSession?.conversations ?? [];
+                final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
+                final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+                final isDark = appThemeState.appTheme.isDark;
+                
+                return BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                  builder: (context, authState) {
+                    final githubSignedIn = authState.isSignedIn;
+                    final bool copilotModelsAvailable = githubSignedIn;
                     
-                    return BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                      builder: (context, authState) {
-                        final githubSignedIn = authState.isSignedIn;
-                        final bool copilotModelsAvailable = githubSignedIn;
-                        
-                        if (!externalModelConfigured && !copilotModelsAvailable) {
-                          return Center(
-                            child: Text(
-                              "Chat Model is not configured. Either create a model in settings or sign in with GitHub.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: appThemeState.appTheme.selectScreenCardTextColor,
-                              ),
-                            ),
-                          );
+                    if (!externalModelConfigured && !copilotModelsAvailable) {
+                      return Center(
+                        child: Text(
+                          "Chat Model is not configured. Either create a model in settings or sign in with GitHub.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return BlocBuilder<CopilotChatBloc, CopilotChatState>(
+                      builder: (context, chatState) {
+                        if (githubSignedIn && chatState.models.isEmpty) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            context.read<CopilotChatBloc>().add(CopilotChatFetchModels());
+                          });
                         }
                         
-                        return BlocBuilder<CopilotChatBloc, CopilotChatState>(
-                          builder: (context, chatState) {
-                            if (githubSignedIn && chatState.models.isEmpty) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                context.read<CopilotChatBloc>().add(CopilotChatFetchModels());
-                              });
-                            }
-                            
-                            return SafeArea(
+                        return SafeArea(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Column(
@@ -8350,243 +8357,246 @@ class _AIChatState extends State<AIChat> {
                                             isDark,
                                             githubSignedIn,
                                           ),
-                                  Row(
-                                    children: [
-                                      Expanded(child: _buildModeSelector(textColor, isDark)),
-                                      IconButton(
-                                        onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
-                                        icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
-                                        tooltip: 'Chat History',
-                                        visualDensity: VisualDensity.compact,
+                                          Row(
+                                            children: [
+                                              Expanded(child: _buildModeSelector(textColor, isDark)),
+                                              IconButton(
+                                                onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
+                                                icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
+                                                tooltip: 'Chat History',
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                              IconButton(
+                                                onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
+                                                icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
+                                                tooltip: 'New Chat',
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      IconButton(
-                                        onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
-                                        icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
-                                        tooltip: 'New Chat',
-                                        visualDensity: VisualDensity.compact,
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              sessionTitle,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                fontSize: 14,
+                                                color: textColor.withAlpha(180),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      sessionTitle,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
-                                        color: textColor.withAlpha(180),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        TextField(
-                          controller: _promptController,
-                          cursorColor: appThemeState.appTheme.selectScreenCardTextColor,
-                          textAlignVertical: TextAlignVertical.top,
-                          style: TextStyle(
-                            color: appThemeState.appTheme.selectScreenCardTextColor,
-                          ),
-                          maxLines: null,
-                          decoration: InputDecoration(
-                            focusedBorder: const OutlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xff0178b9)),
-                            ),
-                            suffix: IconButton(
-                              onPressed: () async {
-                                final selectedModel = _selectedModelId ?? '';
-                                if (chatState.models.any((model) => model['id'] == selectedModel)) {
-                                  _sendCopilotChatPrompt(conversations, sessionState.currentSession?.id, selectedModel);
-                                } else if (chatModel != null) {
-                                  _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
-                                  _promptController.clear();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Chat model not available'),
-                                      backgroundColor: Colors.orange,
-                                    ),
-                                  );
-                                }
-                              },
-                              icon: Icon(
-                                Icons.send,
-                                color: appThemeState.appTheme.selectScreenCardTextColor,
-                              ),
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            labelText: 'Ask AI',
-                            labelStyle: TextStyle(
-                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8, right: 2.5),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: languages.singleWhere(
-                                  (item) => item.extension.contains(
-                                    path.extension(widget.filePath).substring(1),
-                                  ),
-                                ).icon,
-                              ),
-                              SizedBox(width: 3),
-                              Text(
-                                path.basename(widget.filePath),
-                                style: TextStyle(
-                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: BlocBuilder<ConfigBloc, ConfigState>(
-                            builder: (context, configState) {
-                              final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
-                              return ListView.builder(
-                                controller: _scrollController,
-                                itemCount: conversations.length,
-                                itemBuilder: (context, index) {
-                                  final isDark = appThemeState.appTheme.isDark;
-                                  final config = isDark
-                                    ? MarkdownConfig.darkConfig.copy(
-                                        configs: [
-                                          PConfig(
-                                            textStyle: TextStyle(
-                                              color: appThemeState.appTheme.selectScreenCardTextColor,
-                                            ),
-                                          ),
-                                          PreConfig(
-                                            language: languages.singleWhere(
-                                              (item) => item.extension.contains(
-                                                path.extension(widget.filePath).substring(1),
-                                              )
-                                            ).name.toLowerCase(),
-                                            theme: theme,
-                                            styleNotMatched: TextStyle(
-                                              color: theme['root']!.color
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: theme['root']!.backgroundColor
-                                            )
-                                          )
-                                        ],
-                                      )
-                                    : MarkdownConfig.defaultConfig;
-                                  final conv = conversations[index];
-                                  final hasResponse =
-                                      conv.modelResponse != null &&
-                                      conv.modelResponse!.isNotEmpty;
-                                  final isStreaming = conv.modelResponse != null && conv.modelResponse!.isEmpty;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Column(
-                                      children: [
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 6.5,
-                                            ),
-                                            child: Container(
-                                              padding: EdgeInsets.symmetric(
-                                                vertical: 5,
-                                                horizontal: 8,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blueAccent.withAlpha(
-                                                  200,
-                                                ),
-                                                borderRadius: BorderRadius.only(
-                                                  topLeft: Radius.circular(16),
-                                                  topRight: Radius.zero,
-                                                  bottomLeft: Radius.circular(16),
-                                                  bottomRight: Radius.circular(16),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                conv.userRequest,
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: hasResponse
-                                            ? MarkdownBlock(
-                                                data: conv.modelResponse!,
-                                                config: config,
-                                              )
-                                            : isStreaming
-                                              ? Row(
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      'Thinking...',
-                                                      style: TextStyle(
-                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                        fontStyle: FontStyle.italic,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                )
-                                              : const SizedBox.shrink(),
-                                        ),
-                                      ],
+                                TextField(
+                                  controller: _promptController,
+                                  cursorColor: appThemeState.appTheme.selectScreenCardTextColor,
+                                  textAlignVertical: TextAlignVertical.top,
+                                  style: TextStyle(
+                                    color: appThemeState.appTheme.selectScreenCardTextColor,
+                                  ),
+                                  maxLines: null,
+                                  decoration: InputDecoration(
+                                    focusedBorder: const OutlineInputBorder(
+                                      borderSide: BorderSide(color: Color(0xff0178b9)),
                                     ),
-                                  );
-                                },
-                              );
-                            },
+                                    suffix: IconButton(
+                                      onPressed: () async {
+                                        final selectedModel = _selectedModelId ?? '';
+                                        if (chatState.models.any((model) => model['id'] == selectedModel)) {
+                                          _sendCopilotChatPrompt(
+                                            conversations,
+                                            sessionState.currentSession?.id,
+                                            selectedModel,
+                                            widget.workspacePath
+                                          );
+                                        } else if (chatModel != null) {
+                                          _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
+                                          _promptController.clear();
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Chat model not available'),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      icon: Icon(
+                                        Icons.send,
+                                        color: appThemeState.appTheme.selectScreenCardTextColor,
+                                      ),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    labelText: 'Ask AI',
+                                    labelStyle: TextStyle(
+                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8, right: 2.5),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: languages.singleWhere(
+                                          (item) => item.extension.contains(
+                                            path.extension(widget.filePath).substring(1),
+                                          ),
+                                        ).icon,
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        path.basename(widget.filePath),
+                                        style: TextStyle(
+                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: BlocBuilder<ConfigBloc, ConfigState>(
+                                    builder: (context, configState) {
+                                      final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
+                                      return ListView.builder(
+                                        controller: _scrollController,
+                                        itemCount: conversations.length,
+                                        itemBuilder: (context, index) {
+                                          final isDark = appThemeState.appTheme.isDark;
+                                          final config = isDark
+                                            ? MarkdownConfig.darkConfig.copy(
+                                                configs: [
+                                                  PConfig(
+                                                    textStyle: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                    ),
+                                                  ),
+                                                  PreConfig(
+                                                    language: languages.singleWhere(
+                                                      (item) => item.extension.contains(
+                                                        path.extension(widget.filePath).substring(1),
+                                                      )
+                                                    ).name.toLowerCase(),
+                                                    theme: theme,
+                                                    styleNotMatched: TextStyle(
+                                                      color: theme['root']!.color
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: theme['root']!.backgroundColor
+                                                    )
+                                                  )
+                                                ],
+                                              )
+                                            : MarkdownConfig.defaultConfig;
+                                          final conv = conversations[index];
+                                          final hasResponse =
+                                              conv.modelResponse != null &&
+                                              conv.modelResponse!.isNotEmpty;
+                                          final isStreaming = conv.modelResponse != null && conv.modelResponse!.isEmpty;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(top: 8),
+                                            child: Column(
+                                              children: [
+                                                Align(
+                                                  alignment: Alignment.centerRight,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      vertical: 6.5,
+                                                    ),
+                                                    child: Container(
+                                                      padding: EdgeInsets.symmetric(
+                                                        vertical: 5,
+                                                        horizontal: 8,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.blueAccent.withAlpha(
+                                                          200,
+                                                        ),
+                                                        borderRadius: BorderRadius.only(
+                                                          topLeft: Radius.circular(16),
+                                                          topRight: Radius.zero,
+                                                          bottomLeft: Radius.circular(16),
+                                                          bottomRight: Radius.circular(16),
+                                                        ),
+                                                      ),
+                                                      child: Text(
+                                                        conv.userRequest,
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Align(
+                                                  alignment: Alignment.centerLeft,
+                                                  child: hasResponse
+                                                    ? MarkdownBlock(
+                                                        data: conv.modelResponse!,
+                                                        config: config,
+                                                      )
+                                                    : isStreaming
+                                                      ? Row(
+                                                          children: [
+                                                            SizedBox(
+                                                              width: 16,
+                                                              height: 16,
+                                                              child: CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 8),
+                                                            Text(
+                                                              'Thinking...',
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                fontStyle: FontStyle.italic,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : const SizedBox.shrink(),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        );
+                      },
+                    );
+                  },
                 );
-              },
+              }
             );
-          },
+          }
         );
       }
-    );
-    }
-    );
-    }
-    );
-    }
     );
   }
 

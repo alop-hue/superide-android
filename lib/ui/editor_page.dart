@@ -719,9 +719,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   paramTabController: paramTabController,
                                   apiTabController: apiTabController
                                 ),
-                                AIChat(filePath: editorState.activeEditors.isNotEmpty
+                                AIChat(
+                                  filePath: editorState.activeEditors.isNotEmpty
                                   ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.path
-                                  : ''),
+                                  : '',
+                                  workspacePath: widget.rootDir,
+                                ),
                               ],
                             )
                           )

@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:vsdroid/utils/copilot_lsp.dart';
 import 'agentic_tools.dart';
 
 class CopilotChat {
@@ -12,9 +11,6 @@ class CopilotChat {
   AgenticTools? _agenticTools;
   
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
-  String? _conversationId;
-  final CopilotAccountStatus _accountStatus = CopilotAccountStatus.signedIn;
-  List<Map<String, dynamic>> _conversationMessages = [];
   final StreamController<Map<String, dynamic>> _conversationController = StreamController<Map<String, dynamic>>.broadcast();
   
   Stream<Map<String, dynamic>> get conversationStream => _conversationController.stream;
@@ -56,6 +52,7 @@ class CopilotChat {
     required String model,
     required List<Map<String, dynamic>> messages,
     ChatMode chatMode = ChatMode.ask,
+    void Function(String)? onPartial,
   }) async {
     final tools = chatMode == ChatMode.agent ? _agenticTools?.getTools() ?? [] : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
@@ -104,6 +101,7 @@ class CopilotChat {
 
             if (delta['content'] != null) {
               finalMessage['content'] += delta['content'];
+              onPartial?.call(delta['content']);
             }
 
             if (delta['tool_calls'] != null) {
@@ -209,103 +207,6 @@ class CopilotChat {
         });
       }
     }
-  }
-
-  Future<String?> createConversation({
-    required String initialMessage,
-    String? filePath,
-    String? content,
-    String? languageId,
-    int? line,
-    int? character,
-  }) async {
-    if (_accountStatus != CopilotAccountStatus.signedIn) {
-      return null;
-    }
-    
-    _conversationId = 'conv_${DateTime.now().millisecondsSinceEpoch}';
-    _conversationMessages = [{'role': 'user', 'content': initialMessage}];
-    
-    Future(() async {
-      try {
-        final response = await chatWithModel(
-          model: 'gpt-4o', 
-          messages: _conversationMessages,
-          chatMode: ChatMode.agent,
-        );
-        _conversationMessages.add({'role': 'assistant', 'content': response});
-        _conversationController.add({
-          'type': 'conversationEntry',
-          'data': {
-            'conversationId': _conversationId,
-            'reply': response,
-            'references': [],
-            'hideText': false,
-          }
-        });
-      } catch (e) {
-        _conversationController.add({
-          'type': 'error',
-          'data': {'message': e.toString()}
-        });
-      }
-    });
-    
-    return _conversationId;
-  }
-
-  Future<void> conversationTurn({
-    required String message,
-    String? filePath,
-    String? content,
-    String? languageId,
-    int? line,
-    int? character,
-  }) async {
-    if (_conversationId == null || _accountStatus != CopilotAccountStatus.signedIn) {
-      return;
-    }
-    
-    _conversationMessages.add({'role': 'user', 'content': message});
-    
-    // Continue the conversation
-    Future(() async {
-      try {
-        final response = await chatWithModel(
-          model: 'gpt-4o',
-          messages: _conversationMessages,
-          chatMode: ChatMode.agent,
-        );
-        _conversationMessages.add({'role': 'assistant', 'content': response});
-        _conversationController.add({
-          'type': 'conversationEntry',
-          'data': {
-            'conversationId': _conversationId,
-            'reply': response,
-            'references': [],
-            'hideText': false,
-          }
-        });
-      } catch (e) {
-        _conversationController.add({
-          'type': 'error',
-          'data': {'message': e.toString()}
-        });
-      }
-    });
-  }
-
-  Future<void> destroyConversation() async {
-    if (_conversationId == null) return;
-    
-    _conversationId = null;
-    _conversationMessages.clear();
-  }
-
-  Future<void> rateConversation({
-    required String turnId,
-    required int rating,
-  }) async {
   }
 
   void dispose() {

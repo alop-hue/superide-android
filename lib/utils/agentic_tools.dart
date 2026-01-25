@@ -9,13 +9,22 @@ class AgenticTools {
   
   Future<ToolResult<String>> readFile(String filePath) async {
     try {
-      final file = File(filePath);
+      String resolvedPath = filePath;
+      if (!path.isAbsolute(filePath)) {
+        resolvedPath = path.join(workspacePath, filePath);
+      }
+      
+      final file = File(resolvedPath);
       final canonicalPath = file.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
       
       
       if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
-        return ToolResult.error('Permission denied: File is outside workspace');
+        return ToolResult.error(
+          'Permission denied: File is outside the workspace\n'
+          'Workspace: $workspacePath\n'
+          'Requested file: $filePath\n'
+        );
       }
 
       if (!await file.exists()) {
@@ -32,15 +41,23 @@ class AgenticTools {
   
   Future<ToolResult<void>> writeFile(String filePath, String content) async {
     try {
-      final file = File(filePath);
+      String resolvedPath = filePath;
+      if (!path.isAbsolute(filePath)) {
+        resolvedPath = path.join(workspacePath, filePath);
+      }
+      
+      final file = File(resolvedPath);
       final canonicalPath = file.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
       
       if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
-        return ToolResult.error('Permission denied: File is outside workspace');
+        return ToolResult.error(
+          'Permission denied: File is outside the workspace\n'
+          'Workspace: $workspacePath\n'
+          'Requested file: $filePath\n'
+        );
       }
 
-      
       await file.parent.create(recursive: true);
       await file.writeAsString(content);
       
@@ -57,13 +74,22 @@ class AgenticTools {
     bool recursive = false,
   }) async {
     try {
-      final dir = Directory(directoryPath);
+      String resolvedPath = directoryPath;
+      if (!path.isAbsolute(directoryPath)) {
+        resolvedPath = path.join(workspacePath, directoryPath);
+      }
+      
+      final dir = Directory(resolvedPath);
       final canonicalPath = dir.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
       
       if (!path.isWithin(canonicalWorkspace, canonicalPath) &&
           canonicalPath != canonicalWorkspace) {
-        return ToolResult.error('Permission denied: Directory is outside workspace');
+        return ToolResult.error(
+          'Permission denied: File is outside the workspace\n'
+          'Workspace: $canonicalWorkspace\n'
+          'Path tried to access: $canonicalPath\n'
+        );
       }
 
       if (!await dir.exists()) {
@@ -103,7 +129,6 @@ class AgenticTools {
       await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
           final relativePath = path.relative(entity.path, from: workspacePath);
-          
           
           if (filePattern != null) {
             final regex = _globToRegex(filePattern);
@@ -170,7 +195,13 @@ class AgenticTools {
   
   Future<ToolResult<FileInfo>> getFileInfo(String filePath) async {
     try {
-      final file = File(filePath);
+      // Resolve relative paths relative to workspace
+      String resolvedPath = filePath;
+      if (!path.isAbsolute(filePath)) {
+        resolvedPath = path.join(workspacePath, filePath);
+      }
+      
+      final file = File(resolvedPath);
       final canonicalPath = file.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
       
@@ -181,7 +212,7 @@ class AgenticTools {
       final stat = await file.stat();
       
       return ToolResult.success(FileInfo(
-        path: path.relative(filePath, from: workspacePath),
+        path: path.relative(resolvedPath, from: workspacePath),
         size: stat.size,
         modified: stat.modified,
         isDirectory: stat.type == FileSystemEntityType.directory,

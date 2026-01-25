@@ -141,7 +141,6 @@ class AIChatEvent extends UiEvent {
   AIChatEvent(this.aiConversation);
 }
 
-// Chat Session Events
 sealed class ChatSessionEvent extends UiEvent {}
 
 class LoadChatSessions extends ChatSessionEvent {}
@@ -294,59 +293,7 @@ class CopilotDispose extends CopilotEvent {}
 
 sealed class CopilotChatEvent extends UiEvent {}
 
-class CopilotChatCreate extends CopilotChatEvent {
-  final String message;
-  final String? filePath;
-  final String? content;
-  final String? languageId;
-  final int? line;
-  final int? character;
-
-  CopilotChatCreate({
-    required this.message,
-    this.filePath,
-    this.content,
-    this.languageId,
-    this.line,
-    this.character,
-  });
-}
-
-class CopilotChatSend extends CopilotChatEvent {
-  final String message;
-  final String? filePath;
-  final String? content;
-  final String? languageId;
-  final int? line;
-  final int? character;
-
-  CopilotChatSend({
-    required this.message,
-    this.filePath,
-    this.content,
-    this.languageId,
-    this.line,
-    this.character,
-  });
-}
-
-class CopilotChatClear extends CopilotChatEvent {}
-
-class CopilotChatAddMessage extends CopilotChatEvent {
-  final CopilotChatMessage message;
-
-  CopilotChatAddMessage(this.message);
-}
-
-class CopilotChatSetStreaming extends CopilotChatEvent {
-  final bool isStreaming;
-
-  CopilotChatSetStreaming(this.isStreaming);
-}
-
 class CopilotChatFetchModels extends CopilotChatEvent {}
-
-class CopilotChatDispose extends CopilotChatEvent {}
 
 class _CopilotChatInternalUpdateMessages extends CopilotChatEvent {
   final List<CopilotChatMessage> messages;
