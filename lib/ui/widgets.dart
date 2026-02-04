@@ -268,28 +268,31 @@ class CodeEditor extends StatefulWidget {
   State<CodeEditor> createState() => _CodeEditorState();
 }
 
-class _CodeEditorState extends State<CodeEditor>
-    with AutomaticKeepAliveClientMixin {
+class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMixin {
   double _initialFontSize = 10.0;
   double _currentScale = 1.0;
   Timer? _saveTimer, _statusRefreshTimer;
   Timer? _copilotDebounceTimer;
   StreamSubscription<CopilotState>? _copilotSubscription;
   String? _currentCopilotUuid;
-  bool _isRequestingCopilot = false;
+  bool _isUpdatingGhostText = false;
 
   @override
   void initState() {
     super.initState();
     final controller = widget.codeController;
     final generalState = context.read<GeneralBloc>().state;
+    final configState = context.read<ConfigBloc>().state;
     
     _setupCopilotListener();
     
     controller.addListener(() {
-      if (!mounted) return;
-      
-      _requestCopilotCompletion();
+      if (!mounted || _isUpdatingGhostText) return;
+
+      final isManual = configState.codeForgeConfig['manualCompletion'] ?? false;
+      if (!isManual && controller.lastTypedCharacter != "") {
+        _requestCopilotCompletion();
+      }
       
       if (generalState.generalSettings['autoSave'] ?? true) {
         _saveTimer?.cancel();
@@ -319,7 +322,9 @@ class _CodeEditorState extends State<CodeEditor>
         _displayCopilotGhostText(completion);
       } else if (completion == null && _currentCopilotUuid != null) {
         _currentCopilotUuid = null;
+        _isUpdatingGhostText = true;
         widget.codeController.clearGhostText();
+        _isUpdatingGhostText = false;
       }
     });
   }
@@ -332,6 +337,7 @@ class _CodeEditorState extends State<CodeEditor>
     final line = lines.length - 1;
     final column = lines.last.length;
     
+    _isUpdatingGhostText = true;
     controller.setGhostText(GhostText(
       line: line,
       column: column,
@@ -342,11 +348,10 @@ class _CodeEditorState extends State<CodeEditor>
       ),
       shouldPersist: false,
     ));
+    _isUpdatingGhostText = false;
   }
 
   void _requestCopilotCompletion() {
-    if (_isRequestingCopilot) return;
-    
     _copilotDebounceTimer?.cancel();
     
     final copilotBloc = context.read<CopilotBloc>();
@@ -356,13 +361,13 @@ class _CodeEditorState extends State<CodeEditor>
       return;
     }
     
-    _isRequestingCopilot = true;
-    widget.codeController.clearGhostText();
-    _currentCopilotUuid = null;
-    _isRequestingCopilot = false;
-    
-    _copilotDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+    _copilotDebounceTimer = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
+      
+      _isUpdatingGhostText = true;
+      widget.codeController.clearGhostText();
+      _currentCopilotUuid = null;
+      _isUpdatingGhostText = false;
       
       final controller = widget.codeController;
       final cursor = controller.selection.start;
@@ -379,6 +384,35 @@ class _CodeEditorState extends State<CodeEditor>
         languageId: widget.language.name.toLowerCase(),
       ));
     });
+  }
+
+  void requestCopilotCompletionManual() {
+    final copilotBloc = context.read<CopilotBloc>();
+    final state = copilotBloc.state;
+    
+    if (!state.isEnabled || state.status != CopilotStatus.signedIn) {
+      return;
+    }
+    
+    _isUpdatingGhostText = true;
+    widget.codeController.clearGhostText();
+    _currentCopilotUuid = null;
+    _isUpdatingGhostText = false;
+    
+    final controller = widget.codeController;
+    final cursor = controller.selection.start;
+    final text = controller.text;
+    final lines = text.substring(0, cursor).split('\n');
+    final line = lines.length - 1;
+    final character = lines.last.length;
+    
+    copilotBloc.add(CopilotRequestCompletion(
+      filePath: widget.filePath.path,
+      content: text,
+      line: line,
+      character: character,
+      languageId: widget.language.name.toLowerCase(),
+    ));
   }
 
   @override
@@ -429,8 +463,7 @@ class _CodeEditorState extends State<CodeEditor>
                       currentMatchStyle: TextStyle(backgroundColor: Color(0xFFFFA726)),
                       otherMatchStyle: TextStyle(backgroundColor: Color(0x55FFFF00)),
                     ),
-                    editorTheme:
-                        highlightThemes[configState.codeForgeConfig['theme']],
+                    editorTheme: highlightThemes[configState.codeForgeConfig['theme']],
                     textStyle: TextStyle(
                       fontFamily: configState.codeForgeConfig['fontFamily'],
                       fontSize: configState.fontSize,
@@ -458,12 +491,10 @@ class _CodeEditorState extends State<CodeEditor>
   bool get wantKeepAlive => true;
 }
 
-const double _kFindPanelWidth = 380;
-const double _kFindPanelHeight = 36;
+const double _kFindPanelWidth = 380, _kFindPanelHeight = 36;
 const double _kReplacePanelHeight = _kFindPanelHeight * 2;
 const double _kFindIconSize = 18;
-const double _kFindInputFontSize = 13;
-const double _kFindResultFontSize = 11;
+const double _kFindInputFontSize = 13, _kFindResultFontSize = 11;
 
 class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
   final FindController controller;
@@ -826,6 +857,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   late final Language language;
   late final File filePath;
   late final String ext;
+  final GlobalKey<_CodeEditorState> _editorKey = GlobalKey();
 
   @override
   void initState() {
@@ -846,6 +878,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
       children: [
         Expanded(
           child: CodeEditor(
+            key: _editorKey,
             language: language,
             undoRedoController: undoRedoController,
             codeController: controller,
@@ -876,7 +909,15 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                         ),
                       ),
                       padding: EdgeInsets.zero,
-                      onPressed: () {},
+                      onPressed: () {
+                        final ghostText = controller.ghostText;
+                        if(ghostText != null){
+                          controller.insertText(ghostText.text, ghostText.line, ghostText.column);
+                          controller.clearGhostText();
+                        } else {
+                          controller.insertAtCurrentCursor("\t");
+                        }
+                      },
                       icon: SvgPicture.asset(
                         "assets/icons/tab.svg",
                         height: 25,
@@ -926,15 +967,14 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                         ),
                       ),
                       padding: EdgeInsets.zero,
-                      onPressed: () {
-                        /* final codeModel = context
-                            .read<AIBloc>()
-                            .state
-                            .modelSelected['code'];
-                        if (codeModel != null &&
-                            codeModel.isNotEmpty &&
-                            context.read<AIBloc>().state.isEnabled) {
-                          controller.manualAiCompletion?.call();
+                      onPressed: () async {
+                        final String? codeModel = context.read<AIBloc>().state.modelSelected['code'];
+                        if (codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled) {
+                          if(codeModel == "copilot"){
+                            _editorKey.currentState?.requestCopilotCompletionManual();
+                          } else {
+                            //TODO
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -944,7 +984,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                               duration: const Duration(seconds: 2),
                             ),
                           );
-                        } */
+                        }
                       },
                       icon: SvgPicture.asset(
                         "assets/icons/ai.svg",
@@ -1892,8 +1932,6 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     }
   }
 }
-
-
 
 class FindWordWidget extends StatefulWidget {
   final AppTheme appTheme;

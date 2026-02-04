@@ -1356,7 +1356,7 @@ Future<String> getCodeForgeConfig() async {
     "enableLSP": true,
     "LSPdisabledLangs": [],
   };
-  final configString = prefs.getString('CodeForgeConfig');
+  final configString = prefs.getString('codeForgeConfig');
   if (configString == null) {
     return jsonEncode(defaultConfig);
   }
@@ -1467,7 +1467,7 @@ Future<LspConfig?> startLspServer({
           ];
         } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
           return [
-            '--init={"cache":{"directory":"$tempDir"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
+            '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
           ];
         } else if (ext == 'java') {
           return [
@@ -1658,6 +1658,17 @@ class ActiveEditors {
     this.findController,
     this.customTitle,
   });
+
+  Future<void> dispose() async {
+    try {
+      final lspConfig = controller.lspConfig;
+      if (lspConfig != null) {
+        await lspConfig.closeDocument(filePath.path);
+      }
+    } catch (e) {
+      debugPrint('Error closing LSP document: $e');
+    }
+  }
 }
 
 class CodeForgeDemoKey {

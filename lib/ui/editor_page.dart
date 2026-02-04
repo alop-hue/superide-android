@@ -226,6 +226,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Scaffold(
+            resizeToAvoidBottomInset: true,
             appBar: AppBar(title: const Text('Error')),
             body: Center(
               child: Column(
@@ -807,6 +808,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 if(currentState.length <= 1){
                                   Navigator.of(context).pop();
                                   return;
+                                }
+                                
+                                try {
+                                  await currentState[index].dispose();
+                                } catch (e) {
+                                  debugPrint('Error disposing editor: $e');
                                 }
                                 
                                 if (currentState[index].customTitle?.contains("(Working Tree)") == true) {

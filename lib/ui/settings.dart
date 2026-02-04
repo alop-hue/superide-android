@@ -2185,7 +2185,7 @@ int main() {
                                 final currentConfig = configState.codeForgeConfig;
                                 currentConfig['enableLSP'] = val;
                                 context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
-                                prefs.setString('CodeForgeConfig', jsonEncode(currentConfig));
+                                prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
                               }
                             }
                           ),
@@ -2250,7 +2250,7 @@ int main() {
                                       final prefs = await SharedPreferences.getInstance();
                                       final currentConfig = configState.codeForgeConfig;
                                       currentConfig["LSPdisabledLangs"] = currentExcluded;
-                                      await prefs.setString('CodeForgeConfig', jsonEncode(currentConfig));
+                                      await prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
                                       if (context.mounted) {
                                         context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
                                         Navigator.pop(context);
