@@ -1,11 +1,23 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
+import 'package:vsdroid/utils/functions.dart';
 
 
 class AgenticTools {
+  final BuildContext context;
   final String workspacePath;
 
-  AgenticTools({required this.workspacePath});
+  AgenticTools({
+    required this.workspacePath,
+    required this.context,
+  }): _activeEditor = context.read<ActiveEditorBloc>().activeEditor,
+      _isAutoSaveEnabled = (context.read<ConfigBloc>().codeForgeConfig)['autoSave'];
+
+  late final bool _isAutoSaveEnabled;
+  late final ActiveEditor _activeEditor;
   
   Future<ToolResult<String>> readFile(String filePath) async {
     try {
@@ -18,7 +30,6 @@ class AgenticTools {
       final canonicalPath = file.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
       
-      
       if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
         return ToolResult.error(
           'Permission denied: File is outside the workspace\n'
@@ -29,6 +40,11 @@ class AgenticTools {
 
       if (!await file.exists()) {
         return ToolResult.error('File not found: $filePath');
+      }
+
+      if(_activeEditor.file.absolute.path == canonicalPath && _isAutoSaveEnabled){
+        final content = _activeEditor.controller.text;
+        return ToolResult.success(content);  
       }
 
       final content = await file.readAsString();
@@ -57,9 +73,12 @@ class AgenticTools {
           'Requested file: $filePath\n'
         );
       }
+        await file.parent.create(recursive: true);
+        await file.writeAsString(content);
 
-      await file.parent.create(recursive: true);
-      await file.writeAsString(content);
+        if (filePath == _activeEditor.file.path){
+          _activeEditor.controller.refetchFile();
+        }
       
       return ToolResult.success(null);
     } catch (e) {
@@ -195,7 +214,6 @@ class AgenticTools {
   
   Future<ToolResult<FileInfo>> getFileInfo(String filePath) async {
     try {
-      // Resolve relative paths relative to workspace
       String resolvedPath = filePath;
       if (!path.isAbsolute(filePath)) {
         resolvedPath = path.join(workspacePath, filePath);

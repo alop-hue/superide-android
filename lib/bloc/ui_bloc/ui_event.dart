@@ -92,10 +92,10 @@ class AppThemeEvent extends UiEvent{
   AppThemeEvent({required this.appTheme});
 }
 
-class ActiveEditorsEvent extends UiEvent{
-  final List<ActiveEditors> activeEditors;
+class ActiveEditorEvent extends UiEvent{
+  final List<ActiveEditor> activeEditors;
 
-  ActiveEditorsEvent(this.activeEditors);
+  ActiveEditorEvent(this.activeEditors);
 }
 
 

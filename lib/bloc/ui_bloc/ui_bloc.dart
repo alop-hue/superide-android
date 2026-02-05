@@ -122,10 +122,10 @@ class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
   }
 }
 
-class ActiveEditorsBloc extends Bloc<ActiveEditorsEvent, ActiveEditorsState>{
-  final ActiveEditors activeEditor;
-  ActiveEditorsBloc(this.activeEditor):super(ActiveEditorsState([activeEditor])){
-    on<ActiveEditorsEvent>((event, emit) => emit(ActiveEditorsState(event.activeEditors)));
+class ActiveEditorBloc extends Bloc<ActiveEditorEvent, ActiveEditorState>{
+  final ActiveEditor activeEditor;
+  ActiveEditorBloc(this.activeEditor):super(ActiveEditorState([activeEditor])){
+    on<ActiveEditorEvent>((event, emit) => emit(ActiveEditorState(event.activeEditors)));
   }
 }
 
@@ -778,10 +778,14 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
       try {
         final models = await _chatClient!.getCopilotModels();
         final data = models['data'] as List<dynamic>? ?? [];
-        final filteredModels = data.where((model) {
-          final policy = model['policy'] as Map<String, dynamic>?;
-          return policy != null && policy['state'] == 'enabled';
-        }).toList().cast<Map<String, dynamic>>();
+        final filteredModels = data
+            .where((model) {
+              if (model is! Map<String, dynamic>) return false;
+              final policy = model['policy'] as Map<String, dynamic>?;
+              return policy != null && policy['state'] == 'enabled';
+            })
+            .map((model) => model as Map<String, dynamic>)
+            .toList();
         emit(state.copyWith(models: filteredModels));
       } catch (e) {
         debugPrint('Failed to fetch Copilot models: $e');

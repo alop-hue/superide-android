@@ -2193,84 +2193,170 @@ int main() {
                       ),
                       settingsTile(
                         () {
-                          final currentExcluded = List<String>.from(configState.codeForgeConfig["LSPdisabledLangs"] ?? []);
+                          final Map<String, dynamic> currentFeatureToggle = Map<String, dynamic>.from(
+                            configState.codeForgeConfig["LSPFeatureToggle"] ?? {}
+                          );
+                          final lspFeatures = [
+                            'semanticHighlighting',
+                            'codeCompletion',
+                            'hoverInfo',
+                            'codeAction',
+                            'signatureHelp',
+                            'documentColor',
+                            'documentHighlight',
+                            'codeFolding',
+                            'inlayHint',
+                            'goToDefinition',
+                            'rename',
+                          ];
+                          final featureDisplayNames = {
+                            'semanticHighlighting': 'Semantic Highlighting',
+                            'codeCompletion': 'Code Completion',
+                            'hoverInfo': 'Hover Information',
+                            'codeAction': 'Code Actions',
+                            'signatureHelp': 'Signature Help',
+                            'documentColor': 'Document Color',
+                            'documentHighlight': 'Document Highlight',
+                            'codeFolding': 'Code Folding',
+                            'inlayHint': 'Inlay Hints',
+                            'goToDefinition': 'Go to Definition',
+                            'rename': 'Rename Symbol',
+                          };
                           showDialog(
                             context: context,
                             builder: (context) => StatefulBuilder(
                               builder: (context, setState) {
                                 final excludeScrollCtrl = ScrollController();
                                 return AlertDialog(
-                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                title: Text(
-                                  "Disable LSP for selected languages",
-                                  style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
-                                ),
-                                content: SizedBox(
-                                  height: 300,
-                                  width: 300,
-                                  child: RawScrollbar(
-                                    thumbVisibility: true,
-                                    controller: excludeScrollCtrl,
-                                    child: ListView(
+                                  backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                  title: Text(
+                                    "Configure LSP Features",
+                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                  ),
+                                  content: SizedBox(
+                                    height: 400,
+                                    width: 350,
+                                    child: RawScrollbar(
+                                      thumbVisibility: true,
                                       controller: excludeScrollCtrl,
-                                      children: languages.where((langs)=> langs.lspExecutable != null).map((lang) {
-                                        final isExcluded = currentExcluded.contains(lang.name.toLowerCase());
-                                        return CheckboxListTile(
-                                          title: Text(
-                                            lang.name,
-                                            style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
-                                          ),
-                                          value: isExcluded,
-                                          activeColor: Colors.lightBlue,
-                                          checkColor: Colors.white,
-                                          onChanged: (val) {
-                                            setState(() {
-                                              if (val!) {
-                                                currentExcluded.add(lang.name.toLowerCase());
-                                              } else {
-                                                currentExcluded.remove(lang.name.toLowerCase());
-                                              }
-                                            });
-                                          },
-                                        );
-                                      }).toList(),
+                                      child: ListView(
+                                        controller: excludeScrollCtrl,
+                                        children: languages.where((langs) => langs.lspExecutable != null).map((lang) {
+                                          final langKey = lang.name.toLowerCase();
+                                          final disabledFeatures = List<String>.from(currentFeatureToggle[langKey] ?? []);
+                                          final hasDisabledFeatures = disabledFeatures.isNotEmpty;
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                            child: ExpansionTile(
+                                              tilePadding: EdgeInsets.symmetric(horizontal: 8),
+                                              title: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      lang.name,
+                                                      style: TextStyle(
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (hasDisabledFeatures)
+                                                    Container(
+                                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.orange.withOpacity(0.2),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        '${disabledFeatures.length} disabled',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.orange,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              iconColor: appThemeState.appTheme.selectScreenCardTextColor,
+                                              collapsedIconColor: appThemeState.appTheme.selectScreenCardTextColor,
+                                              children: lspFeatures.map((feature) {
+                                                final isDisabled = disabledFeatures.contains(feature);
+                                                return CheckboxListTile(
+                                                  dense: true,
+                                                  title: Text(
+                                                    featureDisplayNames[feature] ?? feature,
+                                                    style: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  value: isDisabled,
+                                                  activeColor: Colors.orange,
+                                                  checkColor: Colors.white,
+                                                  onChanged: (val) {
+                                                    setState(() {
+                                                      if (val!) {
+                                                        if (!disabledFeatures.contains(feature)) {
+                                                          disabledFeatures.add(feature);
+                                                        }
+                                                      } else {
+                                                        disabledFeatures.remove(feature);
+                                                      }
+                                                      if (disabledFeatures.isEmpty) {
+                                                        currentFeatureToggle.remove(langKey);
+                                                      } else {
+                                                        currentFeatureToggle[langKey] = disabledFeatures;
+                                                      }
+                                                    });
+                                                  },
+                                                );
+                                              }).toList(),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text(
-                                      "Cancel",
-                                      style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: Text(
+                                        "Cancel",
+                                        style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor),
+                                      ),
                                     ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () async {
-                                      final prefs = await SharedPreferences.getInstance();
-                                      final currentConfig = configState.codeForgeConfig;
-                                      currentConfig["LSPdisabledLangs"] = currentExcluded;
-                                      await prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
-                                      if (context.mounted) {
-                                        context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
-                                        Navigator.pop(context);
-                                      }
-                                    },
-                                    child: Text(
-                                      "OK",
-                                      style: TextStyle(color: Colors.lightBlue),
+                                    TextButton(
+                                      onPressed: () async {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        final currentConfig = configState.codeForgeConfig;
+                                        currentConfig["LSPFeatureToggle"] = currentFeatureToggle;
+                                        await prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
+                                        if (context.mounted) {
+                                          context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
+                                          Navigator.pop(context);
+                                        }
+                                      },
+                                      child: Text(
+                                        "OK",
+                                        style: TextStyle(color: Colors.lightBlue),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              );
+                                  ],
+                                );
                               },
                             ),
                           );
                         },
-                        "Disable LSP for selected languages",
-                        Icon(Icons.block, color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
+                        "Configure LSP Features",
+                        Icon(Icons.tune, color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
                         appThemeState.appTheme.isDark,
-                        subTitle: "${(configState.codeForgeConfig["LSPdisabledLangs"] ?? []).length} languages excluded"
+                        subTitle: () {
+                          final featureToggle = configState.codeForgeConfig["LSPFeatureToggle"] as Map<String, dynamic>? ?? {};
+                          final totalDisabled = featureToggle.values.fold<int>(0, (sum, list) => sum + (list as List).length);
+                          if (totalDisabled == 0) return "All features enabled";
+                          final langsWithDisabled = featureToggle.keys.length;
+                          return "$totalDisabled features disabled across $langsWithDisabled language${langsWithDisabled > 1 ? 's' : ''}";
+                        }()
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),

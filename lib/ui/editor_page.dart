@@ -89,7 +89,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     
     try {
       final searchState = context.read<WorkspaceSearchBloc>().state;
-      final editorState = context.read<ActiveEditorsBloc>().state;
+      final editorState = context.read<ActiveEditorBloc>().state;
       
       if (searchState.query.isEmpty) return;
       if (editorState.activeEditors.isEmpty) return;
@@ -103,7 +103,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     }
   }
 
-  void _applySearchHighlighting(ActiveEditors editor, String query, WorkspaceSearchState searchState) {
+  void _applySearchHighlighting(ActiveEditor editor, String query, WorkspaceSearchState searchState) {
     if (editor.findController == null) return;
     
     final findController = editor.findController!;
@@ -116,13 +116,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     findController.find(query, scrollToMatch: false);
   }
 
-  void _clearSearchHighlighting(ActiveEditors editor) {
+  void _clearSearchHighlighting(ActiveEditor editor) {
     if (editor.findController == null) return;
     editor.findController!.find('', scrollToMatch: false);
     editor.findController!.findInputController.clear();
   }
 
-  void _goToMatchNearLine(ActiveEditors editor, int targetLine, String searchQuery) {
+  void _goToMatchNearLine(ActiveEditor editor, int targetLine, String searchQuery) {
     if (editor.findController == null) return;
     
     final findController = editor.findController!;
@@ -183,6 +183,31 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     }
   }
 
+  LspClientCapabilities? _getLspCapabilities(Map<String, dynamic> config, String langKey) {
+    final Map<String, dynamic> featureToggle = Map<String, dynamic>.from(
+      config["LSPFeatureToggle"] ?? {}
+    );
+    final List<String> disabledFeatures = List<String>.from(featureToggle[langKey] ?? []);
+    
+    if (disabledFeatures.isEmpty) {
+      return null;
+    }
+    
+    return LspClientCapabilities(
+      semanticHighlighting: !disabledFeatures.contains('semanticHighlighting'),
+      codeCompletion: !disabledFeatures.contains('codeCompletion'),
+      hoverInfo: !disabledFeatures.contains('hoverInfo'),
+      codeAction: !disabledFeatures.contains('codeAction'),
+      signatureHelp: !disabledFeatures.contains('signatureHelp'),
+      documentColor: !disabledFeatures.contains('documentColor'),
+      documentHighlight: !disabledFeatures.contains('documentHighlight'),
+      codeFolding: !disabledFeatures.contains('codeFolding'),
+      inlayHint: !disabledFeatures.contains('inlayHint'),
+      goToDefinition: !disabledFeatures.contains('goToDefinition'),
+      rename: !disabledFeatures.contains('rename'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
@@ -215,12 +240,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
           }
           prefs.setString('recent', jsonEncode(uniqueData));
       })(),
-      uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(widget.languageDetails.name.toLowerCase()) ? startLspServer(
+      uiBloc.state.codeForgeConfig['enableLSP'] ? startLspServer(
         ext: widget.languageDetails.extension[0],
         executable: widget.languageDetails.lspExecutable,
         args: widget.languageDetails.args ?? [],
         workspacePath: widget.rootDir,
-        langId: widget.languageDetails.name
+        langId: widget.languageDetails.name,
+        capabilities: _getLspCapabilities(uiBloc.state.codeForgeConfig, widget.languageDetails.name.toLowerCase()),
       ) : Future.value(null)
       ]),
       builder: (context, snapshot) {
@@ -335,9 +361,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => AIChatBloc()),
             BlocProvider(create: (_) => WorkspaceSearchBloc()),
             BlocProvider(create: (_) => RepoStatusBloc()..add(LoadRepoStatus(widget.rootDir))),
-            BlocProvider(create: (_) => ActiveEditorsBloc(
-              ActiveEditors(
-                filePath: target,
+            BlocProvider(create: (_) => ActiveEditorBloc(
+              ActiveEditor(
+                file: target,
                 controller: initialController,
                 languageDetails: widget.languageDetails,
                 undoRedoController: initalUndoController,
@@ -353,7 +379,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
               previous.matchWholeWord != current.matchWholeWord ||
               previous.isRegex != current.isRegex,
             listener: (context, searchState) {
-              final editorState = context.read<ActiveEditorsBloc>().state;
+              final editorState = context.read<ActiveEditorBloc>().state;
               for (final editor in editorState.activeEditors) {
                 if (searchState.query.isEmpty) {
                   _clearSearchHighlighting(editor);
@@ -362,7 +388,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 }
               }
             },
-            child: BlocBuilder<ActiveEditorsBloc, ActiveEditorsState>(
+            child: BlocBuilder<ActiveEditorBloc, ActiveEditorState>(
               buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
               builder: (context, editorState) {
                 _updateTabController(editorState.activeEditors.length);
@@ -520,29 +546,30 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             ),
                                           ),
                                           onFileTap: (f) async{
-                                            final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
-                                            for(ActiveEditors item in currentState){
+                                            final List<ActiveEditor> currentState = List.from(editorState.activeEditors);
+                                            for(ActiveEditor item in currentState){
                                               item.isActive = false;
                                             }
                                             final lang = languages.firstWhere(
                                               (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
                                               orElse: () =>languages[0]
                                             );
-                                            final lspConfig = uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(lang.name.toLowerCase()) ? await startLspServer(
+                                            final lspConfig = uiBloc.state.codeForgeConfig['enableLSP'] ? await startLspServer(
                                               ext: lang.extension[0],
                                               executable: lang.lspExecutable,
                                               args: lang.args ?? [],
                                               workspacePath: f.parent.path,
-                                              langId: lang.name
+                                              langId: lang.name,
+                                              capabilities: _getLspCapabilities(uiBloc.state.codeForgeConfig, lang.name.toLowerCase()),
                                             ) : null;
                                             final newController = CodeForgeController(
                                               lspConfig: lspConfig
                                             );
                                             currentState.add(
-                                              ActiveEditors(
+                                              ActiveEditor(
                                                 controller: newController,
                                                 undoRedoController: UndoRedoController(),
-                                                filePath: f,
+                                                file: f,
                                                 isActive: true,
                                                 languageDetails: lang,
                                                 findController: FindController(newController),
@@ -550,7 +577,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                             );
                                             mruOrder.insert(0, currentState.length - 1);
                                             if(context.mounted) {
-                                              context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                              context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
                                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                                 final newIndex = currentState.indexWhere((item) => item.isActive == true);
                                                 if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
@@ -573,16 +600,16 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   tabController: tabController,
                                   workspacePath: widget.rootDir,
                                   onFileOpen: (file, lineNumber, searchQuery) async {
-                                    final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                    final List<ActiveEditor> currentState = List.from(editorState.activeEditors);
                                     final existingIndex = currentState.indexWhere(
-                                      (editor) => editor.filePath.path == file.path,
+                                      (editor) => editor.file.path == file.path,
                                     );
                                     
                                     if (existingIndex >= 0) {
                                       for (int i = 0; i < currentState.length; i++) {
                                         currentState[i].isActive = i == existingIndex;
                                       }
-                                      context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                      context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
                                       WidgetsBinding.instance.addPostFrameCallback((_) {
                                         if (tabController != null && existingIndex < tabController!.length) {
                                           tabController!.animateTo(existingIndex);
@@ -593,20 +620,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         }
                                       });
                                     } else {
-                                      for (ActiveEditors item in currentState) {
+                                      for (ActiveEditor item in currentState) {
                                         item.isActive = false;
                                       }
                                       final lang = languages.firstWhere(
                                         (language) => language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
                                         orElse: () => languages[0]
                                       );
-                                      final newLspConfig = uiBloc.state.codeForgeConfig['enableLSP'] && !(uiBloc.state.codeForgeConfig["LSPdisabledLangs"] as List<dynamic>).cast<String>().contains(lang.name.toLowerCase()) 
+                                      final newLspConfig = uiBloc.state.codeForgeConfig['enableLSP']
                                         ? await startLspServer(
                                             ext: lang.extension[0],
                                             executable: lang.lspExecutable,
                                             args: lang.args ?? [],
                                             workspacePath: file.parent.path,
-                                            langId: lang.name
+                                            langId: lang.name,
+                                            capabilities: _getLspCapabilities(uiBloc.state.codeForgeConfig, lang.name.toLowerCase()),
                                           ) 
                                         : null;
                                       final newController = CodeForgeController(
@@ -614,10 +642,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       );
                                       final newFindController = FindController(newController);
                                       currentState.add(
-                                        ActiveEditors(
+                                        ActiveEditor(
                                           controller: newController,
                                           undoRedoController: UndoRedoController(),
-                                          filePath: file,
+                                          file: file,
                                           isActive: true,
                                           languageDetails: lang,
                                           findController: newFindController,
@@ -625,7 +653,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       );
                                       mruOrder.insert(0, currentState.length - 1);
                                       if (context.mounted) {
-                                        context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                        context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
                                           final newIndex = currentState.indexWhere((item) => item.isActive == true);
                                           if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
@@ -645,7 +673,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   appTheme: appTheme, 
                                   workSpace: widget.rootDir, 
                                   isRepoThere: isRepoThere,
-                                  activeEditorsBloc: BlocProvider.of<ActiveEditorsBloc>(context, listen: false),
+                                  activeEditorsBloc: BlocProvider.of<ActiveEditorBloc>(context, listen: false),
                                   onOpenDiffView: (fileName, workspacePath, bloc) async {
                                     try {
                                       final diffResult = await getGitDiff(fileName, workspacePath);
@@ -674,17 +702,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         modifiedColor: const Color(0xFF2196F3),
                                       );
                                       
-                                      final newEditor = ActiveEditors(
+                                      final newEditor = ActiveEditor(
                                         controller: newController,
                                         undoRedoController: UndoRedoController(),
-                                        filePath: tempFile,
+                                        file: tempFile,
                                         isActive: true,
                                         languageDetails: lang,
                                         findController: FindController(newController),
                                         customTitle: '${path.basename(fileName)}(Working Tree)',
                                       );
                                       
-                                      final currentState = List<ActiveEditors>.from(editorState.activeEditors);
+                                      final currentState = List<ActiveEditor>.from(editorState.activeEditors);
                                       for (final editor in currentState) {
                                         editor.isActive = false;
                                       }
@@ -692,7 +720,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       
                                       if (context.mounted) {
                                         mruOrder.insert(0, currentState.length - 1);
-                                        bloc.add(ActiveEditorsEvent(currentState));
+                                        bloc.add(ActiveEditorEvent(currentState));
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
                                           final newIndex = currentState.length - 1;
                                           if (tabController != null && newIndex >= 0) {
@@ -722,7 +750,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 ),
                                 AIChat(
                                   filePath: editorState.activeEditors.isNotEmpty
-                                  ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].filePath.path
+                                  ? editorState.activeEditors[(tabController != null ? tabController!.index : editorState.activeEditors.indexWhere((item) => item.isActive == true))].file.path
                                   : '',
                                   workspacePath: widget.rootDir,
                                 ),
@@ -740,7 +768,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                       child: tabController == null
                         ? Text(
                             editorState.activeEditors.isNotEmpty
-                              ? (editorState.activeEditors[0].customTitle ?? path.basename(editorState.activeEditors[0].filePath.path))
+                              ? (editorState.activeEditors[0].customTitle ?? path.basename(editorState.activeEditors[0].file.path))
                               : '',
                             style: TextStyle(color: appTheme.selectScreenCardTextColor)
                           )
@@ -750,7 +778,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                               int idx = tabController!.index;
                               if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
                               final fileName = editorState.activeEditors.isNotEmpty
-                                ? (editorState.activeEditors[idx].customTitle ?? path.basename(editorState.activeEditors[idx].filePath.path))
+                                ? (editorState.activeEditors[idx].customTitle ?? path.basename(editorState.activeEditors[idx].file.path))
                                 : '';
                               return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
                             },
@@ -796,7 +824,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             Padding(
                               padding: const EdgeInsets.only(left: 8),
                               child: Text(
-                                path.basename(editorState.activeEditors[index].filePath.path),
+                                path.basename(editorState.activeEditors[index].file.path),
                                 softWrap: false,
                                 maxLines: 1,
                               ),
@@ -804,7 +832,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             IconButton(
                               padding: EdgeInsets.zero,
                               onPressed: () async {
-                                final List<ActiveEditors> currentState = List.from(editorState.activeEditors);
+                                final List<ActiveEditor> currentState = List.from(editorState.activeEditors);
                                 if(currentState.length <= 1){
                                   Navigator.of(context).pop();
                                   return;
@@ -818,7 +846,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 
                                 if (currentState[index].customTitle?.contains("(Working Tree)") == true) {
                                   try {
-                                    await currentState[index].filePath.delete();
+                                    await currentState[index].file.delete();
                                   } catch (e) {
                                     debugPrint(e.toString());
                                   }
@@ -835,7 +863,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                   }
                                 }
                                 if(context.mounted){
-                                  context.read<ActiveEditorsBloc>().add(ActiveEditorsEvent(currentState));
+                                  context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
                                 }
 
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -976,7 +1004,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                       final savedPlace = await selectDir(
                                         dialogeTitle: "Save file as...",
                                         initialDirectory: widget.rootDir,
-                                        bytes: activeEditorForSave.filePath.readAsBytesSync()
+                                        bytes: activeEditorForSave.file.readAsBytesSync()
                                       );
                                       if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
                                         showDialog(context: context, builder: (context)=> AlertDialog(
@@ -1030,7 +1058,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                               final activeEditorForClear = tabController != null && tabController!.index < editorState.activeEditors.length
                                                   ? editorState.activeEditors[tabController!.index]
                                                   : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                                              activeEditorForClear.filePath.writeAsString('');
+                                              activeEditorForClear.file.writeAsString('');
                                               Navigator.of(context).pop();
                                               try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
                                             },
@@ -1057,7 +1085,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                             final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
                               ? editorState.activeEditors[tabController!.index]
                               : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                            final File filePath = activeEditorForRun.filePath;
+                            final File filePath = activeEditorForRun.file;
                           final String extention = path.extension(filePath.path);
                           switch (extention) {
                             case '.html':
@@ -1149,7 +1177,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                 body: TabBarView(
                   controller: tabController,
                   children: editorState.activeEditors.map((editor)=> EditorArea(
-                    key: ValueKey(editor.filePath.path),
+                    key: ValueKey(editor.file.path),
                     editor: editor,
                     appTheme: appTheme
                   )).toList()

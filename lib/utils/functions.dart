@@ -600,8 +600,6 @@ Future<ProcessResult> gitSync(String workspacePath) async {
   return pushResult;
 }
 
-// ===================== Branch Operations =====================
-
 Future<List<String>> gitListBranches(
   String workspacePath, {
   bool remote = false,
@@ -890,8 +888,6 @@ Future<String> gitStashShow(String workspacePath, String stashRef) async {
   return result.stdout as String;
 }
 
-// ===================== Tag Operations =====================
-
 Future<List<String>> gitListTags(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final result = await Process.run(
@@ -967,8 +963,6 @@ Future<ProcessResult> gitPushTag(
   );
 }
 
-// ===================== Remote Operations =====================
-
 Future<List<String>> gitListRemotes(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final result = await Process.run(
@@ -1013,8 +1007,6 @@ Future<ProcessResult> gitAddRemote(
   );
 }
 
-// ===================== Status Helpers =====================
-
 Future<bool> hasRemote(String workspacePath) async {
   final remotes = await gitListRemotes(workspacePath);
   return remotes.isNotEmpty;
@@ -1034,7 +1026,6 @@ Future<int> getUnpushedCommitCount(String workspacePath) async {
 
 Future<int> getUnpulledCommitCount(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
-  // First fetch to get latest
   await gitFetch(workspacePath);
   final result = await Process.run(
     "$binDir/git",
@@ -1354,7 +1345,7 @@ Future<String> getCodeForgeConfig() async {
     "manualCompletion": true,
     "autoSave": true,
     "enableLSP": true,
-    "LSPdisabledLangs": [],
+    "LSPFeatureToggle": {},
   };
   final configString = prefs.getString('codeForgeConfig');
   if (configString == null) {
@@ -1372,14 +1363,42 @@ Future<String> getCodeForgeConfig() async {
 
 Future<String> getAiConfig() async {
   final prefs = await SharedPreferences.getInstance();
-  final config = prefs.getString('aiConfig');
-  return config ?? '{}';
+  final defaultConfig = {
+    "models": [],
+    "apiKeys": {},
+  };
+  final configString = prefs.getString('aiConfig');
+  if (configString == null) {
+    return jsonEncode(defaultConfig);
+  }
+  try {
+    final Map<String, dynamic> storedConfig = jsonDecode(configString);
+    final mergedConfig = Map<String, dynamic>.from(defaultConfig)
+      ..addAll(storedConfig);
+    return jsonEncode(mergedConfig);
+  } catch (e) {
+    return jsonEncode(defaultConfig);
+  }
 }
 
 Future<String> getModelSelected() async {
   final prefs = await SharedPreferences.getInstance();
-  final model = prefs.getString('modelSelected');
-  return model ?? '{}';
+  final defaultConfig = {
+    "code": "",
+    "chat": "",
+  };
+  final configString = prefs.getString('modelSelected');
+  if (configString == null) {
+    return jsonEncode(defaultConfig);
+  }
+  try {
+    final Map<String, dynamic> storedConfig = jsonDecode(configString);
+    final mergedConfig = Map<String, dynamic>.from(defaultConfig)
+      ..addAll(storedConfig);
+    return jsonEncode(mergedConfig);
+  } catch (e) {
+    return jsonEncode(defaultConfig);
+  }
 }
 
 extension StringExtension on String {
@@ -1452,6 +1471,7 @@ Future<LspConfig?> startLspServer({
   required String workspacePath,
   required String langId,
   Map<String, String>? environment,
+  LspClientCapabilities? capabilities,
 }) async {
   if (executable == null) return null;
   try {
@@ -1459,6 +1479,7 @@ Future<LspConfig?> startLspServer({
     final String runtimeDir = runtimesDir;
     final config = await LspStdioConfig.start(
       executable: executable,
+      capabilities: capabilities ?? const LspClientCapabilities(),
       args: (() {
         if (ext == 'ts' || ext == 'js') {
           return [
@@ -1640,8 +1661,8 @@ class NativeChannel {
   }
 }
 
-class ActiveEditors {
-  final File filePath;
+class ActiveEditor {
+  final File file;
   final CodeForgeController controller;
   final Language languageDetails;
   final UndoRedoController undoRedoController;
@@ -1649,8 +1670,8 @@ class ActiveEditors {
   FindController? findController;
   String? customTitle;
 
-  ActiveEditors({
-    required this.filePath,
+  ActiveEditor({
+    required this.file,
     required this.controller,
     required this.languageDetails,
     required this.undoRedoController,
@@ -1663,7 +1684,7 @@ class ActiveEditors {
     try {
       final lspConfig = controller.lspConfig;
       if (lspConfig != null) {
-        await lspConfig.closeDocument(filePath.path);
+        await lspConfig.closeDocument(file.path);
       }
     } catch (e) {
       debugPrint('Error closing LSP document: $e');

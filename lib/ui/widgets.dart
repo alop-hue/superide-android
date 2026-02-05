@@ -841,7 +841,7 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class EditorArea extends StatefulWidget {
-  final ActiveEditors editor;
+  final ActiveEditor editor;
   final AppTheme appTheme;
   const EditorArea({super.key, required this.editor, required this.appTheme});
 
@@ -850,12 +850,12 @@ class EditorArea extends StatefulWidget {
 }
 
 class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMixin {
-  late final ActiveEditors editor;
+  late final ActiveEditor editor;
   late final AppTheme appTheme;
   late final CodeForgeController controller;
   late final UndoRedoController undoRedoController;
   late final Language language;
-  late final File filePath;
+  late final File file;
   late final String ext;
   final GlobalKey<_CodeEditorState> _editorKey = GlobalKey();
 
@@ -866,8 +866,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     controller = editor.controller;
     undoRedoController = editor.undoRedoController;
     language = editor.languageDetails;
-    filePath = editor.filePath;
-    ext = path.extension(filePath.path);
+    file = editor.file;
+    ext = path.extension(file.path);
     super.initState();
   }
 
@@ -882,7 +882,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
             language: language,
             undoRedoController: undoRedoController,
             codeController: controller,
-            filePath: editor.filePath,
+            filePath: editor.file,
             findController: editor.findController!,
           ),
         ),
@@ -1936,7 +1936,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 class FindWordWidget extends StatefulWidget {
   final AppTheme appTheme;
   final TextEditingController findWordController, replaceWordController;
-  final ActiveEditorsState editorState;
+  final ActiveEditorState editorState;
   final TabController? tabController;
   final String workspacePath;
   final void Function(File file, int lineNumber, String searchQuery)?
@@ -1959,7 +1959,7 @@ class FindWordWidget extends StatefulWidget {
 class _FindWordWidgetState extends State<FindWordWidget> {
   final ScrollController _resultsScrollController = ScrollController();
 
-  ActiveEditors? _getActiveEditor() {
+  ActiveEditor? _getActiveEditor() {
     if (widget.editorState.activeEditors.isEmpty) return null;
 
     if (widget.tabController != null) {
@@ -1979,7 +1979,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
   }
 
   void _goToMatchNearLine(
-    ActiveEditors editor,
+    ActiveEditor editor,
     int targetLine,
     String searchQuery,
   ) {
@@ -2643,7 +2643,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
         final file = File(result.filePath);
 
         final existingIndex = widget.editorState.activeEditors.indexWhere(
-          (editor) => editor.filePath.path == file.path,
+          (editor) => editor.file.path == file.path,
         );
 
         if (existingIndex >= 0) {
@@ -2741,8 +2741,8 @@ class SourceControl extends StatefulWidget {
   final AppTheme appTheme;
   final String workSpace;
   final bool isRepoThere;
-  final Function(String fileName, String workspacePath, ActiveEditorsBloc bloc)? onOpenDiffView;
-  final ActiveEditorsBloc? activeEditorsBloc;
+  final Function(String fileName, String workspacePath, ActiveEditorBloc bloc)? onOpenDiffView;
+  final ActiveEditorBloc? activeEditorsBloc;
   const SourceControl({
     super.key,
     required this.appTheme,
@@ -7737,8 +7737,9 @@ class _AIChatState extends State<AIChat> {
     
     if (isCopilotAvailable) {
       for (final model in chatState.models) {
-        final id = model['id'] as String;
-        final name = model['name'] as String;
+        final id = model['id'] as String?;
+        final name = model['name'] as String?;
+        if (id == null || name == null) continue;
         models.add(_ModelOption(
           id: id,
           name: name,
@@ -7756,6 +7757,7 @@ class _AIChatState extends State<AIChat> {
     
     if (hasExternalModels) {
       for (final entry in aiState.config.entries) {
+        if (entry.value is! Map<String, dynamic>) continue;
         final config = entry.value as Map<String, dynamic>;
         final provider = config['apiProvider'] as String? ?? 'Unknown';
         final modelName = config['model'] as String? ?? entry.key;
@@ -8276,7 +8278,7 @@ class _AIChatState extends State<AIChat> {
     try {
       final messages = _buildChatHistory(currentList);
       messages.add({'role': 'user', 'content': prompt});
-      copilotChatBloc.chatClient!.agenticTools = AgenticTools(workspacePath: workspacePath);
+      copilotChatBloc.chatClient!.agenticTools = AgenticTools(workspacePath: workspacePath, context: context);
       final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,

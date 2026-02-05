@@ -105,10 +105,10 @@ class AppThemeState{
   const AppThemeState({required this.appTheme});
 }
 
-class ActiveEditorsState{
-  final List<ActiveEditors> activeEditors;
+class ActiveEditorState{
+  final List<ActiveEditor> activeEditors;
 
-  ActiveEditorsState(this.activeEditors);
+  ActiveEditorState(this.activeEditors);
 }
 
 class AIState {
