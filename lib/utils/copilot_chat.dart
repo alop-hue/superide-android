@@ -9,11 +9,17 @@ class CopilotChat {
   final String authToken;
 
   AgenticTools? _agenticTools;
+  http.Client? _currentClient;
   
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
   final StreamController<Map<String, dynamic>> _conversationController = StreamController<Map<String, dynamic>>.broadcast();
   
   Stream<Map<String, dynamic>> get conversationStream => _conversationController.stream;
+  
+  void cancelCurrentRequest() {
+    _currentClient?.close();
+    _currentClient = null;
+  }
   
   static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
     try {
@@ -68,7 +74,7 @@ class CopilotChat {
         requestBody['tools'] = tools;
       }
 
-      final client = http.Client();
+      _currentClient = http.Client();
       final request = http.Request('POST', Uri.parse('https://api.individual.githubcopilot.com/chat/completions'));
       request.headers.addAll({
         'Authorization': 'Bearer $authToken',
@@ -78,7 +84,7 @@ class CopilotChat {
       });
       request.body = jsonEncode(requestBody);
 
-      final streamedResponse = await client.send(request);
+      final streamedResponse = await _currentClient!.send(request);
 
       if (streamedResponse.statusCode != 200) {
         final body = await streamedResponse.stream.bytesToString();
@@ -131,7 +137,8 @@ class CopilotChat {
         }
       }
 
-      client.close();
+      _currentClient?.close();
+      _currentClient = null;
 
       if (finalMessage == null) {
         throw Exception('No message received from stream');
@@ -157,8 +164,22 @@ class CopilotChat {
         try {
           final errorMessage = "Failed to call $functionName";
           switch (functionName) {
+            case 'activeEditorFile':
+              final res = await _agenticTools?.activeEditorFile() ?? ToolResult.error(errorMessage);
+              result = res.success ? (res.data ?? 'No active file') : (res.error ?? 'Error getting active file');
+              break;
+            case 'currentlySelectedText':
+              final res = await _agenticTools?.currentlySelectedText() ?? ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
+                  : (res.error ?? 'Error getting selected text');
+              break;
             case 'readFile':
-              final res = await _agenticTools?.readFile(args['filePath']) ?? ToolResult.error(errorMessage);
+              final res = await _agenticTools?.readFile(
+                args['filePath'],
+                args['startLine'],
+                args['endLine'],
+              ) ?? ToolResult.error(errorMessage);
               result = res.success ? (res.data ?? 'No content') : (res.error ?? 'Error reading file');
               break;
             case 'writeFile':
@@ -178,6 +199,8 @@ class CopilotChat {
                 args['query'],
                 filePattern: args['filePattern'],
                 caseSensitive: args['caseSensitive'] ?? false,
+                matchWholeWord: args['matchWholeWord'] ?? false,
+                useRegex: args['useRegex'] ?? false,
               ) ?? ToolResult.error(errorMessage);
               result = res.success
                   ? (res.data?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}').join('\n') ?? 'No results')
@@ -192,6 +215,16 @@ class CopilotChat {
               result = res.success
                   ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
                   : (res.error ?? 'Error getting file info');
+              break;
+            case 'openLinks':
+              final res = await _agenticTools?.openLinks(args['url']) ?? ToolResult.error(errorMessage);
+              result = res.success ? (res.data?.toString() ?? 'No content') : (res.error ?? 'Error fetching web page');
+              break;
+            case 'searchInWeb':
+              final res = await _agenticTools?.searchInWeb(args['searchQuery']) ?? ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data?.map((w) => '${w.title}\n${w.url}\n${w.snippet}').join('\n---\n') ?? 'No results')
+                  : (res.error ?? 'Error searching web');
               break;
             default:
               result = 'Unknown tool: $functionName';
@@ -210,6 +243,7 @@ class CopilotChat {
   }
 
   void dispose() {
+    _currentClient?.close();
     _conversationController.close();
   }
 }

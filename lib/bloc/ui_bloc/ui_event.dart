@@ -141,6 +141,22 @@ class AIChatEvent extends UiEvent {
   AIChatEvent(this.aiConversation);
 }
 
+class AIChatUIEvent extends UiEvent {
+  final ChatMode chatMode;
+  final String promptText;
+  final String? selectedModelId;
+  final double scrollOffset;
+  final bool isGenerating;
+
+  AIChatUIEvent({
+    required this.chatMode,
+    required this.promptText,
+    this.selectedModelId,
+    required this.scrollOffset,
+    required this.isGenerating,
+  });
+}
+
 sealed class ChatSessionEvent extends UiEvent {}
 
 class LoadChatSessions extends ChatSessionEvent {}

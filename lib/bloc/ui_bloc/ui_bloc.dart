@@ -199,6 +199,18 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
   }
 }
 
+class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
+  AIChatUIBloc() : super(const AIChatUIState()) {
+    on<AIChatUIEvent>((event, emit) => emit(AIChatUIState(
+      chatMode: event.chatMode,
+      promptText: event.promptText,
+      selectedModelId: event.selectedModelId,
+      scrollOffset: event.scrollOffset,
+      isGenerating: event.isGenerating,
+    )));
+  }
+}
+
 class ChatSessionBloc extends Bloc<ChatSessionEvent, ChatSessionState> {
   static const String _storageKey = 'chat_sessions';
 

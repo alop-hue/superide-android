@@ -23,8 +23,8 @@ import 'widgets.dart';
 class EditorPage extends StatefulWidget {
   final Language languageDetails;
   final String rootDir;
-  final File? filePath;
-  const EditorPage({super.key, required this.languageDetails, this.filePath, required this.rootDir});
+  final File? file;
+  const EditorPage({super.key, required this.languageDetails, this.file, required this.rootDir});
 
   @override
   State<EditorPage> createState() => _EditorPageState();
@@ -214,13 +214,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
     final ConfigBloc uiBloc = BlocProvider.of<ConfigBloc>(context);
     return FutureBuilder(
       future: Future.wait([
-        widget.filePath == null
+        widget.file == null
         ? setTempFile(widget.languageDetails.extension[0])
-        : Future.value(widget.filePath),
+        : Future.value(widget.file),
         (() async {
           final prefs = await SharedPreferences.getInstance();
           List<dynamic> storedData = jsonDecode(await getRecent());
-          final File file = widget.filePath ?? await setTempFile(widget.languageDetails.extension[0]);
+          final File file = widget.file ?? await setTempFile(widget.languageDetails.extension[0]);
           final dataToInsert = {file.path: widget.rootDir};
           final Set<String> uniquePaths = {};
           storedData.insert(0, dataToInsert);
@@ -359,6 +359,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
             BlocProvider(create: (_) => ApiBloc()),
             BlocProvider(create: (_) => FolderBloc()),
             BlocProvider(create: (_) => AIChatBloc()),
+            BlocProvider(create: (_) => AIChatUIBloc()),
             BlocProvider(create: (_) => WorkspaceSearchBloc()),
             BlocProvider(create: (_) => RepoStatusBloc()..add(LoadRepoStatus(widget.rootDir))),
             BlocProvider(create: (_) => ActiveEditorBloc(
@@ -891,8 +892,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                 icon: const Icon(FontAwesomeIcons.fileCirclePlus),
                                 iconColor: Colors.grey,
                                 backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                title: const Text("Create a new file",
-                                    style: TextStyle(color: Colors.grey)),
+                                title: const Text("Create a new file", style: TextStyle(color: Colors.grey)),
                                 content: Form(
                                   key: createFileKey,
                                   child: TextFormField(
@@ -942,139 +942,142 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin {
                                         child: const Text("OK")
                                       )
                                     ],
-                                  ));
-                                  }, child: Row(
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 3),
-                                        child: Icon(
-                                          FontAwesomeIcons.fileCirclePlus,
-                                          color: appTheme.selectScreenCardTextColor,
-                                          size: 20),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text("New",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                    ],
-                                  ))),
-                              PopupMenuItem(
-                                child: TextButton(onPressed: () async{
-                                  if (context.mounted) {
-                                    final file = await pickFile();
-                                    if (file != null) {
-                                    } else {
-                                      if(context.mounted) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text("Failed to open file",
-                                                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                                            backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                            icon: const Icon(Icons.error_outline),
-                                            iconColor: Colors.red[600],
-                                            actionsAlignment: MainAxisAlignment.center,
-                                              actions: [
-                                                ElevatedButton(
-                                                    onPressed: () {
-                                                      Navigator.of(context).pop();
-                                                    },
-                                                    child: const Text("OK"))
-                                                  ],
-                                              ));
-                                            }
-                                          }
-                                        }
-                                        if(context.mounted) {
-                                          Navigator.of(context).pop();
-                                        }
-                                        }, child: Row(
-                                          children: [
-                                            Icon(FontAwesomeIcons.fileImport,color: appTheme.selectScreenCardTextColor,size: 20),
-                                            const SizedBox(width: 10),
-                                            Text("Open",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                          ],
-                                        ),
-                                      ),
-                              ),
-                                PopupMenuItem(
-                                  child: TextButton(onPressed: () async{
-                                    if(context.mounted && editorState.activeEditors.isNotEmpty){
-                                      final activeEditorForSave = tabController != null && tabController!.index < editorState.activeEditors.length
-                                          ? editorState.activeEditors[tabController!.index]
-                                          : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                                      final savedPlace = await selectDir(
-                                        dialogeTitle: "Save file as...",
-                                        initialDirectory: widget.rootDir,
-                                        bytes: activeEditorForSave.file.readAsBytesSync()
-                                      );
-                                      if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
-                                        showDialog(context: context, builder: (context)=> AlertDialog(
-                                          title: const Text("Failed to save file",
-                                            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                                          backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                          icon: const Icon(Icons.error_outline),
-                                          iconColor: Colors.red[600],
-                                          actionsAlignment: MainAxisAlignment.center,
-                                            actions: [
-                                              ElevatedButton(
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              child: const Text("OK"))
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }, child: Row(
-                                    children: [
-                                      const SizedBox(width: 5.5),
-                                      Icon(FontAwesomeIcons.filePen, color: appTheme.selectScreenCardTextColor,size: 20),
-                                      const SizedBox(width: 7),
-                                      Text("SaveAs",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                    ],
-                                  ),
                                 )
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 3),
+                                child: Icon(
+                                  FontAwesomeIcons.fileCirclePlus,
+                                  color: appTheme.selectScreenCardTextColor,
+                                  size: 20),
                               ),
-                              PopupMenuItem(
-                                  child: TextButton(onPressed: () {
-                                    showDialog(context: context, builder: (context)=>AlertDialog(
-                                      title:  Text("Are you sure ?",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                      content: const Text("       The code will be cleared",style: TextStyle(color: Colors.grey)),
+                              const SizedBox(width: 10),
+                              Text("New",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
+                            ],
+                          ))
+                        ),
+                        PopupMenuItem(
+                          child: TextButton(onPressed: () async{
+                            if (context.mounted) {
+                              final file = await pickFile();
+                              if (file != null) {
+                              } else {
+                                if(context.mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text("Failed to open file",
+                                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
                                       backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                      icon: const Icon(Icons.error_outline,size: 35),
+                                      icon: const Icon(Icons.error_outline),
                                       iconColor: Colors.red[600],
                                       actionsAlignment: MainAxisAlignment.center,
                                         actions: [
                                           ElevatedButton(
-                                            style: ButtonStyle(
-                                              backgroundColor: WidgetStatePropertyAll(Colors.red[600])
-                                            ),
-                                            onPressed: (){
-                                              Navigator.of(context).pop();
-                                            }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              if (editorState.activeEditors.isEmpty) return;
-                                              final activeEditorForClear = tabController != null && tabController!.index < editorState.activeEditors.length
-                                                  ? editorState.activeEditors[tabController!.index]
-                                                  : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                                              activeEditorForClear.file.writeAsString('');
-                                              Navigator.of(context).pop();
-                                              try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
-                                            },
-                                            child: const Text("OK"))
-                                        ],
-                                    ));
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: const Text("OK"))
+                                            ],
+                                        ));
+                                      }
+                                    }
+                                  }
+                                  if(context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
                                   }, child: Row(
                                     children: [
-                                      Icon(Icons.clear_sharp,color: appTheme.selectScreenCardTextColor,size: 25),
-                                      const SizedBox(width: 7),
-                                      Text("Clear",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
+                                      Icon(FontAwesomeIcons.fileImport,color: appTheme.selectScreenCardTextColor,size: 20),
+                                      const SizedBox(width: 10),
+                                      Text("Open",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
                                     ],
                                   ),
                                 ),
-                              )
-                            ]),
+                        ),
+                        PopupMenuItem(
+                            child: TextButton(onPressed: () async{
+                              if(context.mounted && editorState.activeEditors.isNotEmpty){
+                                final activeEditorForSave = tabController != null && tabController!.index < editorState.activeEditors.length
+                                    ? editorState.activeEditors[tabController!.index]
+                                    : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
+                                final savedPlace = await selectDir(
+                                  dialogeTitle: "Save file as...",
+                                  initialDirectory: widget.rootDir,
+                                  bytes: activeEditorForSave.file.readAsBytesSync()
+                                );
+                                if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
+                                  showDialog(context: context, builder: (context)=> AlertDialog(
+                                    title: const Text("Failed to save file",
+                                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
+                                    backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                    icon: const Icon(Icons.error_outline),
+                                    iconColor: Colors.red[600],
+                                    actionsAlignment: MainAxisAlignment.center,
+                                      actions: [
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        child: const Text("OK"))
+                                      ],
+                                    ),
+                                  );
+                                }
+                              }
+                            }, child: Row(
+                              children: [
+                                const SizedBox(width: 5.5),
+                                Icon(FontAwesomeIcons.filePen, color: appTheme.selectScreenCardTextColor,size: 20),
+                                const SizedBox(width: 7),
+                                Text("SaveAs",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
+                              ],
+                            ),
+                          )
+                        ),
+                        PopupMenuItem(
+                            child: TextButton(onPressed: () {
+                              showDialog(context: context, builder: (context)=>AlertDialog(
+                                title:  Text("Are you sure ?",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
+                                content: const Text("       The code will be cleared",style: TextStyle(color: Colors.grey)),
+                                backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                icon: const Icon(Icons.error_outline,size: 35),
+                                iconColor: Colors.red[600],
+                                actionsAlignment: MainAxisAlignment.center,
+                                  actions: [
+                                    ElevatedButton(
+                                      style: ButtonStyle(
+                                        backgroundColor: WidgetStatePropertyAll(Colors.red[600])
+                                      ),
+                                      onPressed: (){
+                                        Navigator.of(context).pop();
+                                      }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        if (editorState.activeEditors.isEmpty) return;
+                                        final activeEditorForClear = tabController != null && tabController!.index < editorState.activeEditors.length
+                                            ? editorState.activeEditors[tabController!.index]
+                                            : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
+                                        activeEditorForClear.file.writeAsString('');
+                                        Navigator.of(context).pop();
+                                        try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
+                                      },
+                                      child: const Text("OK"))
+                                  ],
+                              ));
+                            }, child: Row(
+                              children: [
+                                Icon(Icons.clear_sharp,color: appTheme.selectScreenCardTextColor,size: 25),
+                                const SizedBox(width: 7),
+                                Text("Clear",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
+                              ],
+                            ),
+                          ),
+                        )]
+                      ),
                       IconButton(
                         onPressed: () async {
                           if (editorState.activeEditors.isEmpty) return;

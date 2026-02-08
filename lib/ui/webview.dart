@@ -156,17 +156,17 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       ),
                     ),
                     PopupMenuItem(
-                        child: ListTile(
-                            onTap: () async {
-                              if (isLoaded) {
-                                await controller.reload();
-                              }
-                            },
-                            leading: const Icon(Icons.replay_outlined,
-                                color: Colors.grey, size: 30),
-                            title: const Text("Reload"),
-                            titleTextStyle: const TextStyle(
-                                color: Colors.grey, fontSize: 18)))
+                      child: ListTile(
+                        onTap: () async {
+                          if (isLoaded) {
+                            //TODO: preserve states on reload
+                            await controller.reload();
+                          }
+                        },
+                        leading: const Icon(Icons.replay_outlined,
+                        color: Colors.grey, size: 30),
+                        title: const Text("Reload"),
+                        titleTextStyle: const TextStyle(color: Colors.grey, fontSize: 18)))
                   ],
                 )
               ],
@@ -186,20 +186,19 @@ class _WebViewScreenState extends State<WebViewScreen> {
             ),
             body: InAppWebView(
               initialSettings: InAppWebViewSettings(
-                  allowFileAccess: true,
-                  allowContentAccess: true,
-                  cacheEnabled: false,
-                  clearCache: true),
+                allowFileAccess: true,
+                allowContentAccess: true,
+                cacheEnabled: false,
+                clearCache: true),
               initialUrlRequest: URLRequest(
-                  url: WebUri(
-                      "http://localhost:5285/${path.basename(widget.htmlFile.path)}")),
+                url: WebUri("http://localhost:5285/${path.basename(widget.htmlFile.path)}")
+              ),
               onWebViewCreated: (InAppWebViewController webViewController) {
                 controller = webViewController;
                 controller.reload();
               },
               onLoadStart: (controller, url) async {
-                await controller.injectJavascriptFileFromAsset(
-                    assetFilePath: "assets/webview/eruda.js");
+                await controller.injectJavascriptFileFromAsset(assetFilePath: "assets/webview/eruda.js");
                 await controller.evaluateJavascript(source: """
                         window.flutter_inappwebview.callHandler = window.flutter_inappwebview.callHandler || function() {};
                         window.setViewport = function(isMobile) {

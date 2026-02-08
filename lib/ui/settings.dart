@@ -1848,14 +1848,15 @@ int main() {
                                               ));
                                             }
 
-                                            modelCards.addAll(aiState.config.entries.map((e) {
+                                            modelCards.addAll(aiState.config.entries.where((e) => e.value is Map<String, dynamic>).map((e) {
+                                              final config = e.value as Map<String, dynamic>;
                                               return Card(
                                                 color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
                                                 child: ListTile(
                                                   dense: true,
                                                   leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
                                                   title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                  subtitle: Text(e.value['modelName'], style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                  subtitle: Text(config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
                                                   trailing: IconButton(
                                                     icon: Icon(Icons.delete,color: Colors.red),
                                                     onPressed: () async{
@@ -2264,7 +2265,7 @@ int main() {
                                                     Container(
                                                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.orange.withOpacity(0.2),
+                                                        color: Colors.orange.withValues(alpha: 0.2),
                                                         borderRadius: BorderRadius.circular(12),
                                                       ),
                                                       child: Text(

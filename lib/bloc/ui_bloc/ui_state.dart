@@ -185,6 +185,38 @@ class AIChatState {
   AIChatState(this.aiConversation);
 }
 
+class AIChatUIState {
+  final ChatMode chatMode;
+  final String promptText;
+  final String? selectedModelId;
+  final double scrollOffset;
+  final bool isGenerating;
+
+  const AIChatUIState({
+    this.chatMode = ChatMode.ask,
+    this.promptText = '',
+    this.selectedModelId,
+    this.scrollOffset = -1,
+    this.isGenerating = false,
+  });
+
+  AIChatUIState copyWith({
+    ChatMode? chatMode,
+    String? promptText,
+    String? selectedModelId,
+    double? scrollOffset,
+    bool? isGenerating,
+  }) {
+    return AIChatUIState(
+      chatMode: chatMode ?? this.chatMode,
+      promptText: promptText ?? this.promptText,
+      selectedModelId: selectedModelId ?? this.selectedModelId,
+      scrollOffset: scrollOffset ?? this.scrollOffset,
+      isGenerating: isGenerating ?? this.isGenerating,
+    );
+  }
+}
+
 class ChatSessionState {
   final List<ChatSession> sessions;
   final ChatSession? currentSession;

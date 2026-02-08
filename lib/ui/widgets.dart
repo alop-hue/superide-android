@@ -14,7 +14,6 @@ import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/agentic_tools.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
@@ -505,12 +504,7 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => Size(
     double.infinity,
-    !controller.isActive
-        ? 0
-        : (controller.isReplaceMode
-                  ? _kReplacePanelHeight
-                  : _kFindPanelHeight + 2) +
-              10,
+    !controller.isActive ? 0 : (controller.isReplaceMode ? _kReplacePanelHeight : _kFindPanelHeight + 2) + 10,
   );
 
   @override
@@ -7637,41 +7631,75 @@ class _ModelOption {
 class _AIChatState extends State<AIChat> {
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  ChatMode _chatMode = ChatMode.ask;
-  String? _selectedModelId;
+  http.Client? _currentClient;
+  bool _initialScrollDone = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSelectedModel();
+    final uiState = context.read<AIChatUIBloc>().state;
+    _promptController.text = uiState.promptText;
+    _promptController.addListener(_onPromptChanged);
+    _scrollController.addListener(_onScrollChanged);
   }
 
-  Future<void> _loadSelectedModel() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedModel = prefs.getString('selected_chat_model');
-    if (savedModel != null) {
-      setState(() {
-        _selectedModelId = savedModel;
-      });
+  void _onPromptChanged() {
+    final bloc = context.read<AIChatUIBloc>();
+    final current = bloc.state;
+    bloc.add(AIChatUIEvent(
+      chatMode: current.chatMode,
+      promptText: _promptController.text,
+      selectedModelId: current.selectedModelId,
+      scrollOffset: current.scrollOffset,
+      isGenerating: current.isGenerating,
+    ));
+  }
+
+  void _onScrollChanged() {
+    if (_scrollController.hasClients) {
+      _updateBlocState(scrollOffset: _scrollController.offset);
     }
   }
 
-  Future<void> _saveSelectedModel(String modelId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_chat_model', modelId);
-    setState(() {
-      _selectedModelId = modelId;
-    });
+  void _updateBlocState({
+    ChatMode? chatMode,
+    String? promptText,
+    String? selectedModelId,
+    double? scrollOffset,
+    bool? isGenerating,
+  }) {
+    final bloc = context.read<AIChatUIBloc>();
+    final current = bloc.state;
+    bloc.add(AIChatUIEvent(
+      chatMode: chatMode ?? current.chatMode,
+      promptText: promptText ?? current.promptText,
+      selectedModelId: selectedModelId ?? current.selectedModelId,
+      scrollOffset: scrollOffset ?? current.scrollOffset,
+      isGenerating: isGenerating ?? current.isGenerating,
+    ));
+  }
+
+  void _stopGeneration() {
+    _currentClient?.close();
+    _currentClient = null;
+    
+    final copilotChatBloc = context.read<CopilotChatBloc>();
+    copilotChatBloc.chatClient?.cancelCurrentRequest();
+    
+    _updateBlocState(isGenerating: false);
   }
 
   @override
   void dispose() {
+    _promptController.removeListener(_onPromptChanged);
+    _scrollController.removeListener(_onScrollChanged);
+    _currentClient?.close();
     _promptController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Widget _buildModeSelector(Color textColor, bool isDark) {
+  Widget _buildModeSelector(Color textColor, bool isDark, ChatMode chatMode) {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -7684,7 +7712,7 @@ class _AIChatState extends State<AIChat> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<ChatMode>(
-          value: _chatMode,
+          value: chatMode,
           isDense: true,
           icon: Icon(Icons.arrow_drop_down, color: textColor.withAlpha(150), size: 18),
           dropdownColor: isDark ? const Color(0xff2d2d2d) : Colors.white,
@@ -7715,7 +7743,7 @@ class _AIChatState extends State<AIChat> {
           ],
           onChanged: (mode) {
             if (mode != null) {
-              setState(() => _chatMode = mode);
+              _updateBlocState(chatMode: mode);
             }
           },
         ),
@@ -7730,6 +7758,7 @@ class _AIChatState extends State<AIChat> {
     Color textColor, 
     bool isDark,
     bool githubSignedIn,
+    String? selectedModelId,
   ) {
     final isCopilotAvailable = githubSignedIn;
     final hasExternalModels = aiState.config.isNotEmpty;
@@ -7775,8 +7804,8 @@ class _AIChatState extends State<AIChat> {
       return const SizedBox.shrink();
     }
     
-    final currentModelId = _selectedModelId != null && models.any((m) => m.id == _selectedModelId)
-        ? _selectedModelId
+    final currentModelId = selectedModelId != null && models.any((m) => m.id == selectedModelId)
+        ? selectedModelId
         : models.first.id;
     
     return Container(
@@ -7825,7 +7854,7 @@ class _AIChatState extends State<AIChat> {
           }).toList(),
           onChanged: (modelId) {
             if (modelId == null) return;
-            _saveSelectedModel(modelId);
+            _updateBlocState(selectedModelId: modelId);
           },
         ),
       ),
@@ -8062,6 +8091,8 @@ class _AIChatState extends State<AIChat> {
 
     final int index = newList.length - 1;
     _promptController.clear();
+    
+    _updateBlocState(isGenerating: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -8074,7 +8105,7 @@ class _AIChatState extends State<AIChat> {
     });
 
     final url = Uri.parse(_getStreamingUrl(chatModel));
-    final client = http.Client();
+    _currentClient = http.Client();
     final request = http.Request('POST', url);
     request.headers.addAll(chatModel.headers);
     
@@ -8082,7 +8113,7 @@ class _AIChatState extends State<AIChat> {
     request.body = jsonEncode(_buildRequestBody(chatModel, prompt, historyForRequest));
 
     try {
-      final streamedResponse = await client.send(request);
+      final streamedResponse = await _currentClient!.send(request);
       final StringBuffer fullResponse = StringBuffer();
       
       await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
@@ -8139,7 +8170,9 @@ class _AIChatState extends State<AIChat> {
         }
       }
       
-      client.close();
+      _currentClient?.close();
+      _currentClient = null;
+      _updateBlocState(isGenerating: false);
       
       if (isFirstMessage && fullResponse.isNotEmpty) {
         _generateTitle(chatModel, prompt, fullResponse.toString());
@@ -8152,12 +8185,14 @@ class _AIChatState extends State<AIChat> {
             .toList();
         if (index < updated.length) {
           updated[index] = updated[index].copyWith(
-            modelResponse: 'Failed to send request: ${e.toString()}',
+            modelResponse: e.toString().contains('Connection closed') ? 'Generation stopped by user' : 'Failed to send request: ${e.toString()}',
           );
           chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
         }
       }
-      client.close();
+      _currentClient?.close();
+      _currentClient = null;
+      _updateBlocState(isGenerating: false);
     }
   }
 
@@ -8264,6 +8299,8 @@ class _AIChatState extends State<AIChat> {
 
     final int index = newList.length - 1;
     _promptController.clear();
+    
+    _updateBlocState(isGenerating: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -8282,7 +8319,7 @@ class _AIChatState extends State<AIChat> {
       final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,
-        chatMode: _chatMode,
+        chatMode: context.read<AIChatUIBloc>().state.chatMode,
         onPartial: (partial) {
           newList[index] = newList[index].copyWith(modelResponse: (newList[index].modelResponse ?? "") + partial);
           chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
@@ -8316,6 +8353,8 @@ class _AIChatState extends State<AIChat> {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         }
       });
+      
+      _updateBlocState(isGenerating: false);
     } catch (e) {
       final currentSession = chatSessionBloc.state.currentSession;
       if (currentSession != null) {
@@ -8324,17 +8363,21 @@ class _AIChatState extends State<AIChat> {
             .toList();
         if (index < updated.length) {
           updated[index] = updated[index].copyWith(
-            modelResponse: 'Failed to send request: ${e.toString()}',
+            modelResponse: e.toString().contains('Connection closed') ? 'Generation stopped by user' : 'Failed to send request: ${e.toString()}',
           );
           chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
         }
       }
+      
+      _updateBlocState(isGenerating: false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AppThemeBloc, AppThemeState>(
+    return BlocBuilder<AIChatUIBloc, AIChatUIState>(
+      builder: (context, aiChatUIState) {
+      return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, appThemeState) {
         return BlocBuilder<AIBloc, AIState>(
           builder: (context, aiState) {
@@ -8396,10 +8439,11 @@ class _AIChatState extends State<AIChat> {
                                             textColor, 
                                             isDark,
                                             githubSignedIn,
+                                            aiChatUIState.selectedModelId,
                                           ),
                                           Row(
                                             children: [
-                                              Expanded(child: _buildModeSelector(textColor, isDark)),
+                                              Expanded(child: _buildModeSelector(textColor, isDark, aiChatUIState.chatMode)),
                                               IconButton(
                                                 onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
                                                 icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
@@ -8449,29 +8493,30 @@ class _AIChatState extends State<AIChat> {
                                       borderSide: BorderSide(color: Color(0xff0178b9)),
                                     ),
                                     suffix: IconButton(
-                                      onPressed: () async {
-                                        final selectedModel = _selectedModelId ?? '';
-                                        if (chatState.models.any((model) => model['id'] == selectedModel)) {
-                                          _sendCopilotChatPrompt(
-                                            conversations,
-                                            sessionState.currentSession?.id,
-                                            selectedModel,
-                                            widget.workspacePath
-                                          );
-                                        } else if (chatModel != null) {
-                                          _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
-                                          _promptController.clear();
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Chat model not available'),
-                                              backgroundColor: Colors.orange,
-                                            ),
-                                          );
-                                        }
-                                      },
+                                      onPressed: aiChatUIState.isGenerating
+                                        ? _stopGeneration
+                                        : () async {
+                                            final selectedModel = aiChatUIState.selectedModelId ?? '';
+                                            if (chatState.models.any((model) => model['id'] == selectedModel)) {
+                                              _sendCopilotChatPrompt(
+                                                conversations,
+                                                sessionState.currentSession?.id,
+                                                selectedModel,
+                                                widget.workspacePath
+                                              );
+                                            } else if (chatModel != null) {
+                                              _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Chat model not available'),
+                                                  backgroundColor: Colors.orange,
+                                                ),
+                                              );
+                                            }
+                                          },
                                       icon: Icon(
-                                        Icons.send,
+                                        aiChatUIState.isGenerating ? Icons.stop_circle_outlined : Icons.send,
                                         color: appThemeState.appTheme.selectScreenCardTextColor,
                                       ),
                                     ),
@@ -8516,6 +8561,25 @@ class _AIChatState extends State<AIChat> {
                                   child: BlocBuilder<ConfigBloc, ConfigState>(
                                     builder: (context, configState) {
                                       final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
+                                      
+                                      if (!_initialScrollDone && conversations.isNotEmpty) {
+                                        _initialScrollDone = true;
+                                        final savedOffset = aiChatUIState.scrollOffset;
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (_scrollController.hasClients) {
+                                            if (savedOffset < 0) {
+                                              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                                            } else {
+                                              final clampedOffset = savedOffset.clamp(
+                                                _scrollController.position.minScrollExtent,
+                                                _scrollController.position.maxScrollExtent,
+                                              );
+                                              _scrollController.jumpTo(clampedOffset);
+                                            }
+                                          }
+                                        });
+                                      }
+                                      
                                       return ListView.builder(
                                         controller: _scrollController,
                                         itemCount: conversations.length,
@@ -8637,6 +8701,8 @@ class _AIChatState extends State<AIChat> {
           }
         );
       }
+    );
+    }
     );
   }
 

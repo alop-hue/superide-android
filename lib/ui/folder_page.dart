@@ -125,7 +125,7 @@ class FolderPage extends StatelessWidget {
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
                     builder: (context) => EditorPage(languageDetails: (() =>languages.firstWhere(
                       (language) =>language.extension.contains(path.extension(f.path).replaceFirst(".", "")),
-                      orElse: () =>languages[0]))(),filePath: f,rootDir: dir.path)));
+                      orElse: () =>languages[0]))(), file: f,rootDir: dir.path)));
                 },
               ),
             ),

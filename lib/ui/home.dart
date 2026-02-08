@@ -453,7 +453,7 @@ class _SelectTypeState extends State<SelectType> {
                                         Navigator.of(context).pop();
                                         Navigator.of(context).push(
                                           PageRouteBuilder(
-                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path ,filePath: file,languageDetails: languages
+                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path, file: file,languageDetails: languages
                                             .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")), orElse: () => languages[0])),
                                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                               return SizeTransition(sizeFactor: animation, child: child);
@@ -499,7 +499,7 @@ class _SelectTypeState extends State<SelectType> {
                             Navigator.of(context).push(
                             PageRouteBuilder(
                               pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(
-                                languageDetails: language, rootDir: file.parent.path,filePath: file
+                                languageDetails: language, rootDir: file.parent.path, file: file
                               ),
                               transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                 return SizeTransition(sizeFactor: animation,child: child);
@@ -1080,7 +1080,7 @@ class _SelectTypeState extends State<SelectType> {
                                           PageRouteBuilder(
                                             pageBuilder: (context ,animation, secondaryAnimation) => 
                                             EditorPage(
-                                              filePath: File(recentData[index].keys.toList()[0]),
+                                              file: File(recentData[index].keys.toList()[0]),
                                               rootDir: recentData[index][recentData[index].keys.toList()[0]],
                                               languageDetails:((){
                                                 final matchingLang = languages.where((lang)=>

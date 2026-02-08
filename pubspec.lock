@@ -63,7 +63,7 @@ packages:
       path: "/home/athul/Projects/code_forge"
       relative: false
     source: path
-    version: "6.2.0"
+    version: "8.3.0"
   collection:
     dependency: transitive
     description:
