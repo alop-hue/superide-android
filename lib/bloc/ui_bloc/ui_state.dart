@@ -462,8 +462,6 @@ class CopilotState {
   }
 }
 
-// ================== Copilot Chat State ==================
-
 class CopilotChatState {
   final List<CopilotChatMessage> chatMessages;
   final bool isChatStreaming;

@@ -1363,10 +1363,7 @@ Future<String> getCodeForgeConfig() async {
 
 Future<String> getAiConfig() async {
   final prefs = await SharedPreferences.getInstance();
-  final defaultConfig = {
-    "models": [],
-    "apiKeys": {},
-  };
+  final defaultConfig = {};
   final configString = prefs.getString('aiConfig');
   if (configString == null) {
     return jsonEncode(defaultConfig);

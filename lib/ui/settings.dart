@@ -1824,6 +1824,8 @@ int main() {
                                           padding: const EdgeInsets.all(10),
                                           child: Builder(builder: (ctx) {
                                             final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
+                                            print(!copilotSignedIn);
+                                            print(aiState.config);
                                             if (!copilotSignedIn && aiState.config.isEmpty) {
                                               return Text(
                                                 "No models created yet",
