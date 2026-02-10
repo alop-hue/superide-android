@@ -24,7 +24,8 @@ class MenuScreen extends StatelessWidget {
               pageBuilder: (context, animation, secondaryAnimation) =>
                 EditorPage(
                   languageDetails: e,
-                  rootDir: templateDir
+                  rootDir: templateDir,
+                  isProject: false,
                 ),
               transitionsBuilder:(context, animation, secondaryAnimation, child) {
                 return FadeTransition(
@@ -75,7 +76,7 @@ class MenuScreen extends StatelessWidget {
                             onTap: () => Navigator.of(context).push(
                               PageRouteBuilder(
                                 pageBuilder: (context, animation, secondaryAnimation) =>
-                                  EditorPage(languageDetails: e, rootDir: templateDir),
+                                  EditorPage(languageDetails: e, rootDir: templateDir, isProject: false),
                                 transitionsBuilder:(context, animation, secondaryAnimation, child) {
                                   return SizeTransition(
                                     sizeFactor: animation,

@@ -11,7 +11,6 @@ import 'package:path/path.dart' as path;
 import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'about.dart';
 import 'donation_page.dart';
-import 'folder_page.dart';
 import 'editor_page.dart';
 import 'menu_screen.dart';
 import 'project_screen.dart';
@@ -63,7 +62,12 @@ class _SelectTypeState extends State<SelectType> {
         if (context.mounted) {
           Navigator.of(context).push(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => FolderPage(dir: targetDir, isCloned: true,),
+              pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
+                rootDir: targetDir.path,
+                isCloned: true,
+                isProject: true,
+                languageDetails: null
+              ),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return SizeTransition(sizeFactor: animation, child: child);
               }
@@ -83,7 +87,12 @@ class _SelectTypeState extends State<SelectType> {
         Navigator.of(context).pop();
         Navigator.of(context).push(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => FolderPage(dir: Directory("$projectDir/$repoName"), isCloned: true),
+            pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
+              rootDir: Directory("$projectDir/$repoName").path,
+              isCloned: true,
+              isProject: true,
+              languageDetails: null,
+            ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return SizeTransition(sizeFactor: animation, child: child);
             }
@@ -453,7 +462,7 @@ class _SelectTypeState extends State<SelectType> {
                                         Navigator.of(context).pop();
                                         Navigator.of(context).push(
                                           PageRouteBuilder(
-                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path, file: file,languageDetails: languages
+                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path, isProject: false ,file: file,languageDetails: languages
                                             .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")), orElse: () => languages[0])),
                                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                               return SizeTransition(sizeFactor: animation, child: child);
@@ -499,7 +508,7 @@ class _SelectTypeState extends State<SelectType> {
                             Navigator.of(context).push(
                             PageRouteBuilder(
                               pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(
-                                languageDetails: language, rootDir: file.parent.path, file: file
+                                languageDetails: language, rootDir: file.parent.path, file: file, isProject: false,
                               ),
                               transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                 return SizeTransition(sizeFactor: animation,child: child);
@@ -604,7 +613,12 @@ class _SelectTypeState extends State<SelectType> {
                       if(context.mounted){
                         Navigator.of(context).push(
                           PageRouteBuilder(
-                            pageBuilder: (context ,animation, secondaryAnimation) => FolderPage(dir: dir, isCloned: false),
+                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(
+                              rootDir: dir.path,
+                              isCloned: false,
+                              isProject: true,
+                              languageDetails: null
+                            ),
                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                               return SizeTransition(sizeFactor: animation,child: child);
                             }
@@ -1094,7 +1108,8 @@ class _SelectTypeState extends State<SelectType> {
                                                   language: unknown,
                                                   helloWorld: "Unknown type of file"
                                                 );
-                                              })() 
+                                              })(),
+                                              isProject: false,
                                             ),
                                             transitionsBuilder: (context ,animation, secondaryAnimation, child){
                                               return SizeTransition(sizeFactor: animation,child: child);

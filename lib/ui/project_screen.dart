@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:path/path.dart' as path;
+import 'package:vsdroid/ui/editor_page.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
-import '../ui/folder_page.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';
@@ -156,7 +156,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                           Navigator.of(context).push(
                             PageRouteBuilder(
                               pageBuilder: (context, animation, secondaryAnimation) =>
-                                FolderPage(dir: actualProjectDir, isCloned: true),
+                                EditorPage(rootDir: actualProjectDir.path, isCloned: true, isProject: true, languageDetails: null),
                               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                 return SizeTransition(sizeFactor: animation, child: child);
                               },
@@ -348,7 +348,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
                                 Navigator.of(context).push(
                                   PageRouteBuilder(
                                     pageBuilder: (context, animation, secondaryAnimation) =>
-                                      FolderPage(dir: dir, isCloned: true),
+                                      EditorPage(rootDir: dir.path, isCloned: true, isProject: true, languageDetails: null),
                                     transitionsBuilder: (context, animation, secondaryAnimation, child) {
                                       return SizeTransition(sizeFactor: animation, child: child);
                                     },

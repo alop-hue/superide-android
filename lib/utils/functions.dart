@@ -1666,6 +1666,7 @@ class ActiveEditor {
   final CodeForgeController controller;
   final Language languageDetails;
   final UndoRedoController undoRedoController;
+  final ScrollController hscroll, vscroll;
   bool isActive;
   FindController? findController;
   String? customTitle;
@@ -1675,10 +1676,26 @@ class ActiveEditor {
     required this.controller,
     required this.languageDetails,
     required this.undoRedoController,
+    required this.hscroll,
+    required this.vscroll,
     required this.isActive,
     this.findController,
     this.customTitle,
   });
+
+  Map<String, dynamic> toJsonMap() {
+    final json = {
+      "file": file.path,
+      "text": controller.text,
+      "extentOffset": controller.selection.extentOffset,
+      "baseOffset": controller.selection.baseOffset,
+      "customTitle": customTitle,
+      "isActive": isActive,
+      "lang": languageDetails.name
+    };
+
+    return json;
+  }
 
   Future<void> dispose() async {
     try {

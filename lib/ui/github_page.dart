@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
 import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/folder_page.dart';
+import 'package:vsdroid/ui/editor_page.dart';
 import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
@@ -251,7 +251,7 @@ class _GithubPageState extends State<GithubPage> {
         navigator.push(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => 
-              FolderPage(dir: targetDir, isCloned: true),
+              EditorPage(rootDir: targetDir.path, isCloned: true, languageDetails: null, isProject: true,),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return SizeTransition(sizeFactor: animation, child: child);
             },
@@ -276,7 +276,7 @@ class _GithubPageState extends State<GithubPage> {
       await navigator.push(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => 
-            FolderPage(dir: clonedDir, isCloned: true),
+            EditorPage(rootDir: clonedDir.path, isCloned: true, languageDetails: null, isProject: true),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return SizeTransition(sizeFactor: animation, child: child);
           },

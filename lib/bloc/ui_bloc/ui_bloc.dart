@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 import 'package:bloc/bloc.dart';
+import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/constants.dart';
@@ -11,6 +12,7 @@ import '../../utils/ai.dart';
 import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
+import '../../utils/languages.dart';
 import '../../utils/themes.dart';
 
 part 'ui_event.dart';
@@ -122,10 +124,64 @@ class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
   }
 }
 
-class ActiveEditorBloc extends Bloc<ActiveEditorEvent, ActiveEditorState>{
-  final ActiveEditor activeEditor;
-  ActiveEditorBloc(this.activeEditor):super(ActiveEditorState([activeEditor])){
+class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
+  final String rootDir;
+  final Map<String, dynamic> config;
+  final Map<String, LspConfig?> _lspConfigs = {};
+  Map<String, LspConfig?> get sharedLspConfigs => _lspConfigs;
+  ActiveEditorBloc(this.rootDir, this.config):super(ActiveEditorState([])){
     on<ActiveEditorEvent>((event, emit) => emit(ActiveEditorState(event.activeEditors)));
+
+    on<OpenRecentActiveEditor>((event, emit) async {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString("projects");
+      final Map<String, dynamic> recentEditors = jsonDecode(stored ?? "{}");
+      final list = (recentEditors[rootDir] as List<dynamic>?)?.map((e) => e as Map<String, dynamic>) ?? [];
+      final editors = <ActiveEditor>[];
+      for (final editorJson in list) {
+        final lang = languages.singleWhere((lang) => lang.name == editorJson["lang"]);
+        final key = '${lang.name}_$rootDir';
+        LspConfig? lspConfig;
+        if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
+          _lspConfigs[key] = await startLspServer(
+            ext: lang.extension[0],
+            executable: lang.lspExecutable,
+            args: lang.args ?? [],
+            workspacePath: rootDir,
+            langId: lang.name,
+            capabilities: null,
+          );
+        }
+        lspConfig = _lspConfigs[key];
+        final controller = CodeForgeController(lspConfig: lspConfig)
+          ..text = editorJson["text"];
+        final editor = ActiveEditor(
+          file: File(editorJson["file"]),
+          controller: controller,
+          languageDetails: lang,
+          undoRedoController: UndoRedoController(),
+          findController: FindController(controller),
+          hscroll: ScrollController(initialScrollOffset: editorJson["hscroll"] ?? 0.0),
+          vscroll: ScrollController(initialScrollOffset: editorJson["vscroll"] ?? 0.0),
+          isActive: editorJson["isActive"],
+          customTitle: editorJson["customTitle"]
+        );
+        editors.add(editor);
+      }
+      emit(ActiveEditorState(editors));
+    });
+
+    on<CloseActiveEditor>((event, emit) async {
+      final prefs = await SharedPreferences.getInstance();
+      final projState = state.activeEditors.map((editor) => editor.toJsonMap()).toList();
+      final newData = {
+        rootDir: projState
+      };
+      final alreadyStored = prefs.getString("projects");
+      final data = jsonDecode(alreadyStored ?? "{}") as Map<String, dynamic>;
+      data.addAll(newData);
+      prefs.setString("projects", jsonEncode(data));
+    });
   }
 }
 

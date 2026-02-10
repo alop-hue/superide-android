@@ -248,6 +248,8 @@ class CodeEditor extends StatefulWidget {
   final File filePath;
   final CodeForgeController codeController;
   final UndoRedoController undoRedoController;
+  final ScrollController hscrollController;
+  final ScrollController vscrollController;
   final Language language;
   final FindController findController;
   final bool showFindPanel;
@@ -256,6 +258,8 @@ class CodeEditor extends StatefulWidget {
     super.key,
     required this.codeController,
     required this.undoRedoController,
+    required this.hscrollController,
+    required this.vscrollController,
     required this.filePath,
     required this.language,
     required this.findController,
@@ -451,6 +455,8 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
               child: BlocBuilder<AIBloc, AIState>(
                 builder: (context, aiState) {
                   return CodeForge(
+                    horizontalScrollController: null,
+                    verticalScrollController: null,
                     language: widget.language.language,
                     filePath: widget.filePath.path,
                     enableGuideLines: configState.codeForgeConfig['indentLineStatus'],
@@ -878,6 +884,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
             codeController: controller,
             filePath: editor.file,
             findController: editor.findController!,
+            hscrollController: editor.hscroll,
+            vscrollController: editor.vscroll,
           ),
         ),
         Container(
@@ -8541,10 +8549,11 @@ class _AIChatState extends State<AIChat> {
                                       SizedBox(
                                         height: 18,
                                         width: 18,
-                                        child: languages.singleWhere(
+                                        child: languages.firstWhere(
                                           (item) => item.extension.contains(
-                                            path.extension(widget.filePath).substring(1),
+                                            path.extension(widget.filePath).isNotEmpty ? path.extension(widget.filePath).substring(1) : '',
                                           ),
+                                          orElse: () => languages.first,
                                         ).icon,
                                       ),
                                       SizedBox(width: 3),

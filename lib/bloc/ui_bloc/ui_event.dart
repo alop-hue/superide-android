@@ -92,12 +92,17 @@ class AppThemeEvent extends UiEvent{
   AppThemeEvent({required this.appTheme});
 }
 
-class ActiveEditorEvent extends UiEvent{
+class EditorEvent {}
+
+class ActiveEditorEvent extends EditorEvent{
   final List<ActiveEditor> activeEditors;
 
   ActiveEditorEvent(this.activeEditors);
 }
 
+class OpenRecentActiveEditor extends EditorEvent {}
+
+class CloseActiveEditor extends EditorEvent {}
 
 class AIConfigEvent extends AIEvent{
   final Map<String, dynamic> config;
