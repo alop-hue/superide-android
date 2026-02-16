@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
+import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1989,3 +1990,84 @@ Map<String, (String, Color)> gitFileStatus = {
   "??": ('U', Colors.green[700]!),
   "A": ('U', Colors.green[700]!),
 };
+
+class EditHunk {
+  final int startLine, endLine;
+  final String? oldText, newText;
+
+  const EditHunk({
+    required this.startLine,
+    required this.endLine,
+    required this.newText,
+    required this.oldText,
+  });
+
+  Map<String, dynamic> tojson(){
+    return {
+      "startLine": startLine,
+      "endLine": endLine,
+      "oldText": oldText,
+      "newText": newText
+    };
+  }
+
+  @override
+  String toString() {
+    return tojson().toString();
+  }
+}
+
+class PendingEditFiles {
+  final String filePath, oldText;
+  final List<EditHunk> editHunks;
+
+  const PendingEditFiles({
+    required this.filePath,
+    required this.oldText,
+    required this.editHunks
+  });
+
+  static List<EditHunk> patchesToHunks(List<Patch> patches, CodeForgeController controller){
+    final List<EditHunk> hunks = [];
+
+    for(final patch in patches){
+      final startLine = controller.getLineAtOffset(patch.start2);
+      final endLine = controller.getLineAtOffset(patch.start2 + patch.length2);
+      final newText = StringBuffer(), oldText = StringBuffer();
+
+      for(final diff in patch.diffs){
+        if(diff.operation == 0 || diff.operation == -1) {
+          oldText.write(diff.text);
+        }
+
+        if(diff.operation == 0 || diff.operation == 1){
+          newText.write(diff.text);
+        }
+      }
+      
+      hunks.add(
+        EditHunk(
+          startLine: startLine,
+          endLine: endLine,
+          newText: newText.toString(),
+          oldText: oldText.toString()
+        )
+      );
+    }
+    
+    return hunks;
+  }
+
+  Future<void> saveToPrefs() async{
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> savedContent = jsonDecode(prefs.getString("pendingAgenticEdits") ?? "{}");
+    savedContent.addAll({
+      filePath: editHunks.map((h) => h.toString()).toList() 
+    });
+    final content = jsonEncode(savedContent);
+    prefs.setString("pendingAgenticEdits", content);
+  }
+  
+  //TODO
+  Future<void> getFromPref() async{}
+}
