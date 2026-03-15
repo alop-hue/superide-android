@@ -62,6 +62,25 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     assert(!(widget.isProject && widget.languageDetails != null), "Cannot have both isProject and language details");
     assert(!(!widget.isProject && widget.isCloned), "Cloned directory should be a project.");
     super.initState();
+    _initializeCopilotForEditorIfEnabled();
+  }
+
+  Future<void> _initializeCopilotForEditorIfEnabled() async {
+    final isCopilotEnabled = await isCopilotEnabledPref();
+    if (!isCopilotEnabled || !mounted) {
+      return;
+    }
+
+    if (!Directory('$extensionDir/copilot-language-server').existsSync()) {
+      return;
+    }
+
+    final copilotBloc = context.read<CopilotBloc>();
+    if (copilotBloc.state.isInitialized || copilotBloc.state.status == CopilotStatus.initializing) {
+      return;
+    }
+
+    copilotBloc.add(CopilotInitialize(configPath: filesDir, workspacePath: widget.rootDir));
   }
 
   @override
@@ -803,6 +822,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                           mruOrder.insert(0, currentState.length - 1);
                                           bloc.add(ActiveEditorEvent(currentState));
                                           WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            newEditor.controller.notifyListeners();
                                             final newIndex = currentState.length - 1;
                                             if (tabController != null && newIndex >= 0) {
                                               tabController!.animateTo(newIndex);

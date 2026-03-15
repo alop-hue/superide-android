@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/ui/editor_page.dart';
+import 'package:vsdroid/utils/proj_temps.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
@@ -20,20 +21,46 @@ class ProjectScreen extends StatefulWidget {
 class _ProjectScreenState extends State<ProjectScreen> {
   final TextEditingController _projectNameController = TextEditingController();
   bool _yourProjectsExpanded = false;
-  bool _templatesExpanded = false;
+  bool _templatesExpanded = false, _generating = true;
   Future<List<Directory>>? _existingProjectsFuture;
   late final Future<Directory> _projectDirFuture;
+  StreamSubscription<FileSystemEvent>? _projectDirWatcher;
 
   @override
   void initState() {
     super.initState();
     _projectDirFuture = setupProjectDir();
+    _projectDirFuture.then((_) {
+      _startProjectDirWatcher();
+      _refreshProjectList();
+    });
   }
 
   @override
   void dispose() {
+    _projectDirWatcher?.cancel();
     _projectNameController.dispose();
     super.dispose();
+  }
+
+  void _refreshProjectList() {
+    setState(() {
+      _existingProjectsFuture = _getExistingProjects(Directory(projectDir));
+    });
+  }
+
+  void _startProjectDirWatcher() {
+    try {
+      _projectDirWatcher = Directory(projectDir).watch().listen((event) {
+        if (event.type == FileSystemEvent.create ||
+            event.type == FileSystemEvent.delete ||
+            event.type == FileSystemEvent.move) {
+          _refreshProjectList();
+        }
+      });
+    } catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
   static Future<List<Directory>> _getExistingProjects(Directory projectDir) async {
@@ -439,46 +466,181 @@ class _ProjectScreenState extends State<ProjectScreen> {
                     
                     const SizedBox(height: 10),
                     
-                    _buildCollapsibleSection(
-                      title: "Project Templates",
-                      isExpanded: _templatesExpanded,
-                      onToggle: () => setState(() => _templatesExpanded = !_templatesExpanded),
-                      itemCount: 3,
-                      appTheme: appTheme,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: projectTile(
-                            "Web",
-                            "Simple web project with an HTML, CSS and a JavaScript file",
-                            SvgPicture.asset("assets/material_icons/web.svg", width: 30, height: 30),
+                    (() {
+                      final pts = projTemps(context);
+                      return _buildCollapsibleSection(
+                        title: "Project Templates",
+                        isExpanded: _templatesExpanded,
+                        onToggle: () => setState(() => _templatesExpanded = !_templatesExpanded),
+                        itemCount: pts.length,
+                        appTheme: appTheme,
+                        children: pts.map(
+                          (item) => projectTile(
+                            item.title,
+                            item.subtitle,
+                            item.icon,
                             appTheme.selectScreenCardsBg,
-                            () {},
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: projectTile(
-                            "Android",
-                            "An android project with necessary files",
-                            SvgPicture.asset("assets/material_icons/folder-android.svg", width: 30, height: 30),
-                            appTheme.selectScreenCardsBg,
-                            () {},
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: projectTile(
-                            "React",
-                            "Create a react app",
-                            SvgPicture.asset("assets/material_icons/folder-react-components.svg", width: 30, height: 30),
-                            appTheme.selectScreenCardsBg,
-                            () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                    
+                            (){
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  child: Container(
+                                    width: 320,
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.3),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xffffc928).withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: item.icon,
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Text(
+                                                "New Project",
+                                                style: TextStyle(
+                                                  color: appTheme.selectScreenCardTextColor,
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 24),
+                                        TextFormField(
+                                          controller: _projectNameController,
+                                          style: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor,
+                                          ),
+                                          cursorColor: const Color(0xff5090c8),
+                                          decoration: InputDecoration(
+                                            hintStyle: TextStyle(color: Colors.grey[500]),
+                                            hintText: "Project name",
+                                            filled: true,
+                                            fillColor: appTheme.isDark
+                                              ? Colors.white.withValues(alpha: 0.05)
+                                              : Colors.black.withValues(alpha: 0.05),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(15),
+                                              borderSide: const BorderSide(color: Color(0xff5090c8), width: 2),
+                                            ),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(15),
+                                            ),
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(),
+                                              style: TextButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                "Cancel",
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                if(item is PlainTemplates){
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(_generating ? "Generating...": "Generated 🎉"),
+                                                      persist: true,
+                                                      elevation: 50,
+                                                    )
+                                                  );
+                                                  await item.generateContent(_projectNameController.text.trim());
+                                                  setState(() {
+                                                    _generating = false;
+                                                    Future.delayed(
+                                                      Duration(milliseconds: 500),
+                                                      (){
+                                                        if(context.mounted){
+                                                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                                        } 
+                                                      }
+                                                    );
+                                                  });
+                                                  if(context.mounted){
+                                                    final dir = Directory("$projectDir/${_projectNameController.text}");
+                                                    Navigator.pop(context);
+                                                    Navigator.of(context).push(
+                                                      PageRouteBuilder(
+                                                        pageBuilder: (context, animation, secondaryAnimation) =>
+                                                          EditorPage(rootDir: dir.path, isCloned: true, isProject: true, languageDetails: null),
+                                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                          return SizeTransition(sizeFactor: animation, child: child);
+                                                        },
+                                                      ),
+                                                    );
+                                                  }
+
+                                                } else if(item is CLITemplates) {
+                                                  Navigator.pop(context);
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (ctx) => item.runCommand()
+                                                  );
+                                                }
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xff5090c8),
+                                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                "Create",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          )
+                        ).toList()
+                      );
+                    })(),
                     const SizedBox(height: 20),
                   ],
                 ),

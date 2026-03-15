@@ -175,11 +175,12 @@ Future<void> initRepo(String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
 
-  // await createGitignoreIfNeeded(workspacePath);
+  await createGitignoreIfNeeded(workspacePath);
 }
 
-/* Future<void> createGitignoreIfNeeded(String workspacePath) async {
+Future<void> createGitignoreIfNeeded(String workspacePath) async {
   final gitignoreFile = File('$workspacePath/.gitignore');
+  final patterns = _getGitignorePatterns();
 
   if (await gitignoreFile.exists()) {
     final existingContent = await gitignoreFile.readAsString();
@@ -189,7 +190,7 @@ Future<void> initRepo(String workspacePath) async {
         .toSet();
 
     final patternsToAdd = <String>[];
-    for (final pattern in _getGitignorePatterns()) {
+    for (final pattern in patterns) {
       final trimmedPattern = pattern.trim();
       if (trimmedPattern.isNotEmpty &&
           !trimmedPattern.startsWith('#') &&
@@ -205,11 +206,11 @@ Future<void> initRepo(String workspacePath) async {
       );
     }
   } else {
-    await gitignoreFile.writeAsString(_getGitignorePatterns().join('\n'));
+    await gitignoreFile.writeAsString('${patterns.join('\n')}\n');
   }
-} */
+}
 
-/* List<String> _getGitignorePatterns() {
+List<String> _getGitignorePatterns() {
   return [
     '# VSdroid and Editor files',
     '.vscode/',
@@ -221,7 +222,7 @@ Future<void> initRepo(String workspacePath) async {
     '',
     '# Language Server Protocol (LSP) cache directories',
     '.ccls-cache/',
-    'jdt.ls-java-project'
+    'jdt.ls-java-project',
     '.clangd/',
     '.cache/',
     'compile_commands.json',
@@ -231,28 +232,42 @@ Future<void> initRepo(String workspacePath) async {
     '.ruff_cache/',
     '.pytest_cache/',
     'pyrightconfig.json',
+    '*.jdt.ls/',
+    '.settings/',
+    '',
+    '# Dependencies',
+    'node_modules/',
+    '.pnpm-store/',
+    '.npm/',
+    '.yarn/',
+    '.venv/',
+    'venv/',
+    'env/',
+    'ENV/',
+    '',
+    '# Flutter / Dart',
     '.dart_tool/',
     '.packages',
     'pubspec.lock',
     '.flutter-plugins',
     '.flutter-plugins-dependencies',
     '.metadata',
-    '*.jdt.ls/',
-    '.settings/',
+    '',
+    '# Java / Android',
     'bin/',
     '.classpath',
     '.project',
     '.factorypath',
     '*.class',
-    'node_modules/',
-    '.npm/',
+    '.gradle/',
+    'local.properties',
+    '.externalNativeBuild/',
+    '.cxx/',
+    '',
+    '# Node / TypeScript',
     'tsconfig.tsbuildinfo',
     '.eslintcache',
     '*.tsbuildinfo',
-    '.venv/',
-    'venv/',
-    'env/',
-    'ENV/',
     '',
     '# Build outputs',
     'build/',
@@ -269,9 +284,8 @@ Future<void> initRepo(String workspacePath) async {
     '*.apk',
     '*.aab',
     '*.ipa',
-    '',
-    '# Shell configuration',
-    '.bashrc',
+    '*.so.*',
+    '*.dylib.*',
     '',
     '# Logs and databases',
     '*.log',
@@ -279,29 +293,15 @@ Future<void> initRepo(String workspacePath) async {
     '*.sqlite',
     '*.db',
     '',
-    '# OS generated files',
-    'Thumbs.db',
-    'Desktop.ini',
-    '.Spotlight-V100',
-    '.Trashes',
+    '# Environment files',
+    '.env',
+    '.env.*',
     '',
     '# Temporary files',
     '*.tmp',
     '*.temp',
     '*.bak',
     '*.backup',
-    '*~',
-    '',
-    '# IDE specific',
-    '*.iml',
-    '.gradle/',
-    'local.properties',
-    '.externalNativeBuild/',
-    '.cxx/',
-    '',
-    '# Compiled Dynamic libraries',
-    '*.so.*',
-    '*.dylib.*',
     '',
     '# Coverage reports',
     'coverage/',
@@ -313,8 +313,18 @@ Future<void> initRepo(String workspacePath) async {
     '*.zip',
     '*.rar',
     '*.7z',
+    '',
+    '# OS files',
+    '*.iml',
+    'Thumbs.db',
+    'Desktop.ini',
+    '.Spotlight-V100',
+    '.Trashes',
+    '',
+    '# Shell configuration',
+    '.bashrc',
   ];
-} */
+}
 
 Future<ProcessResult> getRepoStatus(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
@@ -465,7 +475,7 @@ Future<void> gitRestoreFile(String fileName, String workspacePath) async {
 class GitDiffResult {
   final String diffText;
   final List<(int startLine, int endLine)> addedRanges;
-  final List<(int startLine, int endLine)> removedRanges;
+  final List<({int afterLine, String content})> removedRanges;
 
   GitDiffResult({
     required this.diffText,
@@ -482,11 +492,11 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath),
   );
-  
+
 
   final diffTextOriginal = result.stdout as String;
   final addedRanges = <(int, int)>[];
-  final removedRanges = <(int, int)>[];
+  final removedRanges = <({int afterLine, String content})>[];
 
   final lines = diffTextOriginal.split('\n');
   final filteredLines = lines.where((line) =>
@@ -496,25 +506,59 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
     !line.startsWith('+++ ')
   ).toList();
 
-  final diffText = filteredLines.join('\n');
-  int currentLine = 0;
+  final visibleLines = <String>[];
+
+  int? currentAddedStart;
+  int? currentRemovedAfterLine;
+  final removedContent = StringBuffer();
+
+  void flushAdded(int endExclusive) {
+    if (currentAddedStart == null) return;
+    addedRanges.add((currentAddedStart!, endExclusive - 1));
+    currentAddedStart = null;
+  }
+
+  void flushRemoved() {
+    if (currentRemovedAfterLine == null) return;
+    removedRanges.add(
+      (afterLine: currentRemovedAfterLine!, content: removedContent.toString()),
+    );
+    currentRemovedAfterLine = null;
+    removedContent.clear();
+  }
 
   for (final line in filteredLines) {
-    currentLine++;
-    if (line.startsWith('+')) {
-      if (addedRanges.isEmpty || addedRanges.last.$2 + 1 != currentLine -1) {
-        addedRanges.add((currentLine - 1, currentLine - 1));
-      } else {
-        addedRanges.last = (addedRanges.last.$1, currentLine - 1);
+    final isAdded = line.startsWith('+');
+    final isRemoved = line.startsWith('-');
+
+    if (isRemoved) {
+      flushAdded(visibleLines.length);
+      currentRemovedAfterLine ??= visibleLines.isEmpty
+          ? 0
+          : visibleLines.length - 1;
+      if (removedContent.isNotEmpty) {
+        removedContent.write('\n');
       }
-    } else if (line.startsWith('-')) {
-      if (removedRanges.isEmpty || removedRanges.last.$2 + 1 != currentLine - 1) {
-        removedRanges.add((currentLine - 1, currentLine - 1));
-      } else {
-        removedRanges.last = (removedRanges.last.$1, currentLine - 1);
-      }
+      removedContent.write(line.length > 1 ? line.substring(1) : '');
+      continue;
     }
+
+    flushRemoved();
+
+    if (isAdded) {
+      currentAddedStart ??= visibleLines.length;
+      visibleLines.add(line);
+      continue;
+    }
+
+    flushAdded(visibleLines.length);
+    visibleLines.add(line);
   }
+
+  flushAdded(visibleLines.length);
+  flushRemoved();
+
+  final diffText = visibleLines.join('\n');
 
   return GitDiffResult(
     diffText: diffText,
@@ -1328,6 +1372,33 @@ Future<String> getRecent() async {
   return recent ?? '[]';
 }
 
+const String copilotEnabledPrefKey = 'isCopilotEnabled';
+
+Future<bool> ensureCopilotEnabledPrefInitialized() async {
+  final prefs = await SharedPreferences.getInstance();
+  final currentValue = prefs.getBool(copilotEnabledPrefKey);
+  if (currentValue == null) {
+    await prefs.setBool(copilotEnabledPrefKey, false);
+    return false;
+  }
+  return currentValue;
+}
+
+Future<bool> isCopilotEnabledPref() async {
+  final prefs = await SharedPreferences.getInstance();
+  final currentValue = prefs.getBool(copilotEnabledPrefKey);
+  if (currentValue == null) {
+    await prefs.setBool(copilotEnabledPrefKey, false);
+    return false;
+  }
+  return currentValue;
+}
+
+Future<void> setCopilotEnabledPref(bool isEnabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(copilotEnabledPrefKey, isEnabled);
+}
+
 Future<String> getAppTheme() async {
   final prefs = await SharedPreferences.getInstance();
   final savedAppTheme = prefs.getString("savedAppTheme");
@@ -2071,3 +2142,215 @@ class PendingEditFiles {
   //TODO
   Future<void> getFromPref() async{}
 }
+
+/* class DiffDecorator {
+  static void applyDiffDecorations(
+    CodeForgeController controller,
+    String oldText,
+    String newText,
+  ) {
+    final oldLines = oldText.split('\n');
+    final newLines = newText.split('\n');
+    final dmp = DiffMatchPatch();
+    final diffs = dmp.diff(oldText, newText);
+    final changes = _computeLineChanges(oldLines, newLines, diffs);
+    final unifiedText = _generateUnifiedDiffText(oldLines, newLines, changes);
+    controller.text = unifiedText;
+    _applyUnifiedDiffDecorations(controller);
+  }
+  
+  static String _generateUnifiedDiffText(
+    List<String> oldLines,
+    List<String> newLines,
+    _LineChanges changes,
+  ) {
+    final buffer = StringBuffer();
+    
+    for (int i = 0; i < newLines.length || i < oldLines.length; i++) {
+      final isAdded = i < newLines.length && changes.addedLines.any((r) => i >= r.$1 && i <= r.$2);
+      final isRemoved = i < oldLines.length && changes.removedLines.any((r) => i >= r.$1 && i <= r.$2);
+      final isModified = i < newLines.length && changes.modifiedLines.any((r) => i >= r.$1 && i <= r.$2);
+      
+      if (isRemoved || (isModified && i < oldLines.length)) {
+        buffer.writeln('- ${oldLines[i]}');
+      }
+      if (isAdded || (isModified && i < newLines.length)) {
+        buffer.writeln('+ ${newLines[i]}');
+      }
+      if (!isAdded && !isRemoved && !isModified && i < newLines.length) {
+        buffer.writeln(newLines[i]);
+      }
+    }
+    
+    return buffer.toString().trim();
+  }
+  
+  static void _applyUnifiedDiffDecorations(CodeForgeController controller) {
+    final addedRanges = <(int, int)>[];
+    final removedRanges = <(int, int)>[];
+    
+    for (int i = 0; i < controller.lineCount; i++) {
+      final lineText = controller.getLineText(i);
+      if (lineText.startsWith('+ ')) {
+        addedRanges.add((i, i));
+      } else if (lineText.startsWith('- ')) {
+        removedRanges.add((i, i));
+      }
+    }
+    
+    controller.setGitDiffDecorations(
+      addedRanges: addedRanges.isNotEmpty ? addedRanges : null,
+      //TODO
+      // removedRanges: removedRanges.isNotEmpty ? removedRanges : null,
+    );
+  }
+  
+  static _LineChanges _computeLineChanges(
+    List<String> oldLines,
+    List<String> newLines,
+    List<Diff> diffs,
+  ) {
+    final addedLines = <(int, int)>[];
+    final removedLines = <(int, int)>[];
+    final modifiedOldLines = <(int, int)>[];
+    final modifiedNewLines = <(int, int)>[];
+    int oldLineIndex = 0;
+    int newLineIndex = 0;
+    final oldLinesChanged = <int>{};
+    final newLinesChanged = <int>{};
+    final oldLinesRemoved = <int>{};
+    final newLinesAdded = <int>{};
+    
+    for (final diff in diffs) {
+      final text = diff.text;
+      
+      switch (diff.operation) {
+        case DIFF_EQUAL:
+          int pos = 0;
+          while (pos < text.length) {
+            if (text[pos] == '\n') {
+              oldLineIndex++;
+              newLineIndex++;
+            }
+            pos++;
+          }
+          break;
+          
+        case DIFF_DELETE:
+          int pos = 0;
+          
+          while (pos < text.length) {
+            if (text[pos] == '\n') {
+              oldLinesRemoved.add(oldLineIndex);
+              oldLineIndex++;
+            } else {
+              oldLinesChanged.add(oldLineIndex);
+            }
+            pos++;
+          }
+          break;
+          
+        case DIFF_INSERT:
+          int pos = 0;
+          
+          while (pos < text.length) {
+            if (text[pos] == '\n') {
+              newLinesAdded.add(newLineIndex);
+              newLineIndex++;
+            } else {
+              newLinesChanged.add(newLineIndex);
+            }
+            pos++;
+          }
+          break;
+      }
+    }
+    
+    for (final line in oldLinesRemoved) {
+      if (!oldLinesChanged.contains(line)) {
+        removedLines.add((line, line));
+      }
+    }
+    
+    for (final line in newLinesAdded) {
+      if (!newLinesChanged.contains(line)) {
+        addedLines.add((line, line));
+      }
+    }
+    
+    for (final line in oldLinesChanged) {
+      if (!oldLinesRemoved.contains(line)) {
+        modifiedOldLines.add((line, line));
+      }
+    }
+    
+    for (final line in newLinesChanged) {
+      if (!newLinesAdded.contains(line)) {
+        modifiedNewLines.add((line, line));
+      }
+    }
+    
+    return _LineChanges(
+      addedLines: _mergeRanges(addedLines),
+      removedLines: _mergeRanges(removedLines),
+      modifiedLines: _mergeRanges(modifiedNewLines),
+    );
+  }
+  
+  static List<(int, int)> _mergeRanges(List<(int, int)> ranges) {
+    if (ranges.isEmpty) return [];
+    
+    final sorted = List<(int, int)>.from(ranges)
+      ..sort((a, b) => a.$1.compareTo(b.$1));
+    
+    final merged = <(int, int)>[];
+    var current = sorted[0];
+    
+    for (int i = 1; i < sorted.length; i++) {
+      final next = sorted[i];
+      
+      if (next.$1 <= current.$2 + 1) {
+        current = (current.$1, next.$2 > current.$2 ? next.$2 : current.$2);
+      } else {
+        merged.add(current);
+        current = next;
+      }
+    }
+    
+    merged.add(current);
+    return merged;
+  }
+}
+
+class _LineChanges {
+  final List<(int, int)> addedLines;
+  final List<(int, int)> removedLines;
+  final List<(int, int)> modifiedLines;
+  
+  _LineChanges({
+    required this.addedLines,
+    required this.removedLines,
+    required this.modifiedLines,
+  });
+}
+
+class EditHunk {
+  final int startLine, endLine;
+  final String text;
+
+  const EditHunk ({
+    required this.startLine,
+    required this.endLine,
+    required this.text
+  });
+}
+
+class PendingEditFiles {
+  final String filePath;
+  final List<EditHunk> pendingHunks;
+
+  const PendingEditFiles({
+    required this.filePath,
+    this.pendingHunks = const []
+  });
+} */

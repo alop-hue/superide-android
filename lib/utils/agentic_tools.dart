@@ -237,7 +237,6 @@ class AgenticTools {
     }
   }
 
-  
   Future<ToolResult<void>> editFile(
     String filePath,
     String oldText,
@@ -390,6 +389,15 @@ class AgenticTools {
       }
     }
   }
+
+  //TODO
+  /* Future<ToolResult<String>> runShellCommand(String command, [List<String> args = const [], Map<String, String> envs = const {}]){
+    final env = {
+      "HOME": workspacePath
+    };
+    
+    env.addAll(envs);
+  } */
 
   WebPageContent _parseWebContent(String htmlString, String url) {
     final document = html.parse(htmlString);

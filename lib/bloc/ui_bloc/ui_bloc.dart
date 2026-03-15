@@ -520,7 +520,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
   CopilotCompletionManager? get completionManager => _completionManager;
 
   void _onAutoInit(CopilotAutoInit event, Emitter<CopilotState> emit) {
-    final configPath = '/data/data/com.vsdroid/files';
+    final configPath = filesDir;
     final copilotPath = '$extensionDir/copilot-language-server';
     
     if (!Directory(copilotPath).existsSync()) {
@@ -587,8 +587,9 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         user: statusPayload.user,
         isInitialized: true,
       ));
+
+      await _saveConfig(newStatus == CopilotStatus.signedIn);
       
-      await _saveConfig(true);
     } catch (e) {
       debugPrint('Copilot initialization error: $e');
       if (e is TimeoutException) {
@@ -618,6 +619,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
           status: CopilotStatus.signedIn,
           user: payload.user,
         ));
+        await _saveConfig(true);
         return;
       }
       
@@ -705,6 +707,8 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         status: newStatus,
         user: payload.user,
       ));
+
+      await _saveConfig(newStatus == CopilotStatus.signedIn);
     } catch (e) {
       debugPrint('Check status error: $e');
     }
@@ -716,6 +720,8 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
 
   Future<void> _onSetEnabled(CopilotSetEnabled event, Emitter<CopilotState> emit) async {
     emit(state.copyWith(isEnabled: event.isEnabled));
+
+    await _saveConfig(state.status == CopilotStatus.signedIn);
     
     if (!event.isEnabled) {
       _completionManager?.cancel();
@@ -780,10 +786,12 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
 
   Future<void> _saveConfig(bool isSignedIn) async {
     final prefs = await SharedPreferences.getInstance();
+    final isCopilotEnabled = isSignedIn && state.isEnabled;
     await prefs.setString(_storageKey, jsonEncode({
       'isSignedIn': isSignedIn,
       'isEnabled': state.isEnabled,
     }));
+    await setCopilotEnabledPref(isCopilotEnabled);
   }
 
   Future<void> _loadConfig(Emitter<CopilotState> emit) async {
@@ -801,6 +809,8 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         
         debugPrint('Loaded Copilot config: signedIn=$wasSignedIn, enabled=$isEnabled');
       }
+
+      await ensureCopilotEnabledPrefInitialized();
     } catch (e) {
       debugPrint('Failed to load Copilot config: $e');
     }

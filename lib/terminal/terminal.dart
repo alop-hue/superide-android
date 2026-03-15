@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_pty/flutter_pty.dart';
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
 import 'package:vsdroid/utils/themes.dart';
@@ -11,48 +14,243 @@ import 'package:flutter/services.dart';
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
   final List<String> args;
+  final bool useScaffold;
+
   const SetupTerminal({
     super.key,
     required this.projectDir,
-    this.args = const []
+    this.args = const [],
+    this.useScaffold = true,
   });
 
   @override
   State<SetupTerminal> createState() => _SetupTerminalState();
 }
 
+class EmbeddedTerminal extends StatelessWidget {
+  final String projectDir;
+  final List<String> args;
+
+  const EmbeddedTerminal({
+    super.key,
+    required this.projectDir,
+    this.args = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SetupTerminal(
+      projectDir: projectDir,
+      args: args,
+      useScaffold: false,
+    );
+  }
+}
+
+@immutable
+class TerminalSessionMeta {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  final bool isRunning;
+
+  const TerminalSessionMeta({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.isRunning,
+  });
+
+  TerminalSessionMeta copyWith({
+    String? title,
+    bool? isRunning,
+  }) {
+    return TerminalSessionMeta(
+      id: id,
+      title: title ?? this.title,
+      createdAt: createdAt,
+      isRunning: isRunning ?? this.isRunning,
+    );
+  }
+}
+
+@immutable
+abstract class TerminalSessionEvent {}
+
+class CreateTerminalSession extends TerminalSessionEvent {
+  final String id;
+  final String title;
+  final bool makeActive;
+  final bool isRunning;
+
+  CreateTerminalSession({
+    required this.id,
+    required this.title,
+    required this.makeActive,
+    required this.isRunning,
+  });
+}
+
+class SetActiveTerminalSession extends TerminalSessionEvent {
+  final String id;
+  SetActiveTerminalSession(this.id);
+}
+
+class DeleteTerminalSession extends TerminalSessionEvent {
+  final String id;
+  DeleteTerminalSession(this.id);
+}
+
+class UpdateTerminalSessionStatus extends TerminalSessionEvent {
+  final String id;
+  final bool isRunning;
+
+  UpdateTerminalSessionStatus({required this.id, required this.isRunning});
+}
+
+@immutable
+class TerminalSessionState {
+  final List<TerminalSessionMeta> sessions;
+  final String? activeSessionId;
+
+  const TerminalSessionState({
+    required this.sessions,
+    required this.activeSessionId,
+  });
+
+  TerminalSessionState copyWith({
+    List<TerminalSessionMeta>? sessions,
+    String? activeSessionId,
+    bool clearActive = false,
+  }) {
+    return TerminalSessionState(
+      sessions: sessions ?? this.sessions,
+      activeSessionId: clearActive ? null : activeSessionId ?? this.activeSessionId,
+    );
+  }
+}
+
+class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionState> {
+  TerminalSessionBloc()
+    : super(const TerminalSessionState(sessions: [], activeSessionId: null)) {
+    on<CreateTerminalSession>((event, emit) {
+      final newSession = TerminalSessionMeta(
+        id: event.id,
+        title: event.title,
+        createdAt: DateTime.now(),
+        isRunning: event.isRunning,
+      );
+      final sessions = [newSession, ...state.sessions];
+      emit(state.copyWith(
+        sessions: sessions,
+        activeSessionId: event.makeActive ? event.id : state.activeSessionId,
+      ));
+    });
+
+    on<SetActiveTerminalSession>((event, emit) {
+      emit(state.copyWith(activeSessionId: event.id));
+    });
+
+    on<DeleteTerminalSession>((event, emit) {
+      final sessions = state.sessions.where((session) => session.id != event.id).toList();
+      if (sessions.isEmpty) {
+        emit(state.copyWith(sessions: sessions, clearActive: true));
+        return;
+      }
+      final activeId = state.activeSessionId == event.id
+          ? sessions.first.id
+          : state.activeSessionId;
+      emit(state.copyWith(sessions: sessions, activeSessionId: activeId));
+    });
+
+    on<UpdateTerminalSessionStatus>((event, emit) {
+      final sessions = state.sessions.map((session) {
+        if (session.id == event.id) {
+          return session.copyWith(isRunning: event.isRunning);
+        }
+        return session;
+      }).toList();
+      emit(state.copyWith(sessions: sessions));
+    });
+  }
+}
+
+class _TerminalRuntime {
+  final String sessionId;
+  final String title;
+  final Terminal terminal;
+  final TerminalController controller;
+
+  Pty? pty;
+  StreamSubscription<String>? outputSubscription;
+  String currentInput = '';
+  VoidCallback? selectionListener;
+
+  _TerminalRuntime({
+    required this.sessionId,
+    required this.title,
+    required this.terminal,
+    required this.controller,
+  });
+
+  bool get isRunning => pty != null;
+
+  void stopProcess() {
+    final process = pty;
+    if (process != null) {
+      process.write(const Utf8Encoder().convert('exit\r'));
+    }
+    pty = null;
+  }
+
+  Future<void> dispose() async {
+    stopProcess();
+    await outputSubscription?.cancel();
+    outputSubscription = null;
+    if (selectionListener != null) {
+      controller.removeListener(selectionListener!);
+    }
+    controller.dispose();
+  }
+}
+
 class _SetupTerminalState extends State<SetupTerminal> {
-  final terminal = Terminal(platform: TerminalTargetPlatform.android);
-  final terminalController = TerminalController(selectionMode: SelectionMode.block);
-  late Pty pty;
-  bool _isInitialized = false;
-  
-  
+  late final TerminalSessionBloc _sessionBloc;
+  final Map<String, _TerminalRuntime> _sessionRuntimes = {};
+  String _sharedPath = '';
+
   OverlayEntry? _selectionToolbarOverlay;
   bool _hasSelection = false;
-  
-  
+
   final ValueNotifier<List<String>?> _suggestionsNotifier = ValueNotifier(null);
   final ScrollController _suggestionScrollController = ScrollController();
   int _selectedSuggestionIndex = 0;
-  String _currentInput = '';
   List<String> _pathBinaries = [];
-  
+
   @override
   void initState() {
     super.initState();
-    if (!_isInitialized && mounted) {
-      setupTerminal();
-      _isInitialized = true;
-    }
-    
-    terminalController.addListener(_onSelectionChanged);
-    
+    _sessionBloc = TerminalSessionBloc();
+    _bootstrapTerminalPage();
     _loadPathBinaries();
   }
 
-  void _onSelectionChanged() {
-    final hasSelection = terminalController.selection != null;
+  Future<void> _bootstrapTerminalPage() async {
+    _sharedPath = await NativeChannel.getLibraryPath();
+    final workDir = Directory(widget.projectDir);
+    if (!workDir.existsSync()) {
+      await workDir.create(recursive: true);
+    }
+    if (!mounted) return;
+    await _createSession(args: widget.args, makeActive: true, title: 'Session 1');
+  }
+
+  void _onSelectionChanged(String sessionId) {
+    if (_sessionBloc.state.activeSessionId != sessionId) return;
+    final runtime = _sessionRuntimes[sessionId];
+    if (runtime == null) return;
+
+    final hasSelection = runtime.controller.selection != null;
     if (hasSelection != _hasSelection) {
       _hasSelection = hasSelection;
       if (hasSelection) {
@@ -62,7 +260,106 @@ class _SetupTerminalState extends State<SetupTerminal> {
       }
     }
   }
-  
+
+  _TerminalRuntime? _activeRuntime() {
+    final activeId = _sessionBloc.state.activeSessionId;
+    if (activeId == null) return null;
+    return _sessionRuntimes[activeId];
+  }
+
+  String _nextSessionTitle() {
+    final count = _sessionRuntimes.length + 1;
+    return 'Session $count';
+  }
+
+  Future<void> _createSession({
+    List<String> args = const [],
+    bool makeActive = true,
+    String? title,
+    bool showFeedback = false,
+  }) async {
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final sessionTitle = title ?? _nextSessionTitle();
+    final runtime = _TerminalRuntime(
+      sessionId: id,
+      title: sessionTitle,
+      terminal: Terminal(platform: TerminalTargetPlatform.android),
+      controller: TerminalController(selectionMode: SelectionMode.block),
+    );
+
+    runtime.selectionListener = () => _onSelectionChanged(id);
+    runtime.controller.addListener(runtime.selectionListener!);
+    _sessionRuntimes[id] = runtime;
+
+    _sessionBloc.add(CreateTerminalSession(
+      id: id,
+      title: sessionTitle,
+      makeActive: makeActive,
+      isRunning: false,
+    ));
+
+    await _startPty(runtime, args: args);
+
+    if (showFeedback && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('New session created: $sessionTitle'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _restartSession(String sessionId) async {
+    final runtime = _sessionRuntimes[sessionId];
+    if (runtime == null) return;
+    runtime.stopProcess();
+    runtime.currentInput = '';
+    if (_sessionBloc.state.activeSessionId == sessionId) {
+      _suggestionsNotifier.value = null;
+    }
+    await _startPty(runtime);
+  }
+
+  void _terminateSession(String sessionId) {
+    final runtime = _sessionRuntimes[sessionId];
+    if (runtime == null || !runtime.isRunning) return;
+    runtime.stopProcess();
+    _sessionBloc.add(UpdateTerminalSessionStatus(id: sessionId, isRunning: false));
+  }
+
+  Future<void> _deleteSession(String sessionId) async {
+    if (!_sessionRuntimes.containsKey(sessionId)) return;
+
+    final isLastSession = _sessionRuntimes.length == 1;
+
+    if (isLastSession) {
+      final runtime = _sessionRuntimes.remove(sessionId);
+      await runtime?.dispose();
+      _sessionBloc.add(DeleteTerminalSession(sessionId));
+      _hideSelectionToolbar();
+      _suggestionsNotifier.value = null;
+      _hasSelection = false;
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    final runtime = _sessionRuntimes.remove(sessionId);
+    await runtime?.dispose();
+    _sessionBloc.add(DeleteTerminalSession(sessionId));
+
+    if (_sessionBloc.state.activeSessionId == sessionId) {
+      _hideSelectionToolbar();
+      _suggestionsNotifier.value = null;
+      _hasSelection = false;
+    }
+  }
+
   Future<void> _loadPathBinaries() async {
     final pathDirs = [
       binDir,
@@ -90,112 +387,108 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _pathBinaries = binaries.toList()..sort();
   }
 
-  Future<void> setupTerminal() async {
-    final sharedPath = await NativeChannel.getLibraryPath();
-    final workDir = Directory(widget.projectDir);
-    if(!workDir.existsSync()) {
-      await workDir.create(recursive: true);
+  Future<void> _startPty(_TerminalRuntime runtime, {List<String> args = const []}) async {
+    if (_sharedPath.isEmpty) {
+      _sharedPath = await NativeChannel.getLibraryPath();
     }
-    
+
     final enVars = <String, String>{
       'HOME': homeDir,
-      'PS1': " \x1b[32m\\w \x1b[0m\$ ",
+      'PS1': ' \x1b[32m\\w \x1b[0m\$ ',
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
-      'PROMPT_DIRTRIM':'2',
-      'VSDROID_SHARED_PATH': sharedPath,
-      'LD_LIBRARY_PATH': '$sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
-      'LD_PRELOAD': '$sharedPath/libc++_shared.so', 
-      'PREFIX': "/data/data/com.vsdroid",
+      'PROMPT_DIRTRIM': '2',
+      'VSDROID_SHARED_PATH': _sharedPath,
+      'LD_LIBRARY_PATH': '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
+      'LD_PRELOAD': '$_sharedPath/libc++_shared.so',
+      'PREFIX': '/data/data/com.vsdroid',
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'TERMINFO': '$runtimesDir/mono/terminfo'
+      'TERMINFO': '$runtimesDir/mono/terminfo',
     };
-    _startPty(
-      "$sharedPath/libbash.so",
-      enVars,
-      args: widget.args
-    );
-  }
 
-  void _startPty(String execPath, Map<String, String> enVars, {List<String> args = const []}) {
-    pty = Pty.start(
-      execPath,
+    final process = Pty.start(
+      '$_sharedPath/libbash.so',
       workingDirectory: widget.projectDir,
       environment: enVars,
-      rows: terminal.viewHeight,
-      columns: terminal.viewWidth,
+      rows: runtime.terminal.viewHeight,
+      columns: runtime.terminal.viewWidth,
       arguments: args,
     );
+    runtime.pty = process;
+    _sessionBloc.add(UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: true));
 
-
-    pty.output
+    await runtime.outputSubscription?.cancel();
+    runtime.outputSubscription = process.output
       .cast<List<int>>()
       .transform(const Utf8Decoder())
-      .listen(terminal.write);
+      .listen(runtime.terminal.write);
 
-    pty.exitCode.then((code) {
-      terminal.write("\r\n\n[Program finished with exit code $code]");
+    process.exitCode.then((code) {
+      if (!_sessionRuntimes.containsKey(runtime.sessionId)) return;
+      runtime.pty = null;
+      runtime.terminal.write('\r\n\n[Program finished with exit code $code]');
+      _sessionBloc.add(UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: false));
     });
 
-    terminal.onOutput = (data) {
-      pty.write(const Utf8Encoder().convert(data));
-      
-      _handleInputForAutocomplete(data);
+    runtime.terminal.onOutput = (data) {
+      final activeSessionId = _sessionBloc.state.activeSessionId;
+      process.write(const Utf8Encoder().convert(data));
+      if (activeSessionId == runtime.sessionId) {
+        _handleInputForAutocomplete(runtime, data);
+      }
     };
 
-    terminal.onResize = (w, h, pw, ph){
-      pty.resize(h, w);
+    runtime.terminal.onResize = (w, h, pw, ph) {
+      process.resize(h, w);
     };
   }
-  
-  void _handleInputForAutocomplete(String data) {
+
+  void _handleInputForAutocomplete(_TerminalRuntime runtime, String data) {
     if (data == '\r' || data == '\n') {
       _suggestionsNotifier.value = null;
-      _currentInput = '';
+      runtime.currentInput = '';
       return;
     }
-    
+
     if (data == '\x7f' || data == '\b') {
-      if (_currentInput.isNotEmpty) {
-        _currentInput = _currentInput.substring(0, _currentInput.length - 1);
+      if (runtime.currentInput.isNotEmpty) {
+        runtime.currentInput = runtime.currentInput.substring(0, runtime.currentInput.length - 1);
       }
     } else if (data == '\t') {
-      
       final suggestions = _suggestionsNotifier.value;
       if (suggestions != null && suggestions.isNotEmpty) {
-        _acceptSuggestion(suggestions[_selectedSuggestionIndex]);
+        _acceptSuggestion(runtime, suggestions[_selectedSuggestionIndex]);
       }
       return;
     } else if (data == ' ' || data.contains('\x1b')) {
       _suggestionsNotifier.value = null;
-      _currentInput = '';
+      runtime.currentInput = '';
       return;
     } else if (data.length == 1 && data.codeUnitAt(0) >= 32) {
-      _currentInput += data;
+      runtime.currentInput += data;
     } else {
       return;
     }
-    
-    _updateSuggestions();
+
+    _updateSuggestions(runtime);
   }
-  
-  Future<void> _updateSuggestions() async {
-    if (_currentInput.isEmpty) {
+
+  Future<void> _updateSuggestions(_TerminalRuntime runtime) async {
+    if (runtime.currentInput.isEmpty) {
       _suggestionsNotifier.value = null;
       return;
     }
-    
-    final query = _currentInput.toLowerCase();
+
+    final query = runtime.currentInput.toLowerCase();
     List<String> matches = [];
-    
-    if (_currentInput.startsWith('./') || 
-        _currentInput.startsWith('/') || 
-        _currentInput.startsWith('~/') ||
-        _currentInput.contains('/')) {
-      matches = await _getPathSuggestions(_currentInput);
+
+    if (runtime.currentInput.startsWith('./') ||
+        runtime.currentInput.startsWith('/') ||
+        runtime.currentInput.startsWith('~/') ||
+        runtime.currentInput.contains('/')) {
+      matches = await _getPathSuggestions(runtime.currentInput);
     } else {
-      
       matches = _pathBinaries
           .where((bin) => bin.toLowerCase().startsWith(query))
           .take(10)
@@ -209,12 +502,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
       _suggestionsNotifier.value = matches;
     }
   }
-  
+
   Future<List<String>> _getPathSuggestions(String input) async {
     try {
       String searchPath;
       String prefix = '';
-      
+
       if (input.startsWith('~/')) {
         searchPath = homeDir + input.substring(1);
         prefix = '~/';
@@ -225,54 +518,57 @@ class _SetupTerminalState extends State<SetupTerminal> {
         searchPath = input;
         prefix = '';
       } else {
-        
         searchPath = '${widget.projectDir}/$input';
         prefix = '';
       }
-      
+
       final lastSlash = searchPath.lastIndexOf('/');
       final dirPath = lastSlash >= 0 ? searchPath.substring(0, lastSlash + 1) : searchPath;
       final partial = lastSlash >= 0 ? searchPath.substring(lastSlash + 1).toLowerCase() : '';
-      
+
       final dir = Directory(dirPath);
       if (!await dir.exists()) return [];
-      
+
       final suggestions = <String>[];
       await for (final entity in dir.list()) {
         final name = entity.path.split('/').last;
         if (partial.isEmpty || name.toLowerCase().startsWith(partial)) {
           final isDir = entity is Directory;
-          final displayPath = prefix.isEmpty 
-              ? entity.path 
+          final displayPath = prefix.isEmpty
+              ? entity.path
               : prefix + entity.path.substring(
-                  input.startsWith('~/') ? homeDir.length : 
-                  input.startsWith('./') ? widget.projectDir.length + 1 : 0
+                  input.startsWith('~/') ? homeDir.length :
+                  input.startsWith('./') ? widget.projectDir.length + 1 : 0,
                 );
           suggestions.add(isDir ? '$displayPath/' : displayPath);
         }
       }
-      
+
       suggestions.sort();
       return suggestions.take(10).toList();
     } catch (_) {
       return [];
     }
   }
-  
-  void _acceptSuggestion(String suggestion) {
-    
-    final toSend = suggestion.substring(_currentInput.length);
-    pty.write(const Utf8Encoder().convert(toSend));
-    _currentInput = suggestion;
+
+  void _acceptSuggestion(_TerminalRuntime runtime, String suggestion) {
+    final process = runtime.pty;
+    if (process == null) return;
+    final toSend = suggestion.substring(runtime.currentInput.length);
+    process.write(const Utf8Encoder().convert(toSend));
+    runtime.currentInput = suggestion;
     _suggestionsNotifier.value = null;
   }
-  
+
   void _showSelectionToolbar() {
     _hideSelectionToolbar();
     if (!mounted) return;
-    
+
+    final runtime = _activeRuntime();
+    if (runtime == null) return;
+
     final overlay = Overlay.of(context);
-    
+
     _selectionToolbarOverlay = OverlayEntry(
       builder: (context) {
         return Positioned(
@@ -297,8 +593,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.copy,
                       label: 'Copy',
                       onTap: () {
-                        final selectedText = terminalController.selection != null
-                            ? terminal.buffer.getText(terminalController.selection!)
+                        final selectedText = runtime.controller.selection != null
+                            ? runtime.terminal.buffer.getText(runtime.controller.selection!)
                             : '';
                         if (selectedText.isNotEmpty) {
                           Clipboard.setData(ClipboardData(text: selectedText));
@@ -313,7 +609,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
                             ),
                           );
                         }
-                        terminalController.clearSelection();
+                        runtime.controller.clearSelection();
                       },
                     ),
                     Container(
@@ -327,9 +623,9 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       onTap: () async {
                         final data = await Clipboard.getData(Clipboard.kTextPlain);
                         if (data?.text != null) {
-                          pty.write(const Utf8Encoder().convert(data!.text!));
+                          runtime.pty?.write(const Utf8Encoder().convert(data!.text!));
                         }
-                        terminalController.clearSelection();
+                        runtime.controller.clearSelection();
                       },
                     ),
                     Container(
@@ -341,13 +637,17 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.search,
                       label: 'Search',
                       onTap: () {
-                        final selectedText = terminalController.selection != null
-                            ? terminal.buffer.getText(terminalController.selection!)
+                        final selectedText = runtime.controller.selection != null
+                            ? runtime.terminal.buffer.getText(runtime.controller.selection!)
                             : '';
                         if (selectedText.isNotEmpty) {
-                          pty.write(const Utf8Encoder().convert('grep -r "${selectedText.replaceAll('"', '\\"')}" .'));
+                          runtime.pty?.write(
+                            const Utf8Encoder().convert(
+                              'grep -r "${selectedText.replaceAll('"', '\\"')}" .',
+                            ),
+                          );
                         }
-                        terminalController.clearSelection();
+                        runtime.controller.clearSelection();
                       },
                     ),
                     Container(
@@ -359,7 +659,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.close,
                       label: '',
                       onTap: () {
-                        terminalController.clearSelection();
+                        runtime.controller.clearSelection();
                       },
                     ),
                   ],
@@ -370,10 +670,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
         );
       },
     );
-    
+
     overlay.insert(_selectionToolbarOverlay!);
   }
-  
+
   Widget _toolbarButton({
     required IconData icon,
     required String label,
@@ -410,30 +710,35 @@ class _SetupTerminalState extends State<SetupTerminal> {
       ),
     );
   }
-  
+
   void _hideSelectionToolbar() {
     _selectionToolbarOverlay?.remove();
     _selectionToolbarOverlay = null;
   }
 
   void sendToPty(String sequence) {
-    pty.write(const Utf8Encoder().convert(sequence));
+    final runtime = _activeRuntime();
+    runtime?.pty?.write(const Utf8Encoder().convert(sequence));
   }
-  
+
   void _setTerminalOutputWithAutocomplete({
-    bool ctrl = false, 
-    bool alt = false, 
+    bool ctrl = false,
+    bool alt = false,
     bool shift = false,
     VoidCallback? resetCallback,
   }) {
-    terminal.onOutput = (data) {
+    final runtime = _activeRuntime();
+    final process = runtime?.pty;
+    if (runtime == null || process == null) return;
+
+    runtime.terminal.onOutput = (data) {
       String sequence = '';
-      
+
       if (ctrl) {
         if (data.length == 1) {
           int code = data.toUpperCase().codeUnitAt(0);
-          if (code >= 65 && code <= 90) { 
-            sequence = String.fromCharCode(code - 64); 
+          if (code >= 65 && code <= 90) {
+            sequence = String.fromCharCode(code - 64);
           }
         }
       } else if (alt) {
@@ -443,12 +748,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
       } else {
         sequence = data;
       }
-      
+
       if (sequence.isNotEmpty) {
-        pty.write(const Utf8Encoder().convert(sequence));
-        _handleInputForAutocomplete(sequence);
+        process.write(const Utf8Encoder().convert(sequence));
+        _handleInputForAutocomplete(runtime, sequence);
       }
-      
+
       if ((ctrl || alt || shift) && resetCallback != null) {
         resetCallback();
         _setTerminalOutputWithAutocomplete();
@@ -461,8 +766,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _hideSelectionToolbar();
     _suggestionsNotifier.dispose();
     _suggestionScrollController.dispose();
-    terminalController.removeListener(_onSelectionChanged);
-    terminalController.dispose();
+    for (final runtime in _sessionRuntimes.values) {
+      runtime.dispose();
+    }
+    _sessionRuntimes.clear();
+    _sessionBloc.close();
     super.dispose();
   }
 
@@ -513,9 +821,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       final isSelected = index == _selectedSuggestionIndex;
                       final isDirectory = suggestion.endsWith('/');
                       final isPath = suggestion.contains('/');
+                      final activeRuntime = _activeRuntime();
                       
                       return InkWell(
-                        onTap: () => _acceptSuggestion(suggestion),
+                        onTap: activeRuntime == null
+                            ? null
+                            : () => _acceptSuggestion(activeRuntime, suggestion),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           color: isSelected ? const Color(0xff094771) : Colors.transparent,
@@ -621,38 +932,231 @@ class _SetupTerminalState extends State<SetupTerminal> {
     );
   }
 
+  Widget _buildSessionDrawer(TerminalSessionState state, AppTheme appTheme) {
+
+    return Drawer(
+      backgroundColor: appTheme.selectScreenDrawerBg,
+      surfaceTintColor: Colors.transparent,
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: appTheme.editorPageDrawerBg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Terminal Sessions',
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${state.sessions.length} active tabs',
+                  style: TextStyle(
+                    color: appTheme.editorPageToolColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: state.sessions.length,
+              itemBuilder: (context, index) {
+                final session = state.sessions[index];
+                final isActive = session.id == state.activeSessionId;
+
+                return ListTile(
+                  leading: Icon(
+                    session.isRunning ? Icons.terminal : Icons.pause_circle,
+                    color: session.isRunning
+                        ? appTheme.editorPageToolSelectedColor
+                        : appTheme.editorPageToolColor,
+                  ),
+                  title: Text(
+                    session.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                  ),
+                  subtitle: Text(
+                    session.isRunning ? 'Running' : 'Stopped',
+                    style: TextStyle(color: appTheme.editorPageToolColor),
+                  ),
+                  selected: isActive,
+                  selectedTileColor: appTheme.editorPageToolSelectedBgColor,
+                  onTap: () {
+                    _sessionBloc.add(SetActiveTerminalSession(session.id));
+                    Navigator.of(context).pop();
+                  },
+                  trailing: Wrap(
+                    spacing: 2,
+                    children: [
+                      IconButton(
+                        tooltip: 'Restart session',
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _restartSession(session.id),
+                        icon: Icon(
+                          Icons.refresh,
+                          size: 18,
+                          color: appTheme.editorPageToolColor,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Stop session',
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: session.isRunning
+                            ? () => _terminateSession(session.id)
+                            : null,
+                        icon: Icon(
+                          Icons.stop_circle_outlined,
+                          size: 18,
+                          color: session.isRunning
+                              ? appTheme.editorPageToolColor
+                              : appTheme.editorPageToolColor.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete session',
+                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _deleteSession(session.id),
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: appTheme.editorPageToolColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: TerminalView(
-                  terminal,
-                  padding: EdgeInsets.zero,
-                  controller: terminalController,
-                  autofocus: true,
-                  keyboardType: TextInputType.multiline,
-                  theme: terminalTheme,
-                ),
-              ),
-              TerminalKeyboardMenu(
-                onSendSequence: sendToPty,
-                onModifierChanged: (ctrl, alt, shift, resetCallback) {
-                  _setTerminalOutputWithAutocomplete(
-                    ctrl: ctrl,
-                    alt: alt,
-                    shift: shift,
-                    resetCallback: resetCallback,
+    return BlocProvider.value(
+      value: _sessionBloc,
+      child: BlocListener<TerminalSessionBloc, TerminalSessionState>(
+        listenWhen: (previous, current) => previous.activeSessionId != current.activeSessionId,
+        listener: (context, state) {
+          _hideSelectionToolbar();
+          _suggestionsNotifier.value = null;
+          _hasSelection = false;
+        },
+        child: BlocBuilder<TerminalSessionBloc, TerminalSessionState>(
+          builder: (context, state) {
+            final activeRuntime = _activeRuntime();
+            final appTheme = context.watch<AppThemeBloc>().state.appTheme;
+            final terminalContent = activeRuntime == null
+                ? const Center(child: CircularProgressIndicator())
+                : Stack(
+                    children: [
+                      Column(
+                        children: [
+                          Expanded(
+                            child: TerminalView(
+                              activeRuntime.terminal,
+                              padding: EdgeInsets.zero,
+                              controller: activeRuntime.controller,
+                              autofocus: true,
+                              keyboardType: TextInputType.multiline,
+                              theme: terminalTheme,
+                            ),
+                          ),
+                          TerminalKeyboardMenu(
+                            onSendSequence: sendToPty,
+                            onModifierChanged: (ctrl, alt, shift, resetCallback) {
+                              _setTerminalOutputWithAutocomplete(
+                                ctrl: ctrl,
+                                alt: alt,
+                                shift: shift,
+                                resetCallback: resetCallback,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      _buildSuggestionBox(),
+                    ],
                   );
-                },
-              )
-            ],
-          ),
-          _buildSuggestionBox(),
-        ],
+
+            if (!widget.useScaffold) {
+              return terminalContent;
+            }
+
+            return Scaffold(
+              appBar: AppBar(
+                leading: Builder(
+                  builder: (context) {
+                    final sessionCount = state.sessions.length;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          tooltip: 'Open sessions drawer',
+                          icon: const Icon(Icons.menu),
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                        ),
+                        if (sessionCount > 0)
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: appTheme.editorPageToolSelectedBgColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Text(
+                                sessionCount > 99 ? '99+' : '$sessionCount',
+                                style: TextStyle(
+                                  color: appTheme.editorPageToolSelectedColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                title: Text(activeRuntime?.title ?? 'Terminal'),
+                actions: [
+                  IconButton(
+                    tooltip: 'New session',
+                    onPressed: () => _createSession(
+                      makeActive: true,
+                      showFeedback: true,
+                    ),
+                    icon: const Icon(Icons.add),
+                  ),
+                ],
+              ),
+              drawer: _buildSessionDrawer(state, appTheme),
+              body: terminalContent,
+            );
+          },
+        ),
       ),
     );
   }

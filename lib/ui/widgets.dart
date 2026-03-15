@@ -8327,7 +8327,7 @@ class _AIChatState extends State<AIChat> {
       final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,
-        chatMode: context.read<AIChatUIBloc>().state.chatMode,
+        chatMode: mounted ? context.read<AIChatUIBloc>().state.chatMode : ChatMode.ask,
         onPartial: (partial) {
           newList[index] = newList[index].copyWith(modelResponse: (newList[index].modelResponse ?? "") + partial);
           chatSessionBloc.add(UpdateCurrentSession(conversations: newList));

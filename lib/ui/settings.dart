@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
+import 'downloads.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
@@ -57,6 +58,30 @@ int main() {
     "OpenRouter",
     "FireWorks",
     ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCopilotForSettingsWhenDisabled();
+  }
+
+  Future<void> _initializeCopilotForSettingsWhenDisabled() async {
+    final isCopilotEnabled = await isCopilotEnabledPref();
+    if (isCopilotEnabled || !mounted) {
+      return;
+    }
+
+    if (!Directory('$extensionDir/copilot-language-server').existsSync()) {
+      return;
+    }
+
+    final copilotBloc = context.read<CopilotBloc>();
+    if (copilotBloc.state.isInitialized || copilotBloc.state.status == CopilotStatus.initializing) {
+      return;
+    }
+
+    copilotBloc.add(CopilotInitialize(configPath: filesDir));
+  }
   
   Widget _buildCopilotButton(BuildContext context, CopilotState copilotState, AppThemeState appThemeState) {
     final status = copilotState.status;
@@ -104,22 +129,7 @@ int main() {
         width: 280,
         height: 45,
         child: ElevatedButton(
-          onPressed: (){
-            if(!(Directory("$extensionDir/copilot-language-server").existsSync())){
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    "GitHub Copilot extension is not installed.\nPlease go to the extensions page and download it first.",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  backgroundColor: Colors.redAccent,
-                  duration: Duration(seconds: 4),
-                )
-              );
-              return;
-            }
-            onPressed?.call();
-          },
+          onPressed: () => onPressed?.call(),
           style: ButtonStyle(
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -163,12 +173,71 @@ int main() {
     );
   }
 
+  List<String> _missingCopilotPrerequisites() {
+    final missing = <String>[];
+    if (!Directory('$extensionDir/copilot-language-server').existsSync()) {
+      missing.add('GitHub Copilot extension');
+    }
+    if (!File('$binDir/node').existsSync()) {
+      missing.add('Node runtime');
+    }
+    return missing;
+  }
+
+  void _showCopilotPrerequisiteDialog(
+    BuildContext context,
+    AppThemeState appThemeState,
+    List<String> missing,
+  ) {
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: appThemeState.appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : const Color.fromARGB(255, 240, 240, 240),
+          title: Text('Copilot Setup Required', style: TextStyle(color: textColor)),
+          content: Text(
+            'Before signing in, please install: ${missing.join(' and ')}.\n\nOpen Downloads to install them.',
+            style: TextStyle(color: textColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const DownloadManager(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SizeTransition(sizeFactor: animation, child: child);
+                    },
+                  ),
+                );
+              },
+              child: const Text('Open Downloads'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _startCopilotSignIn(BuildContext context, AppThemeState appThemeState) async {
+    final missing = _missingCopilotPrerequisites();
+    if (missing.isNotEmpty) {
+      _showCopilotPrerequisiteDialog(context, appThemeState, missing);
+      return;
+    }
+
     final copilotBloc = context.read<CopilotBloc>();
     
     if (copilotBloc.state.status == CopilotStatus.notInitialized) {
-      final configPath = '/data/data/com.vsdroid/files';
-      copilotBloc.add(CopilotInitialize(configPath: configPath));
+      copilotBloc.add(CopilotInitialize(configPath: filesDir));
       
       await Future.delayed(const Duration(seconds: 2));
     }

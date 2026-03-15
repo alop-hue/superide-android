@@ -1,9 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../ui/home.dart';
 import '../utils/functions.dart';
@@ -86,6 +84,7 @@ class _StartScreenState extends State<StartScreen> {
     await setupFilesDir();
     await setupProjectDir();
     await setupTempDir();
+    await ensureCopilotEnabledPrefInitialized();
 
     final String sharedPath = await NativeChannel.getLibraryPath();
 
@@ -171,7 +170,6 @@ class _StartScreenState extends State<StartScreen> {
 
     setState(() {
       isDone = true;
-      context.read<CopilotBloc>().add(CopilotAutoInit());
     });
 
     Future.delayed(Duration(milliseconds: 0), () {
