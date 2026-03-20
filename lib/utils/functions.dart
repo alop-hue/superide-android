@@ -1516,21 +1516,26 @@ Future<Map<String, dynamic>> sendRequest({
 
 void runCode(
   BuildContext context,
-  String compileCommand,
-  String runCommand,
+  String command,
   String rootDir,
 ) {
-  Navigator.of(context).push(
-    PageRouteBuilder(
-      pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
-        projectDir: rootDir,
-        args: ["-c", "$compileCommand && $runCommand"],
+  try {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
+          projectDir: rootDir,
+          args: ["-c", command],
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SizeTransition(sizeFactor: animation, child: child);
+        },
       ),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return SizeTransition(sizeFactor: animation, child: child);
-      },
-    ),
-  );
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Execution failed: ${e.toString()}")));
+    debugPrint(e.toString());
+  }
 }
 
 Future<LspConfig?> startLspServer({

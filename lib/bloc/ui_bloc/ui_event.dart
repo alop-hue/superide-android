@@ -314,7 +314,10 @@ class CopilotDispose extends CopilotEvent {}
 
 sealed class CopilotChatEvent extends UiEvent {}
 
-class CopilotChatFetchModels extends CopilotChatEvent {}
+class CopilotChatFetchModels extends CopilotChatEvent {
+  final bool forceRefresh;
+  CopilotChatFetchModels({this.forceRefresh = false});
+}
 
 class _CopilotChatInternalUpdateMessages extends CopilotChatEvent {
   final List<CopilotChatMessage> messages;

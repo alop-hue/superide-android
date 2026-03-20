@@ -7,9 +7,13 @@ import 'agentic_tools.dart';
 
 class CopilotChat {
   final String authToken;
+  static const String _defaultCopilotApiEndpoint = 'https://api.individual.githubcopilot.com';
+  static const String _graphqlEndpoint = 'https://api.github.com/graphql';
 
   AgenticTools? _agenticTools;
   http.Client? _currentClient;
+  String? _apiEndpoint;
+  List<Map<String, dynamic>>? _cachedModels;
   
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
   final StreamController<Map<String, dynamic>> _conversationController = StreamController<Map<String, dynamic>>.broadcast();
@@ -37,18 +41,168 @@ class CopilotChat {
   
   CopilotChat({required this.authToken});
 
+  Map<String, String> _commonHeaders({
+    bool isJsonBody = false,
+    ChatMode? chatMode,
+  }) {
+    String? initiator;
+    if (chatMode != null) {
+      initiator = chatMode == ChatMode.agent ? 'agent' : 'user';
+    }
+
+    return {
+      'Authorization': 'Bearer $authToken',
+      'Accept': 'application/json',
+      'User-Agent': 'VSdroid/1.0.0',
+      'Editor-Version': 'VSdroid/1.0.0',
+      'X-GitHub-Api-Version': '2025-10-01',
+      if (initiator != null) 'X-Initiator': initiator,
+      if (initiator != null) 'X-Interaction-Type': 'conversation-panel',
+      if (initiator != null) 'OpenAI-Intent': 'conversation-panel',
+      if (isJsonBody) 'Content-Type': 'application/json; charset=utf-8',
+    };
+  }
+
+  Future<String> _resolveApiEndpoint() async {
+    if (_apiEndpoint != null && _apiEndpoint!.isNotEmpty) {
+      return _apiEndpoint!;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(_graphqlEndpoint),
+        headers: _commonHeaders(isJsonBody: true),
+        body: jsonEncode({
+          'query': 'query { viewer { copilotEndpoints { api } } }',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final api = ((decoded['data'] as Map<String, dynamic>?)?['viewer'] as Map<String, dynamic>?)?['copilotEndpoints'];
+        final endpoint = (api as Map<String, dynamic>?)?['api'] as String?;
+        if (endpoint != null && endpoint.isNotEmpty) {
+          _apiEndpoint = endpoint;
+          return endpoint;
+        }
+      }
+    } catch (_) {
+      // Fall back to the public individual endpoint when discovery fails.
+    }
+
+    // Do not cache fallback so later calls can retry endpoint discovery.
+    return _defaultCopilotApiEndpoint;
+  }
+
+  Set<String> _modelSupportedEndpoints(String model) {
+    if (_cachedModels == null) return const {};
+
+    final modelData = _cachedModels!.firstWhere(
+      (item) => item['id'] == model,
+      orElse: () => const {},
+    );
+
+    if (modelData.isEmpty) return const {};
+    final endpoints = modelData['supported_endpoints'];
+    if (endpoints is! List) return const {};
+    return endpoints.whereType<String>().toSet();
+  }
+
+  String _selectChatPath(String model, {required bool hasTools}) {
+    final supportedEndpoints = _modelSupportedEndpoints(model);
+
+    if (supportedEndpoints.isEmpty || supportedEndpoints.contains('/chat/completions')) {
+      return '/chat/completions';
+    }
+
+    if (hasTools) {
+      // Tool-calling in this client is implemented for the Chat Completions flow.
+      return '/chat/completions';
+    }
+
+    if (supportedEndpoints.contains('/responses')) {
+      return '/responses';
+    }
+
+    if (supportedEndpoints.contains('/v1/messages')) {
+      return '/v1/messages';
+    }
+
+    return '/chat/completions';
+  }
+
+  Map<String, dynamic> _buildRequestBodyForPath(
+    String path,
+    String model,
+    List<Map<String, dynamic>> messages,
+    List<Map<String, dynamic>> tools,
+  ) {
+    switch (path) {
+      case '/responses':
+        return {
+          'model': model,
+          'input': messages,
+          'stream': true,
+        };
+      case '/v1/messages':
+        return {
+          'model': model,
+          'messages': messages,
+          'max_tokens': 4096,
+          'stream': true,
+        };
+      case '/chat/completions':
+      default:
+        return {
+          'model': model,
+          'messages': messages,
+          'stream': true,
+          if (tools.isNotEmpty) 'tools': tools,
+        };
+    }
+  }
+
+  String? _extractDeltaText(Map<String, dynamic> json, String path) {
+    if (path == '/chat/completions') {
+      return json['choices']?[0]?['delta']?['content'] as String?;
+    }
+
+    if (path == '/responses') {
+      final type = json['type'] as String?;
+      if (type == 'response.output_text.delta') {
+        return json['delta'] as String?;
+      }
+      if (type == 'response.output_text.done') {
+        return json['text'] as String?;
+      }
+      return null;
+    }
+
+    if (path == '/v1/messages') {
+      final type = json['type'] as String?;
+      if (type == 'content_block_delta') {
+        return json['delta']?['text'] as String?;
+      }
+      return null;
+    }
+
+    return null;
+  }
+
   Future<Map<String, dynamic>> getCopilotModels() async {
+    final apiEndpoint = await _resolveApiEndpoint();
     final response = await http.get(
-      Uri.parse('https://api.individual.githubcopilot.com/models'),
-      headers: {
-        'Authorization': 'Bearer $authToken',
-        'Accept': 'application/json',
-        'User-Agent': 'VSdroid/1.0.0',
-      },
+      Uri.parse('$apiEndpoint/models'),
+      headers: _commonHeaders(),
     );
 
     if (response.statusCode == 200) {
-      return await jsonDecode(response.body);
+      final parsed = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = parsed['data'];
+      if (data is List) {
+        _cachedModels = data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      return parsed;
     } else {
       throw Exception('Failed to fetch models: ${response.statusCode} ${response.body}');
     }
@@ -62,26 +216,15 @@ class CopilotChat {
   }) async {
     final tools = chatMode == ChatMode.agent ? _agenticTools?.getTools() ?? [] : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
+    final apiEndpoint = await _resolveApiEndpoint();
+    final chatPath = _selectChatPath(model, hasTools: tools.isNotEmpty);
 
     while (true) {
-      final requestBody = {
-        'model': model,
-        'messages': conversationMessages,
-        'stream': true,
-      };
-
-      if (tools.isNotEmpty) {
-        requestBody['tools'] = tools;
-      }
+      final requestBody = _buildRequestBodyForPath(chatPath, model, conversationMessages, tools);
 
       _currentClient = http.Client();
-      final request = http.Request('POST', Uri.parse('https://api.individual.githubcopilot.com/chat/completions'));
-      request.headers.addAll({
-        'Authorization': 'Bearer $authToken',
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json',
-        'User-Agent': 'VSdroid/1.0.0',
-      });
+      final request = http.Request('POST', Uri.parse('$apiEndpoint$chatPath'));
+      request.headers.addAll(_commonHeaders(isJsonBody: true, chatMode: chatMode));
       request.body = jsonEncode(requestBody);
 
       final streamedResponse = await _currentClient!.send(request);
@@ -101,34 +244,44 @@ class CopilotChat {
           if (data == '[DONE]') break;
           try {
             final json = jsonDecode(data);
-            final delta = json['choices'][0]['delta'];
+            if (chatPath == '/chat/completions') {
+              final delta = json['choices']?[0]?['delta'];
+              if (delta == null) continue;
+              finalMessage ??= {'role': delta['role'] ?? 'assistant', 'content': ''};
 
-            finalMessage ??= {'role': delta['role'] ?? 'assistant', 'content': ''};
+              final deltaText = _extractDeltaText(json, chatPath);
+              if (deltaText != null && deltaText.isNotEmpty) {
+                finalMessage['content'] += deltaText;
+                onPartial?.call(deltaText);
+              }
 
-            if (delta['content'] != null) {
-              finalMessage['content'] += delta['content'];
-              onPartial?.call(delta['content']);
-            }
-
-            if (delta['tool_calls'] != null) {
-              for (var toolCallDelta in delta['tool_calls']) {
-                final index = toolCallDelta['index'];
-                if (index >= toolCallDeltas.length) {
-                  toolCallDeltas.add({});
-                }
-                if (toolCallDelta['id'] != null) {
-                  toolCallDeltas[index]['id'] = toolCallDelta['id'];
-                }
-                if (toolCallDelta['function'] != null) {
-                  toolCallDeltas[index]['function'] ??= {};
-                  if (toolCallDelta['function']['name'] != null) {
-                    toolCallDeltas[index]['function']['name'] = toolCallDelta['function']['name'];
+              if (delta['tool_calls'] != null) {
+                for (var toolCallDelta in delta['tool_calls']) {
+                  final index = toolCallDelta['index'];
+                  if (index >= toolCallDeltas.length) {
+                    toolCallDeltas.add({});
                   }
-                  if (toolCallDelta['function']['arguments'] != null) {
-                    toolCallDeltas[index]['function']['arguments'] ??= '';
-                    toolCallDeltas[index]['function']['arguments'] += toolCallDelta['function']['arguments'];
+                  if (toolCallDelta['id'] != null) {
+                    toolCallDeltas[index]['id'] = toolCallDelta['id'];
+                  }
+                  if (toolCallDelta['function'] != null) {
+                    toolCallDeltas[index]['function'] ??= {};
+                    if (toolCallDelta['function']['name'] != null) {
+                      toolCallDeltas[index]['function']['name'] = toolCallDelta['function']['name'];
+                    }
+                    if (toolCallDelta['function']['arguments'] != null) {
+                      toolCallDeltas[index]['function']['arguments'] ??= '';
+                      toolCallDeltas[index]['function']['arguments'] += toolCallDelta['function']['arguments'];
+                    }
                   }
                 }
+              }
+            } else {
+              finalMessage ??= {'role': 'assistant', 'content': ''};
+              final deltaText = _extractDeltaText(json, chatPath);
+              if (deltaText != null && deltaText.isNotEmpty) {
+                finalMessage['content'] += deltaText;
+                onPartial?.call(deltaText);
               }
             }
           } catch (e) {
@@ -152,7 +305,7 @@ class CopilotChat {
       conversationMessages.add(message);
 
       final toolCallsFromMessage = message['tool_calls'];
-      if (toolCallsFromMessage == null || toolCallsFromMessage.isEmpty) {
+      if (chatPath != '/chat/completions' || toolCallsFromMessage == null || toolCallsFromMessage.isEmpty) {
         return message['content'] ?? '';
       }
 

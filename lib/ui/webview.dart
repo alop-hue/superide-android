@@ -7,7 +7,11 @@ import '../bloc/ui_bloc/ui_bloc.dart';
 
 class WebViewScreen extends StatefulWidget {
   final File htmlFile;
-  const WebViewScreen({super.key, required this.htmlFile});
+
+  const WebViewScreen({
+    super.key,
+    required this.htmlFile,
+  });
 
   @override
   State<WebViewScreen> createState() => _WebViewScreenState();

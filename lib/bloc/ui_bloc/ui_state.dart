@@ -350,8 +350,6 @@ class DownloadManagerState {
   }
 }
 
-// ================== Copilot State ==================
-
 enum CopilotStatus {
   notInitialized,
   initializing,
@@ -465,12 +463,16 @@ class CopilotState {
 class CopilotChatState {
   final List<CopilotChatMessage> chatMessages;
   final bool isChatStreaming;
+  final bool isFetchingModels;
+  final bool hasFetchedModels;
   final List<Map<String, dynamic>> models;
   final String? error;
 
   CopilotChatState({
     this.chatMessages = const [],
     this.isChatStreaming = false,
+    this.isFetchingModels = false,
+    this.hasFetchedModels = false,
     this.models = const [],
     this.error,
   });
@@ -480,12 +482,16 @@ class CopilotChatState {
   CopilotChatState copyWith({
     List<CopilotChatMessage>? chatMessages,
     bool? isChatStreaming,
+    bool? isFetchingModels,
+    bool? hasFetchedModels,
     List<Map<String, dynamic>>? models,
     String? error,
   }) {
     return CopilotChatState(
       chatMessages: chatMessages ?? this.chatMessages,
       isChatStreaming: isChatStreaming ?? this.isChatStreaming,
+      isFetchingModels: isFetchingModels ?? this.isFetchingModels,
+      hasFetchedModels: hasFetchedModels ?? this.hasFetchedModels,
       models: models ?? this.models,
       error: error,
     );

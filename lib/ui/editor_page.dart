@@ -41,16 +41,25 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, WidgetsBindingObserver {
   final createFileKey = GlobalKey<FormState>();
   final trasnformationController = TransformationController();
+  final Map<CodeForgeController, String> _savedSnapshotByController = {};
+  final Map<CodeForgeController, VoidCallback> _editorListeners = {};
+  final Set<CodeForgeController> _dirtyControllers = {};
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
   late final TabController apiTabController, paramTabController;
+  late final ActiveEditorBloc _activeEditorBloc;
   late List<int> mruOrder;
+  bool _allowImmediatePop = false;
+  bool _didInitializeEditors = false;
   Map<String,String> params = {}, headers = {};
   TabController? tabController;
 
   @override 
   void initState(){
     WidgetsBinding.instance.addObserver(this);
+    super.initState();
+    final uiBloc = context.read<ConfigBloc>();
+    _activeEditorBloc = ActiveEditorBloc(widget.rootDir, uiBloc.state.codeForgeConfig);
     mruOrder = [0];
     createFileController = TextEditingController();
     findWordController = TextEditingController();
@@ -61,7 +70,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     paramTabController = TabController(length: 3, vsync: this);
     assert(!(widget.isProject && widget.languageDetails != null), "Cannot have both isProject and language details");
     assert(!(!widget.isProject && widget.isCloned), "Cloned directory should be a project.");
-    super.initState();
     _initializeCopilotForEditorIfEnabled();
   }
 
@@ -86,6 +94,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    for (final entry in _editorListeners.entries) {
+      entry.key.removeListener(entry.value);
+    }
+    _editorListeners.clear();
+    _savedSnapshotByController.clear();
+    _dirtyControllers.clear();
     apiUrlController.dispose();
     apiTabController.dispose();
     paramTabController.dispose();
@@ -93,6 +107,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     trasnformationController.dispose();
     tabController?.removeListener(_onTabChanged);
     tabController?.dispose();
+    _activeEditorBloc.close();
     super.dispose();
   }
 
@@ -259,11 +274,189 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     );
   }
 
+  bool _isTrackableEditor(ActiveEditor editor) {
+    if (editor.customTitle?.contains('(Working Tree)') == true) {
+      return false;
+    }
+    return !editor.controller.readOnly;
+  }
+
+  bool _isEditorDirty(ActiveEditor editor) {
+    final autoSaveEnabled = context.read<GeneralBloc>().state.generalSettings['autoSave'] ?? true;
+    if (autoSaveEnabled) return false;
+    return _dirtyControllers.contains(editor.controller);
+  }
+
+  String _displayFileName(ActiveEditor editor) {
+    final baseName = editor.customTitle ?? path.basename(editor.file.path);
+    return _isEditorDirty(editor) ? '$baseName*' : baseName;
+  }
+
+  bool _hasUnsavedEditors(List<ActiveEditor> editors) {
+    for (final editor in editors) {
+      if (_isEditorDirty(editor)) return true;
+    }
+    return false;
+  }
+
+  void _attachDirtyListener(ActiveEditor editor) {
+    final controller = editor.controller;
+    if (_editorListeners.containsKey(controller) || !_isTrackableEditor(editor)) {
+      return;
+    }
+
+    String initialSnapshot = controller.text;
+    try {
+      if (editor.file.existsSync()) {
+        initialSnapshot = editor.file.readAsStringSync();
+      }
+    } catch (_) {
+      initialSnapshot = controller.text;
+    }
+    _savedSnapshotByController[controller] = initialSnapshot;
+
+    void listener() {
+      final savedSnapshot = _savedSnapshotByController[controller] ?? '';
+      final isDirty = controller.text != savedSnapshot;
+      final hasChanged = isDirty
+        ? _dirtyControllers.add(controller)
+        : _dirtyControllers.remove(controller);
+
+      if (hasChanged && mounted) {
+        setState(() {});
+      }
+    }
+
+    controller.addListener(listener);
+    _editorListeners[controller] = listener;
+  }
+
+  void _syncDirtyTracking(List<ActiveEditor> editors) {
+    final currentControllers = editors.map((e) => e.controller).toSet();
+
+    final removedControllers = _editorListeners.keys
+      .where((controller) => !currentControllers.contains(controller))
+      .toList();
+
+    for (final controller in removedControllers) {
+      final listener = _editorListeners.remove(controller);
+      if (listener != null) {
+        controller.removeListener(listener);
+      }
+      _dirtyControllers.remove(controller);
+      _savedSnapshotByController.remove(controller);
+    }
+
+    for (final editor in editors) {
+      _attachDirtyListener(editor);
+    }
+  }
+
+  Future<void> _saveEditor(BuildContext actionContext, ActiveEditor editor) async {
+    if (!_isTrackableEditor(editor)) return;
+
+    try {
+      editor.controller.saveFile();
+      _savedSnapshotByController[editor.controller] = editor.controller.text;
+      _dirtyControllers.remove(editor.controller);
+      if (mounted) {
+        try {
+          actionContext.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir));
+        } catch (_) {}
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+
+  Future<void> _saveActiveEditor(BuildContext actionContext, List<ActiveEditor> editors) async {
+    if (editors.isEmpty) return;
+
+    final activeIndex = tabController != null && tabController!.index < editors.length
+      ? tabController!.index
+      : editors.indexWhere((item) => item.isActive);
+    final safeIndex = activeIndex < 0 ? 0 : activeIndex;
+    await _saveEditor(actionContext, editors[safeIndex]);
+  }
+
+  Future<bool> _handleExitWithUnsavedPrompt(BuildContext actionContext, List<ActiveEditor> editors) async {
+    final unsavedEditors = editors.where(_isEditorDirty).toList();
+    if (unsavedEditors.isEmpty) {
+      return true;
+    }
+    final appTheme = actionContext.read<AppThemeBloc>().state.appTheme;
+
+    final action = await showDialog<String>(
+      context: actionContext,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : const Color.fromARGB(255, 240, 240, 240),
+          icon: const Icon(Icons.warning_amber_rounded, size: 34),
+          iconColor: Colors.orange[700],
+          title: Text(
+            'Unsaved Changes',
+            style: TextStyle(
+              color: appTheme.selectScreenCardTextColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          content: Text(
+            unsavedEditors.length == 1
+              ? 'Save changes to ${path.basename(unsavedEditors.first.file.path)} before exiting?'
+              : 'Save changes to ${unsavedEditors.length} files before exiting?',
+            style: TextStyle(color: Colors.grey[appTheme.isDark ? 400 : 700]),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: appTheme.editorPageToolColor,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red[400],
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop('discard'),
+              child: const Text("Don't Save"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appTheme.editorPageToolSelectedBgColor,
+                foregroundColor: appTheme.editorPageToolSelectedColor,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop('save'),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (action == 'cancel' || action == null) {
+      return false;
+    }
+
+    if (action == 'save' && context.mounted) {
+      for (final editor in unsavedEditors) {
+        await _saveEditor(actionContext, editor);
+      }
+    }
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
     final ConfigBloc uiBloc = BlocProvider.of<ConfigBloc>(context);
-    final activeEditorBloc = ActiveEditorBloc(widget.rootDir, uiBloc.state.codeForgeConfig);
+    final autoSaveEnabled = context.watch<GeneralBloc>().state.generalSettings['autoSave'] ?? true;
     return FutureBuilder(
       future: Future.wait([
         widget.file == null && !widget.isProject
@@ -294,7 +487,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       })(),
       uiBloc.state.codeForgeConfig['enableLSP'] && !widget.isProject ? (() async {
         final key = '${widget.languageDetails!.name}_${widget.rootDir}';
-        LspConfig? lspConfig = activeEditorBloc.sharedLspConfigs[key];
+        LspConfig? lspConfig = _activeEditorBloc.sharedLspConfigs[key];
         if (lspConfig == null) {
           lspConfig = await startLspServer(
             ext: widget.languageDetails!.extension[0],
@@ -304,7 +497,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
             langId: widget.languageDetails!.name,
             capabilities: _getLspCapabilities(uiBloc.state.codeForgeConfig, widget.languageDetails!.name.toLowerCase()),
           );
-          activeEditorBloc.sharedLspConfigs[key] = lspConfig;
+          _activeEditorBloc.sharedLspConfigs[key] = lspConfig;
         }
         return lspConfig;
       })() : Future.value(null)
@@ -403,36 +596,35 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
           );
         }
         
-        final initialController = CodeForgeController(
-          lspConfig: lspConfig
-        );
         final isRepoThere = Directory(path.join(widget.rootDir, ".git")).existsSync();
         
-        /* if (isRepoThere) {
-          createGitignoreIfNeeded(widget.rootDir);
-        } */
-        
-        final initalUndoController = UndoRedoController();
-        final initialFindController = FindController(initialController);
-        if (widget.isProject) {
-          activeEditorBloc.add(OpenRecentActiveEditor());
-        } else {
-          activeEditorBloc.add(ActiveEditorEvent([
-            ActiveEditor(
-              file: target!,
-              controller: initialController,
-              languageDetails: widget.languageDetails!,
-              undoRedoController: initalUndoController,
-              isActive: true,
-              findController: initialFindController,
-              hscroll: ScrollController(),
-              vscroll: ScrollController()
-            )
-          ]));
+        if (!_didInitializeEditors) {
+          _didInitializeEditors = true;
+          if (widget.isProject) {
+            _activeEditorBloc.add(OpenRecentActiveEditor());
+          } else {
+            final initialController = CodeForgeController(
+              lspConfig: lspConfig,
+            );
+            final initialUndoController = UndoRedoController();
+            final initialFindController = FindController(initialController);
+            _activeEditorBloc.add(ActiveEditorEvent([
+              ActiveEditor(
+                file: target!,
+                controller: initialController,
+                languageDetails: widget.languageDetails!,
+                undoRedoController: initialUndoController,
+                isActive: true,
+                findController: initialFindController,
+                hscroll: ScrollController(),
+                vscroll: ScrollController(),
+              )
+            ]));
+          }
         }
         return MultiBlocProvider(
           providers: [
-            BlocProvider.value(value: activeEditorBloc),
+            BlocProvider.value(value: _activeEditorBloc),
             BlocProvider(create: (_) => StackBloc()),
             BlocProvider(create: (_) => FindWordBloc()),
             BlocProvider(create: (_) => ApiBloc()),
@@ -461,6 +653,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
             child: BlocBuilder<ActiveEditorBloc, ActiveEditorState>(
               buildWhen: (previous, current) => previous.activeEditors.length != current.activeEditors.length,
               builder: (context, editorState) {
+                _syncDirtyTracking(editorState.activeEditors);
+                final hasDirtyFiles = _hasUnsavedEditors(editorState.activeEditors);
                 _updateTabController(editorState.activeEditors.length);
                 final activeIndex = editorState.activeEditors.indexWhere((e) => e.isActive);
                 if (activeIndex >= 0 && tabController != null && tabController!.index != activeIndex) {
@@ -469,8 +663,23 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                   mruOrder.insert(0, activeIndex);
                 }
                 return PopScope(
-                  onPopInvokedWithResult: (didPop, result) {
+                  canPop: _allowImmediatePop || !_hasUnsavedEditors(editorState.activeEditors),
+                  onPopInvokedWithResult: (didPop, result) async {
+                    if (didPop) {
+                      context.read<ActiveEditorBloc>().add(CloseActiveEditor());
+                      return;
+                    }
+
+                    final shouldExit = await _handleExitWithUnsavedPrompt(context, editorState.activeEditors);
+                    if (!shouldExit || !context.mounted) {
+                      return;
+                    }
+
+                    _allowImmediatePop = true;
                     context.read<ActiveEditorBloc>().add(CloseActiveEditor());
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
                   },
                   child: Scaffold(
                     resizeToAvoidBottomInset: true,
@@ -539,6 +748,51 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       padding: const EdgeInsets.only(left: 20),
                                       child: ListView(
                                         children: [
+                                          if (editorState.activeEditors.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 10),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'OPEN EDITORS',
+                                                    style: TextStyle(
+                                                      fontWeight: appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
+                                                      color: appTheme.selectScreenCardTextColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  ...List.generate(editorState.activeEditors.length, (index) {
+                                                    final editor = editorState.activeEditors[index];
+                                                    return InkWell(
+                                                      onTap: () {
+                                                        final List<ActiveEditor> currentState = List.from(editorState.activeEditors);
+                                                        for (int i = 0; i < currentState.length; i++) {
+                                                          currentState[i].isActive = i == index;
+                                                        }
+                                                        context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+                                                        if (tabController != null && tabController!.length > index) {
+                                                          tabController!.animateTo(index);
+                                                        }
+                                                      },
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.symmetric(vertical: 2),
+                                                        child: Text(
+                                                          _displayFileName(editor),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: TextStyle(
+                                                            color: appTheme.selectScreenCardTextColor,
+                                                            fontWeight: editor.isActive ? FontWeight.w600 : FontWeight.w400,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }),
+                                                  const SizedBox(height: 14),
+                                                ],
+                                              ),
+                                            ),
                                           Align(
                                             alignment: Alignment.centerLeft,
                                             child: Padding(
@@ -869,7 +1123,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                         child: tabController == null
                           ? Text(
                               editorState.activeEditors.isNotEmpty
-                                ? (editorState.activeEditors[0].customTitle ?? path.basename(editorState.activeEditors[0].file.path))
+                                ? _displayFileName(editorState.activeEditors[0])
                                 : '',
                               style: TextStyle(color: appTheme.selectScreenCardTextColor)
                             )
@@ -879,7 +1133,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 int idx = tabController!.index;
                                 if (idx < 0 || idx >= editorState.activeEditors.length) idx = 0;
                                 final fileName = editorState.activeEditors.isNotEmpty
-                                  ? (editorState.activeEditors[idx].customTitle ?? path.basename(editorState.activeEditors[idx].file.path))
+                                  ? _displayFileName(editorState.activeEditors[idx])
                                   : '';
                                 return Text(fileName, style: TextStyle(color: appTheme.selectScreenCardTextColor));
                               },
@@ -925,7 +1179,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               Padding(
                                 padding: const EdgeInsets.only(left: 8),
                                 child: Text(
-                                  path.basename(editorState.activeEditors[index].file.path),
+                                  _displayFileName(editorState.activeEditors[index]),
                                   softWrap: false,
                                   maxLines: 1,
                                 ),
@@ -983,206 +1237,48 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                       })
                     ) : null,
                     actions: [
-                      PopupMenuButton(
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            child: TextButton(onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  icon: const Icon(FontAwesomeIcons.fileCirclePlus),
-                                  iconColor: Colors.grey,
-                                  backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                  title: const Text("Create a new file", style: TextStyle(color: Colors.grey)),
-                                  content: Form(
-                                    key: createFileKey,
-                                    child: TextFormField(
-                                      style: const TextStyle(color: Colors.grey),
-                                      cursorColor: Colors.grey,
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return "Please enter a valid filename";
-                                        }
-                                        return null;
-                                      },
-                                      controller: createFileController,
-                                      decoration: const InputDecoration(
-                                          hintStyle: TextStyle(color: Colors.grey),
-                                          hintText: " filename.ext",
-                                          focusedBorder: OutlineInputBorder(
-                                            borderRadius:BorderRadius.all(Radius.circular(25)),
-                                            borderSide:BorderSide(color: Color(0xff5090c8))),
-                                          border: OutlineInputBorder(
-                                            borderRadius:BorderRadius.all(Radius.circular(25)))),
-                                        ),
-                                      ),
-                                      actions: [
-                                        ElevatedButton(
-                                          onPressed: () async {
-                                            createFileKey.currentState!.validate();
-                                            if (createFileController.text.isNotEmpty) {
-                                              final file = await createFile(
-                                                createFileController.text, 
-                                                widget.rootDir,
-                                                context
-                                              ); 
-                                              if (context.mounted && file != null) {
-                                                /* Navigator.of(context).push(MaterialPageRoute(
-                                                  builder: (context) => EditorPage(
-                                                    rootDir: widget.rootDir ?? file.parent.path,
-                                                    filePath: file,
-                                                    languageDetails: languages
-                                                    .firstWhere((language) => 
-                                                      language.extension == path.extension(file.path).replaceFirst(".", ""))
-                                                    )
-                                                  )
-                                                ); */
-                                              }
-                                            }
-                                          },
-                                          child: const Text("OK")
-                                        )
-                                      ],
-                                  )
-                              );
-                            },
-                            child: Row(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 3),
-                                  child: Icon(
-                                    FontAwesomeIcons.fileCirclePlus,
-                                    color: appTheme.selectScreenCardTextColor,
-                                    size: 20),
-                                ),
-                                const SizedBox(width: 10),
-                                Text("New",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                              ],
-                            ))
-                          ),
-                          PopupMenuItem(
-                            child: TextButton(onPressed: () async{
-                              if (context.mounted) {
-                                final file = await pickFile();
-                                if (file != null) {
-                                } else {
-                                  if(context.mounted) {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text("Failed to open file",
-                                            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                                        backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                        icon: const Icon(Icons.error_outline),
-                                        iconColor: Colors.red[600],
-                                        actionsAlignment: MainAxisAlignment.center,
-                                          actions: [
-                                            ElevatedButton(
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                                child: const Text("OK"))
-                                              ],
-                                          ));
-                                        }
-                                      }
-                                    }
-                                    if(context.mounted) {
-                                      Navigator.of(context).pop();
-                                    }
-                                    }, child: Row(
-                                      children: [
-                                        Icon(FontAwesomeIcons.fileImport,color: appTheme.selectScreenCardTextColor,size: 20),
-                                        const SizedBox(width: 10),
-                                        Text("Open",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                          PopupMenuItem(
-                              child: TextButton(onPressed: () async{
-                                if(context.mounted && editorState.activeEditors.isNotEmpty){
-                                  final activeEditorForSave = tabController != null && tabController!.index < editorState.activeEditors.length
-                                      ? editorState.activeEditors[tabController!.index]
-                                      : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                                  final savedPlace = await selectDir(
-                                    dialogeTitle: "Save file as...",
-                                    initialDirectory: widget.rootDir,
-                                    bytes: activeEditorForSave.file.readAsBytesSync()
-                                  );
-                                  if((savedPlace == null || savedPlace.isEmpty) && context.mounted){
-                                    showDialog(context: context, builder: (context)=> AlertDialog(
-                                      title: const Text("Failed to save file",
-                                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w300)),
-                                      backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                      icon: const Icon(Icons.error_outline),
-                                      iconColor: Colors.red[600],
-                                      actionsAlignment: MainAxisAlignment.center,
-                                        actions: [
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
-                                          child: const Text("OK"))
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                }
-                              }, child: Row(
-                                children: [
-                                  const SizedBox(width: 5.5),
-                                  Icon(FontAwesomeIcons.filePen, color: appTheme.selectScreenCardTextColor,size: 20),
-                                  const SizedBox(width: 7),
-                                  Text("SaveAs",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                ],
-                              ),
-                            )
-                          ),
-                          PopupMenuItem(
-                              child: TextButton(onPressed: () {
-                                showDialog(context: context, builder: (context)=>AlertDialog(
-                                  title:  Text("Are you sure ?",style: TextStyle(color: Colors.grey[400],fontSize: 20)),
-                                  content: const Text("       The code will be cleared",style: TextStyle(color: Colors.grey)),
-                                  backgroundColor: appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
-                                  icon: const Icon(Icons.error_outline,size: 35),
-                                  iconColor: Colors.red[600],
-                                  actionsAlignment: MainAxisAlignment.center,
-                                    actions: [
-                                      ElevatedButton(
-                                        style: ButtonStyle(
-                                          backgroundColor: WidgetStatePropertyAll(Colors.red[600])
-                                        ),
-                                        onPressed: (){
-                                          Navigator.of(context).pop();
-                                        }, child: const Text("Cancel",style: TextStyle(color: Colors.white))),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          if (editorState.activeEditors.isEmpty) return;
-                                          final activeEditorForClear = tabController != null && tabController!.index < editorState.activeEditors.length
-                                              ? editorState.activeEditors[tabController!.index]
-                                              : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
-                                          activeEditorForClear.file.writeAsString('');
-                                          Navigator.of(context).pop();
-                                          try { context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.rootDir)); } catch (_) {}
-                                        },
-                                        child: const Text("OK"))
-                                    ],
-                                ));
-                              }, child: Row(
-                                children: [
-                                  Icon(Icons.clear_sharp,color: appTheme.selectScreenCardTextColor,size: 25),
-                                  const SizedBox(width: 7),
-                                  Text("Clear",style: TextStyle(color: appTheme.selectScreenCardTextColor,fontSize: 17)),
-                                ],
+                        if (!autoSaveEnabled)
+                          OutlinedButton.icon(
+                            onPressed: hasDirtyFiles
+                              ? () => _saveActiveEditor(context, editorState.activeEditors)
+                              : null,
+                            icon: Icon(
+                              Icons.save_outlined,
+                              size: 17,
+                              color: hasDirtyFiles
+                                ? appTheme.editorPageToolSelectedColor
+                                : appTheme.editorPageToolColor.withValues(alpha: 0.6),
+                            ),
+                            label: Text(
+                              'Save',
+                              style: TextStyle(
+                                color: hasDirtyFiles
+                                  ? appTheme.editorPageToolSelectedColor
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
                               ),
                             ),
-                          )]
-                        ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              backgroundColor: hasDirtyFiles
+                                ? appTheme.editorPageToolSelectedBgColor.withValues(alpha: 0.35)
+                                : appTheme.editorPageDrawerBg,
+                              side: BorderSide(
+                                color: hasDirtyFiles
+                                  ? appTheme.editorPageToolColor.withValues(alpha: 0.45)
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         IconButton(
                           onPressed: () async {
                             if (editorState.activeEditors.isEmpty) return;
-                            final Directory temp = Directory(tempDir);
+                            final temp = Directory(tempDir);
                               if(!temp.existsSync()){
                                 temp.createSync(recursive: true);
                               }
@@ -1190,7 +1286,38 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 ? editorState.activeEditors[tabController!.index]
                                 : editorState.activeEditors.firstWhere((item) => item.isActive == true, orElse: () => editorState.activeEditors.first);
                               final File filePath = activeEditorForRun.file;
+                            final viteTs = File(path.join(widget.rootDir, 'vite.config.ts'));
+                            final viteJs = File(path.join(widget.rootDir, 'vite.config.js'));
+                            final nextTs = File(path.join(widget.rootDir, 'next.config.ts'));
+                            final nextJs = File(path.join(widget.rootDir, 'next.config.js'));
+
+                            final packageJson = File(path.join(widget.rootDir, 'package.json'));
+
+                            final hasVite = await viteTs.exists() || await viteJs.exists();
+                            final hasNext = await nextTs.exists() || await nextJs.exists();
+                            final hasPkg = await packageJson.exists();
+
+                            if (hasVite && hasPkg && context.mounted) {
+                              runCode(
+                                context,
+                                "node node_modules/vite/bin/vite.js",
+                                widget.rootDir
+                              );
+                              return;
+                            }
+                            
+                            if (hasNext && hasPkg && context.mounted) {
+                              runCode(
+                                context,
+                                "npm install --ignore-scripts && npm uninstall lightningcss && node node_modules/next/dist/bin/next dev --webpack",
+                                widget.rootDir
+                              );
+                              return;
+                            }
+
+
                             final String extention = path.extension(filePath.path);
+                            if(!context.mounted) return;
                             switch (extention) {
                               case '.html':
                                 if (context.mounted) {
@@ -1205,30 +1332,30 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               case '.c':
                                 final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
                                 final String runCommand = 'clangloader ${temp.path}/libtemp.so';
-                                runCode(context, compileCommand, runCommand, widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.cpp':
                               case '.c++':
                               case '.cc':
                                 final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
                                 final String runCommand = 'clangloader ${temp.path}/libtemp.so';
-                                runCode(context, compileCommand, runCommand, widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.java':
                                 final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
                                 final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                                runCode(context, compileCommand, runCommand, widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.kt':
                               case '.kts':
                                 final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
                                 final String runCommand = 'java -jar ${temp.path}/temp.jar';
-                                runCode(context, compileCommand, runCommand, widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.ts':
                                 final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
                                 final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
-                                runCode(context, compileCommand, runCommand, widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.md':
                                 Navigator.of(context).push(PageRouteBuilder(

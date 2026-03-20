@@ -608,10 +608,35 @@ class _ProjectScreenState extends State<ProjectScreen> {
 
                                                 } else if(item is CLITemplates) {
                                                   Navigator.pop(context);
-                                                  showDialog(
+                                                  item.name = _projectNameController.text;
+                                                  await showDialog(
                                                     context: context,
-                                                    builder: (ctx) => item.runCommand()
+                                                    builder: (ctx) => item.runCommand(),
                                                   );
+
+                                                  if (item.isVite && context.mounted) {
+                                                    final newDir = Directory("$projectDir/${_projectNameController.text}");
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (!context.mounted) return;
+                                                      try {
+                                                        Navigator.of(context).push(
+                                                          PageRouteBuilder(
+                                                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                                              EditorPage(rootDir: newDir.path, isCloned: true, isProject: true, languageDetails: null),
+                                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                              return SizeTransition(sizeFactor: animation, child: child);
+                                                            },
+                                                          ),
+                                                        );
+                                                      } catch (e) {
+                                                        if (!context.mounted) return;
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text("Failed to open the project: ${e.toString()}")),
+                                                        );
+                                                        debugPrint(e.toString());
+                                                      }
+                                                    });
+                                                  }
                                                 }
                                               },
                                               style: ElevatedButton.styleFrom(

@@ -198,7 +198,15 @@ class _TerminalRuntime {
   void stopProcess() {
     final process = pty;
     if (process != null) {
-      process.write(const Utf8Encoder().convert('exit\r'));
+      try {
+        process.kill(ProcessSignal.sigint);
+      } catch (_) {}
+      try {
+        process.kill(ProcessSignal.sigterm);
+      } catch (_) {}
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {}
     }
     pty = null;
   }

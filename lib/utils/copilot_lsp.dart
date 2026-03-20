@@ -132,12 +132,14 @@ class CopilotLsp {
   CopilotAccountStatus _accountStatus = CopilotAccountStatus.notSignedIn;
   String? _currentUser;
   String? _conversationId;
+  List<String> _serverCommands = const [];
 
   bool get isInitialized => _isInitialized;
   bool get isDisposed => _isDisposed;
   CopilotAccountStatus get accountStatus => _accountStatus;
   String? get currentUser => _currentUser;
   String? get conversationId => _conversationId;
+  List<String> get serverCommands => List<String>.unmodifiable(_serverCommands);
   
   Stream<Map<String, dynamic>> get responseStream => _responseController.stream;
   Stream<Map<String, dynamic>> get notificationStream => _notificationController.stream;
@@ -369,6 +371,12 @@ class CopilotLsp {
       throw Exception('Initialization failed: ${response['error']}');
     }
 
+    final result = response['result'] as Map<String, dynamic>? ?? const {};
+    final capabilities = result['capabilities'] as Map<String, dynamic>? ?? const {};
+    final executeCommandProvider = capabilities['executeCommandProvider'] as Map<String, dynamic>?;
+    final commands = executeCommandProvider?['commands'] as List<dynamic>?;
+    _serverCommands = commands?.whereType<String>().toList() ?? const [];
+
     await _sendNotification(method: 'initialized', params: {});
     _isInitialized = true;
     
@@ -456,6 +464,26 @@ class CopilotLsp {
       },
       timeout: const Duration(minutes: 5),
     );
+  }
+
+  Future<dynamic> executeCommandRaw({
+    required String command,
+    List<dynamic> arguments = const [],
+  }) async {
+    final response = await _sendRequest(
+      method: 'workspace/executeCommand',
+      params: {
+        'command': command,
+        'arguments': arguments,
+      },
+      timeout: const Duration(minutes: 5),
+    );
+
+    if (response['error'] != null) {
+      throw Exception('Command failed: ${response['error']}');
+    }
+
+    return response['result'];
   }
 
   Future<CopilotSignInPayload> signInConfirm(String userCode) async {

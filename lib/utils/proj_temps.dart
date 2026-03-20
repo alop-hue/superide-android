@@ -95,19 +95,25 @@ class PlainTemplates extends ProjectTemplates {
 
 class CLITemplates extends ProjectTemplates {
   final String command;
+  final bool isVite;
 
-  const CLITemplates({
+  String _command;
+
+  CLITemplates({
     required super.context,
     required super.title,
     required super.subtitle,
     required super.icon,
     required this.command,
-  });
+    this.isVite = false,
+  }) : _command = command ;
+
+  set name(String n) => _command = "$command ${isVite ? n : ''}";
 
   EmbeddedTerminal runCommand(){
     return EmbeddedTerminal(
       projectDir: projectDir,
-      args: ["-c", command],
+      args: ["-c", _command],
     );
   }
 }
@@ -130,7 +136,8 @@ List<ProjectTemplates> projTemps(BuildContext context) => [
     context: context,
     title: "Vite app",
     subtitle: "Create a vite app.",
+    isVite: true,
     icon: SvgPicture.asset("assets/material_icons/vitejs.svg", width: 30, height: 30),
-    command: "npm create vite@latest"
-  )
+    command: "npm init -y && npm install -g create-vite@latest && node /data/data/com.vsdroid/runtimes/node/lib/node_modules/create-vite/dist/index.js"
+  ),
 ];

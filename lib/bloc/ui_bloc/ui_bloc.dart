@@ -828,6 +828,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
 class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   CopilotChat? _chatClient;
   StreamSubscription? _conversationSubscription;
+  bool _isFetchingModels = false;
 
   CopilotChatBloc() : super(CopilotChatState.initial()) {
     on<CopilotChatFetchModels>(_onChatFetchModels);
@@ -848,25 +849,41 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   }
 
   Future<void> _onChatFetchModels(CopilotChatFetchModels event, Emitter<CopilotChatState> emit) async {
+    if (_isFetchingModels || (state.hasFetchedModels && !event.forceRefresh)) {
+      return;
+    }
+
     if (_chatClient == null) {
       await _initializeChatClient();
     }
 
     if (_chatClient != null) {
+      _isFetchingModels = true;
+      emit(state.copyWith(isFetchingModels: true, error: null));
       try {
         final models = await _chatClient!.getCopilotModels();
         final data = models['data'] as List<dynamic>? ?? [];
-        final filteredModels = data
-            .where((model) {
-              if (model is! Map<String, dynamic>) return false;
-              final policy = model['policy'] as Map<String, dynamic>?;
-              return policy != null && policy['state'] == 'enabled';
-            })
-            .map((model) => model as Map<String, dynamic>)
+        final parsedModels = data
+            .whereType<Map>()
+            .map((model) => Map<String, dynamic>.from(model))
+            .where((model) => model['id'] != null && model['name'] != null)
             .toList();
-        emit(state.copyWith(models: filteredModels));
+
+        emit(state.copyWith(
+          models: parsedModels,
+          isFetchingModels: false,
+          hasFetchedModels: true,
+          error: null,
+        ));
       } catch (e) {
         debugPrint('Failed to fetch Copilot models: $e');
+        emit(state.copyWith(
+          isFetchingModels: false,
+          hasFetchedModels: false,
+          error: e.toString(),
+        ));
+      } finally {
+        _isFetchingModels = false;
       }
     }
   }

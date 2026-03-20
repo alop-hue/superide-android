@@ -457,9 +457,11 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                   return CodeForge(
                     horizontalScrollController: null,
                     verticalScrollController: null,
+                    lineWrap: (configState.codeForgeConfig['lineWrap'] ?? false) as bool,
+                    enableFolding: (configState.codeForgeConfig['enableFolding'] ?? true) as bool,
                     language: widget.language.language,
                     filePath: widget.filePath.path,
-                    enableGuideLines: configState.codeForgeConfig['indentLineStatus'],
+                    enableGuideLines: (configState.codeForgeConfig['indentLineStatus'] ?? true) as bool,
                     selectionStyle: CodeSelectionStyle(
                       selectionColor: Colors.blueAccent.withAlpha(80),
                       cursorBubbleColor: Colors.blue,
@@ -7625,12 +7627,14 @@ class AIChat extends StatefulWidget {
 class _ModelOption {
   final String id, name;
   final String? provider;
+  final String? rateLabel;
   final Widget icon;
   final bool isCopilot;
   _ModelOption({
     required this.id,
     required this.name,
     this.provider,
+    this.rateLabel,
     required this.icon,
     this.isCopilot = false,
   });
@@ -7641,6 +7645,7 @@ class _AIChatState extends State<AIChat> {
   final ScrollController _scrollController = ScrollController();
   http.Client? _currentClient;
   bool _initialScrollDone = false;
+  bool _requestedCopilotModelRefresh = false;
 
   @override
   void initState() {
@@ -7705,6 +7710,21 @@ class _AIChatState extends State<AIChat> {
     _promptController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  String? _formatCopilotRate(Map<String, dynamic> model) {
+    final billing = model['billing'];
+    if (billing is! Map<String, dynamic>) return null;
+    final multiplier = billing['multiplier'];
+    if (multiplier is! num) return null;
+
+    if (multiplier == multiplier.toInt()) {
+      return '${multiplier.toInt()}x';
+    }
+
+    final fixed = multiplier.toStringAsFixed(2);
+    final compact = fixed.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    return '${compact}x';
   }
 
   Widget _buildModeSelector(Color textColor, bool isDark, ChatMode chatMode) {
@@ -7772,6 +7792,7 @@ class _AIChatState extends State<AIChat> {
     final hasExternalModels = aiState.config.isNotEmpty;
     final List<_ModelOption> models = [];
     
+
     if (isCopilotAvailable) {
       for (final model in chatState.models) {
         final id = model['id'] as String?;
@@ -7781,6 +7802,7 @@ class _AIChatState extends State<AIChat> {
           id: id,
           name: name,
           provider: 'GitHub Copilot',
+          rateLabel: _formatCopilotRate(model),
           icon: SvgPicture.asset(
             'assets/icons/github-copilot-icon.svg',
             height: 14,
@@ -7854,6 +7876,17 @@ class _AIChatState extends State<AIChat> {
                     Text(
                       '(${model.provider})',
                       style: TextStyle(color: textColor.withAlpha(100), fontSize: 11),
+                    ),
+                  ],
+                  if (model.rateLabel != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      model.rateLabel!,
+                      style: TextStyle(
+                        color: textColor.withAlpha(150),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ],
@@ -8422,9 +8455,10 @@ class _AIChatState extends State<AIChat> {
                     
                     return BlocBuilder<CopilotChatBloc, CopilotChatState>(
                       builder: (context, chatState) {
-                        if (githubSignedIn && chatState.models.isEmpty) {
+                        if (githubSignedIn && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
+                          _requestedCopilotModelRefresh = true;
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            context.read<CopilotChatBloc>().add(CopilotChatFetchModels());
+                            context.read<CopilotChatBloc>().add(CopilotChatFetchModels(forceRefresh: true));
                           });
                         }
                         
