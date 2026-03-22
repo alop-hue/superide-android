@@ -135,20 +135,17 @@ class _EditorPageState extends State<EditorPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached) {
-      context.read<ActiveEditorBloc>().add(CloseActiveEditor());
-    }
-
-    if (state == AppLifecycleState.paused) {
-      context.read<ActiveEditorBloc>().add(CloseActiveEditor());
-    }
-
-    if (state == AppLifecycleState.inactive) {
-      context.read<ActiveEditorBloc>().add(CloseActiveEditor());
-    }
-
-    if (state == AppLifecycleState.hidden) {
-      context.read<ActiveEditorBloc>().add(CloseActiveEditor());
+    switch (state) {
+      case AppLifecycleState.detached:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        if (!_activeEditorBloc.isClosed) {
+          _activeEditorBloc.add(CloseActiveEditor());
+        }
+        break;
+      case AppLifecycleState.resumed:
+        break;
     }
 
     super.didChangeAppLifecycleState(state);
@@ -605,23 +602,16 @@ class _EditorPageState extends State<EditorPage>
                   widget.languageDetails!,
                   initialPath,
                 );
-                final key = '${languageId}_${widget.rootDir}';
-                LspConfig? lspConfig = _activeEditorBloc.sharedLspConfigs[key];
-                if (lspConfig == null) {
-                  lspConfig = await startLspServer(
-                    ext: widget.languageDetails!.extension[0],
-                    executable: widget.languageDetails!.lspExecutable,
-                    args: widget.languageDetails!.args ?? [],
-                    workspacePath: widget.rootDir,
-                    langId: languageId,
-                    capabilities: _getLspCapabilities(
-                      uiBloc.state.codeForgeConfig,
-                      widget.languageDetails!.name.toLowerCase(),
-                    ),
-                  );
-                  _activeEditorBloc.sharedLspConfigs[key] = lspConfig;
-                }
-                return lspConfig;
+                return _activeEditorBloc.getOrStartSharedLspConfig(
+                  languageId: languageId,
+                  ext: widget.languageDetails!.extension[0],
+                  executable: widget.languageDetails!.lspExecutable,
+                  args: widget.languageDetails!.args ?? [],
+                  capabilities: _getLspCapabilities(
+                    uiBloc.state.codeForgeConfig,
+                    widget.languageDetails!.name.toLowerCase(),
+                  ),
+                );
               })()
             : Future.value(null),
       ]),
@@ -1161,38 +1151,24 @@ class _EditorPageState extends State<EditorPage>
                                                 return SizedBox(
                                                   height: 25,
                                                   width: 25,
-                                                  child:
-                                                      languages
-                                                          .firstWhere(
-                                                            (lang) => lang
-                                                                .extension
-                                                                .contains(
-                                                                  ext.replaceFirst(
-                                                                    ".",
-                                                                    "",
-                                                                  ),
-                                                                ),
-                                                            orElse: () =>
-                                                                languages[0],
-                                                          )
-                                                          .icon ??
-                                                      FileIcon(ext),
+                                                  child:languages.firstWhere(
+                                                    (lang) => lang.extension.contains(ext.replaceFirst(".", "")),
+                                                    orElse: () => languages[0]).icon ?? FileIcon(ext),
                                                 );
                                               },
                                               folderStyle: FolderStyle(
                                                 iconForCreateFolder: Icon(
                                                   Icons.create_new_folder,
                                                   color: appTheme.isDark
-                                                      ? Colors.grey
-                                                      : const Color(0xff2b2b2b),
+                                                    ? Colors.grey
+                                                    : const Color(0xff2b2b2b),
                                                 ),
                                                 iconForCreateFile: Icon(
-                                                  FontAwesomeIcons
-                                                      .fileCirclePlus,
+                                                  FontAwesomeIcons.fileCirclePlus,
                                                   size: 20,
                                                   color: appTheme.isDark
-                                                      ? Colors.grey
-                                                      : const Color(0xff2b2b2b),
+                                                    ? Colors.grey
+                                                    : const Color(0xff2b2b2b),
                                                 ),
                                                 rootFolderClosedIcon:
                                                     const Icon(
@@ -1200,28 +1176,25 @@ class _EditorPageState extends State<EditorPage>
                                                       color: Colors.grey,
                                                     ),
                                                 rootFolderOpenedIcon: const Icon(
-                                                  Icons
-                                                      .keyboard_arrow_down_sharp,
+                                                  Icons.keyboard_arrow_down_sharp,
                                                   color: Colors.grey,
                                                 ),
-                                                folderClosedicon:
-                                                    SvgPicture.asset(
-                                                      'assets/icons/folder.svg',
-                                                      height: 30,
-                                                      width: 30,
-                                                    ),
+                                                folderClosedicon:SvgPicture.asset(
+                                                    'assets/icons/folder.svg',
+                                                    height: 30,
+                                                    width: 30,
+                                                  ),
                                                 folderOpenedicon: SvgPicture.asset(
                                                   'assets/icons/open-file-folder.svg',
                                                   height: 30,
                                                   width: 30,
                                                 ),
                                                 folderNameStyle: TextStyle(
-                                                  color: appTheme
-                                                      .selectScreenCardTextColor,
+                                                  color: appTheme.selectScreenCardTextColor,
                                                   fontSize: 20,
                                                   fontWeight: appTheme.isDark
-                                                      ? FontWeight.w400
-                                                      : FontWeight.w500,
+                                                    ? FontWeight.w400
+                                                    : FontWeight.w500,
                                                 ),
                                               ),
                                               fileStyle: FileStyle(
@@ -1231,12 +1204,11 @@ class _EditorPageState extends State<EditorPage>
                                                   color: Colors.red[300],
                                                 ),
                                                 fileNameStyle: TextStyle(
-                                                  color: appTheme
-                                                      .selectScreenCardTextColor,
+                                                  color: appTheme.selectScreenCardTextColor,
                                                   fontSize: 20,
                                                   fontWeight: appTheme.isDark
-                                                      ? FontWeight.w400
-                                                      : FontWeight.w500,
+                                                    ? FontWeight.w400
+                                                    : FontWeight.w500,
                                                   height: 2,
                                                 ),
                                               ),
@@ -1245,27 +1217,34 @@ class _EditorPageState extends State<EditorPage>
                                                 currentState = List.from(
                                                   editorState.activeEditors,
                                                 );
+                                                final canonicalPath =
+                                                    File(f.path).absolute.path;
+                                                final existingIndex =
+                                                    currentState.indexWhere(
+                                                      (editor) =>File(editor.file.path).absolute.path ==canonicalPath);
+
+                                                if (existingIndex >= 0) {
+                                                  for (int i = 0; i < currentState.length; i++) {
+                                                    currentState[i].isActive = i == existingIndex;
+                                                  }
+                                                  if (context.mounted) {
+                                                    context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState),);
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      if (tabController != null && existingIndex < tabController!.length) {
+                                                        tabController!.animateTo(existingIndex);
+                                                      }
+                                                    });
+                                                  }
+                                                  return;
+                                                }
+
                                                 for (ActiveEditor item
                                                     in currentState) {
                                                   item.isActive = false;
                                                 }
-                                                final lang = languages
-                                                    .firstWhere(
-                                                      (language) => language
-                                                          .extension
-                                                          .contains(
-                                                            path
-                                                                .extension(
-                                                                  f.path,
-                                                                )
-                                                                .replaceFirst(
-                                                                  ".",
-                                                                  "",
-                                                                ),
-                                                          ),
-                                                      orElse: () =>
-                                                          languages[0],
-                                                    );
+                                                final lang = languages.firstWhere((language) => language.extension.contains(
+                                                  path.extension(f.path,).replaceFirst(".","")),
+                                                  orElse: () => languages[0]);
                                                 final bloc = context
                                                     .read<ActiveEditorBloc>();
                                                 final languageId =
@@ -1273,97 +1252,45 @@ class _EditorPageState extends State<EditorPage>
                                                       lang,
                                                       f.path,
                                                     );
-                                                final key =
-                                                    '${languageId}_${widget.rootDir}';
-                                                LspConfig? lspConfig =
-                                                    bloc.sharedLspConfigs[key];
-                                                if (lspConfig == null &&
-                                                    uiBloc
-                                                        .state
-                                                        .codeForgeConfig['enableLSP']) {
-                                                  lspConfig = await startLspServer(
+                                                LspConfig? lspConfig;
+                                                if (uiBloc.state.codeForgeConfig['enableLSP']) {
+                                                  lspConfig = await bloc.getOrStartSharedLspConfig(
+                                                    languageId: languageId,
                                                     ext: lang.extension[0],
-                                                    executable:
-                                                        lang.lspExecutable,
+                                                    executable: lang.lspExecutable,
                                                     args: lang.args ?? [],
-                                                    workspacePath:
-                                                        widget.rootDir,
-                                                    langId: languageId,
-                                                    capabilities:
-                                                        _getLspCapabilities(
-                                                          uiBloc
-                                                              .state
-                                                              .codeForgeConfig,
-                                                          lang.name
-                                                              .toLowerCase(),
-                                                        ),
+                                                    capabilities: _getLspCapabilities(
+                                                      uiBloc.state.codeForgeConfig,
+                                                      lang.name.toLowerCase(),
+                                                    ),
                                                   );
-                                                  bloc.sharedLspConfigs[key] =
-                                                      lspConfig;
                                                 }
-                                                final newController =
-                                                    CodeForgeController(
-                                                      lspConfig: lspConfig,
-                                                    );
-                                                _applyPendingAgenticDiffForFile(
-                                                  newController,
-                                                  f.path,
-                                                );
-                                                final newHscroll =
-                                                    ScrollController();
-                                                final newVscroll =
-                                                    ScrollController();
+                                                final newController = CodeForgeController(lspConfig: lspConfig);
+                                                _applyPendingAgenticDiffForFile(newController, f.path);
+                                                final newHscroll = ScrollController();
+                                                final newVscroll = ScrollController();
                                                 currentState.add(
                                                   ActiveEditor(
                                                     controller: newController,
-                                                    undoRedoController:
-                                                        UndoRedoController(),
+                                                    undoRedoController: UndoRedoController(),
                                                     file: f,
                                                     isActive: true,
                                                     languageDetails: lang,
-                                                    findController:
-                                                        FindController(
-                                                          newController,
-                                                        ),
+                                                    findController: FindController(newController,),
                                                     hscroll: newHscroll,
                                                     vscroll: newVscroll,
                                                   ),
                                                 );
-                                                mruOrder.insert(
-                                                  0,
-                                                  currentState.length - 1,
-                                                );
+                                                mruOrder.insert(0, currentState.length - 1);
                                                 if (context.mounted) {
-                                                  context
-                                                      .read<ActiveEditorBloc>()
-                                                      .add(
-                                                        ActiveEditorEvent(
-                                                          currentState,
-                                                        ),
-                                                      );
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback((
-                                                        _,
-                                                      ) {
-                                                        final newIndex =
-                                                            currentState.indexWhere(
-                                                              (item) =>
-                                                                  item.isActive ==
-                                                                  true,
-                                                            );
-                                                        if (tabController !=
-                                                                null &&
-                                                            tabController!
-                                                                    .length >
-                                                                newIndex &&
-                                                            newIndex >= 0) {
-                                                          tabController!
-                                                              .animateTo(
-                                                                newIndex,
-                                                              );
-                                                        }
-                                                        _applyWorkspaceSearchToActiveEditor();
-                                                      });
+                                                  context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState),);
+                                                  WidgetsBinding.instance .addPostFrameCallback((_) {
+                                                    final newIndex = currentState.indexWhere((item) => item.isActive ==true);
+                                                    if (tabController != null && tabController! .length > newIndex && newIndex >= 0) {
+                                                      tabController!.animateTo(newIndex,);
+                                                    }
+                                                    _applyWorkspaceSearchToActiveEditor();
+                                                  });
                                                 }
                                               },
                                             ),
@@ -1384,45 +1311,31 @@ class _EditorPageState extends State<EditorPage>
                                             List.from(
                                               editorState.activeEditors,
                                             );
-                                        final existingIndex = currentState
-                                            .indexWhere(
-                                              (editor) =>
-                                                  editor.file.path == file.path,
-                                            );
+                                        final canonicalPath = File(file.path).absolute.path;
+                                        final existingIndex = currentState.indexWhere(
+                                          (editor) => File(editor.file.path).absolute.path == canonicalPath,
+                                        );
 
                                         if (existingIndex >= 0) {
-                                          for (
-                                            int i = 0;
-                                            i < currentState.length;
-                                            i++
-                                          ) {
-                                            currentState[i].isActive =
-                                                i == existingIndex;
+                                          for (int i = 0; i < currentState.length; i++) {
+                                            currentState[i].isActive = i == existingIndex;
                                           }
                                           context.read<ActiveEditorBloc>().add(
                                             ActiveEditorEvent(currentState),
                                           );
-                                          WidgetsBinding.instance
-                                              .addPostFrameCallback((_) {
-                                                if (tabController != null &&
-                                                    existingIndex <
-                                                        tabController!.length) {
-                                                  tabController!.animateTo(
-                                                    existingIndex,
-                                                  );
-                                                }
-                                                final editor =
-                                                    currentState[existingIndex];
-                                                if (editor.findController !=
-                                                        null &&
-                                                    searchQuery.isNotEmpty) {
-                                                  _goToMatchNearLine(
-                                                    editor,
-                                                    lineNumber,
-                                                    searchQuery,
-                                                  );
-                                                }
-                                              });
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (tabController != null && existingIndex < tabController!.length) {
+                                              tabController!.animateTo(existingIndex);
+                                            }
+                                            final editor = currentState[existingIndex];
+                                            if (editor.findController != null && searchQuery.isNotEmpty) {
+                                              _goToMatchNearLine(
+                                                editor,
+                                                lineNumber,
+                                                searchQuery,
+                                              );
+                                            }
+                                          });
                                         } else {
                                           for (ActiveEditor item
                                               in currentState) {
@@ -1444,27 +1357,18 @@ class _EditorPageState extends State<EditorPage>
                                                 lang,
                                                 file.path,
                                               );
-                                          final key =
-                                              '${languageId}_${widget.rootDir}';
-                                          LspConfig? newLspConfig =
-                                              bloc.sharedLspConfigs[key];
-                                          if (newLspConfig == null &&
-                                              uiBloc
-                                                  .state
-                                                  .codeForgeConfig['enableLSP']) {
-                                            newLspConfig = await startLspServer(
+                                          LspConfig? newLspConfig;
+                                          if (uiBloc.state.codeForgeConfig['enableLSP']) {
+                                            newLspConfig = await bloc.getOrStartSharedLspConfig(
+                                              languageId: languageId,
                                               ext: lang.extension[0],
                                               executable: lang.lspExecutable,
                                               args: lang.args ?? [],
-                                              workspacePath: widget.rootDir,
-                                              langId: languageId,
-                                              capabilities: _getLspCapabilities(
+                                              capabilities:_getLspCapabilities(
                                                 uiBloc.state.codeForgeConfig,
                                                 lang.name.toLowerCase(),
                                               ),
                                             );
-                                            bloc.sharedLspConfigs[key] =
-                                                newLspConfig;
                                           }
                                           final newController =
                                               CodeForgeController(
@@ -1503,37 +1407,29 @@ class _EditorPageState extends State<EditorPage>
                                                     currentState,
                                                   ),
                                                 );
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                                  final newIndex = currentState
-                                                      .indexWhere(
-                                                        (item) =>
-                                                            item.isActive ==
-                                                            true,
-                                                      );
-                                                  if (tabController != null &&
-                                                      tabController!.length >
-                                                          newIndex &&
-                                                      newIndex >= 0) {
-                                                    tabController!.animateTo(
-                                                      newIndex,
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              final newIndex = currentState.indexWhere(
+                                                (item) => item.isActive == true);
+                                              if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
+                                                tabController!.animateTo(
+                                                  newIndex,
+                                                );
+                                              }
+                                              if (searchQuery.isNotEmpty) {
+                                                Future.delayed(
+                                                  const Duration(
+                                                    milliseconds: 100,
+                                                  ),
+                                                  () {
+                                                    _goToMatchNearLine(
+                                                      currentState.last,
+                                                      lineNumber,
+                                                      searchQuery,
                                                     );
-                                                  }
-                                                  if (searchQuery.isNotEmpty) {
-                                                    Future.delayed(
-                                                      const Duration(
-                                                        milliseconds: 100,
-                                                      ),
-                                                      () {
-                                                        _goToMatchNearLine(
-                                                          currentState.last,
-                                                          lineNumber,
-                                                          searchQuery,
-                                                        );
-                                                      },
-                                                    );
-                                                  }
-                                                });
+                                                  },
+                                                );
+                                              }
+                                            });
                                           }
                                         }
                                       },
@@ -1547,36 +1443,18 @@ class _EditorPageState extends State<EditorPage>
                                             context,
                                             listen: false,
                                           ),
-                                      onOpenDiffView:
-                                          (
-                                            fileName,
-                                            workspacePath,
-                                            bloc,
-                                          ) async {
+                                      onOpenDiffView:(fileName, workspacePath, bloc) async {
                                             try {
-                                              final diffResult =
-                                                  await getGitDiff(
-                                                    fileName,
-                                                    workspacePath,
-                                                  );
-                                              final file = File(
-                                                path.join(
-                                                  workspacePath,
-                                                  fileName,
-                                                ),
+                                              final diffResult = await getGitDiff(fileName, workspacePath);
+                                              final file = File(path.join(workspacePath,fileName),
                                               );
                                               if (!await file.exists()) return;
 
                                               final lang = languages.firstWhere(
                                                 (language) =>
-                                                    language.extension.contains(
-                                                      path
-                                                          .extension(file.path)
-                                                          .replaceFirst(
-                                                            ".",
-                                                            "",
-                                                          ),
-                                                    ),
+                                                  language.extension.contains(
+                                                    path.extension(file.path).replaceFirst(".", ""),
+                                                  ),
                                                 orElse: () => languages[0],
                                               );
 
@@ -1591,6 +1469,90 @@ class _EditorPageState extends State<EditorPage>
                                               await tempFile.writeAsString(
                                                 diffResult.diffText,
                                               );
+
+                                              final currentState =
+                                                  List<ActiveEditor>.from(
+                                                    editorState.activeEditors,
+                                                  );
+                                              final canonicalDiffPath =
+                                                  tempFile.absolute.path;
+                                              final existingIndex = currentState
+                                                  .indexWhere(
+                                                    (editor) =>
+                                                        File(editor.file.path)
+                                                            .absolute
+                                                            .path ==
+                                                        canonicalDiffPath,
+                                                  );
+
+                                              if (existingIndex >= 0) {
+                                                for (
+                                                  int i = 0;
+                                                  i < currentState.length;
+                                                  i++
+                                                ) {
+                                                  currentState[i].isActive =
+                                                      i == existingIndex;
+                                                }
+
+                                                final existingEditor =
+                                                    currentState[existingIndex];
+                                                existingEditor.controller.readOnly =
+                                                    true;
+                                                existingEditor
+                                                    .controller
+                                                    .setGitDiffDecorations(
+                                                      addedRanges:
+                                                          diffResult.addedRanges,
+                                                      removedRanges: diffResult
+                                                          .removedRanges,
+                                                      addedColor:
+                                                          const Color.fromARGB(
+                                                            255,
+                                                            0,
+                                                            255,
+                                                            8,
+                                                          ),
+                                                      removedColor:
+                                                          const Color.fromARGB(
+                                                            255,
+                                                            255,
+                                                            0,
+                                                            0,
+                                                          ),
+                                                      modifiedColor:
+                                                          const Color(0xFF2196F3),
+                                                    );
+                                                existingEditor.controller.text =
+                                                    diffResult.diffText;
+
+                                                if (context.mounted) {
+                                                  bloc.add(
+                                                    ActiveEditorEvent(
+                                                      currentState,
+                                                    ),
+                                                  );
+                                                  WidgetsBinding.instance
+                                                      .addPostFrameCallback((_) {
+                                                        if (tabController !=
+                                                                null &&
+                                                            existingIndex >=
+                                                                0 &&
+                                                            existingIndex <
+                                                                tabController!
+                                                                    .length) {
+                                                          tabController!
+                                                              .animateTo(
+                                                                existingIndex,
+                                                              );
+                                                        }
+                                                        existingEditor
+                                                            .controller
+                                                            .notifyListeners();
+                                                      });
+                                                }
+                                                return;
+                                              }
 
                                               final newController =
                                                   CodeForgeController();
@@ -1637,10 +1599,6 @@ class _EditorPageState extends State<EditorPage>
                                                 vscroll: ScrollController(),
                                               );
 
-                                              final currentState =
-                                                  List<ActiveEditor>.from(
-                                                    editorState.activeEditors,
-                                                  );
                                               for (final editor
                                                   in currentState) {
                                                 editor.isActive = false;
@@ -1827,39 +1785,26 @@ class _EditorPageState extends State<EditorPage>
                                               editorState.activeEditors,
                                             );
                                             if (currentState.length <= 1) {
-                                              context
-                                                  .read<ActiveEditorBloc>()
-                                                  .add(ActiveEditorEvent([]));
-                                              context
-                                                  .read<ActiveEditorBloc>()
-                                                  .add(CloseActiveEditor());
+                                              context.read<ActiveEditorBloc>().add(ActiveEditorEvent([]));
+                                              context.read<ActiveEditorBloc>().add(CloseActiveEditor());
                                               return;
                                             }
 
                                             try {
-                                              await currentState[index]
-                                                  .dispose();
+                                              await currentState[index].dispose();
                                             } catch (e) {
-                                              debugPrint(
-                                                'Error disposing editor: $e',
-                                              );
+                                              debugPrint('Error disposing editor: $e');
                                             }
 
-                                            if (currentState[index].customTitle
-                                                    ?.contains(
-                                                      "(Working Tree)",
-                                                    ) ==
-                                                true) {
+                                            if (currentState[index].customTitle?.contains("(Working Tree)",) == true) {
                                               try {
-                                                await currentState[index].file
-                                                    .delete();
+                                                await currentState[index].file.delete();
                                               } catch (e) {
                                                 debugPrint(e.toString());
                                               }
                                             }
 
-                                            final wasActive =
-                                                currentState[index].isActive;
+                                            final wasActive = currentState[index].isActive;
                                             currentState.removeAt(index);
                                             mruOrder.remove(index);
                                             mruOrder = mruOrder
@@ -1883,33 +1828,16 @@ class _EditorPageState extends State<EditorPage>
                                               }
                                             }
                                             if (context.mounted) {
-                                              context
-                                                  .read<ActiveEditorBloc>()
-                                                  .add(
-                                                    ActiveEditorEvent(
-                                                      currentState,
-                                                    ),
-                                                  );
+                                              context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
                                             }
 
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                                  final newIndex = currentState
-                                                      .indexWhere(
-                                                        (item) =>
-                                                            item.isActive ==
-                                                            true,
-                                                      );
-                                                  if (tabController != null &&
-                                                      newIndex >= 0 &&
-                                                      newIndex <
-                                                          tabController!
-                                                              .length) {
-                                                    tabController!.animateTo(
-                                                      newIndex,
-                                                    );
-                                                  }
-                                                });
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              final newIndex = currentState.indexWhere(
+                                                (item) => item.isActive == true);
+                                              if (tabController != null && newIndex >= 0 && newIndex < tabController!.length) {
+                                                tabController!.animateTo(newIndex,);
+                                              }
+                                            });
                                           },
                                           icon: Icon(Icons.close, size: 20),
                                         ),
@@ -2091,66 +2019,35 @@ class _EditorPageState extends State<EditorPage>
                                 );
                                 break;
                               case '.java':
-                                final String compileCommand =
-                                    "javac ${filePath.path} -d ${temp.path}";
-                                final String runCommand =
-                                    "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                                runCode(
-                                  context,
-                                  "$compileCommand && $runCommand",
-                                  widget.rootDir,
-                                );
+                                final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
+                                final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                                runCode( context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.kt':
                               case '.kts':
-                                final String compileCommand =
-                                    'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
-                                final String runCommand =
-                                    'java -jar ${temp.path}/temp.jar';
-                                runCode(
-                                  context,
-                                  "$compileCommand && $runCommand",
-                                  widget.rootDir,
-                                );
+                                final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
+                                final String runCommand = 'java -jar ${temp.path}/temp.jar';
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.ts':
-                                final String compileCommand =
-                                    "tsc ${filePath.path} --outDir ${temp.path}";
-                                final String runCommand =
-                                    "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
-                                runCode(
-                                  context,
-                                  "$compileCommand && $runCommand",
-                                  widget.rootDir,
-                                );
+                                final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
+                                final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.md':
                                 Navigator.of(context).push(
                                   PageRouteBuilder(
-                                    pageBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          scondaryAnimation,
-                                        ) => MdView(
-                                          data: filePath.readAsStringSync(),
-                                          appTheme: appTheme,
-                                          theme: context
-                                              .read<ConfigBloc>()
-                                              .state,
-                                        ),
-                                    transitionsBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          secondaryAnimation,
-                                          child,
-                                        ) {
-                                          return SizeTransition(
-                                            sizeFactor: animation,
-                                            child: child,
-                                          );
-                                        },
+                                    pageBuilder:(context, animation, scondaryAnimation) => MdView(
+                                      data: filePath.readAsStringSync(),
+                                      appTheme: appTheme,
+                                      theme: context.read<ConfigBloc>().state,
+                                    ),
+                                    transitionsBuilder:(context, animation, secondaryAnimation, child) {
+                                      return SizeTransition(
+                                        sizeFactor: animation,
+                                        child: child,
+                                      );
+                                    },
                                   ),
                                 );
                                 break;
@@ -2166,30 +2063,19 @@ class _EditorPageState extends State<EditorPage>
                                 final String command = lang.command ?? '';
                                 Navigator.of(context).push(
                                   PageRouteBuilder(
-                                    pageBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          scondaryAnimation,
-                                        ) => SetupTerminal(
-                                          projectDir: widget.rootDir,
-                                          args: [
-                                            "-c",
-                                            "$command ${filePath.path}",
-                                          ],
-                                        ),
-                                    transitionsBuilder:
-                                        (
-                                          context,
-                                          animation,
-                                          secondaryAnimation,
-                                          child,
-                                        ) {
-                                          return SizeTransition(
-                                            sizeFactor: animation,
-                                            child: child,
-                                          );
-                                        },
+                                    pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
+                                      projectDir: widget.rootDir,
+                                      args: [
+                                        "-c",
+                                        "$command ${filePath.path}",
+                                      ],
+                                    ),
+                                    transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                      return SizeTransition(
+                                        sizeFactor: animation,
+                                        child: child,
+                                      );
+                                    },
                                   ),
                                 );
                             }
@@ -2234,6 +2120,7 @@ class _EditorPageState extends State<EditorPage>
                                     editor: editor,
                                     appTheme: appTheme,
                                     workspacePath: widget.rootDir,
+                                    tabController: tabController,
                                   ),
                                 )
                                 .toList(),
@@ -2256,13 +2143,10 @@ class _EditorPageState extends State<EditorPage>
                                       children: [
                                         Text(
                                           isRepoThere
-                                              ? "Version control (.git) found \u2713"
-                                              : "No version control (.git) found on this folder/project",
+                                            ? "Version control (.git) found \u2713"
+                                            : "No version control (.git) found on this folder/project",
                                           style: TextStyle(
-                                            color:
-                                                Colors.grey[appTheme.isDark
-                                                    ? 500
-                                                    : 600],
+                                            color: Colors.grey[appTheme.isDark ? 500 : 600],
                                           ),
                                         ),
                                         if (!widget.isCloned)
@@ -2271,19 +2155,11 @@ class _EditorPageState extends State<EditorPage>
                                               children: [
                                                 Padding(
                                                   padding:
-                                                      const EdgeInsets.only(
-                                                        left: 15,
-                                                        top: 8,
-                                                        bottom: 8,
-                                                      ),
+                                                    const EdgeInsets.only(left: 15,top: 8, bottom: 8),
                                                   child: Text(
                                                     "Note: This is a clone of the selected folder in VSDroid's private directory. Modifications here will not affect the original folder.",
                                                     style: TextStyle(
-                                                      color:
-                                                          Colors.grey[appTheme
-                                                                  .isDark
-                                                              ? 500
-                                                              : 600],
+                                                      color: Colors.grey[appTheme.isDark ? 500 : 600],
                                                     ),
                                                   ),
                                                 ),

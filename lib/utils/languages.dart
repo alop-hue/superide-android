@@ -1,3 +1,4 @@
+import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:re_highlight/languages/all.dart';
@@ -7,6 +8,185 @@ import 'package:vsdroid/utils/constants.dart';
 final txt = Mode();
 final unknown = Mode();
 
+const String _cursorMarker = '__CURSOR__';
+
+CustomCodeSnippet _snippet(String label, String template) {
+  var value = template;
+  final cursorLocations = <int>{};
+
+  while (true) {
+    final markerIndex = value.indexOf(_cursorMarker);
+    if (markerIndex == -1) break;
+    cursorLocations.add(markerIndex);
+    value = value.replaceFirst(_cursorMarker, '');
+  }
+
+  if (cursorLocations.isEmpty) {
+    cursorLocations.add(value.length);
+  }
+
+  return CustomCodeSnippet(
+    label: label,
+    value: value,
+    cursorLocations: cursorLocations,
+  );
+}
+
+bool _hasAnyExt(Set<String> exts, List<String> targets) {
+  for (final target in targets) {
+    if (exts.contains(target)) return true;
+  }
+  return false;
+}
+
+List<CustomCodeSnippet> _defaultSnippetsForExtensions(List<String> extensions) {
+  final exts = extensions.map((e) => e.toLowerCase()).toSet();
+
+  if (_hasAnyExt(exts, ['py', 'pyi'])) {
+    return [
+      _snippet('if', 'if condition:\n    __CURSOR__'),
+      _snippet('if-else', 'if condition:\n    __CURSOR__\nelse:\n    __CURSOR__'),
+      _snippet('while', 'while condition:\n    __CURSOR__'),
+      _snippet('for', 'for item in items:\n    __CURSOR__'),
+      _snippet('def', 'def function_name(params):\n    __CURSOR__'),
+      _snippet('class', 'class ClassName:\n    def __init__(self):\n        __CURSOR__'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['js', 'mjs', 'cjs', 'ts', 'tsx'])) {
+    return [
+      _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
+      _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
+      _snippet('while', 'while (condition) {\n  __CURSOR__\n}'),
+      _snippet('for-of', 'for (const item of items) {\n  __CURSOR__\n}'),
+      _snippet('function', 'function name(params) {\n  __CURSOR__\n}'),
+      _snippet('try-catch', 'try {\n  __CURSOR__\n} catch (error) {\n  console.error(error);\n}'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['java', 'kt', 'kts', 'cs', 'swift', 'scala', 'groovy'])) {
+    return [
+      _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
+      _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
+      _snippet('while', 'while (condition) {\n  __CURSOR__\n}'),
+      _snippet('for', 'for (int i = 0; i < items.length; i++) {\n  __CURSOR__\n}'),
+      _snippet('class', 'class ClassName {\n  __CURSOR__\n}'),
+      _snippet('method', 'void methodName() {\n  __CURSOR__\n}'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['c', 'cpp', 'c++', 'cc', 'm', 'mm', 'rs', 'go', 'd'])) {
+    return [
+      _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
+      _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
+      _snippet('for', 'for (int i = 0; i < count; i++) {\n  __CURSOR__\n}'),
+      _snippet('while', 'while (condition) {\n  __CURSOR__\n}'),
+      _snippet('function', 'void function_name() {\n  __CURSOR__\n}'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['sh', 'bash', 'zsh'])) {
+    return [
+      _snippet('if', 'if [[ condition ]]; then\n  __CURSOR__\nfi'),
+      _snippet('if-else', 'if [[ condition ]]; then\n  __CURSOR__\nelse\n  __CURSOR__\nfi'),
+      _snippet('while', 'while [[ condition ]]; do\n  __CURSOR__\ndone'),
+      _snippet('for', 'for item in "\${1:-items}"; do\n  __CURSOR__\ndone'),
+      _snippet('function', 'function name() {\n  __CURSOR__\n}'),
+      _snippet('case', 'case "\$1" in\n  value)\n    __CURSOR__\n    ;;\n  *)\n    ;;\nesac'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['html', 'htm', 'xml'])) {
+    return [
+      _snippet('tag', '<tag>__CURSOR__</tag>'),
+      _snippet('html5', '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n  <title>__CURSOR__</title>\n</head>\n<body>\n  __CURSOR__\n</body>\n</html>'),
+      _snippet('div', '<div class="container">\n  __CURSOR__\n</div>'),
+      _snippet('a', '<a href="__CURSOR__">link</a>'),
+      _snippet('img', '<img src="__CURSOR__" alt="" />'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['css', 'scss', 'less'])) {
+    return [
+      _snippet('rule', '.selector {\n  __CURSOR__\n}'),
+      _snippet('media', '@media (max-width: 768px) {\n  __CURSOR__\n}'),
+      _snippet('flex-center', 'display: flex;\njustify-content: center;\nalign-items: center;\n__CURSOR__'),
+      _snippet('variable', '--name: __CURSOR__;'),
+      _snippet('keyframes', '@keyframes fade-in {\n  from { opacity: 0; }\n  to { opacity: 1; }\n}\n__CURSOR__'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['json'])) {
+    return [
+      _snippet('object', '{\n  "key": "__CURSOR__"\n}'),
+      _snippet('array', '[\n  "__CURSOR__"\n]'),
+      _snippet('kv', '"key": "__CURSOR__"'),
+      _snippet('nested', '{\n  "name": "",\n  "meta": {\n    "__CURSOR__": ""\n  }\n}'),
+      _snippet('config', '{\n  "enabled": true,\n  "timeout": 30,\n  "__CURSOR__": ""\n}'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['yaml', 'yml'])) {
+    return [
+      _snippet('key-value', 'key: __CURSOR__'),
+      _snippet('list', 'items:\n  - __CURSOR__'),
+      _snippet('nested', 'parent:\n  child: __CURSOR__'),
+      _snippet('map', 'name: app\nversion: 1.0.0\n__CURSOR__: value'),
+      _snippet('env', 'env:\n  KEY: __CURSOR__'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['md'])) {
+    return [
+      _snippet('h1', '# __CURSOR__'),
+      _snippet('link', '[text](__CURSOR__)'),
+      _snippet('code-block', '```\n__CURSOR__\n```'),
+      _snippet('table', '| Column | Value |\n| --- | --- |\n| __CURSOR__ |  |'),
+      _snippet('task-list', '- [ ] __CURSOR__'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['sql'])) {
+    return [
+      _snippet('select', 'SELECT __CURSOR__\nFROM table_name\nWHERE condition;'),
+      _snippet('insert', 'INSERT INTO table_name (column1, column2)\nVALUES (__CURSOR__, value2);'),
+      _snippet('update', 'UPDATE table_name\nSET column1 = __CURSOR__\nWHERE condition;'),
+      _snippet('delete', 'DELETE FROM table_name\nWHERE __CURSOR__;'),
+      _snippet('create-table', 'CREATE TABLE table_name (\n  id INTEGER PRIMARY KEY,\n  __CURSOR__ TEXT\n);'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['php', 'rb', 'lua', 'r', 'pl', 'jl', 'erl', 'ex', 'exs', 'fs', 'fsx', 'clj', 'cljs', 'hs'])) {
+    return [
+      _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
+      _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
+      _snippet('while', 'while (condition) {\n  __CURSOR__\n}'),
+      _snippet('function', 'function name(args) {\n  __CURSOR__\n}'),
+      _snippet('loop', 'for (item in items) {\n  __CURSOR__\n}'),
+      _snippet('log', 'print(__CURSOR__)'),
+    ];
+  }
+
+  if (_hasAnyExt(exts, ['asm', 's'])) {
+    return [
+      _snippet('label', 'label:\n  __CURSOR__'),
+      _snippet('function', '.global _start\n_start:\n  __CURSOR__'),
+      _snippet('data', '.section .data\nmsg: .asciz "__CURSOR__"'),
+      _snippet('text', '.section .text\n.global _start\n_start:\n  __CURSOR__'),
+      _snippet('syscall', 'mov r7, #1\nmov r0, #0\nsvc #0\n__CURSOR__'),
+    ];
+  }
+
+  return [
+    _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
+    _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
+    _snippet('while', 'while (condition) {\n  __CURSOR__\n}'),
+    _snippet('loop', 'for (item in items) {\n  __CURSOR__\n}'),
+    _snippet('function', 'function name() {\n  __CURSOR__\n}'),
+    _snippet('comment', '// __CURSOR__'),
+  ];
+}
+
 class Language {
   final String name, details, helloWorld;
   final List<String> extension;
@@ -14,6 +194,7 @@ class Language {
   final dynamic icon;
   final String? command, type, lspExecutable;
   final List<String>? args;
+  final List<CustomCodeSnippet>? customCodeSnippet;
   Language({
     required this.name,
     required this.extension,
@@ -24,8 +205,10 @@ class Language {
     this.command,
     this.type,
     this.lspExecutable,
-    this.args
-  });
+    this.args,
+    List<CustomCodeSnippet>? customCodeSnippet,
+  }) : customCodeSnippet =
+           customCodeSnippet ?? _defaultSnippetsForExtensions(extension);
 }
 
 class RunTime{
@@ -74,7 +257,7 @@ final langtxt = Language(
 );
 final langpython = Language(
   name: 'Python',
-  extension: ['py'],
+  extension: ['py', 'pyi'],
   details: 'A popular language known for simplicity and versatility.',
   language: builtinAllLanguages['python'],
   helloWorld: 'print("Hello, World!")',
@@ -141,6 +324,7 @@ final langcpp = Language(
   type: 'compiled',
   lspExecutable: "/data/data/com.vsdroid/bin/ccls",
 );
+
 final langdart = Language(
   name: 'Dart',
   extension: ['dart'],
@@ -150,7 +334,21 @@ final langdart = Language(
   command: 'dart',
   type: 'compiled(no binary)',
   icon: SvgPicture.asset('assets/material_icons/dart.svg',height: 35,width: 35),
+  customCodeSnippet: [
+    CustomCodeSnippet(
+      label: 'if',
+      value: 'if (condition) {\n  \n}',
+      cursorLocations: {4},
+    ),
+
+    CustomCodeSnippet(
+      label: 'if-else',
+      value: 'if (condition) {\n  \n} else {\n  \n}',
+      cursorLocations: {18, 31},
+    ),
+  ]
 );
+
 final langhtml = Language(
   name: 'HTML',
   extension: ['html','htm'],

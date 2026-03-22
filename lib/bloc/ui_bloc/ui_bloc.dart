@@ -127,8 +127,59 @@ class AppThemeBloc extends Bloc<AppThemeEvent, AppThemeState>{
 class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
   final String rootDir;
   final Map<String, dynamic> config;
-  final Map<String, LspConfig?> _lspConfigs = {};
+  static final Map<String, LspConfig?> _globalLspConfigs = {};
+  static final Map<String, Future<LspConfig?>> _lspStartupFutures = {};
+  final Map<String, LspConfig?> _lspConfigs = _globalLspConfigs;
   Map<String, LspConfig?> get sharedLspConfigs => _lspConfigs;
+
+  static String buildLspCacheKey({
+    required String workspacePath,
+    required String languageId,
+  }) {
+    final canonicalWorkspace = Directory(workspacePath).absolute.path;
+    return '${canonicalWorkspace.toLowerCase()}::${languageId.toLowerCase()}';
+  }
+
+  Future<LspConfig?> getOrStartSharedLspConfig({
+    required String languageId,
+    required String ext,
+    required String? executable,
+    required List<String> args,
+    LspClientCapabilities? capabilities,
+  }) async {
+    final key = buildLspCacheKey(
+      workspacePath: rootDir,
+      languageId: languageId,
+    );
+
+    final existing = _lspConfigs[key];
+    if (existing != null) {
+      return existing;
+    }
+
+    final pending = _lspStartupFutures[key];
+    if (pending != null) {
+      return pending;
+    }
+
+    final startup = startLspServer(
+      ext: ext,
+      executable: executable,
+      args: args,
+      workspacePath: rootDir,
+      langId: languageId,
+      capabilities: capabilities,
+    ).then((config) {
+      _lspConfigs[key] = config;
+      return config;
+    }).whenComplete(() {
+      _lspStartupFutures.remove(key);
+    });
+
+    _lspStartupFutures[key] = startup;
+    return startup;
+  }
+
   ActiveEditorBloc(this.rootDir, this.config):super(ActiveEditorState([])){
     on<ActiveEditorEvent>((event, emit) => emit(ActiveEditorState(event.activeEditors)));
 
@@ -140,21 +191,30 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
       final editors = <ActiveEditor>[];
       for (final editorJson in list) {
         final lang = languages.singleWhere((lang) => lang.name == editorJson["lang"]);
-        final key = '${lang.name}_$rootDir';
+        final key = buildLspCacheKey(
+          workspacePath: rootDir,
+          languageId: lang.name,
+        );
         LspConfig? lspConfig;
         if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
-          _lspConfigs[key] = await startLspServer(
+          _lspConfigs[key] = await getOrStartSharedLspConfig(
+            languageId: lang.name,
             ext: lang.extension[0],
             executable: lang.lspExecutable,
             args: lang.args ?? [],
-            workspacePath: rootDir,
-            langId: lang.name,
-            capabilities: null,
           );
         }
         lspConfig = _lspConfigs[key];
         final controller = CodeForgeController(lspConfig: lspConfig)
           ..text = editorJson["text"];
+
+        // Re-apply persisted agentic diff decorations for restored editors.
+        final canonicalPath = File(editorJson["file"]).absolute.path;
+        final pendingEdit = await PendingEditFile.getForFile(canonicalPath);
+        if (pendingEdit != null && pendingEdit.editHunks.isNotEmpty) {
+          pendingEdit.applyDecorations(controller);
+        }
+
         final editor = ActiveEditor(
           file: File(editorJson["file"]),
           controller: controller,
@@ -256,14 +316,53 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
 }
 
 class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
+  static const String _chatModePrefsKey = 'ai_chat_mode';
+
   AIChatUIBloc() : super(const AIChatUIState()) {
-    on<AIChatUIEvent>((event, emit) => emit(AIChatUIState(
-      chatMode: event.chatMode,
-      promptText: event.promptText,
-      selectedModelId: event.selectedModelId,
-      scrollOffset: event.scrollOffset,
-      isGenerating: event.isGenerating,
-    )));
+    on<AIChatUIEvent>((event, emit) async {
+      final nextState = AIChatUIState(
+        chatMode: event.chatMode,
+        promptText: event.promptText,
+        selectedModelId: event.selectedModelId,
+        scrollOffset: event.scrollOffset,
+        isGenerating: event.isGenerating,
+      );
+
+      if (state.chatMode != nextState.chatMode) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_chatModePrefsKey, nextState.chatMode.name);
+      }
+
+      emit(nextState);
+    });
+
+    _restoreChatModeFromPrefs();
+  }
+
+  Future<void> _restoreChatModeFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedMode = prefs.getString(_chatModePrefsKey);
+      final restoredMode = switch (savedMode) {
+        'agent' => ChatMode.agent,
+        'ask' => ChatMode.ask,
+        _ => null,
+      };
+
+      if (restoredMode != null && restoredMode != state.chatMode) {
+        add(
+          AIChatUIEvent(
+            chatMode: restoredMode,
+            promptText: state.promptText,
+            selectedModelId: state.selectedModelId,
+            scrollOffset: state.scrollOffset,
+            isGenerating: state.isGenerating,
+          ),
+        );
+      }
+    } catch (_) {
+      // Ignore preference read errors and keep default mode.
+    }
   }
 }
 
@@ -863,11 +962,24 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
       try {
         final models = await _chatClient!.getCopilotModels();
         final data = models['data'] as List<dynamic>? ?? [];
+        debugPrint('[CopilotChatBloc] Raw model payload count: ${data.length}');
         final parsedModels = data
             .whereType<Map>()
             .map((model) => Map<String, dynamic>.from(model))
             .where((model) => model['id'] != null && model['name'] != null)
             .toList();
+
+        final modelSummaries = parsedModels
+            .map((m) {
+              final id = m['id'];
+              final picker = m['model_picker_enabled'];
+              final preview = m['preview'];
+              return '$id(picker=$picker,preview=$preview)';
+            })
+            .join(', ');
+        debugPrint(
+          '[CopilotChatBloc] Parsed model count: ${parsedModels.length}. Models: $modelSummaries',
+        );
 
         emit(state.copyWith(
           models: parsedModels,

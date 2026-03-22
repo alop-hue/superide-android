@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:code_forge/code_forge.dart';
 import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:flutter/material.dart';
@@ -111,7 +113,101 @@ class AgenticTools {
     }
   }
 
-  Future<ToolResult<void>> writeFile(String filePath, String content) async {
+  Future<void> _trackPendingEditsForWrite(
+    String canonicalPath,
+    String oldContent,
+    String newContent,
+  ) async {
+    if (oldContent == newContent) {
+      return;
+    }
+
+    final diffs = diff(oldContent, newContent);
+    final patches = patchMake(diffs);
+    if (patches.isEmpty) {
+      return;
+    }
+
+    final patchController = CodeForgeController()..text = newContent;
+    final oldController = CodeForgeController()..text = oldContent;
+
+    final pendingEdit = PendingEditFile(
+      filePath: canonicalPath,
+      oldText: oldContent,
+      editHunks: PendingEditFile.patchesToHunks(
+        patches,
+        patchController,
+        oldController,
+      ),
+    );
+
+    patchController.dispose();
+    oldController.dispose();
+
+    await pendingEdit.saveToPrefs();
+  }
+
+  Future<void> _refreshPendingDecorationsForPath(String canonicalPath) async {
+    if (_canonicalFilePath(_activeEditor.file.path) != canonicalPath) {
+      return;
+    }
+
+    final pending = await PendingEditFile.getForFile(canonicalPath);
+    if (pending == null || pending.editHunks.isEmpty) {
+      _activeEditor.controller.clearGitDiffDecorations();
+    } else {
+      pending.applyDecorations(_activeEditor.controller);
+    }
+  }
+
+  Future<ToolResult<void>> _writeWithPendingDiff(
+    String canonicalPath,
+    String oldContent,
+    String newContent,
+  ) async {
+    if (oldContent == newContent) {
+      return ToolResult.success(null);
+    }
+
+    final diffs = diff(oldContent, newContent);
+    final patches = patchMake(diffs);
+
+    final patchController = CodeForgeController()..text = newContent;
+    final oldController = CodeForgeController()..text = oldContent;
+
+    final pendingEdit = PendingEditFile(
+      filePath: canonicalPath,
+      oldText: oldContent,
+      editHunks: PendingEditFile.patchesToHunks(
+        patches,
+        patchController,
+        oldController,
+      ),
+    );
+
+    patchController.dispose();
+    oldController.dispose();
+
+    await pendingEdit.saveToPrefs();
+
+    final writeResult = await writeFile(
+      canonicalPath,
+      newContent,
+      trackPendingEdits: false,
+    );
+    if (!writeResult.success) {
+      return writeResult;
+    }
+
+    await _refreshPendingDecorationsForPath(canonicalPath);
+    return ToolResult.success(null);
+  }
+
+  Future<ToolResult<void>> writeFile(
+    String filePath,
+    String content, {
+    bool trackPendingEdits = true,
+  }) async {
     try {
       final canonicalPath = _canonicalFilePath(filePath);
       final file = File(canonicalPath);
@@ -123,11 +219,30 @@ class AgenticTools {
           'Requested file: $filePath\n',
         );
       }
+
+      String? oldContent;
+      if (trackPendingEdits) {
+        oldContent = await file.exists() ? await file.readAsString() : '';
+      }
+
       await file.parent.create(recursive: true);
       await file.writeAsString(content);
 
+      if (trackPendingEdits && oldContent != null) {
+        await _trackPendingEditsForWrite(canonicalPath, oldContent, content);
+      }
+
       if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
         _activeEditor.controller.refetchFile();
+
+        if (trackPendingEdits) {
+          final pending = await PendingEditFile.getForFile(canonicalPath);
+          if (pending == null || pending.editHunks.isEmpty) {
+            _activeEditor.controller.clearGitDiffDecorations();
+          } else {
+            pending.applyDecorations(_activeEditor.controller);
+          }
+        }
       }
 
       return ToolResult.success(null);
@@ -180,6 +295,396 @@ class AgenticTools {
       return ToolResult.success(files);
     } catch (e) {
       return ToolResult.error('Error listing files: $e');
+    }
+  }
+
+  Future<ToolResult<void>> deleteFile(String filePath) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final file = File(canonicalPath);
+      if (!await file.exists()) {
+        return ToolResult.error('File not found: $filePath');
+      }
+
+      await file.delete();
+      await PendingEditFile.removeFile(canonicalPath);
+
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        _activeEditor.controller.clearGitDiffDecorations();
+      }
+
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error deleting file: $e');
+    }
+  }
+
+  Future<ToolResult<void>> renamePath(String oldPath, String newPath) async {
+    try {
+      final canonicalOldPath = _canonicalFilePath(oldPath);
+      final canonicalNewPath = _canonicalFilePath(newPath);
+
+      if (!_isInsideWorkspace(canonicalOldPath) ||
+          !_isInsideWorkspace(canonicalNewPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final oldType = await FileSystemEntity.type(canonicalOldPath);
+      if (oldType == FileSystemEntityType.notFound) {
+        return ToolResult.error('Path not found: $oldPath');
+      }
+
+      final newType = await FileSystemEntity.type(canonicalNewPath);
+      if (newType != FileSystemEntityType.notFound) {
+        return ToolResult.error('Target path already exists: $newPath');
+      }
+
+      await Directory(path.dirname(canonicalNewPath)).create(recursive: true);
+
+      if (oldType == FileSystemEntityType.directory) {
+        await Directory(canonicalOldPath).rename(canonicalNewPath);
+
+        final allPending = await PendingEditFile.getAllFromPrefs();
+        for (final entry in allPending.entries) {
+          final pendingPath = entry.key;
+          if (pendingPath == canonicalOldPath ||
+              path.isWithin(canonicalOldPath, pendingPath)) {
+            final relativePendingPath = path.relative(
+              pendingPath,
+              from: canonicalOldPath,
+            );
+            final movedPendingPath = relativePendingPath == '.'
+                ? canonicalNewPath
+                : path.join(canonicalNewPath, relativePendingPath);
+
+            await PendingEditFile.removeFile(pendingPath);
+            await PendingEditFile.upsert(
+              entry.value.copyWith(filePath: movedPendingPath),
+            );
+          }
+        }
+      } else {
+        await File(canonicalOldPath).rename(canonicalNewPath);
+        final pending = await PendingEditFile.getForFile(canonicalOldPath);
+        if (pending != null) {
+          await PendingEditFile.removeFile(canonicalOldPath);
+          await PendingEditFile.upsert(
+            pending.copyWith(filePath: canonicalNewPath),
+          );
+        }
+      }
+
+      final activePath = _canonicalFilePath(_activeEditor.file.path);
+      if (activePath == canonicalOldPath ||
+          path.isWithin(canonicalOldPath, activePath)) {
+        _activeEditor.controller.clearGitDiffDecorations();
+      }
+
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error renaming path: $e');
+    }
+  }
+
+  Future<ToolResult<void>> rename(String oldPath, String newPath) {
+    return renamePath(oldPath, newPath);
+  }
+
+  Future<ToolResult<void>> insertAtLine(
+    String filePath,
+    int line,
+    String text, {
+    String position = 'before',
+  }) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error('Permission denied: Path is outside workspace.');
+      }
+
+      final readResult = await readFile(canonicalPath);
+      if (!readResult.success) {
+        return ToolResult.error(readResult.error ?? 'Error reading file');
+      }
+
+      if (line < 1) {
+        return ToolResult.error('Line must be 1 or greater.');
+      }
+
+      final oldContent = readResult.data ?? '';
+      final lines = oldContent.isEmpty ? <String>[] : oldContent.split('\n');
+      final insertLines = text.split('\n');
+
+      final normalizedPosition = position.toLowerCase();
+      if (normalizedPosition != 'before' && normalizedPosition != 'after') {
+        return ToolResult.error("position must be 'before' or 'after'.");
+      }
+
+      int insertIndex;
+      if (normalizedPosition == 'before') {
+        if (line > lines.length + 1) {
+          return ToolResult.error(
+            'Line out of range. Max valid line is ${lines.length + 1}.',
+          );
+        }
+        insertIndex = line - 1;
+      } else {
+        if (line > lines.length) {
+          return ToolResult.error(
+            'Line out of range. Max valid line is ${lines.length}.',
+          );
+        }
+        insertIndex = line;
+      }
+
+      lines.insertAll(insertIndex, insertLines);
+      final newContent = lines.join('\n');
+
+      return _writeWithPendingDiff(canonicalPath, oldContent, newContent);
+    } catch (e) {
+      return ToolResult.error('Error inserting text at line: $e');
+    }
+  }
+
+  Future<ToolResult<Map<String, dynamic>>> replaceAllInFile(
+    String filePath,
+    String oldText,
+    String newText, {
+    bool useRegex = false,
+    int? maxReplacements,
+    bool caseSensitive = true,
+  }) async {
+    try {
+      if (oldText.isEmpty) {
+        return ToolResult.error('oldText cannot be empty.');
+      }
+
+      if (maxReplacements != null && maxReplacements <= 0) {
+        return ToolResult.error('maxReplacements must be greater than 0.');
+      }
+
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error('Permission denied: Path is outside workspace.');
+      }
+
+      final readResult = await readFile(canonicalPath);
+      if (!readResult.success) {
+        return ToolResult.error(readResult.error ?? 'Error reading file');
+      }
+
+      final oldContent = readResult.data ?? '';
+      final pattern = useRegex ? oldText : RegExp.escape(oldText);
+      final regex = RegExp(pattern, caseSensitive: caseSensitive);
+      final matches = regex.allMatches(oldContent).toList();
+
+      if (matches.isEmpty) {
+        return ToolResult.error('No matches found in file.');
+      }
+
+      final limit = maxReplacements == null
+          ? matches.length
+          : math.min(maxReplacements, matches.length);
+
+      final buffer = StringBuffer();
+      var cursor = 0;
+      for (var i = 0; i < limit; i++) {
+        final match = matches[i];
+        buffer.write(oldContent.substring(cursor, match.start));
+        buffer.write(newText);
+        cursor = match.end;
+      }
+      buffer.write(oldContent.substring(cursor));
+      final newContent = buffer.toString();
+
+      final writeResult = await _writeWithPendingDiff(
+        canonicalPath,
+        oldContent,
+        newContent,
+      );
+      if (!writeResult.success) {
+        return ToolResult.error(writeResult.error ?? 'Error replacing text.');
+      }
+
+      return ToolResult.success({
+        'replacements': limit,
+        'totalMatches': matches.length,
+      });
+    } catch (e) {
+      return ToolResult.error('Error replacing text in file: $e');
+    }
+  }
+
+  Future<ToolResult<List<Map<String, dynamic>>>> readFilesBatch(
+    List<dynamic> files,
+  ) async {
+    try {
+      final results = <Map<String, dynamic>>[];
+
+      for (final fileItem in files) {
+        if (fileItem is! Map) {
+          results.add({
+            'success': false,
+            'error': 'Each files item must be an object.',
+          });
+          continue;
+        }
+
+        final map = Map<String, dynamic>.from(fileItem);
+        final filePath = map['filePath']?.toString();
+        if (filePath == null || filePath.isEmpty) {
+          results.add({
+            'success': false,
+            'error': 'filePath is required.',
+          });
+          continue;
+        }
+
+        final startLine = map['startLine'] is int ? map['startLine'] as int : null;
+        final endLine = map['endLine'] is int ? map['endLine'] as int : null;
+
+        final readResult = await readFile(filePath, startLine, endLine);
+        if (readResult.success) {
+          results.add({
+            'filePath': filePath,
+            'success': true,
+            'content': readResult.data ?? '',
+          });
+        } else {
+          results.add({
+            'filePath': filePath,
+            'success': false,
+            'error': readResult.error ?? 'Error reading file',
+          });
+        }
+      }
+
+      return ToolResult.success(results);
+    } catch (e) {
+      return ToolResult.error('Error reading files batch: $e');
+    }
+  }
+
+  Future<ToolResult<List<String>>> globSearchFiles(
+    String pattern, {
+    String directoryPath = '.',
+    List<String>? excludePatterns,
+    bool recursive = true,
+    int? maxResults,
+  }) async {
+    try {
+      final canonicalDir = _canonicalFilePath(directoryPath);
+      if (!_isInsideWorkspace(canonicalDir)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final dir = Directory(canonicalDir);
+      if (!await dir.exists()) {
+        return ToolResult.error('Directory not found: $directoryPath');
+      }
+
+      final includeRegex = _globToRegex(pattern);
+      final excludeRegexes = (excludePatterns ?? [])
+          .map((glob) => _globToRegex(glob))
+          .toList();
+
+      final results = <String>[];
+      await for (final entity in dir.list(recursive: recursive)) {
+        if (entity is! File) continue;
+
+        final relativePath = path.relative(entity.path, from: workspacePath);
+        if (!includeRegex.hasMatch(relativePath)) continue;
+
+        var excluded = false;
+        for (final regex in excludeRegexes) {
+          if (regex.hasMatch(relativePath)) {
+            excluded = true;
+            break;
+          }
+        }
+        if (excluded) continue;
+
+        results.add(relativePath);
+        if (maxResults != null && results.length >= maxResults) break;
+      }
+
+      return ToolResult.success(results);
+    } catch (e) {
+      return ToolResult.error('Error searching files by glob: $e');
+    }
+  }
+
+  Future<ToolResult<List<GrepResult>>> grepInFiles(
+    String query, {
+    String? filePattern,
+    bool caseSensitive = false,
+    bool matchWholeWord = false,
+    bool useRegex = false,
+    int before = 2,
+    int after = 2,
+    int? maxResults,
+  }) async {
+    try {
+      final results = <GrepResult>[];
+      final dir = Directory(workspacePath);
+
+      String pattern = useRegex ? query : RegExp.escape(query);
+      if (matchWholeWord) {
+        pattern = r'\b$pattern\b';
+      }
+      final regex = RegExp(pattern, caseSensitive: caseSensitive);
+
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is! File) continue;
+
+        final relativePath = path.relative(entity.path, from: workspacePath);
+        if (filePattern != null) {
+          final fileRegex = _globToRegex(filePattern);
+          if (!fileRegex.hasMatch(relativePath)) continue;
+        }
+
+        try {
+          final content = await entity.readAsString();
+          final lines = content.split('\n');
+
+          for (var i = 0; i < lines.length; i++) {
+            if (!regex.hasMatch(lines[i])) continue;
+
+            final beforeStart = math.max(0, i - before);
+            final afterEnd = math.min(lines.length - 1, i + after);
+
+            results.add(
+              GrepResult(
+                filePath: relativePath,
+                lineNumber: i + 1,
+                lineContent: lines[i],
+                beforeContext: lines.sublist(beforeStart, i),
+                afterContext: lines.sublist(i + 1, afterEnd + 1),
+              ),
+            );
+
+            if (maxResults != null && results.length >= maxResults) {
+              return ToolResult.success(results);
+            }
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+
+      return ToolResult.success(results);
+    } catch (e) {
+      return ToolResult.error('Error grepping files: $e');
     }
   }
 
@@ -315,7 +820,11 @@ class AgenticTools {
       oldController.dispose();
 
       await pendingEdit.saveToPrefs();
-      final writeResult = await writeFile(canonicalPath, newContent);
+      final writeResult = await writeFile(
+        canonicalPath,
+        newContent,
+        trackPendingEdits: false,
+      );
       if (!writeResult.success) {
         return writeResult;
       }
@@ -334,6 +843,197 @@ class AgenticTools {
       return ToolResult.success(null);
     } catch (e) {
       return ToolResult.error('Error editing file: $e');
+    }
+  }
+
+  Future<ProcessResult> _runGitCommand(List<String> args) {
+    final env = {
+      "HOME": workspacePath,
+      'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
+    };
+
+    return Process.run(
+      'git',
+      args,
+      environment: env,
+      workingDirectory: workspacePath,
+    );
+  }
+
+  Future<ToolResult<GitStatusInfo>> gitStatus() async {
+    try {
+      final process = await _runGitCommand(['status', '--porcelain=1', '-b']);
+      if (process.exitCode != 0) {
+        return ToolResult.error(
+          process.stderr.toString().trim().isEmpty
+              ? 'git status failed'
+              : process.stderr.toString().trim(),
+        );
+      }
+
+      final output = process.stdout.toString();
+      final lines = output
+          .split('\n')
+          .map((line) => line.trimRight())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      var branch = 'unknown';
+      var ahead = 0;
+      var behind = 0;
+      final staged = <String>[];
+      final unstaged = <String>[];
+      final untracked = <String>[];
+      final conflicts = <String>[];
+
+      if (lines.isNotEmpty && lines.first.startsWith('## ')) {
+        final statusLine = lines.first.substring(3);
+        branch = statusLine.split('...').first.trim();
+
+        final aheadMatch = RegExp(r'ahead\s+(\d+)').firstMatch(statusLine);
+        final behindMatch = RegExp(r'behind\s+(\d+)').firstMatch(statusLine);
+        if (aheadMatch != null) {
+          ahead = int.tryParse(aheadMatch.group(1) ?? '0') ?? 0;
+        }
+        if (behindMatch != null) {
+          behind = int.tryParse(behindMatch.group(1) ?? '0') ?? 0;
+        }
+      }
+
+      for (var i = 1; i < lines.length; i++) {
+        final line = lines[i];
+        if (line.length < 3) continue;
+
+        final x = line[0];
+        final y = line[1];
+        final filePath = line.substring(3).trim();
+
+        if (x == '?' && y == '?') {
+          untracked.add(filePath);
+          continue;
+        }
+
+        final isConflict =
+            x == 'U' ||
+            y == 'U' ||
+            (x == 'A' && y == 'A') ||
+            (x == 'D' && y == 'D');
+        if (isConflict) {
+          conflicts.add(filePath);
+          continue;
+        }
+
+        if (x != ' ') staged.add(filePath);
+        if (y != ' ') unstaged.add(filePath);
+      }
+
+      return ToolResult.success(
+        GitStatusInfo(
+          branch: branch,
+          ahead: ahead,
+          behind: behind,
+          staged: staged,
+          unstaged: unstaged,
+          untracked: untracked,
+          conflicts: conflicts,
+        ),
+      );
+    } catch (e) {
+      return ToolResult.error('Error getting git status: $e');
+    }
+  }
+
+  Future<ToolResult<String>> gitDiff({
+    String? filePath,
+    bool staged = false,
+    int contextLines = 3,
+  }) async {
+    try {
+      final args = <String>['diff', '-U$contextLines'];
+      if (staged) {
+        args.add('--staged');
+      }
+
+      if (filePath != null && filePath.isNotEmpty) {
+        final canonicalPath = _canonicalFilePath(filePath);
+        if (!_isInsideWorkspace(canonicalPath)) {
+          return ToolResult.error(
+            'Permission denied: Path is outside workspace.',
+          );
+        }
+        args.addAll(['--', path.relative(canonicalPath, from: workspacePath)]);
+      }
+
+      final process = await _runGitCommand(args);
+      if (process.exitCode != 0) {
+        return ToolResult.error(
+          process.stderr.toString().trim().isEmpty
+              ? 'git diff failed'
+              : process.stderr.toString().trim(),
+        );
+      }
+
+      return ToolResult.success(process.stdout.toString());
+    } catch (e) {
+      return ToolResult.error('Error getting git diff: $e');
+    }
+  }
+
+  Future<ToolResult<List<GitCommitInfo>>> gitLog({
+    int limit = 20,
+    String? filePath,
+  }) async {
+    try {
+      final safeLimit = limit.clamp(1, 200);
+      final args = <String>[
+        'log',
+        '--date=iso',
+        '--pretty=format:%H%x1f%an%x1f%ad%x1f%s',
+        '-n',
+        '$safeLimit',
+      ];
+
+      if (filePath != null && filePath.isNotEmpty) {
+        final canonicalPath = _canonicalFilePath(filePath);
+        if (!_isInsideWorkspace(canonicalPath)) {
+          return ToolResult.error(
+            'Permission denied: Path is outside workspace.',
+          );
+        }
+        args.addAll(['--', path.relative(canonicalPath, from: workspacePath)]);
+      }
+
+      final process = await _runGitCommand(args);
+      if (process.exitCode != 0) {
+        return ToolResult.error(
+          process.stderr.toString().trim().isEmpty
+              ? 'git log failed'
+              : process.stderr.toString().trim(),
+        );
+      }
+
+      final commits = <GitCommitInfo>[];
+      final lines = process.stdout
+          .toString()
+          .split('\n')
+          .where((line) => line.trim().isNotEmpty);
+
+      for (final line in lines) {
+        final parts = line.split('\u001f');
+        if (parts.length < 4) continue;
+        commits.add(
+          GitCommitInfo(
+            hash: parts[0],
+            author: parts[1],
+            date: parts[2],
+            message: parts.sublist(3).join('\u001f'),
+          ),
+        );
+      }
+
+      return ToolResult.success(commits);
+    } catch (e) {
+      return ToolResult.error('Error getting git log: $e');
     }
   }
 
@@ -468,7 +1168,11 @@ class AgenticTools {
       }
 
       final reverted = content.replaceFirst(hunk.newText, hunk.oldText);
-      final writeResult = await writeFile(canonicalPath, reverted);
+      final writeResult = await writeFile(
+        canonicalPath,
+        reverted,
+        trackPendingEdits: false,
+      );
       if (!writeResult.success) {
         return writeResult;
       }
@@ -504,7 +1208,11 @@ class AgenticTools {
         return ToolResult.error('No pending edits found for file.');
       }
 
-      final writeResult = await writeFile(canonicalPath, pending.oldText);
+      final writeResult = await writeFile(
+        canonicalPath,
+        pending.oldText,
+        trackPendingEdits: false,
+      );
       if (!writeResult.success) {
         return writeResult;
       }
@@ -1000,6 +1708,295 @@ class AgenticTools {
         {
           "type": "function",
           "function": {
+            "name": "deleteFile",
+            "description": "Deletes a file from the workspace",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "The path to the file to delete",
+                },
+              },
+              "required": ["filePath"],
+            },
+          },
+        },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "rename",
+            "description": "Renames or moves a file/directory path",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "oldPath": {
+                  "type": "string",
+                  "description": "The current path",
+                },
+                "newPath": {
+                  "type": "string",
+                  "description": "The destination path",
+                },
+              },
+              "required": ["oldPath", "newPath"],
+            },
+          },
+        },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "renamePath",
+            "description": "Renames or moves a file/directory path",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "oldPath": {
+                  "type": "string",
+                  "description": "The current path",
+                },
+                "newPath": {
+                  "type": "string",
+                  "description": "The destination path",
+                },
+              },
+              "required": ["oldPath", "newPath"],
+            },
+          },
+        },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "insertAtLine",
+            "description":
+                "Inserts text before or after a specific 1-indexed line with pending diff tracking",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "The path to the file",
+                },
+                "line": {
+                  "type": "integer",
+                  "description": "1-indexed line number",
+                },
+                "text": {
+                  "type": "string",
+                  "description": "The text to insert",
+                },
+                "position": {
+                  "type": "string",
+                  "description": "Insert position: before or after",
+                },
+              },
+              "required": ["filePath", "line", "text"],
+            },
+          },
+        },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "replaceAllInFile",
+            "description":
+                "Replaces all matching text in a file with pending diff tracking",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "The path to the file",
+                },
+                "oldText": {
+                  "type": "string",
+                  "description": "Text or regex pattern to replace",
+                },
+                "newText": {
+                  "type": "string",
+                  "description": "Replacement text",
+                },
+                "useRegex": {
+                  "type": "boolean",
+                  "description": "Treat oldText as regex pattern",
+                },
+                "maxReplacements": {
+                  "type": "integer",
+                  "description": "Optional max number of replacements",
+                },
+                "caseSensitive": {
+                  "type": "boolean",
+                  "description": "Whether replacement matching is case sensitive",
+                },
+              },
+              "required": ["filePath", "oldText", "newText"],
+            },
+          },
+        },
+      {
+        "type": "function",
+        "function": {
+          "name": "readFilesBatch",
+          "description":
+              "Reads multiple files in one call with optional line ranges",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "files": {
+                "type": "array",
+                "description": "Array of file read requests",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "filePath": {"type": "string"},
+                    "startLine": {"type": "integer"},
+                    "endLine": {"type": "integer"},
+                  },
+                  "required": ["filePath"],
+                },
+              },
+            },
+            "required": ["files"],
+          },
+        },
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "globSearchFiles",
+          "description": "Finds files by glob pattern",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Glob pattern to include",
+              },
+              "directoryPath": {
+                "type": "string",
+                "description": "Optional search root directory",
+              },
+              "excludePatterns": {
+                "type": "array",
+                "description": "Optional list of glob exclude patterns",
+                "items": {"type": "string"},
+              },
+              "recursive": {
+                "type": "boolean",
+                "description": "Whether to search recursively",
+              },
+              "maxResults": {
+                "type": "integer",
+                "description": "Optional max number of results",
+              },
+            },
+            "required": ["pattern"],
+          },
+        },
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "grepInFiles",
+          "description":
+              "Searches files and returns matching lines with before/after context",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {"type": "string", "description": "Search query"},
+              "filePattern": {
+                "type": "string",
+                "description": "Optional glob pattern to filter files",
+              },
+              "caseSensitive": {
+                "type": "boolean",
+                "description": "Whether search is case sensitive",
+              },
+              "matchWholeWord": {
+                "type": "boolean",
+                "description": "Whether to match whole words only",
+              },
+              "useRegex": {
+                "type": "boolean",
+                "description": "Treat query as regular expression",
+              },
+              "before": {
+                "type": "integer",
+                "description": "Number of lines before match",
+              },
+              "after": {
+                "type": "integer",
+                "description": "Number of lines after match",
+              },
+              "maxResults": {
+                "type": "integer",
+                "description": "Optional max number of results",
+              },
+            },
+            "required": ["query"],
+          },
+        },
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "gitStatus",
+          "description":
+              "Returns git status details including branch, ahead/behind, and changed files",
+          "parameters": {"type": "object", "properties": {}},
+        },
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "gitDiff",
+          "description": "Returns git diff output",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "filePath": {
+                "type": "string",
+                "description": "Optional file path",
+              },
+              "staged": {
+                "type": "boolean",
+                "description": "Whether to diff staged changes",
+              },
+              "contextLines": {
+                "type": "integer",
+                "description": "Number of context lines",
+              },
+            },
+          },
+        },
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "gitLog",
+          "description": "Returns recent git commits",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "description": "Max number of commits",
+              },
+              "filePath": {
+                "type": "string",
+                "description": "Optional file path to filter history",
+              },
+            },
+          },
+        },
+      },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
             "name": "writeFile",
             "description":
                 "Writes content to a file, creating it if it doesn't exist",
@@ -1270,6 +2267,86 @@ class WebResult {
   String toString() {
     return toJson().toString();
   }
+}
+
+class GrepResult {
+  final String filePath;
+  final int lineNumber;
+  final String lineContent;
+  final List<String> beforeContext;
+  final List<String> afterContext;
+
+  GrepResult({
+    required this.filePath,
+    required this.lineNumber,
+    required this.lineContent,
+    required this.beforeContext,
+    required this.afterContext,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'filePath': filePath,
+    'lineNumber': lineNumber,
+    'lineContent': lineContent,
+    'beforeContext': beforeContext,
+    'afterContext': afterContext,
+  };
+
+  @override
+  String toString() {
+    return jsonEncode(toJson());
+  }
+}
+
+class GitStatusInfo {
+  final String branch;
+  final int ahead;
+  final int behind;
+  final List<String> staged;
+  final List<String> unstaged;
+  final List<String> untracked;
+  final List<String> conflicts;
+
+  GitStatusInfo({
+    required this.branch,
+    required this.ahead,
+    required this.behind,
+    required this.staged,
+    required this.unstaged,
+    required this.untracked,
+    required this.conflicts,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'branch': branch,
+    'ahead': ahead,
+    'behind': behind,
+    'staged': staged,
+    'unstaged': unstaged,
+    'untracked': untracked,
+    'conflicts': conflicts,
+  };
+}
+
+class GitCommitInfo {
+  final String hash;
+  final String author;
+  final String date;
+  final String message;
+
+  GitCommitInfo({
+    required this.hash,
+    required this.author,
+    required this.date,
+    required this.message,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'hash': hash,
+    'author': author,
+    'date': date,
+    'message': message,
+  };
 }
 
 class FileInfo {

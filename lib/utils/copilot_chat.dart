@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:vsdroid/utils/constants.dart';
 import 'agentic_tools.dart';
 
 class CopilotChat {
   final String authToken;
-  static const String _defaultCopilotApiEndpoint =
-      'https://api.individual.githubcopilot.com';
+  static const String _preferredCopilotApiEndpoint =
+      'https://api.githubcopilot.com';
+  static const String _defaultCopilotApiEndpoint = 'https://api.individual.githubcopilot.com';
   static const String _graphqlEndpoint = 'https://api.github.com/graphql';
 
   AgenticTools? _agenticTools;
@@ -31,17 +34,83 @@ class CopilotChat {
   static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
     try {
       const FlutterSecureStorage storage = FlutterSecureStorage();
-      final githubToken = await storage.read(key: 'github_access_token');
-      if (githubToken != null &&
-          githubToken.isNotEmpty &&
-          githubToken.startsWith('gho_')) {
+      final all = await storage.readAll();
+
+      final tokenFromCopilotConfig = await _loadCopilotOauthTokenFromConfigFiles(
+        domain: 'github.com',
+      );
+      if (tokenFromCopilotConfig != null && tokenFromCopilotConfig.isNotEmpty) {
+        return tokenFromCopilotConfig;
+      }
+
+      final explicitCopilotToken = all['copilot_chat_auth_token'];
+      if (explicitCopilotToken != null && explicitCopilotToken.isNotEmpty) {
+        return explicitCopilotToken;
+      }
+
+      final copilotEntry = all.entries.cast<MapEntry<String, String?>>().firstWhere(
+        (entry) {
+          final key = entry.key.toLowerCase();
+          final value = entry.value;
+          return key.contains('copilot') && value != null && value.isNotEmpty;
+        },
+        orElse: () => const MapEntry<String, String?>('', null),
+      );
+
+      if (copilotEntry.value != null && copilotEntry.value!.isNotEmpty) {
+        return copilotEntry.value;
+      }
+
+      final githubToken = all['github_access_token'];
+      if (githubToken != null && githubToken.isNotEmpty) {
         return githubToken;
       }
     } catch (e) {
-      return "Failed to retrive the Github token. Make sure you're signed in with github.";
+      return null;
     }
 
-    return "Failed to retrive the Github token. Make sure you're signed in with github.";
+    return null;
+  }
+
+  static Future<String?> _loadCopilotOauthTokenFromConfigFiles({
+    required String domain,
+  }) async {
+    final candidates = <String>[
+      '$filesDir/github-copilot/hosts.json',
+      '$filesDir/github-copilot/apps.json',
+      '$filesDir/.config/github-copilot/hosts.json',
+      '$filesDir/.config/github-copilot/apps.json',
+      '$homeDir/.config/github-copilot/hosts.json',
+      '$homeDir/.config/github-copilot/apps.json',
+    ];
+
+    for (final filePath in candidates) {
+      try {
+        final file = File(filePath);
+        if (!await file.exists()) continue;
+
+        final content = await file.readAsString();
+        final parsed = jsonDecode(content);
+        if (parsed is! Map<String, dynamic>) continue;
+
+        for (final entry in parsed.entries) {
+          final key = entry.key.toLowerCase();
+          final value = entry.value;
+          if (value is! Map<String, dynamic>) continue;
+
+          final oauthToken = value['oauth_token'] as String?;
+          if (oauthToken == null || oauthToken.isEmpty) continue;
+
+          if (key.startsWith(domain.toLowerCase()) || key.contains(domain.toLowerCase())) {
+            return oauthToken;
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return null;
   }
 
   CopilotChat({required this.authToken});
@@ -58,6 +127,7 @@ class CopilotChat {
     return {
       'Authorization': 'Bearer $authToken',
       'Accept': 'application/json',
+      'Copilot-Integration-Id': 'vscode-chat',
       'User-Agent': 'VSdroid/1.0.0',
       'Editor-Version': 'VSdroid/1.0.0',
       'X-GitHub-Api-Version': '2025-10-01',
@@ -71,6 +141,18 @@ class CopilotChat {
   Future<String> _resolveApiEndpoint() async {
     if (_apiEndpoint != null && _apiEndpoint!.isNotEmpty) {
       return _apiEndpoint!;
+    }
+
+    try {
+      final preferredProbe = await http.get(
+        Uri.parse('$_preferredCopilotApiEndpoint/models'),
+        headers: _commonHeaders(),
+      );
+      if (preferredProbe.statusCode == 200) {
+        _apiEndpoint = _preferredCopilotApiEndpoint;
+        return _apiEndpoint!;
+      }
+    } catch (_) {
     }
 
     try {
@@ -94,10 +176,10 @@ class CopilotChat {
         }
       }
     } catch (_) {
-      // Fall back to the public individual endpoint when discovery fails.
     }
 
-    return _defaultCopilotApiEndpoint;
+    _apiEndpoint = _defaultCopilotApiEndpoint;
+    return _apiEndpoint!;
   }
 
   Set<String> _modelSupportedEndpoints(String model) {
@@ -123,7 +205,6 @@ class CopilotChat {
     }
 
     if (hasTools) {
-      // Tool-calling in this client is implemented for the Chat Completions flow.
       return '/chat/completions';
     }
 
@@ -224,19 +305,27 @@ class CopilotChat {
 
   Future<Map<String, dynamic>> getCopilotModels() async {
     final apiEndpoint = await _resolveApiEndpoint();
+    final modelUrl = '$apiEndpoint/models';
+
     final response = await http.get(
-      Uri.parse('$apiEndpoint/models'),
+      Uri.parse(modelUrl),
       headers: _commonHeaders(),
     );
 
     if (response.statusCode == 200) {
-      final parsed = jsonDecode(response.body) as Map<String, dynamic>;
+      final decoded = jsonDecode(response.body);
+      final parsed = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{
+              'data': decoded,
+            };
       final data = parsed['data'];
       if (data is List) {
         _cachedModels = data
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+      } else {
       }
       return parsed;
     } else {
@@ -411,6 +500,14 @@ class CopilotChat {
                   : (res.error ?? 'Error reading file');
               break;
             case 'writeFile':
+              String? previousContent;
+              final previousRead = await _agenticTools?.readFile(
+                args['filePath'],
+              );
+              if (previousRead != null && previousRead.success) {
+                previousContent = previousRead.data;
+              }
+
               final res =
                   await _agenticTools?.writeFile(
                     args['filePath'],
@@ -420,6 +517,103 @@ class CopilotChat {
               result = res.success
                   ? 'File written successfully'
                   : (res.error ?? 'Error writing file');
+              if (res.success) {
+                final added = _lineCount(args['content']?.toString());
+                final removed = _lineCount(previousContent);
+                pushPartial(
+                  _toolEditMarker(
+                    args['filePath']?.toString() ?? 'unknown',
+                    added,
+                    removed,
+                  ),
+                );
+              }
+              break;
+            case 'deleteFile':
+              final previousRead = await _agenticTools?.readFile(args['filePath']);
+              final res =
+                  await _agenticTools?.deleteFile(args['filePath']) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'File deleted successfully'
+                  : (res.error ?? 'Error deleting file');
+              if (res.success) {
+                pushPartial(
+                  _toolEditMarker(
+                    args['filePath']?.toString() ?? 'unknown',
+                    0,
+                    _lineCount(previousRead?.data),
+                  ),
+                );
+              }
+              break;
+            case 'renamePath':
+              final res =
+                  await _agenticTools?.renamePath(
+                    args['oldPath'],
+                    args['newPath'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'Path renamed successfully'
+                  : (res.error ?? 'Error renaming path');
+              break;
+            case 'rename':
+              final res =
+                  await _agenticTools?.rename(
+                    args['oldPath'],
+                    args['newPath'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'Path renamed successfully'
+                  : (res.error ?? 'Error renaming path');
+              break;
+            case 'insertAtLine':
+              final res =
+                  await _agenticTools?.insertAtLine(
+                    args['filePath'],
+                    args['line'],
+                    args['text'],
+                    position: args['position'] ?? 'before',
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'Text inserted successfully'
+                  : (res.error ?? 'Error inserting text');
+              if (res.success) {
+                pushPartial(
+                  _toolEditMarker(
+                    args['filePath']?.toString() ?? 'unknown',
+                    _lineCount(args['text']?.toString()),
+                    0,
+                  ),
+                );
+              }
+              break;
+            case 'replaceAllInFile':
+              final res =
+                  await _agenticTools?.replaceAllInFile(
+                    args['filePath'],
+                    args['oldText'],
+                    args['newText'],
+                    useRegex: args['useRegex'] ?? false,
+                    maxReplacements: args['maxReplacements'],
+                    caseSensitive: args['caseSensitive'] ?? true,
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data)
+                  : (res.error ?? 'Error replacing text');
+              if (res.success) {
+                pushPartial(
+                  _toolEditMarker(
+                    args['filePath']?.toString() ?? 'unknown',
+                    _lineCount(args['newText']?.toString()),
+                    _lineCount(args['oldText']?.toString()),
+                  ),
+                );
+              }
               break;
             case 'listFiles':
               final res =
@@ -432,6 +626,33 @@ class CopilotChat {
               result = res.success
                   ? (res.data?.join('\n') ?? 'No files')
                   : (res.error ?? 'Error listing files');
+              break;
+            case 'readFilesBatch':
+              final parsedFiles = (args['files'] as List?) ?? const [];
+              final res =
+                  await _agenticTools?.readFilesBatch(parsedFiles) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data)
+                  : (res.error ?? 'Error reading files batch');
+              break;
+            case 'globSearchFiles':
+              final parsedExcludePatterns =
+                  (args['excludePatterns'] as List?)
+                      ?.map((item) => item.toString())
+                      .toList();
+              final res =
+                  await _agenticTools?.globSearchFiles(
+                    args['pattern'],
+                    directoryPath: args['directoryPath'] ?? '.',
+                    excludePatterns: parsedExcludePatterns,
+                    recursive: args['recursive'] ?? true,
+                    maxResults: args['maxResults'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data?.join('\n') ?? 'No matches')
+                  : (res.error ?? 'Error searching files by glob');
               break;
             case 'searchInFiles':
               final res =
@@ -452,6 +673,23 @@ class CopilotChat {
                             .join('\n') ??
                         'No results')
                   : (res.error ?? 'Error searching files');
+              break;
+            case 'grepInFiles':
+              final res =
+                  await _agenticTools?.grepInFiles(
+                    args['query'],
+                    filePattern: args['filePattern'],
+                    caseSensitive: args['caseSensitive'] ?? false,
+                    matchWholeWord: args['matchWholeWord'] ?? false,
+                    useRegex: args['useRegex'] ?? false,
+                    before: args['before'] ?? 2,
+                    after: args['after'] ?? 2,
+                    maxResults: args['maxResults'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data?.map((r) => r.toString()).join('\n') ?? 'No results')
+                  : (res.error ?? 'Error grepping files');
               break;
             case 'editFile':
               final res =
@@ -541,6 +779,37 @@ class CopilotChat {
               result = res.success
                   ? jsonEncode(res.data)
                   : (res.error ?? 'Error running shell command');
+              break;
+            case 'gitStatus':
+              final res =
+                  await _agenticTools?.gitStatus() ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data?.toJson())
+                  : (res.error ?? 'Error getting git status');
+              break;
+            case 'gitDiff':
+              final res =
+                  await _agenticTools?.gitDiff(
+                    filePath: args['filePath'],
+                    staged: args['staged'] ?? false,
+                    contextLines: args['contextLines'] ?? 3,
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data ?? '')
+                  : (res.error ?? 'Error getting git diff');
+              break;
+            case 'gitLog':
+              final res =
+                  await _agenticTools?.gitLog(
+                    limit: args['limit'] ?? 20,
+                    filePath: args['filePath'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data?.map((c) => c.toJson()).toList() ?? [])
+                  : (res.error ?? 'Error getting git log');
               break;
             default:
               result = 'Unknown tool: $functionName';

@@ -376,6 +376,7 @@ class CopilotLsp {
     final executeCommandProvider = capabilities['executeCommandProvider'] as Map<String, dynamic>?;
     final commands = executeCommandProvider?['commands'] as List<dynamic>?;
     _serverCommands = commands?.whereType<String>().toList() ?? const [];
+    debugPrint('[CopilotLsp] Server execute commands: ${_serverCommands.join(', ')}');
 
     await _sendNotification(method: 'initialized', params: {});
     _isInitialized = true;
@@ -407,6 +408,9 @@ class CopilotLsp {
     );
     
     final result = response['result'] as Map<String, dynamic>? ?? {};
+    debugPrint(
+      '[CopilotLsp] checkStatus keys: ${result.keys.join(', ')}, status=${result['status']}, hasCommand=${result['command'] != null}',
+    );
     final payload = CopilotSignInPayload.fromJson(result);
     
     if (payload.isOk) {

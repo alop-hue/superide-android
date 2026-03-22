@@ -268,10 +268,24 @@ Widget projectTile(
   );
 }
 
-Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
+Widget bottomTool(
+  bool isDark,
+  dynamic iconData,
+  VoidCallback? onPressed, [
+  VoidCallback? onLongPress,
+  bool isEnabled = true,
+]) {
+  final effectiveEnabled = isEnabled && onPressed != null;
+  final iconColor = !isDark
+      ? const Color.fromARGB(255, 40, 40, 40)
+      : const Color.fromARGB(255, 194, 194, 194);
+  final disabledColor = isDark
+      ? Colors.grey.shade700
+      : Colors.grey.shade500;
+
   return SizedBox(
     height: 37,
-    width: 75,
+    width: 50,
     child: IconButton(
       highlightColor: Colors.lightBlue.withAlpha(160),
       style: ButtonStyle(
@@ -282,19 +296,40 @@ Widget bottomTool(bool isDark, IconData iconData, VoidCallback onPressed) {
         ),
       ),
       padding: EdgeInsets.zero,
-      onPressed: () {
-        try {
-          onPressed.call();
-        } catch (e) {
-          /**/
-        }
-      },
-      icon: Icon(
+      onPressed: effectiveEnabled
+          ? () {
+              try {
+                onPressed.call();
+              } catch (e) {
+                /**/
+              }
+            }
+          : null,
+      
+      icon: iconData is IconData ? Icon(
         iconData,
-        color: !isDark
-            ? const Color.fromARGB(255, 40, 40, 40)
-            : const Color.fromARGB(255, 194, 194, 194),
-      ),
+        color: effectiveEnabled ? iconColor : disabledColor,
+      ) : Container(
+            padding: EdgeInsets.all(5.5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: effectiveEnabled
+                    ? (isDark ? Colors.grey[400]! : Colors.grey)
+                    : disabledColor,
+                width: 0.5
+              )
+            ),
+            child: Text(
+              iconData,
+              style: TextStyle(
+                color: effectiveEnabled
+                    ? (isDark ? Colors.grey[400]! : Colors.grey)
+                    : disabledColor,
+                fontSize: 12
+              )
+            )
+      )
     ),
   );
 }
@@ -532,6 +567,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                       }
                       return const <Mode>[];
                     })(),
+                    customCodeSnippets: widget.language.customCodeSnippet,
                     filePath: widget.filePath.path,
                     enableGuideLines: (configState.codeForgeConfig['indentLineStatus'] ?? true) as bool,
                     selectionStyle: CodeSelectionStyle(
@@ -918,11 +954,13 @@ class EditorArea extends StatefulWidget {
   final ActiveEditor editor;
   final AppTheme appTheme;
   final String workspacePath;
+  final TabController? tabController;
   const EditorArea({
     super.key,
     required this.editor,
     required this.appTheme,
     required this.workspacePath,
+    this.tabController,
   });
 
   @override
@@ -1024,6 +1062,19 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
         );
       }
     }
+  }
+
+  Future<void> _applyPendingAgenticDiffForFile(
+    CodeForgeController targetController,
+    String filePath,
+  ) async {
+    try {
+      final canonicalPath = File(filePath).absolute.path;
+      final pending = await PendingEditFile.getForFile(canonicalPath);
+      if (!mounted) return;
+      if (pending == null || pending.editHunks.isEmpty) return;
+      pending.applyDecorations(targetController);
+    } catch (_) {}
   }
 
   ButtonStyle _pendingActionStyle({bool destructive = false}) {
@@ -1174,7 +1225,26 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
 
   @override
   Widget build(BuildContext context) {
+    final sctrl = ScrollController();
     super.build(context);
+    final codeForgeConfig = context.watch<ConfigBloc>().state.codeForgeConfig;
+    final lspEnabled = (codeForgeConfig['enableLSP'] ?? false) == true;
+    final lspFeatureToggle = Map<String, dynamic>.from(
+      codeForgeConfig['LSPFeatureToggle'] ?? {},
+    );
+    final disabledLspFeatures = List<String>.from(
+      lspFeatureToggle[language.name.toLowerCase()] ?? const [],
+    );
+    bool isLspFeatureEnabled(String feature) {
+      if (!lspEnabled || controller.lspConfig == null) return false;
+      return !disabledLspFeatures.contains(feature);
+    }
+
+    final codeActionEnabled = isLspFeatureEnabled('codeAction');
+    final inlayHintEnabled = isLspFeatureEnabled('inlayHint');
+    final goToDefinitionEnabled = isLspFeatureEnabled('goToDefinition');
+    final signatureHelpEnabled = isLspFeatureEnabled('signatureHelp');
+
     final pageContent = Column(
       children: [
         Expanded(
@@ -1199,154 +1269,454 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
             },
           ),
         ),
-        Container(
-          height: 78,
-          color: appTheme.isDark
-              ? const Color.fromARGB(255, 32, 32, 32)
-              : const Color.fromARGB(255, 219, 218, 218),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  SizedBox(
-                    height: 37,
-                    width: 75,
-                    child: IconButton(
-                      highlightColor: Colors.lightBlue.withAlpha(160),
-                      style: ButtonStyle(
-                        shape: WidgetStateProperty.all(
-                          const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        final ghostText = controller.ghostText;
-                        if(ghostText != null){
-                          controller.insertText(ghostText.text, ghostText.line, ghostText.column);
-                          controller.clearGhostText();
-                        } else {
-                          controller.insertAtCurrentCursor("\t");
-                        }
-                      },
-                      icon: SvgPicture.asset(
-                        "assets/icons/tab.svg",
-                        height: 25,
-                        width: 25,
-                        colorFilter: ColorFilter.mode(
-                          appTheme.isDark
-                              ? const Color.fromARGB(255, 194, 194, 194)
-                              : const Color.fromARGB(255, 40, 40, 40),
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                  ),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.undo,
-                    () {
-                      if (undoRedoController.canUndo) {
-                        undoRedoController.undo();
-                      }
-                    },
-                  ),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.redo,
-                    () {
-                      if (undoRedoController.canRedo) {
-                        undoRedoController.redo();
-                      }
-                    },
-                  ),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.arrow_upward,
-                    controller.pressUpArrowKey,
-                  ),
-                  SizedBox(
-                    height: 37,
-                    width: 75,
-                    child: IconButton(
-                      highlightColor: Colors.lightBlue.withAlpha(160),
-                      style: ButtonStyle(
-                        shape: WidgetStateProperty.all(
-                          const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: () async {
-                        final String? codeModel = context.read<AIBloc>().state.modelSelected['code'];
-                        if (codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled) {
-                          if(codeModel == "copilot"){
-                            _editorKey.currentState?.requestCopilotCompletionManual();
-                          } else {
-                            //TODO
-                          }
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                "No completion model found. Configure one in the settings",
+        RawScrollbar(
+          controller: sctrl,
+          scrollbarOrientation: ScrollbarOrientation.top,
+          thumbColor: appTheme.selectScreenCardTextColor.withAlpha(50),
+          interactive: false,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: SingleChildScrollView(
+            controller: sctrl,
+            padding: EdgeInsets.zero,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 78,
+                  color: appTheme.isDark
+                    ? const Color.fromARGB(255, 32, 32, 32)
+                    : const Color.fromARGB(255, 219, 218, 218),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 37,
+                            width: 50,
+                            child: IconButton(
+                              highlightColor: Colors.lightBlue.withAlpha(160),
+                              style: ButtonStyle(
+                                shape: WidgetStateProperty.all(
+                                  const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                                  ),
+                                ),
                               ),
-                              duration: const Duration(seconds: 2),
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                final ghostText = controller.ghostText;
+                                if(ghostText != null){
+                                  controller.insertText(ghostText.text, ghostText.line, ghostText.column);
+                                  controller.clearGhostText();
+                                } else {
+                                  controller.insertAtCurrentCursor("\t");
+                                }
+                              },
+                              icon: SvgPicture.asset(
+                                "assets/icons/tab.svg",
+                                height: 25,
+                                width: 25,
+                                colorFilter: ColorFilter.mode(
+                                  appTheme.isDark
+                                      ? const Color.fromARGB(255, 194, 194, 194)
+                                      : const Color.fromARGB(255, 40, 40, 40),
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
-                          );
-                        }
-                      },
-                      icon: SvgPicture.asset(
-                        "assets/icons/ai.svg",
-                        height: 25,
-                        width: 25,
+                          ),
+                          AnimatedBuilder(
+                            animation: undoRedoController,
+                            builder: (context, _) {
+                              return bottomTool(
+                                appTheme.isDark,
+                                Icons.undo,
+                                undoRedoController.undo,
+                                null,
+                                undoRedoController.canUndo,
+                              );
+                            },
+                          ),
+                          AnimatedBuilder(
+                            animation: undoRedoController,
+                            builder: (context, _) {
+                              return bottomTool(
+                                appTheme.isDark,
+                                Icons.redo,
+                                undoRedoController.redo,
+                                null,
+                                undoRedoController.canRedo,
+                              );
+                            },
+                          ),
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.arrow_upward,
+                            controller.pressUpArrowKey,
+                          ),
+                          SizedBox(
+                            height: 37,
+                            width: 50,
+                            child: IconButton(
+                              highlightColor: Colors.lightBlue.withAlpha(160),
+                              style: ButtonStyle(
+                                shape: WidgetStateProperty.all(
+                                  const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                                  ),
+                                ),
+                              ),
+                              padding: EdgeInsets.zero,
+                              onPressed: () async {
+                                final String? codeModel = context.read<AIBloc>().state.modelSelected['code'];
+                                if (codeModel != null && codeModel.isNotEmpty && context.read<AIBloc>().state.isEnabled) {
+                                  if(codeModel == "copilot"){
+                                    _editorKey.currentState?.requestCopilotCompletionManual();
+                                  } else {
+                                    //TODO
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        "No completion model found. Configure one in the settings",
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: SvgPicture.asset(
+                                "assets/icons/ai.svg",
+                                height: 25,
+                                width: 25,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      Row(
+                        children: [
+                          bottomTool(appTheme.isDark, Icons.zoom_in, () {
+                            double currentFontSize = context
+                                .read<ConfigBloc>()
+                                .state
+                                .fontSize;
+                            context.read<ConfigBloc>().add(
+                              SetFontSize(fontSize: currentFontSize * 1.15),
+                            );
+                          }),
+                          bottomTool(appTheme.isDark, Icons.zoom_out, () {
+                            double currentFontSize = context
+                                .read<ConfigBloc>()
+                                .state
+                                .fontSize;
+                            context.read<ConfigBloc>().add(
+                              SetFontSize(fontSize: currentFontSize * 0.9),
+                            );
+                          }),
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.arrow_back,
+                            controller.pressLetfArrowKey,
+                          ),
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.arrow_downward,
+                            controller.pressDownArrowKey,
+                          ),
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.arrow_forward,
+                            controller.pressRightArrowKey,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  bottomTool(appTheme.isDark, Icons.zoom_in, () {
-                    double currentFontSize = context
-                        .read<ConfigBloc>()
-                        .state
-                        .fontSize;
-                    context.read<ConfigBloc>().add(
-                      SetFontSize(fontSize: currentFontSize * 1.15),
-                    );
-                  }),
-                  bottomTool(appTheme.isDark, Icons.zoom_out, () {
-                    double currentFontSize = context
-                        .read<ConfigBloc>()
-                        .state
-                        .fontSize;
-                    context.read<ConfigBloc>().add(
-                      SetFontSize(fontSize: currentFontSize * 0.9),
-                    );
-                  }),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.arrow_back,
-                    controller.pressLetfArrowKey,
+                ),
+                Container(
+                  height: 78,
+                  color: appTheme.isDark
+                    ? const Color.fromARGB(255, 32, 32, 32)
+                    : const Color.fromARGB(255, 219, 218, 218),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.lightbulb,
+                            (){
+                              controller.getCodeAction();
+                              if(controller.codeActionsNotifier.value == null){
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: appTheme.cardTheme.color,
+                                    content: Padding(
+                                      padding: const EdgeInsets.only(left: 10),
+                                      child: Row(
+                                        spacing: 7, 
+                                        children: [
+                                          Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
+                                          Text("No code actions available at this moment")
+                                        ]
+                                      ),
+                                    )
+                                  )
+                                );
+                              }
+                            },
+                            null,
+                            codeActionEnabled,
+                          ),
+                          SizedBox(
+                            height: 37,
+                            width: 50,
+                            child: InkWell(
+                              onTap: inlayHintEnabled
+                                  ? (){
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: appTheme.cardTheme.color,
+                                    content: Padding(
+                                      padding: const EdgeInsets.only(left: 10),
+                                      child: Row(
+                                        spacing: 7, 
+                                        children: [
+                                          Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
+                                          Text("Hold down to see inlay hints")
+                                        ]
+                                      ),
+                                    )
+                                  )
+                                );
+                              }
+                                  : null,
+                              onLongPress: inlayHintEnabled ? controller.showInlayHints : null,
+                              onLongPressUp: inlayHintEnabled ? controller.hideInlayHints : null,
+                              child: Icon(
+                                Icons.highlight_outlined,
+                                color: inlayHintEnabled
+                                  ? (!appTheme.isDark
+                                      ? const Color.fromARGB(255, 40, 40, 40)
+                                      : const Color.fromARGB(255, 194, 194, 194))
+                                  : (appTheme.isDark ? Colors.grey.shade700 : Colors.grey.shade500),
+                              )
+                            ),
+                          ),
+                          
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.devices_fold_outlined,
+                            () async{
+                              if(controller.lspConfig == null || controller.openedFile == null) return;
+                              final last = controller.lineCount - 1;
+                              final def = await controller.lspConfig!.getDefinition(
+                                controller.openedFile!,
+                                controller.getLineAtOffset(controller.selection.extentOffset),
+                                controller.getLineText(last).length
+                              );
+
+                              final String? defFile = def["uri"];
+                              if (defFile != null){
+                                if(!context.mounted) return;
+                                final defPath = File(Uri.parse(defFile).toFilePath()).absolute.path;
+                                if(defPath == controller.openedFile){
+                                  final int? line = def["range"]?["start"]?["line"];
+                                  if(line != null){
+                                    controller.scrollToLine(line);
+                                  }
+                                } else {
+                                  final int? line = def["range"]?["start"]?["line"];
+                                  final activeEditorBloc = context.read<ActiveEditorBloc>();
+                                  final currentState = List<ActiveEditor>.from(
+                                    activeEditorBloc.state.activeEditors,
+                                  );
+
+                                  final existingIndex = currentState.indexWhere(
+                                    (item) => File(item.file.path).absolute.path == defPath,
+                                  );
+
+                                  if (existingIndex >= 0) {
+                                    for (var i = 0; i < currentState.length; i++) {
+                                      currentState[i].isActive = i == existingIndex;
+                                    }
+                                    activeEditorBloc.add(ActiveEditorEvent(currentState));
+
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      final tabController = widget.tabController;
+                                      if (tabController != null && existingIndex < tabController.length) {
+                                        tabController.animateTo(existingIndex);
+                                      }
+                                      if (line != null) {
+                                        currentState[existingIndex].controller.scrollToLine(line);
+                                      }
+                                    });
+                                  } else {
+                                    final targetFile = File(defPath);
+                                    if (!targetFile.existsSync()) return;
+
+                                    for (final item in currentState) {
+                                      item.isActive = false;
+                                    }
+
+                                    final lang = languages.firstWhere(
+                                      (language) => language.extension.contains(
+                                        path.extension(targetFile.path).replaceFirst(".", ""),
+                                      ),
+                                      orElse: () => languages[0],
+                                    );
+
+                                    final config = context.read<ConfigBloc>().state.codeForgeConfig;
+                                    LspConfig? lspConfig;
+                                    if (config['enableLSP']) {
+                                      lspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
+                                        languageId: lang.name,
+                                        ext: lang.extension[0],
+                                        executable: lang.lspExecutable,
+                                        args: lang.args ?? [],
+                                      );
+                                    }
+
+                                    final newController = CodeForgeController(lspConfig: lspConfig);
+                                    await _applyPendingAgenticDiffForFile(newController, targetFile.path);
+                                    final newEditor = ActiveEditor(
+                                      file: targetFile,
+                                      controller: newController,
+                                      languageDetails: lang,
+                                      undoRedoController: UndoRedoController(),
+                                      hscroll: ScrollController(),
+                                      vscroll: ScrollController(),
+                                      isActive: true,
+                                      findController: FindController(newController),
+                                    );
+
+                                    currentState.add(newEditor);
+                                    activeEditorBloc.add(ActiveEditorEvent(currentState));
+
+                                    final newIndex = currentState.length - 1;
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      final tabController = widget.tabController;
+                                      if (tabController != null && newIndex < tabController.length) {
+                                        tabController.animateTo(newIndex);
+                                      }
+                                      if (line != null) {
+                                        Future.delayed(const Duration(milliseconds: 100), () {
+                                          if (!mounted) return;
+                                          newEditor.controller.scrollToLine(line);
+                                        });
+                                      }
+                                    });
+                                  }
+                                }
+                              }
+                            },
+                            null,
+                            goToDefinitionEnabled,
+                          ),
+                          bottomTool(
+                            appTheme.isDark,
+                            "Home",
+                            controller.pressHomeKey
+                          ),
+                          bottomTool(
+                            appTheme.isDark,
+                            "End",
+                            controller.pressEndKey
+                          )
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.keyboard_double_arrow_up_outlined,
+                            controller.moveLineUp
+                          ),
+
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.keyboard_double_arrow_down_outlined,
+                            controller.moveLineDown
+                          ),
+
+                          bottomTool(
+                            appTheme.isDark,
+                            "Dup",
+                            controller.duplicateLine
+                          ),
+
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.signpost,
+                            (){
+                              controller.callSignatureHelp();
+
+                              if(controller.signatureNotifier.value == null){
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: appTheme.cardTheme.color,
+                                    content: Padding(
+                                      padding: const EdgeInsets.only(left: 10),
+                                      child: Row(
+                                        spacing: 7, 
+                                        children: [
+                                          Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
+                                          Text("No signature help available at this region.\nTry it inside functions.")
+                                        ]
+                                      ),
+                                    )
+                                  )
+                                );
+                              }
+                            },
+                            null,
+                            signatureHelpEnabled,
+                          ),
+
+                          bottomTool(
+                            appTheme.isDark,
+                            Icons.format_paint,
+                            (){
+                              final line = controller.getLineAtOffset(controller.selection.extentOffset);
+
+                              if(controller.lineDecorations.any((l) => l.id == line.toString())){
+                                final decoratedId = controller.lineDecorations.singleWhere((l) => l.id == line.toString()).id;
+                                controller.removeLineDecoration(decoratedId);
+                                controller.removeGutterDecoration(decoratedId);
+                                return;
+                              }
+
+                              controller.addLineDecoration(
+                                LineDecoration(
+                                  id: line.toString(),
+                                  startLine: line,
+                                  endLine: controller.getLineAtOffset(controller.selection.extentOffset),
+                                  type: LineDecorationType.background,
+                                  color: Colors.blue.withAlpha(95)
+                                )
+                              );
+
+                              controller.addGutterDecoration(
+                                GutterDecoration(
+                                  id: line.toString(),
+                                  startLine: line,
+                                  endLine: controller.getLineAtOffset(controller.selection.extentOffset),
+                                  type: GutterDecorationType.dot,
+                                  color: Colors.blue
+                                )
+                              );
+                            }
+                          )
+                        ],
+                      )
+                    ],
                   ),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.arrow_downward,
-                    controller.pressDownArrowKey,
-                  ),
-                  bottomTool(
-                    appTheme.isDark,
-                    Icons.arrow_forward,
-                    controller.pressRightArrowKey,
-                  ),
-                ],
-              ),
-            ],
+                )
+              ],
+            ),
           ),
         ),
       ],
