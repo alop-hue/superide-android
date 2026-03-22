@@ -13,10 +13,12 @@ import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:vsdroid/utils/agentic_tools.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
+import '../terminal/terminal.dart';
 import '../utils/ai.dart';
 import '../utils/copilot_chat.dart';
 import '../utils/functions.dart';
@@ -53,6 +55,59 @@ void _refreshRepoStatusForFile(BuildContext context, File file) {
       context.read<RepoStatusBloc>().add(LoadRepoStatus(root.path));
     }
   } catch (_) {}
+}
+
+int _lineCount(String? text) {
+  if (text == null || text.isEmpty) return 0;
+  return text.split('\n').length;
+}
+
+({int added, int removed}) _pendingDiffCounts(PendingEditFile? pending) {
+  if (pending == null) return (added: 0, removed: 0);
+
+  var added = 0;
+  var removed = 0;
+  for (final hunk in pending.editHunks) {
+    if (hunk.type == 'added') {
+      added += _lineCount(hunk.addedText ?? hunk.newText);
+      continue;
+    }
+    if (hunk.type == 'removed') {
+      removed += _lineCount(hunk.removedText ?? hunk.oldText);
+      continue;
+    }
+    added += _lineCount(hunk.addedText);
+    removed += _lineCount(hunk.removedText);
+  }
+
+  return (added: added, removed: removed);
+}
+
+int _lineAtOffset(String text, int offset) {
+  if (text.isEmpty) return 0;
+  final safeOffset = offset.clamp(0, text.length);
+  return '\n'.allMatches(text.substring(0, safeOffset)).length;
+}
+
+({int start, int end}) _resolveDisplayLineRange(
+  PendingEditFile pending,
+  EditHunk hunk,
+) {
+  final needle = hunk.oldText;
+  if (needle.isNotEmpty) {
+    final first = pending.oldText.indexOf(needle);
+    if (first >= 0) {
+      final second = pending.oldText.indexOf(needle, first + 1);
+      if (second == -1) {
+        final start = _lineAtOffset(pending.oldText, first);
+        final endOffset = (first + needle.length - 1).clamp(first, pending.oldText.length);
+        final end = _lineAtOffset(pending.oldText, endOffset);
+        return (start: start, end: end);
+      }
+    }
+  }
+
+  return (start: hunk.sourceStartLine, end: hunk.sourceEndLine);
 }
 
 Widget drawerButtons(
@@ -284,6 +339,13 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     final controller = widget.codeController;
+    try {
+      if (controller.text.isEmpty && widget.filePath.existsSync()) {
+        controller.openedFile = widget.filePath.path;
+        controller.notifyListeners();
+      }
+    } catch (_) {
+    }
     final generalState = context.read<GeneralBloc>().state;
     final configState = context.read<ConfigBloc>().state;
     
@@ -460,6 +522,16 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
                     lineWrap: (configState.codeForgeConfig['lineWrap'] ?? false) as bool,
                     enableFolding: (configState.codeForgeConfig['enableFolding'] ?? true) as bool,
                     language: widget.language.language,
+                    extraLanguages: (() {
+                      final ext = path.extension(widget.filePath.path).toLowerCase();
+                      if (ext == '.tsx' || ext == '.jsx') {
+                        final Mode? xmlMode = langxml.language;
+                        if (xmlMode != null) {
+                          return <Mode>[xmlMode];
+                        }
+                      }
+                      return const <Mode>[];
+                    })(),
                     filePath: widget.filePath.path,
                     enableGuideLines: (configState.codeForgeConfig['indentLineStatus'] ?? true) as bool,
                     selectionStyle: CodeSelectionStyle(
@@ -845,7 +917,13 @@ class FindPanelWidget extends StatelessWidget implements PreferredSizeWidget {
 class EditorArea extends StatefulWidget {
   final ActiveEditor editor;
   final AppTheme appTheme;
-  const EditorArea({super.key, required this.editor, required this.appTheme});
+  final String workspacePath;
+  const EditorArea({
+    super.key,
+    required this.editor,
+    required this.appTheme,
+    required this.workspacePath,
+  });
 
   @override
   State<EditorArea> createState() => _EditorPageState();
@@ -860,6 +938,9 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   late final File file;
   late final String ext;
   final GlobalKey<_CodeEditorState> _editorKey = GlobalKey();
+  PendingEditFile? _pendingEdits;
+  bool _isApplyingPendingAction = false;
+  Timer? _pendingRefreshTimer;
 
   @override
   void initState() {
@@ -870,7 +951,225 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     language = editor.languageDetails;
     file = editor.file;
     ext = path.extension(file.path);
+    _reloadPendingEdits();
+    _pendingRefreshTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _reloadPendingEdits(silent: true),
+    );
     super.initState();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.editor.file.path != widget.editor.file.path) {
+      _reloadPendingEdits();
+    }
+  }
+
+  Future<void> _reloadPendingEdits({bool silent = false}) async {
+    final pending = await PendingEditFile.getForFile(File(file.path).absolute.path);
+    if (!mounted) return;
+    if (silent && _pendingEdits?.editHunks.length == pending?.editHunks.length) {
+      return;
+    }
+    setState(() {
+      _pendingEdits = pending;
+    });
+  }
+
+  Future<void> _keepHunk(EditHunk hunk) async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    await tools.keepPendingEditHunk(file.path, hunk.id);
+    await _reloadPendingEdits();
+    if (mounted) {
+      setState(() => _isApplyingPendingAction = false);
+    }
+  }
+
+  Future<void> _rejectHunk(EditHunk hunk) async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    final result = await tools.rejectPendingEditHunk(file.path, hunk.id);
+    await _reloadPendingEdits();
+    if (mounted) {
+      setState(() => _isApplyingPendingAction = false);
+      if (!result.success && result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error!)),
+        );
+      }
+    }
+  }
+
+  Future<void> _keepAll() async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    await tools.keepAllPendingEdits(file.path);
+    await _reloadPendingEdits();
+    if (mounted) setState(() => _isApplyingPendingAction = false);
+  }
+
+  Future<void> _rejectAll() async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    final result = await tools.rejectAllPendingEdits(file.path);
+    await _reloadPendingEdits();
+    if (mounted) {
+      setState(() => _isApplyingPendingAction = false);
+      if (!result.success && result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error!)),
+        );
+      }
+    }
+  }
+
+  ButtonStyle _pendingActionStyle({bool destructive = false}) {
+    final accent = destructive
+        ? const Color(0xFFC62828)
+        : (appTheme.isDark ? const Color(0xFF66BB6A) : const Color(0xFF2E7D32));
+    return OutlinedButton.styleFrom(
+      foregroundColor: accent,
+      side: BorderSide(color: accent.withValues(alpha: 0.75)),
+      backgroundColor: accent.withValues(alpha: appTheme.isDark ? 0.12 : 0.08),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+    );
+  }
+
+  Widget? _buildPendingDiffPanel() {
+    final pending = _pendingEdits;
+    if (pending == null || pending.editHunks.isEmpty) {
+      return null;
+    }
+    final counts = _pendingDiffCounts(pending);
+
+    return Positioned(
+      right: 10,
+      bottom: 10,
+      child: Container(
+        width: 310,
+        constraints: const BoxConstraints(maxHeight: 250),
+        decoration: BoxDecoration(
+          color: appTheme.isDark ? const Color(0xff1f1f1f) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.compare_arrows, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Pending Diff',
+                    style: TextStyle(
+                      color: appTheme.selectScreenCardTextColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '+${counts.added}',
+                    style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '-${counts.removed}',
+                    style: const TextStyle(color: Color(0xFFC62828), fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: pending.editHunks.length,
+                  itemBuilder: (context, index) {
+                    final hunk = pending.editHunks[index];
+                    final displayRange = _resolveDisplayLineRange(pending, hunk);
+                    final lineLabel = hunk.type == 'removed'
+                        ? 'After L${displayRange.start + 1}'
+                        : 'L${displayRange.start + 1}-${displayRange.end + 1}';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: appTheme.isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$lineLabel ${hunk.type}',
+                              style: TextStyle(
+                                color: appTheme.selectScreenCardTextColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          OutlinedButton(
+                            style: _pendingActionStyle(),
+                            onPressed: _isApplyingPendingAction ? null : () => _keepHunk(hunk),
+                            child: const Text('Keep'),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            style: _pendingActionStyle(destructive: true),
+                            onPressed: _isApplyingPendingAction ? null : () => _rejectHunk(hunk),
+                            child: const Text('Reject'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    style: _pendingActionStyle(),
+                    onPressed: _isApplyingPendingAction ? null : _keepAll,
+                    child: const Text('Keep all'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    style: _pendingActionStyle(destructive: true),
+                    onPressed: _isApplyingPendingAction ? null : _rejectAll,
+                    child: const Text('Reject all'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pendingRefreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -879,15 +1178,25 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     final pageContent = Column(
       children: [
         Expanded(
-          child: CodeEditor(
-            key: _editorKey,
-            language: language,
-            undoRedoController: undoRedoController,
-            codeController: controller,
-            filePath: editor.file,
-            findController: editor.findController!,
-            hscrollController: editor.hscroll,
-            vscrollController: editor.vscroll,
+          child: Builder(
+            builder: (context) {
+              final pendingPanel = _buildPendingDiffPanel();
+              return Stack(
+                children: [
+                  CodeEditor(
+                    key: _editorKey,
+                    language: language,
+                    undoRedoController: undoRedoController,
+                    codeController: controller,
+                    filePath: editor.file,
+                    findController: editor.findController!,
+                    hscrollController: editor.hscroll,
+                    vscrollController: editor.vscroll,
+                  ),
+                  if (pendingPanel != null) pendingPanel,
+                ],
+              );
+            },
           ),
         ),
         Container(
@@ -3087,7 +3396,36 @@ class _SourceControlState extends State<SourceControl> {
           context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
           context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
         } else {
-          _showErrorSnackBar(context, 'Pull failed: ${result.stderr}');
+          final out = '${result.stdout}'.trim();
+          final err = '${result.stderr}'.trim();
+          final conflictDetected = out.contains('CONFLICT') || err.contains('CONFLICT');
+
+          if (conflictDetected) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Merge conflict detected'),
+                content: SingleChildScrollView(
+                  child: Text(
+                    'Merge conflicts were found during pull.\n\n${err.isNotEmpty ? 'Error:\n$err\n\n' : ''}${out.isNotEmpty ? 'Output:\n$out' : ''}',
+                    style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                      context.read<RepoStatusBloc>().add(LoadCommitGraph(widget.workSpace));
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            _showErrorSnackBar(context, 'Pull failed: ${result.stderr}');
+          }
         }
       }
     } catch (e) {
@@ -5625,7 +5963,7 @@ class _SourceControlState extends State<SourceControl> {
                       ),
                       const SizedBox(width: 3),
                       SizedBox(
-                        width: 60,
+                        width: 45,
                         child: Text(
                           repoState.currentBranch!,
                           style: TextStyle(
@@ -5667,10 +6005,33 @@ class _SourceControlState extends State<SourceControl> {
             child: IconButton(
               visualDensity: VisualDensity(horizontal: -2, vertical: -2),
               onPressed: () => _performPull(context),
-              icon: Icon(
-                Icons.arrow_downward,
-                color: widget.appTheme.selectScreenCardTextColor.withAlpha(200),
-                size: 17,
+              icon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.arrow_downward,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(200),
+                    size: 17,
+                  ),
+                  if ((loaded?.unpulledCount ?? 0) > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.lightBlueAccent.withAlpha(40),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'M ${loaded?.unpulledCount ?? 0}',
+                        style: const TextStyle(
+                          color: Colors.lightBlue,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               style: IconButton.styleFrom(
                 backgroundColor: widget.appTheme.isDark
@@ -5935,13 +6296,44 @@ class _SourceControlState extends State<SourceControl> {
     final hasRemote = repoState.hasRemote;
     final hasUpstream = repoState.hasUpstream;
     final unpushedCount = repoState.unpushedCount;
+    final unpulledCount = repoState.unpulledCount;
 
     final bool showPush = !hasChanges && unpushedCount > 0 && hasUpstream;
     final bool showPublish =
         !hasChanges && hasRemote && !hasUpstream && isSignedIn;
 
+    final Widget incomingSection = unpulledCount > 0
+        ? Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: widget.appTheme.isDark
+                ? Colors.blueGrey.withAlpha(40)
+                : Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_downward, size: 14, color: Colors.blue),
+                const SizedBox(width: 6),
+                Text(
+                  'Incoming changes: M $unpulledCount',
+                  style: TextStyle(
+                    color: widget.appTheme.selectScreenCardTextColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
+
+    Widget buttonSection;
+
     if (showPush) {
-      return SizedBox(
+      buttonSection = SizedBox(
         width: 250,
         child: ElevatedButton.icon(
           style: ButtonStyle(
@@ -5957,7 +6349,7 @@ class _SourceControlState extends State<SourceControl> {
         ),
       );
     } else if (showPublish) {
-      return SizedBox(
+      buttonSection = SizedBox(
         width: 250,
         child: ElevatedButton.icon(
           style: ButtonStyle(
@@ -5967,14 +6359,13 @@ class _SourceControlState extends State<SourceControl> {
             backgroundColor: const WidgetStatePropertyAll(Color(0xff0e639c)),
             foregroundColor: const WidgetStatePropertyAll(Colors.white),
           ),
-          onPressed: () =>
-              _showPublishBranchDialog(context, repoState.currentBranch),
+          onPressed: () => _showPublishBranchDialog(context, repoState.currentBranch),
           icon: const Icon(Icons.cloud_upload, size: 18),
           label: const Text('Publish Branch'),
         ),
       );
     } else {
-      return SizedBox(
+      buttonSection = SizedBox(
         width: 250,
         child: Row(
           children: [
@@ -5991,8 +6382,8 @@ class _SourceControlState extends State<SourceControl> {
                   ),
                   backgroundColor: WidgetStatePropertyAll(
                     hasChanges
-                      ? const Color(0xff0e639c)
-                      : const Color.fromARGB(255, 15, 61, 92),
+                        ? const Color(0xff0e639c)
+                        : const Color.fromARGB(255, 15, 61, 92),
                   ),
                   foregroundColor: WidgetStatePropertyAll(
                     hasChanges ? Colors.white : Colors.grey,
@@ -6002,8 +6393,8 @@ class _SourceControlState extends State<SourceControl> {
                   ),
                 ),
                 onPressed: hasChanges
-                  ? () => _handleCommit(context, stagedEmpty, unstagedEmpty)
-                  : null,
+                    ? () => _handleCommit(context, stagedEmpty, unstagedEmpty)
+                    : null,
                 child: const Text('\u2713 Commit'),
               ),
             ),
@@ -6015,8 +6406,8 @@ class _SourceControlState extends State<SourceControl> {
                   start: BorderSide(color: Colors.white, width: 0.5),
                 ),
                 color: hasChanges
-                  ? const Color(0xff0e639c)
-                  : const Color.fromARGB(255, 15, 61, 92),
+                    ? const Color(0xff0e639c)
+                    : const Color.fromARGB(255, 15, 61, 92),
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(6),
                   bottomRight: Radius.circular(6),
@@ -6068,6 +6459,11 @@ class _SourceControlState extends State<SourceControl> {
         ),
       );
     }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [incomingSection, buttonSection],
+    );
   }
 
   void _handleCommit(
@@ -6979,19 +7375,40 @@ class _SourceControlState extends State<SourceControl> {
                                                                       const SizedBox(width:25),
                                                                       TextButton(
                                                                         onPressed: () async {
-                                                                          await gitRestoreFile(fileName, widget.workSpace);
-                                                                          if (context.mounted) {
-                                                                            final activeEditor = widget.activeEditorsBloc;
-                                                                            if(activeEditor != null){
-                                                                              final currentController = activeEditor.state.activeEditors.singleWhere(
-                                                                                (item) => item.isActive
-                                                                              ).controller;
-                                                                              currentController.refetchFile();
+                                                                          try {
+                                                                            await gitRestoreFile(fileName, widget.workSpace);
+                                                                            if (!context.mounted) return;
+
+                                                                            final activeEditorBloc = widget.activeEditorsBloc;
+                                                                            if (activeEditorBloc != null) {
+                                                                              final activeEditors = activeEditorBloc.state.activeEditors;
+                                                                              ActiveEditor? activeEditor;
+
+                                                                              for (final editor in activeEditors) {
+                                                                                if (editor.isActive) {
+                                                                                  activeEditor = editor;
+                                                                                  break;
+                                                                                }
+                                                                              }
+
+                                                                              activeEditor ??= activeEditors.isNotEmpty ? activeEditors.first: null;
+                                                                              activeEditor?.controller.refetchFile();
                                                                             }
+
                                                                             try {
                                                                               repoBloc.add(LoadRepoStatus(widget.workSpace));
                                                                             } catch (_) {}
-                                                                            Navigator.of(context,).pop();
+                                                                          } catch (_) {
+                                                                            if (context.mounted) {
+                                                                              _showErrorSnackBar(
+                                                                                context,
+                                                                                'Failed to discard changes',
+                                                                              );
+                                                                            }
+                                                                          } finally {
+                                                                            if (context.mounted) {
+                                                                              Navigator.of(context).pop();
+                                                                            }
                                                                           }
                                                                         },
                                                                         child: const Text(
@@ -7641,11 +8058,18 @@ class _ModelOption {
 }
 
 class _AIChatState extends State<AIChat> {
+  static final RegExp _toolEditPattern = RegExp(r'^\[\[VSDROID_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
+  static final RegExp _toolTerminalPattern = RegExp(r'^\[\[VSDROID_TERMINAL:([^\]]+)\]\]$');
+
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   http.Client? _currentClient;
   bool _initialScrollDone = false;
   bool _requestedCopilotModelRefresh = false;
+  PendingEditFile? _pendingEdits;
+  Timer? _pendingRefreshTimer;
+  bool _isApplyingPendingAction = false;
+  bool _isPendingPollingActive = false;
 
   @override
   void initState() {
@@ -7654,6 +8078,206 @@ class _AIChatState extends State<AIChat> {
     _promptController.text = uiState.promptText;
     _promptController.addListener(_onPromptChanged);
     _scrollController.addListener(_onScrollChanged);
+    _reloadPendingEdits();
+  }
+
+  @override
+  void didUpdateWidget(covariant AIChat oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.filePath != widget.filePath) {
+      _reloadPendingEdits();
+    }
+  }
+
+  void _updatePendingPolling(bool isGenerating) {
+    if (isGenerating && !_isPendingPollingActive) {
+      _isPendingPollingActive = true;
+      _pendingRefreshTimer?.cancel();
+      _pendingRefreshTimer = Timer.periodic(
+        const Duration(milliseconds: 750),
+        (_) => _reloadPendingEdits(silent: true),
+      );
+      return;
+    }
+
+    if (!isGenerating && _isPendingPollingActive) {
+      _isPendingPollingActive = false;
+      _pendingRefreshTimer?.cancel();
+      _pendingRefreshTimer = null;
+      _reloadPendingEdits(silent: true);
+    }
+  }
+
+  Future<void> _reloadPendingEdits({bool silent = false}) async {
+    if (widget.filePath.isEmpty) {
+      if (!mounted) return;
+      setState(() => _pendingEdits = null);
+      return;
+    }
+    final pending = await PendingEditFile.getForFile(File(widget.filePath).absolute.path);
+    if (!mounted) return;
+    if (silent && _pendingEdits?.editHunks.length == pending?.editHunks.length) {
+      return;
+    }
+    setState(() {
+      _pendingEdits = pending;
+    });
+  }
+
+  Future<void> _keepHunkFromDrawer(EditHunk hunk) async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    await tools.keepPendingEditHunk(widget.filePath, hunk.id);
+    await _reloadPendingEdits();
+    if (mounted) setState(() => _isApplyingPendingAction = false);
+  }
+
+  Future<void> _rejectHunkFromDrawer(EditHunk hunk) async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    final result = await tools.rejectPendingEditHunk(widget.filePath, hunk.id);
+    await _reloadPendingEdits();
+    if (mounted) {
+      setState(() => _isApplyingPendingAction = false);
+      if (!result.success && result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error!)),
+        );
+      }
+    }
+  }
+
+  Future<void> _keepAllFromDrawer() async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    await tools.keepAllPendingEdits(widget.filePath);
+    await _reloadPendingEdits();
+    if (mounted) setState(() => _isApplyingPendingAction = false);
+  }
+
+  Future<void> _rejectAllFromDrawer() async {
+    setState(() => _isApplyingPendingAction = true);
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    final result = await tools.rejectAllPendingEdits(widget.filePath);
+    await _reloadPendingEdits();
+    if (mounted) {
+      setState(() => _isApplyingPendingAction = false);
+      if (!result.success && result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error!)),
+        );
+      }
+    }
+  }
+
+  ButtonStyle _drawerPendingActionStyle(AppTheme appTheme, {bool destructive = false}) {
+    final accent = destructive
+        ? const Color(0xFFC62828)
+        : (appTheme.isDark ? const Color(0xFF66BB6A) : const Color(0xFF2E7D32));
+    return OutlinedButton.styleFrom(
+      foregroundColor: accent,
+      side: BorderSide(color: accent.withValues(alpha: 0.75)),
+      backgroundColor: accent.withValues(alpha: appTheme.isDark ? 0.12 : 0.08),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+    );
+  }
+
+  Widget _buildPendingDiffDrawerPanel(AppTheme appTheme) {
+    final pending = _pendingEdits;
+    if (pending == null || pending.editHunks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final counts = _pendingDiffCounts(pending);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: appTheme.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Pending hunks: ${pending.editHunks.length}',
+                style: TextStyle(
+                  color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.88),
+                  fontSize: 12,
+                ),
+              ),
+              const Spacer(),
+              Text('+${counts.added}', style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.w700)),
+              const SizedBox(width: 6),
+              Text('-${counts.removed}', style: const TextStyle(color: Color(0xFFC62828), fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 112,
+            child: ListView.builder(
+              itemCount: pending.editHunks.length,
+              itemBuilder: (context, index) {
+                final hunk = pending.editHunks[index];
+                final displayRange = _resolveDisplayLineRange(pending, hunk);
+                final lineLabel = hunk.type == 'removed'
+                    ? 'After L${displayRange.start + 1}'
+                    : 'L${displayRange.start + 1}-${displayRange.end + 1}';
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$lineLabel ${hunk.type}',
+                        style: TextStyle(
+                          color: appTheme.selectScreenCardTextColor,
+                          fontSize: 11.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    OutlinedButton(
+                      style: _drawerPendingActionStyle(appTheme),
+                      onPressed: _isApplyingPendingAction ? null : () => _keepHunkFromDrawer(hunk),
+                      child: const Text('Keep'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      style: _drawerPendingActionStyle(appTheme, destructive: true),
+                      onPressed: _isApplyingPendingAction ? null : () => _rejectHunkFromDrawer(hunk),
+                      child: const Text('Reject'),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton(
+                  style: _drawerPendingActionStyle(appTheme),
+                  onPressed: _isApplyingPendingAction ? null : _keepAllFromDrawer,
+                  child: const Text('Keep all'),
+                ),
+                OutlinedButton(
+                  style: _drawerPendingActionStyle(appTheme, destructive: true),
+                  onPressed: _isApplyingPendingAction ? null : _rejectAllFromDrawer,
+                  child: const Text('Reject all'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onPromptChanged() {
@@ -7707,6 +8331,7 @@ class _AIChatState extends State<AIChat> {
     _promptController.removeListener(_onPromptChanged);
     _scrollController.removeListener(_onScrollChanged);
     _currentClient?.close();
+    _pendingRefreshTimer?.cancel();
     _promptController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -7933,12 +8558,183 @@ class _AIChatState extends State<AIChat> {
     return Icon(iconData, size: 14, color: color);
   }
 
+  String _decodeBase64(String encoded, {String fallback = ''}) {
+    try {
+      return utf8.decode(base64Decode(encoded));
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  String _stripToolUiMarkers(String input) {
+    final lines = input.split('\n');
+    final clean = <String>[];
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (_toolEditPattern.hasMatch(trimmed) || _toolTerminalPattern.hasMatch(trimmed)) {
+        continue;
+      }
+      clean.add(line);
+    }
+    return clean.join('\n').trim();
+  }
+
+  Widget _buildToolEditSummary(String filePath, int added, int removed, AppTheme appTheme) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: appTheme.isDark
+            ? Colors.white.withAlpha(15)
+            : Colors.black.withAlpha(12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withAlpha(80)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              path.basename(filePath),
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'monospace',
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '+$added',
+            style: const TextStyle(
+              color: Color(0xFF2E7D32),
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '-$removed',
+            style: const TextStyle(
+              color: Color(0xFFC62828),
+              fontWeight: FontWeight.w700,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolTerminal(String command, AppTheme appTheme, int markerIndex) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 6),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: appTheme.isDark
+            ? Colors.white.withAlpha(10)
+            : Colors.black.withAlpha(10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withAlpha(85)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            command,
+            style: TextStyle(
+              color: appTheme.selectScreenCardTextColor,
+              fontFamily: 'monospace',
+              fontSize: 12.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 170,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: EmbeddedTerminal(
+                key: ValueKey('tool-terminal-$markerIndex-$command'),
+                projectDir: widget.workspacePath,
+                args: ['-c', command],
+                showKeyboardMenu: false,
+                readOnly: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssistantResponseContent(
+    String response,
+    MarkdownConfig config,
+    AppTheme appTheme,
+  ) {
+    final lines = response.split('\n');
+    final widgets = <Widget>[];
+    final markdownBuffer = StringBuffer();
+    var markerIndex = 0;
+
+    void flushMarkdown() {
+      final content = markdownBuffer.toString().trim();
+      if (content.isNotEmpty) {
+        widgets.add(
+          MarkdownBlock(
+            data: content,
+            config: config,
+          ),
+        );
+      }
+      markdownBuffer.clear();
+    }
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      final editMatch = _toolEditPattern.firstMatch(trimmed);
+      if (editMatch != null) {
+        flushMarkdown();
+        final filePath = _decodeBase64(editMatch.group(1)!, fallback: 'unknown');
+        final added = int.tryParse(editMatch.group(2) ?? '0') ?? 0;
+        final removed = int.tryParse(editMatch.group(3) ?? '0') ?? 0;
+        widgets.add(_buildToolEditSummary(filePath, added, removed, appTheme));
+        markerIndex++;
+        continue;
+      }
+
+      final terminalMatch = _toolTerminalPattern.firstMatch(trimmed);
+      if (terminalMatch != null) {
+        flushMarkdown();
+        final command = _decodeBase64(terminalMatch.group(1)!, fallback: '');
+        if (command.isNotEmpty) {
+          widgets.add(_buildToolTerminal(command, appTheme, markerIndex));
+          markerIndex++;
+        }
+        continue;
+      }
+
+      markdownBuffer.writeln(line);
+    }
+
+    flushMarkdown();
+    if (widgets.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
   List<Map<String, dynamic>> _buildChatHistory(List<AIConversation> conversations) {
     final List<Map<String, dynamic>> history = [];
     for (final conv in conversations) {
       history.add({"role": "user", "content": conv.userRequest});
       if (conv.modelResponse != null && conv.modelResponse!.isNotEmpty) {
-        history.add({"role": "assistant", "content": conv.modelResponse!});
+        final response = _stripToolUiMarkers(conv.modelResponse!);
+        if (response.isNotEmpty) {
+          history.add({"role": "assistant", "content": response});
+        }
       }
     }
     return history;
@@ -7953,9 +8749,13 @@ class _AIChatState extends State<AIChat> {
         "parts": [{"text": conv.userRequest}]
       });
       if (conv.modelResponse != null && conv.modelResponse!.isNotEmpty) {
+        final response = _stripToolUiMarkers(conv.modelResponse!);
+        if (response.isEmpty) {
+          continue;
+        }
         history.add({
           "role": "model",
-          "parts": [{"text": conv.modelResponse!}]
+          "parts": [{"text": response}]
         });
       }
     }
@@ -8455,6 +9255,9 @@ class _AIChatState extends State<AIChat> {
                     
                     return BlocBuilder<CopilotChatBloc, CopilotChatState>(
                       builder: (context, chatState) {
+                        _updatePendingPolling(aiChatUIState.isGenerating);
+                        final pendingCounts = _pendingDiffCounts(_pendingEdits);
+
                         if (githubSignedIn && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
                           _requestedCopilotModelRefresh = true;
                           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -8597,6 +9400,24 @@ class _AIChatState extends State<AIChat> {
                                           color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                         ),
                                       ),
+                                      if (pendingCounts.added > 0 || pendingCounts.removed > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '+${pendingCounts.added}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF2E7D32),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '-${pendingCounts.removed}',
+                                          style: const TextStyle(
+                                            color: Color(0xFFC62828),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -8696,9 +9517,10 @@ class _AIChatState extends State<AIChat> {
                                                 Align(
                                                   alignment: Alignment.centerLeft,
                                                   child: hasResponse
-                                                    ? MarkdownBlock(
-                                                        data: conv.modelResponse!,
-                                                        config: config,
+                                                    ? _buildAssistantResponseContent(
+                                                        conv.modelResponse!,
+                                                        config,
+                                                        appThemeState.appTheme,
                                                       )
                                                     : isStreaming
                                                       ? Row(
@@ -8730,6 +9552,10 @@ class _AIChatState extends State<AIChat> {
                                       );
                                     },
                                   ),
+                                ),
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: _buildPendingDiffDrawerPanel(appThemeState.appTheme),
                                 ),
                               ],
                             ),

@@ -27,7 +27,7 @@ import '../utils/themes.dart';
 import 'widgets.dart';
 
 class SelectType extends StatefulWidget {
-  const  SelectType({super.key});
+  const SelectType({super.key});
   @override
   State<SelectType> createState() => _SelectTypeState();
 }
@@ -37,19 +37,46 @@ class _SelectTypeState extends State<SelectType> {
   final _createFileKey = GlobalKey<FormState>();
   final _cloneRepoKey = GlobalKey<FormState>();
 
+  Map<String, dynamic>? _normalizeRecentEntry(dynamic rawEntry) {
+    if (rawEntry is Map &&
+        rawEntry['type'] is String &&
+        rawEntry['path'] is String) {
+      return {
+        'type': rawEntry['type'],
+        'path': rawEntry['path'],
+        'rootDir': rawEntry['rootDir'] ?? rawEntry['path'],
+      };
+    }
+
+    if (rawEntry is Map && rawEntry.length == 1) {
+      final dynamic key = rawEntry.keys.first;
+      if (key is String) {
+        return {'type': 'file', 'path': key, 'rootDir': rawEntry[key]};
+      }
+    }
+
+    return null;
+  }
+
   @override
   void dispose() {
     createFileController.dispose();
     super.dispose();
   }
 
-  Future<void> _performClone(String projectDir, String repoUrl, String repoName, BuildContext context, StreamController<double> progressController) async {
+  Future<void> _performClone(
+    String projectDir,
+    String repoUrl,
+    String repoName,
+    BuildContext context,
+    StreamController<double> progressController,
+  ) async {
     final targetDir = Directory("$projectDir/$repoName");
-    
+
     if (targetDir.existsSync()) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Directory "$repoName" already exists'),
@@ -57,21 +84,23 @@ class _SelectTypeState extends State<SelectType> {
             duration: const Duration(seconds: 2),
           ),
         );
-        
+
         await Future.delayed(const Duration(milliseconds: 500));
         if (context.mounted) {
           Navigator.of(context).push(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
-                rootDir: targetDir.path,
-                isCloned: true,
-                isProject: true,
-                languageDetails: null
-              ),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                return SizeTransition(sizeFactor: animation, child: child);
-              }
-            )
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  EditorPage(
+                    rootDir: targetDir.path,
+                    isCloned: true,
+                    isProject: true,
+                    languageDetails: null,
+                  ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return SizeTransition(sizeFactor: animation, child: child);
+                  },
+            ),
           );
         }
       }
@@ -93,10 +122,11 @@ class _SelectTypeState extends State<SelectType> {
               isProject: true,
               languageDetails: null,
             ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return SizeTransition(sizeFactor: animation, child: child);
-            }
-          )
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return SizeTransition(sizeFactor: animation, child: child);
+                },
+          ),
         );
       }
     } catch (e) {
@@ -105,7 +135,9 @@ class _SelectTypeState extends State<SelectType> {
         showDialog(
           context: context,
           builder: (_) => Dialog(
-            backgroundColor: context.read<AppThemeBloc>().state.appTheme.isDark ? const Color(0xff2b2b2b) : const Color.fromARGB(255, 240, 240, 240),
+            backgroundColor: context.read<AppThemeBloc>().state.appTheme.isDark
+                ? const Color(0xff2b2b2b)
+                : const Color.fromARGB(255, 240, 240, 240),
             child: Container(
               width: 300,
               padding: const EdgeInsets.all(20),
@@ -117,7 +149,11 @@ class _SelectTypeState extends State<SelectType> {
                   Text(
                     "Failed to clone the repo.",
                     style: TextStyle(
-                      color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor,
+                      color: context
+                          .read<AppThemeBloc>()
+                          .state
+                          .appTheme
+                          .selectScreenCardTextColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -125,7 +161,13 @@ class _SelectTypeState extends State<SelectType> {
                   const SizedBox(height: 8),
                   Text(
                     e.toString(),
-                    style: TextStyle(color: context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor),
+                    style: TextStyle(
+                      color: context
+                          .read<AppThemeBloc>()
+                          .state
+                          .appTheme
+                          .selectScreenCardTextColor,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -133,12 +175,12 @@ class _SelectTypeState extends State<SelectType> {
                     onPressed: () {
                       Navigator.of(context).pop();
                     },
-                    child: const Text("OK")
-                  )
+                    child: const Text("OK"),
+                  ),
                 ],
               ),
             ),
-          )
+          ),
         );
       }
     } finally {
@@ -159,361 +201,488 @@ class _SelectTypeState extends State<SelectType> {
             backgroundColor: appThemestate.appTheme.selectScreenDrawerBg,
             child: ListView(
               children: [
-                drawerTile(() {
-                  Navigator.of(context).push(PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) => const Settings(),
-                    transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
-                  ));
-                }, "Settings",
-                    const Icon(Icons.settings, color: Colors.blueGrey, size: 31.5)),
+                drawerTile(
+                  () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const Settings(),
+                        transitionsBuilder: (context, animation, _, child) =>
+                            SizeTransition(sizeFactor: animation, child: child),
+                      ),
+                    );
+                  },
+                  "Settings",
+                  const Icon(
+                    Icons.settings,
+                    color: Colors.blueGrey,
+                    size: 31.5,
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(left: 1.5),
                   child: drawerTile(
                     () {
-                      Navigator.of(context).push(PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => const ContributePage(),
-                        transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
-                      ));
+                      Navigator.of(context).push(
+                        PageRouteBuilder(
+                          pageBuilder:
+                              (context, animation, secondaryAnimation) =>
+                                  const ContributePage(),
+                          transitionsBuilder: (context, animation, _, child) =>
+                              SizeTransition(
+                                sizeFactor: animation,
+                                child: child,
+                              ),
+                        ),
+                      );
                     },
                     "Contribute/Source code",
                     Icon(
                       FontAwesomeIcons.githubAlt,
-                      color: appThemestate.appTheme.isDark?Colors.grey:const Color.fromARGB(255, 36, 36, 36),
+                      color: appThemestate.appTheme.isDark
+                          ? Colors.grey
+                          : const Color.fromARGB(255, 36, 36, 36),
                       size: 26.5,
-                    )
+                    ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 2),
                   child: drawerTile(
                     () {
-                      Navigator.of(context).push(PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => const AboutPage(),
-                        transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
-                      ));
+                      Navigator.of(context).push(
+                        PageRouteBuilder(
+                          pageBuilder:
+                              (context, animation, secondaryAnimation) =>
+                                  const AboutPage(),
+                          transitionsBuilder: (context, animation, _, child) =>
+                              SizeTransition(
+                                sizeFactor: animation,
+                                child: child,
+                              ),
+                        ),
+                      );
                     },
                     "About",
                     Image.asset(
                       'assets/icons/about-512.png',
-                      height: 25.5, width: 25.5
-                    )
+                      height: 25.5,
+                      width: 25.5,
+                    ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 4),
                   child: drawerTile(
-                    () => Navigator.of(context).push(PageRouteBuilder(
-                      pageBuilder: (context, animation, secondAnimation) => const BuyMeCoffee(),
-                      transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child)
-                    )),
+                    () => Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondAnimation) =>
+                            const BuyMeCoffee(),
+                        transitionsBuilder: (context, animation, _, child) =>
+                            SizeTransition(sizeFactor: animation, child: child),
+                      ),
+                    ),
                     "Buy me a coffee",
                     SvgPicture.asset(
                       width: 29,
                       height: 29,
                       'assets/icons/bmc-logo.svg',
-                      colorFilter: const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn)
-                    )
+                      colorFilter: const ColorFilter.mode(
+                        Color(0xff4783b7),
+                        BlendMode.srcIn,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          appBar: AppBar(backgroundColor: Colors.transparent, actions: [
-            Transform.scale(
-              scale: 0.8,
-              child: IconButton(
-                tooltip: "Runtimes",
-                onPressed: (){
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder: (context ,animation, secondaryAnimation) => DownloadManager(),
-                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                        return SizeTransition(sizeFactor: animation, child: child);
-                      }
-                    )
-                  );
-                },
-                icon: Icon(Icons.download, size: 35),
-              ),
-            ),
-            IconButton(
-              onPressed: (){
-                final home = Directory(homeDir);
-                if(!home.existsSync()){
-                  home.createSync(recursive: true);
-                }
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    pageBuilder: (context ,animation, secondaryAnimation) => SetupTerminal(
-                      projectDir: home.path,
-                    ),
-                      transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                        return SizeTransition(sizeFactor: animation, child: child);
-                      }
-                  )
-                );
-              },
-              icon: Icon(Icons.terminal, size: 34)
-            ),
-            IconButton(
-              tooltip: "App theme",
-              onPressed: () async{
-                final prefs = await SharedPreferences.getInstance();
-                final String? current = prefs.getString("savedAppTheme");
-                if(current == "dark"){
-                  if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: LightTheme()));
-                  prefs.setString("savedAppTheme", "light");
-                }
-                else{
-                  if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: DarkTheme()));
-                  prefs.setString("savedAppTheme", "dark");
-                }
-              },
-              icon: appThemestate.appTheme.appThemeIcon
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                tooltip: "Github",
-                onPressed: () => Navigator.of(context).push(PageRouteBuilder(
-                  pageBuilder: (context ,animation, secondaryAnimation) => GithubPage(),
-                  transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                    return SizeTransition(sizeFactor: animation, child: child);
-                  }
-                )),
-                icon: BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                  builder: (context, authState) {
-                    final loggedIn = authState.isSignedIn;
-                    final user = authState.user;
-                    
-                    if (loggedIn && user != null) {
-                      return Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: appThemestate.appTheme.scaffoldBg,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: ClipOval(
-                          child: Image.network(
-                            user.avatarUrl,
-                            width: 34,
-                            height: 34,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 34,
-                                height: 34,
-                                color: const Color(0xff238636),
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            actions: [
+              Transform.scale(
+                scale: 0.8,
+                child: IconButton(
+                  tooltip: "Runtimes",
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            DownloadManager(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              return SizeTransition(
+                                sizeFactor: animation,
+                                child: child,
                               );
                             },
-                          ),
-                        ),
-                      );
-                    } else {
-                      return const Icon(FontAwesomeIcons.github);
-                    }
+                      ),
+                    );
                   },
+                  icon: Icon(Icons.download, size: 35),
                 ),
               ),
-            ),
-          ]),
+              IconButton(
+                onPressed: () {
+                  final home = Directory(homeDir);
+                  if (!home.existsSync()) {
+                    home.createSync(recursive: true);
+                  }
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          SetupTerminal(projectDir: home.path),
+                      transitionsBuilder:
+                          (context, animation, secondaryAnimation, child) {
+                            return SizeTransition(
+                              sizeFactor: animation,
+                              child: child,
+                            );
+                          },
+                    ),
+                  );
+                },
+                icon: Icon(Icons.terminal, size: 34),
+              ),
+              IconButton(
+                tooltip: "App theme",
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  final String? current = prefs.getString("savedAppTheme");
+                  if (current == "dark") {
+                    if (context.mounted) {
+                      context.read<AppThemeBloc>().add(
+                        AppThemeEvent(appTheme: LightTheme()),
+                      );
+                    }
+                    prefs.setString("savedAppTheme", "light");
+                  } else {
+                    if (context.mounted) {
+                      context.read<AppThemeBloc>().add(
+                        AppThemeEvent(appTheme: DarkTheme()),
+                      );
+                    }
+                    prefs.setString("savedAppTheme", "dark");
+                  }
+                },
+                icon: appThemestate.appTheme.appThemeIcon,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  tooltip: "Github",
+                  onPressed: () => Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          GithubPage(),
+                      transitionsBuilder:
+                          (context, animation, secondaryAnimation, child) {
+                            return SizeTransition(
+                              sizeFactor: animation,
+                              child: child,
+                            );
+                          },
+                    ),
+                  ),
+                  icon: BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                    builder: (context, authState) {
+                      final loggedIn = authState.isSignedIn;
+                      final user = authState.user;
+
+                      if (loggedIn && user != null) {
+                        return Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: appThemestate.appTheme.scaffoldBg,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              user.avatarUrl,
+                              width: 34,
+                              height: 34,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 34,
+                                  height: 34,
+                                  color: const Color(0xff238636),
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      } else {
+                        return const Icon(FontAwesomeIcons.github);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
           body: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.only(left: 30, top: 18),
-                  child: Text("Start",
+                  child: Text(
+                    "Start",
                     style: TextStyle(
                       color: appThemestate.appTheme.selectScreenCardTextColor,
                       fontSize: 35,
-                      fontWeight: appThemestate.appTheme.isDark? FontWeight.w300 : FontWeight.w400,
-                      )
+                      fontWeight: appThemestate.appTheme.isDark
+                          ? FontWeight.w300
+                          : FontWeight.w400,
                     ),
                   ),
-                fileTiles(() {
-                  showDialog(
-                    context: context,
-                    builder: (context) => Dialog(
-                      backgroundColor: Colors.transparent,
-                      child: Container(
-                        width: 350,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: appThemestate.appTheme.isDark
-                              ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
-                              : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                ),
+                fileTiles(
+                  () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        child: Container(
+                          width: 350,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: appThemestate.appTheme.isDark
+                                  ? [
+                                      const Color(0xff2b2b2b),
+                                      const Color(0xff1a1a1a),
+                                    ]
+                                  : [
+                                      const Color.fromARGB(255, 250, 250, 250),
+                                      const Color.fromARGB(255, 240, 240, 240),
+                                    ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xff5090c8).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    FontAwesomeIcons.fileCirclePlus,
-                                    color: Color(0xff5090c8),
-                                    size: 28,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    "Create a new file",
-                                    style: TextStyle(
-                                      color: appThemestate.appTheme.selectScreenCardTextColor,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xff5090c8,
+                                      ).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      FontAwesomeIcons.fileCirclePlus,
+                                      color: Color(0xff5090c8),
+                                      size: 28,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            Form(
-                              key: _createFileKey,
-                              child: TextFormField(
-                                style: TextStyle(
-                                  color: appThemestate.appTheme.selectScreenCardTextColor,
-                                ),
-                                cursorColor: const Color(0xff5090c8),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return "Please enter a valid filename";
-                                  }
-                                  return null;
-                                },
-                                controller: createFileController,
-                                decoration: InputDecoration(
-                                  hintStyle: TextStyle(color: Colors.grey[500]),
-                                  hintText: " filename.ext",
-                                  filled: true,
-                                  fillColor: appThemestate.appTheme.isDark
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : Colors.black.withValues(alpha: 0.05),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
-                                    borderSide: const BorderSide(color: Color(0xff5090c8), width: 2),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      "Create a new file",
+                                      style: TextStyle(
+                                        color: appThemestate
+                                            .appTheme
+                                            .selectScreenCardTextColor,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(15),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              Form(
+                                key: _createFileKey,
+                                child: TextFormField(
+                                  style: TextStyle(
+                                    color: appThemestate
+                                        .appTheme
+                                        .selectScreenCardTextColor,
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                  cursorColor: const Color(0xff5090c8),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return "Please enter a valid filename";
+                                    }
+                                    return null;
+                                  },
+                                  controller: createFileController,
+                                  decoration: InputDecoration(
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey[500],
+                                    ),
+                                    hintText: " filename.ext",
+                                    filled: true,
+                                    fillColor: appThemestate.appTheme.isDark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xff5090c8),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 16,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      "Cancel",
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
-                                  child: Text(
-                                    "Cancel",
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    _createFileKey.currentState!.validate();
-                                    if (createFileController.text.isNotEmpty) {
-                                      final file = await createFile(
-                                        createFileController.text,
-                                        filesDir,
-                                        context
-                                      );
-                                      if (context.mounted && file != null) {
-                                        Navigator.of(context).pop();
-                                        Navigator.of(context).push(
-                                          PageRouteBuilder(
-                                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(rootDir: file.parent.path, isProject: false ,file: file,languageDetails: languages
-                                            .firstWhere((language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")), orElse: () => languages[0])),
-                                            transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                              return SizeTransition(sizeFactor: animation, child: child);
-                                            }
-                                          )
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: () async {
+                                      _createFileKey.currentState!.validate();
+                                      if (createFileController
+                                          .text
+                                          .isNotEmpty) {
+                                        final file = await createFile(
+                                          createFileController.text,
+                                          filesDir,
+                                          context,
                                         );
+                                        if (context.mounted && file != null) {
+                                          Navigator.of(context).pop();
+                                          Navigator.of(context).push(
+                                            PageRouteBuilder(
+                                              pageBuilder:
+                                                (context, animation, secondaryAnimation,) => EditorPage(
+                                                  rootDir: file.parent.path,
+                                                  isProject: false,
+                                                  file: file,
+                                                  languageDetails: languages.firstWhere(
+                                                    (language) => language.extension.contains(
+                                                      path.extension(file.path,).replaceFirst(".","")),
+                                                      orElse: () => languages[0]),
+                                                ),
+                                              transitionsBuilder:(context, animation, secondaryAnimation, child) {
+                                                return SizeTransition(
+                                                  sizeFactor: animation,
+                                                  child: child,
+                                                );
+                                              },
+                                            ),
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xff5090c8),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xff5090c8),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      elevation: 2,
                                     ),
-                                    elevation: 2,
+                                    child: const Text(
+                                      "Create",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
-                                  child: const Text(
-                                    "Create",
-                                    style: TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                  }, "New File...",
+                    );
+                  },
+                  "New File...",
                   const Icon(FontAwesomeIcons.fileCirclePlus),
-                  appThemestate.appTheme.isDark
+                  appThemestate.appTheme.isDark,
                 ),
-                fileTiles(() async {
-                  if (context.mounted) {
-                    final file = await pickFile();
-                    if (file != null) {
-                      final language = languages.firstWhere(
-                          (language) =>language.extension.contains(path.extension(file.path).replaceFirst(".", "")),
-                          orElse: () => languages[0]);
-                          if(context.mounted) {
-                            Navigator.of(context).push(
+                fileTiles(
+                  () async {
+                    if (context.mounted) {
+                      final file = await pickFile();
+                      if (file != null) {
+                        final language = languages.firstWhere(
+                          (language) => language.extension.contains(
+                            path.extension(file.path).replaceFirst(".", ""),
+                          ),
+                          orElse: () => languages[0],
+                        );
+                        if (context.mounted) {
+                          Navigator.of(context).push(
                             PageRouteBuilder(
-                              pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(
-                                languageDetails: language, rootDir: file.parent.path, file: file, isProject: false,
-                              ),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            )
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      EditorPage(
+                                        languageDetails: language,
+                                        rootDir: file.parent.path,
+                                        file: file,
+                                        isProject: false,
+                                      ),
+                              transitionsBuilder:
+                                  (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
+                                    return SizeTransition(
+                                      sizeFactor: animation,
+                                      child: child,
+                                    );
+                                  },
+                            ),
                           );
                         }
                     } else {
@@ -604,31 +773,36 @@ class _SelectTypeState extends State<SelectType> {
                   }
                   }, "Open File...",
                   const Icon(FontAwesomeIcons.fileImport),
-                  appThemestate.appTheme.isDark
+                  appThemestate.appTheme.isDark,
                 ),
-                fileTiles(() async {
-                  final dir = await pickDir();
-                  if (dir != null) {
-                    if (dir.existsSync()) {
-                      if(context.mounted){
-                        Navigator.of(context).push(
-                          PageRouteBuilder(
-                            pageBuilder: (context ,animation, secondaryAnimation) => EditorPage(
-                              rootDir: dir.path,
-                              isCloned: false,
-                              isProject: true,
-                              languageDetails: null
+                fileTiles(
+                  () async {
+                    final dir = await pickDir();
+                    if (dir != null) {
+                      if (dir.existsSync()) {
+                        if (context.mounted) {
+                          Navigator.of(context).push(
+                            PageRouteBuilder(
+                              pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                  EditorPage(
+                                    rootDir: dir.path,
+                                    isCloned: false,
+                                    isProject: true,
+                                    languageDetails: null,
+                                  ),
+                              transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                return SizeTransition(
+                                  sizeFactor: animation,
+                                  child: child,
+                                );
+                              },
                             ),
-                            transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                              return SizeTransition(sizeFactor: animation,child: child);
-                            }
-                          )
-                        );
+                          );
+                        }
                       }
-                    }
-                  }
-                  else{
-                    if(context.mounted) {
+                    } else {
+                      if (context.mounted) {
                         showDialog(
                         context: context,
                         builder: (context) => Dialog(
@@ -714,7 +888,7 @@ class _SelectTypeState extends State<SelectType> {
                   }},
                   "Open Folder...",
                   const Icon(FontAwesomeIcons.folderOpen),
-                  appThemestate.appTheme.isDark
+                  appThemestate.appTheme.isDark,
                 ),
                 fileTiles(
                   () {
@@ -787,7 +961,9 @@ class _SelectTypeState extends State<SelectType> {
                                   key: _cloneRepoKey,
                                   child: TextFormField(
                                     style: TextStyle(
-                                      color: appThemestate.appTheme.selectScreenCardTextColor,
+                                      color: appThemestate
+                                          .appTheme
+                                          .selectScreenCardTextColor,
                                     ),
                                     cursorColor: const Color(0xff5090c8),
                                     validator: (value) {
@@ -797,20 +973,32 @@ class _SelectTypeState extends State<SelectType> {
                                       return null;
                                     },
                                     decoration: InputDecoration(
-                                      hintStyle: TextStyle(color: Colors.grey[500]),
-                                      hintText: " https://github.com/user/repo.git",
+                                      hintStyle: TextStyle(
+                                        color: Colors.grey[500],
+                                      ),
+                                      hintText:
+                                          " https://github.com/user/repo.git",
                                       filled: true,
                                       fillColor: appThemestate.appTheme.isDark
-                                        ? Colors.white.withValues(alpha: 0.05)
-                                        : Colors.black.withValues(alpha: 0.05),
+                                          ? Colors.white.withValues(alpha: 0.05)
+                                          : Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(15),
-                                        borderSide: const BorderSide(color: Color(0xff5090c8), width: 2),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xff5090c8),
+                                          width: 2,
+                                        ),
                                       ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(15),
                                       ),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 16,
+                                          ),
                                     ),
                                     controller: cloneController,
                                   ),
@@ -820,11 +1008,17 @@ class _SelectTypeState extends State<SelectType> {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton(
-                                      onPressed: () => Navigator.of(context).pop(),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
                                       style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 12,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                       ),
                                       child: Text(
@@ -839,14 +1033,10 @@ class _SelectTypeState extends State<SelectType> {
                                     ElevatedButton(
                                       onPressed: () async {
                                         if (!_cloneRepoKey.currentState!.validate()) return;
-
                                         final repoUrl = cloneController.text.trim();
-                                        final repoName = extractRepoName(repoUrl);
-
+                                        final repoName = extractRepoName(repoUrl,);
                                         Navigator.of(context).pop();
-
                                         final progressController = StreamController<double>.broadcast();
-
                                         showDialog(
                                           context: context,
                                           barrierDismissible: false,
@@ -863,10 +1053,12 @@ class _SelectTypeState extends State<SelectType> {
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
                                                 ),
-                                                borderRadius: BorderRadius.circular(20),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.3),
+                                                    color: Colors.black
+                                                        .withValues(alpha: 0.3),
                                                     blurRadius: 20,
                                                     offset: const Offset(0, 10),
                                                   ),
@@ -878,7 +1070,7 @@ class _SelectTypeState extends State<SelectType> {
                                                 builder: (context, snapshot) {
                                                   final progress = snapshot.data ?? 0.0;
                                                   return Column(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:MainAxisSize.min,
                                                     children: [
                                                       Container(
                                                         padding: const EdgeInsets.all(16),
@@ -892,7 +1084,9 @@ class _SelectTypeState extends State<SelectType> {
                                                           size: 32,
                                                         ),
                                                       ),
-                                                      const SizedBox(height: 20),
+                                                      const SizedBox(
+                                                        height: 20,
+                                                      ),
                                                       Text(
                                                         "Cloning repository...",
                                                         style: TextStyle(
@@ -909,7 +1103,9 @@ class _SelectTypeState extends State<SelectType> {
                                                           fontSize: 14,
                                                         ),
                                                       ),
-                                                      const SizedBox(height: 24),
+                                                      const SizedBox(
+                                                        height: 24,
+                                                      ),
                                                       LinearPercentIndicator(
                                                         percent: progress,
                                                         progressColor: const Color(0xff5090c8),
@@ -939,12 +1135,21 @@ class _SelectTypeState extends State<SelectType> {
 
                                         progressController.add(0.0);
 
-                                        await _performClone(projectDir, repoUrl, repoName, context, progressController);
+                                        await _performClone(
+                                          projectDir,
+                                          repoUrl,
+                                          repoName,
+                                          context,
+                                          progressController,
+                                        );
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xff5090c8),
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 12,
+                                        ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(10),
                                         ),
@@ -952,7 +1157,9 @@ class _SelectTypeState extends State<SelectType> {
                                       ),
                                       child: const Text(
                                         "Clone",
-                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -961,7 +1168,7 @@ class _SelectTypeState extends State<SelectType> {
                             ),
                           ),
                         );
-                      }
+                      },
                     );
                   },
                   val: 4,
@@ -970,9 +1177,12 @@ class _SelectTypeState extends State<SelectType> {
                     'assets/icons/code-branch-solid.svg',
                     height: 28,
                     width: 28,
-                    colorFilter:const ColorFilter.mode(Color(0xff4783b7), BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xff4783b7),
+                      BlendMode.srcIn,
+                    ),
                   ),
-                  appThemestate.appTheme.isDark
+                  appThemestate.appTheme.isDark,
                 ),
                 const SizedBox(height: 30),
                 Align(
@@ -980,16 +1190,29 @@ class _SelectTypeState extends State<SelectType> {
                   child: Column(
                     children: [
                       InkWell(
-                        borderRadius: const BorderRadius.all(Radius.circular(15)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(15),
+                        ),
                         radius: 5,
                         onTap: () {
                           Navigator.of(context).push(
                             PageRouteBuilder(
-                              pageBuilder: (context ,animation, secondaryAnimation) => const ProjectScreen(),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            )
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      const ProjectScreen(),
+                              transitionsBuilder:
+                                  (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
+                                    return SizeTransition(
+                                      sizeFactor: animation,
+                                      child: child,
+                                    );
+                                  },
+                            ),
                           );
                         },
                         child: SizedBox(
@@ -1002,9 +1225,22 @@ class _SelectTypeState extends State<SelectType> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(FontAwesomeIcons.folderTree,color: appThemestate.appTheme.selectScreenCardTextColor),
+                                  Icon(
+                                    FontAwesomeIcons.folderTree,
+                                    color: appThemestate
+                                        .appTheme
+                                        .selectScreenCardTextColor,
+                                  ),
                                   const SizedBox(width: 12.5),
-                                  Text("Projects",style: TextStyle(fontSize: 16.5,color: appThemestate.appTheme.selectScreenCardTextColor)),
+                                  Text(
+                                    "Projects",
+                                    style: TextStyle(
+                                      fontSize: 16.5,
+                                      color: appThemestate
+                                          .appTheme
+                                          .selectScreenCardTextColor,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1013,16 +1249,29 @@ class _SelectTypeState extends State<SelectType> {
                       ),
                       const SizedBox(height: 5),
                       InkWell(
-                        borderRadius: const BorderRadius.all(Radius.circular(15)),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(15),
+                        ),
                         radius: 5,
                         onTap: () {
                           Navigator.of(context).push(
                             PageRouteBuilder(
-                              pageBuilder: (context ,animation, secondaryAnimation) => const MenuScreen(),
-                              transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                return SizeTransition(sizeFactor: animation,child: child);
-                              }
-                            )
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      const MenuScreen(),
+                              transitionsBuilder:
+                                  (
+                                    context,
+                                    animation,
+                                    secondaryAnimation,
+                                    child,
+                                  ) {
+                                    return SizeTransition(
+                                      sizeFactor: animation,
+                                      child: child,
+                                    );
+                                  },
+                            ),
                           );
                         },
                         child: SizedBox(
@@ -1035,11 +1284,21 @@ class _SelectTypeState extends State<SelectType> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(FontAwesomeIcons.fileCode,color: appThemestate.appTheme.selectScreenCardTextColor),
+                                  Icon(
+                                    FontAwesomeIcons.fileCode,
+                                    color: appThemestate
+                                        .appTheme
+                                        .selectScreenCardTextColor,
+                                  ),
                                   const SizedBox(width: 5),
                                   Text(
                                     "Open Template",
-                                    style: TextStyle(color: appThemestate.appTheme.selectScreenCardTextColor,fontSize: 16.5),
+                                    style: TextStyle(
+                                      color: appThemestate
+                                          .appTheme
+                                          .selectScreenCardTextColor,
+                                      fontSize: 16.5,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1056,92 +1315,188 @@ class _SelectTypeState extends State<SelectType> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       Text("Recent",
+                      Text(
+                        "Recent",
                         style: TextStyle(
-                          color: appThemestate.appTheme.selectScreenCardTextColor,
-                          fontWeight: appThemestate.appTheme.isDark? FontWeight.w300 : FontWeight.w400,
-                          fontSize: 35)),
+                          color:
+                              appThemestate.appTheme.selectScreenCardTextColor,
+                          fontWeight: appThemestate.appTheme.isDark
+                              ? FontWeight.w300
+                              : FontWeight.w400,
+                          fontSize: 35,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       BlocBuilder<RecentBloc, RecentState>(
                         builder: (context, recentState) {
-                          final List<dynamic> recentData = recentState.recent;
-                          return recentState.recent.isEmpty ? Text(
-                            "You don't have any recent activity",
-                            style: TextStyle(
-                              color: appThemestate.appTheme.selectScreenCardTextColor,
-                              fontWeight: appThemestate.appTheme.isDark ? FontWeight.w300 : FontWeight.w500,
-                              fontSize: 18
-                            )
-                          ):
-                          SizedBox(
-                            width: 350,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: recentData.length,
-                                itemBuilder: (context,index) {
-                                  return Card(
-                                    child: ListTile(
-                                      textColor: appThemestate.appTheme.selectScreenCardTextColor,
-                                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
-                                      onTap: (){
-                                        if(!(File(recentData[index].keys.toList()[0]).existsSync())){
-                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("File Not found !")));
-                                          return;
-                                        }
-                                        Navigator.of(context).push(
-                                          PageRouteBuilder(
-                                            pageBuilder: (context ,animation, secondaryAnimation) => 
-                                            EditorPage(
-                                              file: File(recentData[index].keys.toList()[0]),
-                                              rootDir: recentData[index][recentData[index].keys.toList()[0]],
-                                              languageDetails:((){
-                                                final matchingLang = languages.where((lang)=>
-                                                  lang.extension.contains(path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", ""))
-                                                ).toList();
-                                                if(matchingLang.isNotEmpty) return matchingLang[0];
-                                                return Language(
-                                                  name: "Unknown",
-                                                  extension: ["null"],
-                                                  details: "Unknown language",
-                                                  language: unknown,
-                                                  helloWorld: "Unknown type of file"
-                                                );
-                                              })(),
-                                              isProject: false,
+                          final List<Map<String, dynamic>> recentData =
+                              recentState.recent
+                                  .map(_normalizeRecentEntry)
+                                  .whereType<Map<String, dynamic>>()
+                                  .toList();
+                          return recentData.isEmpty
+                              ? Text(
+                                  "You don't have any recent activity",
+                                  style: TextStyle(
+                                    color: appThemestate
+                                        .appTheme
+                                        .selectScreenCardTextColor,
+                                    fontWeight: appThemestate.appTheme.isDark
+                                        ? FontWeight.w300
+                                        : FontWeight.w500,
+                                    fontSize: 18,
+                                  ),
+                                )
+                              : SizedBox(
+                                  width: 350,
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: recentData.length,
+                                      itemBuilder: (context, index) {
+                                        final currentEntry = recentData[index];
+                                        final String entryType =
+                                            currentEntry['type'] as String? ??
+                                            'file';
+                                        final String entryPath =
+                                            currentEntry['path'] as String? ??
+                                            '';
+                                        final String rootDir =
+                                            currentEntry['rootDir']
+                                                as String? ??
+                                            (entryType == 'project'
+                                                ? entryPath
+                                                : path.dirname(entryPath));
+                                        final bool isProject =
+                                            entryType == 'project';
+                                        final bool exists = isProject
+                                            ? Directory(entryPath).existsSync()
+                                            : File(entryPath).existsSync();
+                                        return Card(
+                                          child: ListTile(
+                                            textColor: appThemestate
+                                                .appTheme
+                                                .selectScreenCardTextColor,
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.all(
+                                                Radius.circular(15),
+                                              ),
                                             ),
-                                            transitionsBuilder: (context ,animation, secondaryAnimation, child){
-                                              return SizeTransition(sizeFactor: animation,child: child);
-                                            }
-                                          )
+                                            onTap: () {
+                                              if (!exists) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      isProject
+                                                          ? "Project not found !"
+                                                          : "File not found !",
+                                                    ),
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              if (isProject) {
+                                                Navigator.of(context).push(
+                                                  PageRouteBuilder(
+                                                    pageBuilder:(context, animation, secondaryAnimation) => EditorPage(
+                                                      rootDir: entryPath,
+                                                      isCloned: true,
+                                                      isProject: true,
+                                                      languageDetails: null,
+                                                    ),
+                                                    transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                                      return SizeTransition(
+                                                        sizeFactor:
+                                                            animation,
+                                                        child: child,
+                                                      );
+                                                    },
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              Navigator.of(context).push(
+                                                PageRouteBuilder(
+                                                  pageBuilder:
+                                                      ( context, animation, secondaryAnimation) => EditorPage(
+                                                        file: File(entryPath),
+                                                        rootDir: rootDir,
+                                                        languageDetails: (() {
+                                                          final matchingLang = languages.where(
+                                                            (lang) => lang.extension.contains(
+                                                              path.extension(entryPath).toLowerCase().replaceFirst(".",""))).toList();
+                                                          if (matchingLang.isNotEmpty) return matchingLang[0];
+                                                          return Language(
+                                                            name: "Unknown",
+                                                            extension: ["null"],
+                                                            details: "Unknown language",
+                                                            language: unknown,
+                                                            helloWorld: "Unknown type of file",
+                                                          );
+                                                        })(),
+                                                        isProject: false,
+                                                      ),
+                                                  transitionsBuilder:
+                                                      (
+                                                        context,
+                                                        animation,
+                                                        secondaryAnimation,
+                                                        child,
+                                                      ) {
+                                                        return SizeTransition(
+                                                          sizeFactor: animation,
+                                                          child: child,
+                                                        );
+                                                      },
+                                                ),
+                                              );
+                                            },
+                                            title: Text(
+                                              exists
+                                                  ? path.basename(entryPath)
+                                                  : "${path.basename(entryPath)} - ${isProject ? 'Project' : 'File'} not found",
+                                              style: const TextStyle(
+                                                fontSize: 17,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              rootDir,
+                                              style: TextStyle(
+                                                color:
+                                                    appThemestate
+                                                        .appTheme
+                                                        .isDark
+                                                    ? Colors.grey
+                                                    : Colors.grey[600],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            leading: (() {
+                                              if (isProject) {
+                                                return const Icon(
+                                                  Icons.folder_open_rounded,
+                                                  color: Color(0xff5090c8),
+                                                );
+                                              }
+                                              final matchingLang = languages.where(
+                                                (lang) =>lang.extension.contains(
+                                                  path.extension(entryPath,).toLowerCase().replaceFirst(".",""))).toList();
+                                              if (matchingLang.isNotEmpty) return matchingLang[0].icon;
+                                              return FileIcon(entryPath);
+                                            })(),
+                                          ),
                                         );
                                       },
-                                      title: Text(
-                                        File(recentData[index].keys.toList()[0]).existsSync() 
-                                          ? path.basename(recentData[index].keys.toList()[0])
-                                          : "${path.basename(recentData[index].keys.toList()[0])} - File not found",
-                                        style: const TextStyle(fontSize: 17)
-                                      ),
-                                      subtitle: Text(
-                                        recentData[index][recentData[index].keys.toList()[0]],
-                                        style: TextStyle(
-                                          color: appThemestate.appTheme.isDark ? Colors.grey : Colors.grey[600],fontSize: 12
-                                        )), 
-                                      leading: ((){
-                                        final matchingLang = languages.where((lang)=>
-                                        lang.extension.contains(path.extension(recentData[index].keys.toList()[0]).toLowerCase().replaceFirst(".", ""))).toList();
-                                        if(matchingLang.isNotEmpty) return matchingLang[0].icon;
-                                        return FileIcon(recentData[index].keys.toList()[0]);
-                                      })(),
                                     ),
-                                  );
-                                }
-                              ),
-                            ),
-                          );
+                                  ),
+                                );
                         },
-                      )
+                      ),
                     ],
                   ),
                 ),

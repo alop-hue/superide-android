@@ -493,18 +493,20 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
 
-
   final diffTextOriginal = result.stdout as String;
   final addedRanges = <(int, int)>[];
   final removedRanges = <({int afterLine, String content})>[];
 
   final lines = diffTextOriginal.split('\n');
-  final filteredLines = lines.where((line) =>
-    !line.startsWith('diff --git') &&
-    !line.startsWith('index ') &&
-    !line.startsWith('--- ') &&
-    !line.startsWith('+++ ')
-  ).toList();
+  final filteredLines = lines
+      .where(
+        (line) =>
+            !line.startsWith('diff --git') &&
+            !line.startsWith('index ') &&
+            !line.startsWith('--- ') &&
+            !line.startsWith('+++ '),
+      )
+      .toList();
 
   final visibleLines = <String>[];
 
@@ -520,9 +522,10 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
 
   void flushRemoved() {
     if (currentRemovedAfterLine == null) return;
-    removedRanges.add(
-      (afterLine: currentRemovedAfterLine!, content: removedContent.toString()),
-    );
+    removedRanges.add((
+      afterLine: currentRemovedAfterLine!,
+      content: removedContent.toString(),
+    ));
     currentRemovedAfterLine = null;
     removedContent.clear();
   }
@@ -665,10 +668,10 @@ Future<List<String>> gitListBranches(
   );
   if (result.exitCode != 0) return [];
   return (result.stdout as String)
-    .split('\n')
-    .map((b) => b.replaceFirst('*', '').trim())
-    .where((b) => b.isNotEmpty)
-    .toList();
+      .split('\n')
+      .map((b) => b.replaceFirst('*', '').trim())
+      .where((b) => b.isNotEmpty)
+      .toList();
 }
 
 Future<String?> gitCurrentBranch(String workspacePath) async {
@@ -681,7 +684,7 @@ Future<String?> gitCurrentBranch(String workspacePath) async {
   );
   if (result.exitCode != 0) return null;
   final branch = (result.stdout as String).trim();
-  
+
   if (branch.isEmpty) {
     final descResult = await Process.run(
       "$binDir/git",
@@ -692,7 +695,7 @@ Future<String?> gitCurrentBranch(String workspacePath) async {
     if (descResult.exitCode == 0) {
       return (descResult.stdout as String).trim();
     }
-    
+
     final refResult = await Process.run(
       "$binDir/git",
       ["rev-parse", "--short", "HEAD"],
@@ -704,7 +707,7 @@ Future<String?> gitCurrentBranch(String workspacePath) async {
     }
     return "HEAD";
   }
-  
+
   return branch;
 }
 
@@ -1118,17 +1121,17 @@ Future<String> gitHubSignIn() async {
     }
 
     final response = await http
-      .post(
-        Uri.parse('$backEndHandler/github/oauth'),
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode({'code': code}),
-      )
-      .timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          return http.Response('Backend connection timeout', 408);
-        },
-      );
+        .post(
+          Uri.parse('$backEndHandler/github/oauth'),
+          headers: {'Content-Type': 'application/json; charset=utf-8'},
+          body: jsonEncode({'code': code}),
+        )
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            return http.Response('Backend connection timeout', 408);
+          },
+        );
 
     if (response.statusCode != 200) {
       return ('${response.statusCode}: ${response.body}');
@@ -1452,10 +1455,7 @@ Future<String> getAiConfig() async {
 
 Future<String> getModelSelected() async {
   final prefs = await SharedPreferences.getInstance();
-  final defaultConfig = {
-    "code": "",
-    "chat": "",
-  };
+  final defaultConfig = {"code": "", "chat": ""};
   final configString = prefs.getString('modelSelected');
   if (configString == null) {
     return jsonEncode(defaultConfig);
@@ -1514,26 +1514,21 @@ Future<Map<String, dynamic>> sendRequest({
   }
 }
 
-void runCode(
-  BuildContext context,
-  String command,
-  String rootDir,
-) {
+void runCode(BuildContext context, String command, String rootDir) {
   try {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
-          projectDir: rootDir,
-          args: ["-c", command],
-        ),
+        pageBuilder: (context, animation, scondaryAnimation) =>
+            SetupTerminal(projectDir: rootDir, args: ["-c", command]),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SizeTransition(sizeFactor: animation, child: child);
         },
       ),
     );
-    
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Execution failed: ${e.toString()}")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Execution failed: ${e.toString()}")),
+    );
     debugPrint(e.toString());
   }
 }
@@ -1562,7 +1557,7 @@ Future<LspConfig?> startLspServer({
           ];
         } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
           return [
-            '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}'
+            '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
           ];
         } else if (ext == 'java') {
           return [
@@ -1585,28 +1580,46 @@ Future<LspConfig?> startLspServer({
         }
         if (['py', 'sh', 'bash', 'zsh'].contains(ext)) {
           return [
-            extensions.singleWhere((item) => item.fileExtension.isNotEmpty && item.fileExtension.contains(ext)).serverFile[0],
+            extensions
+                .singleWhere(
+                  (item) =>
+                      item.fileExtension.isNotEmpty &&
+                      item.fileExtension.contains(ext),
+                )
+                .serverFile[0],
             ...args,
           ];
         }
 
         if (ext == 'html') {
           return [
-            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "html")).serverFile[0],
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "html"),
+                )
+                .serverFile[0],
             ...args,
           ];
         }
 
         if (ext == 'css') {
           return [
-            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "css")).serverFile[1],
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "css"),
+                )
+                .serverFile[1],
             ...args,
           ];
         }
 
         if (ext == 'json') {
           return [
-            extensions.singleWhere((item) => item.fileExtension.any((ex) => ex == "json")).serverFile[2],
+            extensions
+                .singleWhere(
+                  (item) => item.fileExtension.any((ex) => ex == "json"),
+                )
+                .serverFile[2],
             ...args,
           ];
         }
@@ -1618,11 +1631,12 @@ Future<LspConfig?> startLspServer({
       environment: {
         ...environment ?? {},
         'VSDROID_SHARED_PATH': sharedPath,
-        'LD_LIBRARY_PATH': '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+        'LD_LIBRARY_PATH':
+            '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
         'JAVA_HOME': '$runtimeDir/java-21-openjdk',
       },
       workspacePath: workspacePath,
-      languageId: langId,
+      languageId: langId.toLowerCase(),
     );
     return config;
   } catch (e) {
@@ -1765,7 +1779,7 @@ class ActiveEditor {
       "baseOffset": controller.selection.baseOffset,
       "customTitle": customTitle,
       "isActive": isActive,
-      "lang": languageDetails.name
+      "lang": languageDetails.name,
     };
 
     return json;
@@ -1853,15 +1867,13 @@ class ChatSession {
     required this.conversations,
   });
 
-  ChatSession copyWith({
-    String? title,
-    List<AIConversation>? conversations,
-  }) => ChatSession(
-    id: id,
-    title: title ?? this.title,
-    createdAt: createdAt,
-    conversations: conversations ?? this.conversations,
-  );
+  ChatSession copyWith({String? title, List<AIConversation>? conversations}) =>
+      ChatSession(
+        id: id,
+        title: title ?? this.title,
+        createdAt: createdAt,
+        conversations: conversations ?? this.conversations,
+      );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -2068,294 +2080,409 @@ Map<String, (String, Color)> gitFileStatus = {
 };
 
 class EditHunk {
+  final String id;
+  final String type;
   final int startLine, endLine;
-  final String? oldText, newText;
+  final int sourceStartLine, sourceEndLine;
+  final int? afterLine;
+  final String oldText;
+  final String newText;
+  final String? addedText;
+  final String? removedText;
 
   const EditHunk({
+    required this.id,
+    required this.type,
     required this.startLine,
     required this.endLine,
-    required this.newText,
+    required this.sourceStartLine,
+    required this.sourceEndLine,
     required this.oldText,
+    required this.newText,
+    this.afterLine,
+    this.addedText,
+    this.removedText,
   });
 
-  Map<String, dynamic> tojson(){
+  factory EditHunk.fromJson(Map<String, dynamic> json) {
+    return EditHunk(
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'modified',
+      startLine: (json['startLine'] as num?)?.toInt() ?? 0,
+      endLine: (json['endLine'] as num?)?.toInt() ?? 0,
+      sourceStartLine:
+          (json['sourceStartLine'] as num?)?.toInt() ??
+          (json['startLine'] as num?)?.toInt() ??
+          0,
+      sourceEndLine:
+          (json['sourceEndLine'] as num?)?.toInt() ??
+          (json['endLine'] as num?)?.toInt() ??
+          0,
+      oldText: json['oldText']?.toString() ?? '',
+      newText: json['newText']?.toString() ?? '',
+      afterLine: (json['afterLine'] as num?)?.toInt(),
+      addedText: json['addedText']?.toString(),
+      removedText: json['removedText']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
     return {
+      'id': id,
+      'type': type,
       "startLine": startLine,
       "endLine": endLine,
+      "sourceStartLine": sourceStartLine,
+      "sourceEndLine": sourceEndLine,
       "oldText": oldText,
-      "newText": newText
+      "newText": newText,
+      "afterLine": afterLine,
+      "addedText": addedText,
+      "removedText": removedText,
     };
   }
 
   @override
   String toString() {
-    return tojson().toString();
+    return jsonEncode(toJson());
   }
 }
 
-class PendingEditFiles {
-  final String filePath, oldText;
+class PendingEditFile {
+  static const String _prefsKey = 'pendingAgenticEdits';
+
+  final String filePath;
+  final String oldText;
   final List<EditHunk> editHunks;
 
-  const PendingEditFiles({
+  const PendingEditFile({
     required this.filePath,
     required this.oldText,
-    required this.editHunks
+    required this.editHunks,
   });
 
-  static List<EditHunk> patchesToHunks(List<Patch> patches, CodeForgeController controller){
+  factory PendingEditFile.fromJson(Map<String, dynamic> json) {
+    final hunksRaw = json['editHunks'];
+    final hunks = <EditHunk>[];
+    if (hunksRaw is List) {
+      for (final item in hunksRaw) {
+        if (item is Map<String, dynamic>) {
+          hunks.add(EditHunk.fromJson(item));
+        } else if (item is Map) {
+          hunks.add(EditHunk.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+
+    return PendingEditFile(
+      filePath: json['filePath']?.toString() ?? '',
+      oldText: json['oldText']?.toString() ?? '',
+      editHunks: hunks,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'filePath': filePath,
+      'oldText': oldText,
+      'editHunks': editHunks.map((h) => h.toJson()).toList(),
+    };
+  }
+
+  PendingEditFile copyWith({
+    String? filePath,
+    String? oldText,
+    List<EditHunk>? editHunks,
+  }) {
+    return PendingEditFile(
+      filePath: filePath ?? this.filePath,
+      oldText: oldText ?? this.oldText,
+      editHunks: editHunks ?? this.editHunks,
+    );
+  }
+
+  static int _safeLineAtOffset(CodeForgeController controller, int offset) {
+    final text = controller.text;
+    if (text.isEmpty) return 0;
+    final maxOffset = text.length - 1;
+    final safeOffset = offset.clamp(0, maxOffset);
+    return controller.getLineAtOffset(safeOffset);
+  }
+
+  static List<EditHunk> patchesToHunks(
+    List<Patch> patches,
+    CodeForgeController newController,
+    CodeForgeController oldController,
+  ) {
     final List<EditHunk> hunks = [];
+    final ts = DateTime.now().microsecondsSinceEpoch;
+    var idx = 0;
 
-    for(final patch in patches){
-      final startLine = controller.getLineAtOffset(patch.start2);
-      final endLine = controller.getLineAtOffset(patch.start2 + patch.length2);
-      final newText = StringBuffer(), oldText = StringBuffer();
+    for (final patch in patches) {
+      var newCursor = patch.start2;
+      var oldCursor = patch.start1;
+      int? changedStartOffset;
+      int? changedEndOffset;
+      int? changedSourceStartOffset;
+      int? changedSourceEndOffset;
+      final newText = StringBuffer();
+      final oldText = StringBuffer();
+      final addedOnlyText = StringBuffer();
+      final removedOnlyText = StringBuffer();
+      var hasInsert = false;
+      var hasDelete = false;
 
-      for(final diff in patch.diffs){
-        if(diff.operation == 0 || diff.operation == -1) {
+      for (final diff in patch.diffs) {
+        if (diff.operation == 0 || diff.operation == -1) {
           oldText.write(diff.text);
         }
 
-        if(diff.operation == 0 || diff.operation == 1){
+        if (diff.operation == 0 || diff.operation == 1) {
           newText.write(diff.text);
         }
+
+        if (diff.operation == -1) {
+          hasDelete = true;
+          removedOnlyText.write(diff.text);
+          changedSourceStartOffset ??= oldCursor;
+          changedSourceEndOffset = (oldCursor + diff.text.length) - 1;
+        } else if (diff.operation == 1) {
+          hasInsert = true;
+          addedOnlyText.write(diff.text);
+          changedStartOffset ??= newCursor;
+          changedEndOffset = (newCursor + diff.text.length) - 1;
+        }
+
+        if (diff.operation == 0 || diff.operation == 1) {
+          newCursor += diff.text.length;
+        }
+        if (diff.operation == 0 || diff.operation == -1) {
+          oldCursor += diff.text.length;
+        }
       }
-      
+
+      final type = hasInsert && hasDelete
+          ? 'modified'
+          : hasInsert
+          ? 'added'
+          : 'removed';
+      final rangeStartOffset = changedStartOffset ?? patch.start2;
+      final rangeEndOffset = changedEndOffset ?? rangeStartOffset;
+      final sourceRangeStartOffset = changedSourceStartOffset ?? patch.start1;
+      final sourceRangeEndOffset =
+          changedSourceEndOffset ?? sourceRangeStartOffset;
+      final startLine = _safeLineAtOffset(newController, rangeStartOffset);
+      final endLine = _safeLineAtOffset(newController, rangeEndOffset);
+      final sourceStartLine = _safeLineAtOffset(
+        oldController,
+        sourceRangeStartOffset,
+      );
+      final sourceEndLine = _safeLineAtOffset(
+        oldController,
+        sourceRangeEndOffset,
+      );
+      final afterLine = hasDelete ? (startLine > 0 ? startLine - 1 : 0) : null;
+
       hunks.add(
         EditHunk(
+          id: 'hunk-$ts-${idx++}',
+          type: type,
           startLine: startLine,
           endLine: endLine,
+          sourceStartLine: sourceStartLine,
+          sourceEndLine: sourceEndLine,
+          oldText: oldText.toString(),
           newText: newText.toString(),
-          oldText: oldText.toString()
-        )
+          afterLine: afterLine,
+          addedText: addedOnlyText.isEmpty ? null : addedOnlyText.toString(),
+          removedText: removedOnlyText.isEmpty
+              ? null
+              : removedOnlyText.toString(),
+        ),
       );
     }
-    
+
     return hunks;
   }
 
-  Future<void> saveToPrefs() async{
-    final prefs = await SharedPreferences.getInstance();
-    final Map<String, dynamic> savedContent = jsonDecode(prefs.getString("pendingAgenticEdits") ?? "{}");
-    savedContent.addAll({
-      filePath: editHunks.map((h) => h.toString()).toList() 
-    });
-    final content = jsonEncode(savedContent);
-    prefs.setString("pendingAgenticEdits", content);
-  }
-  
-  //TODO
-  Future<void> getFromPref() async{}
-}
-
-/* class DiffDecorator {
-  static void applyDiffDecorations(
-    CodeForgeController controller,
-    String oldText,
-    String newText,
-  ) {
-    final oldLines = oldText.split('\n');
-    final newLines = newText.split('\n');
-    final dmp = DiffMatchPatch();
-    final diffs = dmp.diff(oldText, newText);
-    final changes = _computeLineChanges(oldLines, newLines, diffs);
-    final unifiedText = _generateUnifiedDiffText(oldLines, newLines, changes);
-    controller.text = unifiedText;
-    _applyUnifiedDiffDecorations(controller);
-  }
-  
-  static String _generateUnifiedDiffText(
-    List<String> oldLines,
-    List<String> newLines,
-    _LineChanges changes,
-  ) {
-    final buffer = StringBuffer();
-    
-    for (int i = 0; i < newLines.length || i < oldLines.length; i++) {
-      final isAdded = i < newLines.length && changes.addedLines.any((r) => i >= r.$1 && i <= r.$2);
-      final isRemoved = i < oldLines.length && changes.removedLines.any((r) => i >= r.$1 && i <= r.$2);
-      final isModified = i < newLines.length && changes.modifiedLines.any((r) => i >= r.$1 && i <= r.$2);
-      
-      if (isRemoved || (isModified && i < oldLines.length)) {
-        buffer.writeln('- ${oldLines[i]}');
-      }
-      if (isAdded || (isModified && i < newLines.length)) {
-        buffer.writeln('+ ${newLines[i]}');
-      }
-      if (!isAdded && !isRemoved && !isModified && i < newLines.length) {
-        buffer.writeln(newLines[i]);
-      }
-    }
-    
-    return buffer.toString().trim();
-  }
-  
-  static void _applyUnifiedDiffDecorations(CodeForgeController controller) {
+  ({
+    List<(int startLine, int endLine)> addedRanges,
+    List<(int startLine, int endLine)> modifiedRanges,
+    List<({int afterLine, String content})> removedRanges,
+  })
+  toDecorationRanges() {
     final addedRanges = <(int, int)>[];
-    final removedRanges = <(int, int)>[];
-    
-    for (int i = 0; i < controller.lineCount; i++) {
-      final lineText = controller.getLineText(i);
-      if (lineText.startsWith('+ ')) {
-        addedRanges.add((i, i));
-      } else if (lineText.startsWith('- ')) {
-        removedRanges.add((i, i));
+    final modifiedRanges = <(int, int)>[];
+    final removedRanges = <({int afterLine, String content})>[];
+
+    String extractOldLines(EditHunk hunk) {
+      if (oldText.isEmpty) return '';
+      final lines = oldText.split('\n');
+      if (lines.isEmpty) return '';
+      final safeStart = hunk.sourceStartLine.clamp(0, lines.length - 1);
+      final safeEnd = hunk.sourceEndLine.clamp(safeStart, lines.length - 1);
+      return lines.sublist(safeStart, safeEnd + 1).join('\n');
+    }
+
+    for (final hunk in editHunks) {
+      if (hunk.type == 'added') {
+        addedRanges.add((hunk.startLine, hunk.endLine));
+        continue;
+      }
+
+      if (hunk.type == 'modified') {
+        modifiedRanges.add((hunk.startLine, hunk.endLine));
+        final removed = extractOldLines(hunk);
+        if (removed.isNotEmpty) {
+          removedRanges.add((
+            afterLine:
+                hunk.afterLine ?? (hunk.startLine > 0 ? hunk.startLine - 1 : 0),
+            content: removed,
+          ));
+        }
+        continue;
+      }
+
+      if (hunk.type == 'removed') {
+        final removed = extractOldLines(hunk);
+        removedRanges.add((
+          afterLine:
+              hunk.afterLine ?? (hunk.startLine > 0 ? hunk.startLine - 1 : 0),
+          content: removed.isNotEmpty
+              ? removed
+              : (hunk.removedText ?? hunk.oldText),
+        ));
       }
     }
-    
+
+    return (
+      addedRanges: addedRanges,
+      modifiedRanges: modifiedRanges,
+      removedRanges: removedRanges,
+    );
+  }
+
+  void applyDecorations(
+    CodeForgeController controller, {
+    Color addedColor = const Color(0xFF4CAF50),
+    Color removedColor = const Color(0xFFE53935),
+    Color modifiedColor = const Color(0xFF4CAF50),
+  }) {
+    final ranges = toDecorationRanges();
+    if (editHunks.isEmpty) {
+      controller.clearGitDiffDecorations();
+      return;
+    }
     controller.setGitDiffDecorations(
-      addedRanges: addedRanges.isNotEmpty ? addedRanges : null,
-      //TODO
-      // removedRanges: removedRanges.isNotEmpty ? removedRanges : null,
+      addedRanges: ranges.addedRanges,
+      modifiedRanges: ranges.modifiedRanges,
+      removedRanges: ranges.removedRanges,
+      addedColor: addedColor,
+      removedColor: removedColor,
+      modifiedColor: modifiedColor,
     );
   }
-  
-  static _LineChanges _computeLineChanges(
-    List<String> oldLines,
-    List<String> newLines,
-    List<Diff> diffs,
-  ) {
-    final addedLines = <(int, int)>[];
-    final removedLines = <(int, int)>[];
-    final modifiedOldLines = <(int, int)>[];
-    final modifiedNewLines = <(int, int)>[];
-    int oldLineIndex = 0;
-    int newLineIndex = 0;
-    final oldLinesChanged = <int>{};
-    final newLinesChanged = <int>{};
-    final oldLinesRemoved = <int>{};
-    final newLinesAdded = <int>{};
-    
-    for (final diff in diffs) {
-      final text = diff.text;
-      
-      switch (diff.operation) {
-        case DIFF_EQUAL:
-          int pos = 0;
-          while (pos < text.length) {
-            if (text[pos] == '\n') {
-              oldLineIndex++;
-              newLineIndex++;
-            }
-            pos++;
-          }
-          break;
-          
-        case DIFF_DELETE:
-          int pos = 0;
-          
-          while (pos < text.length) {
-            if (text[pos] == '\n') {
-              oldLinesRemoved.add(oldLineIndex);
-              oldLineIndex++;
-            } else {
-              oldLinesChanged.add(oldLineIndex);
-            }
-            pos++;
-          }
-          break;
-          
-        case DIFF_INSERT:
-          int pos = 0;
-          
-          while (pos < text.length) {
-            if (text[pos] == '\n') {
-              newLinesAdded.add(newLineIndex);
-              newLineIndex++;
-            } else {
-              newLinesChanged.add(newLineIndex);
-            }
-            pos++;
-          }
-          break;
-      }
+
+  static Map<String, dynamic> _decodePrefs(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return {};
     }
-    
-    for (final line in oldLinesRemoved) {
-      if (!oldLinesChanged.contains(line)) {
-        removedLines.add((line, line));
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
       }
-    }
-    
-    for (final line in newLinesAdded) {
-      if (!newLinesChanged.contains(line)) {
-        addedLines.add((line, line));
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
       }
+    } catch (_) {
+      return {};
     }
-    
-    for (final line in oldLinesChanged) {
-      if (!oldLinesRemoved.contains(line)) {
-        modifiedOldLines.add((line, line));
-      }
-    }
-    
-    for (final line in newLinesChanged) {
-      if (!newLinesAdded.contains(line)) {
-        modifiedNewLines.add((line, line));
-      }
-    }
-    
-    return _LineChanges(
-      addedLines: _mergeRanges(addedLines),
-      removedLines: _mergeRanges(removedLines),
-      modifiedLines: _mergeRanges(modifiedNewLines),
-    );
+    return {};
   }
-  
-  static List<(int, int)> _mergeRanges(List<(int, int)> ranges) {
-    if (ranges.isEmpty) return [];
-    
-    final sorted = List<(int, int)>.from(ranges)
-      ..sort((a, b) => a.$1.compareTo(b.$1));
-    
-    final merged = <(int, int)>[];
-    var current = sorted[0];
-    
-    for (int i = 1; i < sorted.length; i++) {
-      final next = sorted[i];
-      
-      if (next.$1 <= current.$2 + 1) {
-        current = (current.$1, next.$2 > current.$2 ? next.$2 : current.$2);
-      } else {
-        merged.add(current);
-        current = next;
+
+  static PendingEditFile? _parseFileEntry(dynamic rawEntry) {
+    try {
+      if (rawEntry is Map<String, dynamic>) {
+        return PendingEditFile.fromJson(rawEntry);
+      }
+      if (rawEntry is Map) {
+        return PendingEditFile.fromJson(Map<String, dynamic>.from(rawEntry));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContent = _decodePrefs(prefs.getString(_prefsKey));
+    final existing = _parseFileEntry(savedContent[filePath]);
+    final merged = existing == null
+        ? this
+        : PendingEditFile(
+            filePath: filePath,
+            oldText: existing.oldText,
+            editHunks: [...existing.editHunks, ...editHunks],
+          );
+    savedContent[filePath] = merged.toJson();
+    await prefs.setString(_prefsKey, jsonEncode(savedContent));
+  }
+
+  static Future<void> upsert(PendingEditFile pendingEditFile) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContent = _decodePrefs(prefs.getString(_prefsKey));
+    savedContent[pendingEditFile.filePath] = pendingEditFile.toJson();
+    await prefs.setString(_prefsKey, jsonEncode(savedContent));
+  }
+
+  static Future<PendingEditFile?> getForFile(String filePath) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContent = _decodePrefs(prefs.getString(_prefsKey));
+    return _parseFileEntry(savedContent[filePath]);
+  }
+
+  static Future<Map<String, PendingEditFile>> getAllFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContent = _decodePrefs(prefs.getString(_prefsKey));
+    final result = <String, PendingEditFile>{};
+    for (final entry in savedContent.entries) {
+      final parsed = _parseFileEntry(entry.value);
+      if (parsed != null) {
+        result[entry.key] = parsed;
       }
     }
-    
-    merged.add(current);
-    return merged;
+    return result;
+  }
+
+  static Future<void> removeFile(String filePath) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedContent = _decodePrefs(prefs.getString(_prefsKey));
+    savedContent.remove(filePath);
+    await prefs.setString(_prefsKey, jsonEncode(savedContent));
+  }
+
+  static Future<void> removeHunk(String filePath, String hunkId) async {
+    final pending = await getForFile(filePath);
+    if (pending == null) return;
+
+    final updated = pending.editHunks.where((h) => h.id != hunkId).toList();
+    if (updated.isEmpty) {
+      await removeFile(filePath);
+      return;
+    }
+
+    await upsert(pending.copyWith(editHunks: updated));
+  }
+
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, jsonEncode({}));
+  }
+
+  static Future<Map<String, dynamic>> getFromPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    return _decodePrefs(prefs.getString(_prefsKey));
   }
 }
-
-class _LineChanges {
-  final List<(int, int)> addedLines;
-  final List<(int, int)> removedLines;
-  final List<(int, int)> modifiedLines;
-  
-  _LineChanges({
-    required this.addedLines,
-    required this.removedLines,
-    required this.modifiedLines,
-  });
-}
-
-class EditHunk {
-  final int startLine, endLine;
-  final String text;
-
-  const EditHunk ({
-    required this.startLine,
-    required this.endLine,
-    required this.text
-  });
-}
-
-class PendingEditFiles {
-  final String filePath;
-  final List<EditHunk> pendingHunks;
-
-  const PendingEditFiles({
-    required this.filePath,
-    this.pendingHunks = const []
-  });
-} */

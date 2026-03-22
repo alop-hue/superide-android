@@ -61,10 +61,10 @@ packages:
     dependency: "direct main"
     description:
       name: code_forge
-      sha256: da884e812eb6e78432279ab263b21805c58e1fb53f5371a73af27e68901042c5
+      sha256: "7b6ffa52108f10bd40d94c7b4dcaa0bfecda60a9814fb7f3d2af868b5b2ded03"
       url: "https://pub.dev"
     source: hosted
-    version: "9.2.0"
+    version: "9.3.0"
   collection:
     dependency: transitive
     description:
@@ -958,5 +958,5 @@ packages:
     source: hosted
     version: "0.0.6"
 sdks:
-  dart: ">=3.11.1 <4.0.0"
+  dart: ">=3.11.3 <4.0.0"
   flutter: ">=3.35.0"

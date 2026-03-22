@@ -15,12 +15,16 @@ class SetupTerminal extends StatefulWidget {
   final String projectDir;
   final List<String> args;
   final bool useScaffold;
+  final bool showKeyboardMenu;
+  final bool readOnly;
 
   const SetupTerminal({
     super.key,
     required this.projectDir,
     this.args = const [],
     this.useScaffold = true,
+    this.showKeyboardMenu = true,
+    this.readOnly = false,
   });
 
   @override
@@ -30,11 +34,15 @@ class SetupTerminal extends StatefulWidget {
 class EmbeddedTerminal extends StatelessWidget {
   final String projectDir;
   final List<String> args;
+  final bool showKeyboardMenu;
+  final bool readOnly;
 
   const EmbeddedTerminal({
     super.key,
     required this.projectDir,
     this.args = const [],
+    this.showKeyboardMenu = true,
+    this.readOnly = false,
   });
 
   @override
@@ -43,6 +51,8 @@ class EmbeddedTerminal extends StatelessWidget {
       projectDir: projectDir,
       args: args,
       useScaffold: false,
+      showKeyboardMenu: showKeyboardMenu,
+      readOnly: readOnly,
     );
   }
 }
@@ -61,10 +71,7 @@ class TerminalSessionMeta {
     required this.isRunning,
   });
 
-  TerminalSessionMeta copyWith({
-    String? title,
-    bool? isRunning,
-  }) {
+  TerminalSessionMeta copyWith({String? title, bool? isRunning}) {
     return TerminalSessionMeta(
       id: id,
       title: title ?? this.title,
@@ -125,12 +132,15 @@ class TerminalSessionState {
   }) {
     return TerminalSessionState(
       sessions: sessions ?? this.sessions,
-      activeSessionId: clearActive ? null : activeSessionId ?? this.activeSessionId,
+      activeSessionId: clearActive
+          ? null
+          : activeSessionId ?? this.activeSessionId,
     );
   }
 }
 
-class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionState> {
+class TerminalSessionBloc
+    extends Bloc<TerminalSessionEvent, TerminalSessionState> {
   TerminalSessionBloc()
     : super(const TerminalSessionState(sessions: [], activeSessionId: null)) {
     on<CreateTerminalSession>((event, emit) {
@@ -141,10 +151,12 @@ class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionStat
         isRunning: event.isRunning,
       );
       final sessions = [newSession, ...state.sessions];
-      emit(state.copyWith(
-        sessions: sessions,
-        activeSessionId: event.makeActive ? event.id : state.activeSessionId,
-      ));
+      emit(
+        state.copyWith(
+          sessions: sessions,
+          activeSessionId: event.makeActive ? event.id : state.activeSessionId,
+        ),
+      );
     });
 
     on<SetActiveTerminalSession>((event, emit) {
@@ -152,7 +164,9 @@ class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionStat
     });
 
     on<DeleteTerminalSession>((event, emit) {
-      final sessions = state.sessions.where((session) => session.id != event.id).toList();
+      final sessions = state.sessions
+          .where((session) => session.id != event.id)
+          .toList();
       if (sessions.isEmpty) {
         emit(state.copyWith(sessions: sessions, clearActive: true));
         return;
@@ -250,7 +264,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
       await workDir.create(recursive: true);
     }
     if (!mounted) return;
-    await _createSession(args: widget.args, makeActive: true, title: 'Session 1');
+    await _createSession(
+      args: widget.args,
+      makeActive: true,
+      title: 'Session 1',
+    );
   }
 
   void _onSelectionChanged(String sessionId) {
@@ -299,12 +317,14 @@ class _SetupTerminalState extends State<SetupTerminal> {
     runtime.controller.addListener(runtime.selectionListener!);
     _sessionRuntimes[id] = runtime;
 
-    _sessionBloc.add(CreateTerminalSession(
-      id: id,
-      title: sessionTitle,
-      makeActive: makeActive,
-      isRunning: false,
-    ));
+    _sessionBloc.add(
+      CreateTerminalSession(
+        id: id,
+        title: sessionTitle,
+        makeActive: makeActive,
+        isRunning: false,
+      ),
+    );
 
     await _startPty(runtime, args: args);
 
@@ -334,7 +354,9 @@ class _SetupTerminalState extends State<SetupTerminal> {
     final runtime = _sessionRuntimes[sessionId];
     if (runtime == null || !runtime.isRunning) return;
     runtime.stopProcess();
-    _sessionBloc.add(UpdateTerminalSessionStatus(id: sessionId, isRunning: false));
+    _sessionBloc.add(
+      UpdateTerminalSessionStatus(id: sessionId, isRunning: false),
+    );
   }
 
   Future<void> _deleteSession(String sessionId) async {
@@ -377,7 +399,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       '/sbin',
       '/usr/sbin',
     ];
-    
+
     final binaries = <String>{};
     for (final dirPath in pathDirs) {
       try {
@@ -395,7 +417,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _pathBinaries = binaries.toList()..sort();
   }
 
-  Future<void> _startPty(_TerminalRuntime runtime, {List<String> args = const []}) async {
+  Future<void> _startPty(
+    _TerminalRuntime runtime, {
+    List<String> args = const [],
+  }) async {
     if (_sharedPath.isEmpty) {
       _sharedPath = await NativeChannel.getLibraryPath();
     }
@@ -406,7 +431,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'PROMPT_DIRTRIM': '2',
       'VSDROID_SHARED_PATH': _sharedPath,
-      'LD_LIBRARY_PATH': '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
+      'LD_LIBRARY_PATH':
+          '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$_sharedPath/libc++_shared.so',
       'PREFIX': '/data/data/com.vsdroid',
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
@@ -424,22 +450,30 @@ class _SetupTerminalState extends State<SetupTerminal> {
       arguments: args,
     );
     runtime.pty = process;
-    _sessionBloc.add(UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: true));
+    _sessionBloc.add(
+      UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: true),
+    );
 
     await runtime.outputSubscription?.cancel();
     runtime.outputSubscription = process.output
-      .cast<List<int>>()
-      .transform(const Utf8Decoder())
-      .listen(runtime.terminal.write);
+        .cast<List<int>>()
+        .transform(const Utf8Decoder())
+        .listen(runtime.terminal.write);
 
     process.exitCode.then((code) {
       if (!_sessionRuntimes.containsKey(runtime.sessionId)) return;
       runtime.pty = null;
       runtime.terminal.write('\r\n\n[Program finished with exit code $code]');
-      _sessionBloc.add(UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: false));
+      _sessionBloc.add(
+        UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: false),
+      );
     });
 
     runtime.terminal.onOutput = (data) {
+      if (widget.readOnly) {
+        return;
+      }
+
       final activeSessionId = _sessionBloc.state.activeSessionId;
       process.write(const Utf8Encoder().convert(data));
       if (activeSessionId == runtime.sessionId) {
@@ -450,6 +484,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
     runtime.terminal.onResize = (w, h, pw, ph) {
       process.resize(h, w);
     };
+
+    if (widget.readOnly) {
+      _suggestionsNotifier.value = null;
+      _hideSelectionToolbar();
+      runtime.controller.clearSelection();
+    }
   }
 
   void _handleInputForAutocomplete(_TerminalRuntime runtime, String data) {
@@ -461,7 +501,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
     if (data == '\x7f' || data == '\b') {
       if (runtime.currentInput.isNotEmpty) {
-        runtime.currentInput = runtime.currentInput.substring(0, runtime.currentInput.length - 1);
+        runtime.currentInput = runtime.currentInput.substring(
+          0,
+          runtime.currentInput.length - 1,
+        );
       }
     } else if (data == '\t') {
       final suggestions = _suggestionsNotifier.value;
@@ -502,7 +545,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
           .take(10)
           .toList();
     }
-    
+
     if (matches.isEmpty) {
       _suggestionsNotifier.value = null;
     } else {
@@ -531,8 +574,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
       }
 
       final lastSlash = searchPath.lastIndexOf('/');
-      final dirPath = lastSlash >= 0 ? searchPath.substring(0, lastSlash + 1) : searchPath;
-      final partial = lastSlash >= 0 ? searchPath.substring(lastSlash + 1).toLowerCase() : '';
+      final dirPath = lastSlash >= 0
+          ? searchPath.substring(0, lastSlash + 1)
+          : searchPath;
+      final partial = lastSlash >= 0
+          ? searchPath.substring(lastSlash + 1).toLowerCase()
+          : '';
 
       final dir = Directory(dirPath);
       if (!await dir.exists()) return [];
@@ -544,10 +591,14 @@ class _SetupTerminalState extends State<SetupTerminal> {
           final isDir = entity is Directory;
           final displayPath = prefix.isEmpty
               ? entity.path
-              : prefix + entity.path.substring(
-                  input.startsWith('~/') ? homeDir.length :
-                  input.startsWith('./') ? widget.projectDir.length + 1 : 0,
-                );
+              : prefix +
+                    entity.path.substring(
+                      input.startsWith('~/')
+                          ? homeDir.length
+                          : input.startsWith('./')
+                          ? widget.projectDir.length + 1
+                          : 0,
+                    );
           suggestions.add(isDir ? '$displayPath/' : displayPath);
         }
       }
@@ -601,8 +652,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.copy,
                       label: 'Copy',
                       onTap: () {
-                        final selectedText = runtime.controller.selection != null
-                            ? runtime.terminal.buffer.getText(runtime.controller.selection!)
+                        final selectedText =
+                            runtime.controller.selection != null
+                            ? runtime.terminal.buffer.getText(
+                                runtime.controller.selection!,
+                              )
                             : '';
                         if (selectedText.isNotEmpty) {
                           Clipboard.setData(ClipboardData(text: selectedText));
@@ -629,9 +683,13 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.paste,
                       label: 'Paste',
                       onTap: () async {
-                        final data = await Clipboard.getData(Clipboard.kTextPlain);
+                        final data = await Clipboard.getData(
+                          Clipboard.kTextPlain,
+                        );
                         if (data?.text != null) {
-                          runtime.pty?.write(const Utf8Encoder().convert(data!.text!));
+                          runtime.pty?.write(
+                            const Utf8Encoder().convert(data!.text!),
+                          );
                         }
                         runtime.controller.clearSelection();
                       },
@@ -645,8 +703,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       icon: Icons.search,
                       label: 'Search',
                       onTap: () {
-                        final selectedText = runtime.controller.selection != null
-                            ? runtime.terminal.buffer.getText(runtime.controller.selection!)
+                        final selectedText =
+                            runtime.controller.selection != null
+                            ? runtime.terminal.buffer.getText(
+                                runtime.controller.selection!,
+                              )
                             : '';
                         if (selectedText.isNotEmpty) {
                           runtime.pty?.write(
@@ -698,11 +759,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
+            Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.9)),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 6),
               Text(
@@ -783,6 +840,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
   }
 
   Widget _buildSuggestionBox() {
+    if (widget.readOnly) {
+      return const SizedBox.shrink();
+    }
+
     return ValueListenableBuilder<List<String>?>(
       valueListenable: _suggestionsNotifier,
       builder: (context, suggestions, _) {
@@ -790,11 +851,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
           _selectedSuggestionIndex = 0;
           return const SizedBox.shrink();
         }
-        
+
         final screenWidth = MediaQuery.of(context).size.width;
         const itemHeight = 40.0;
         final maxHeight = (suggestions.length * itemHeight).clamp(0.0, 300.0);
-        
+
         return Positioned(
           left: 8,
           right: 8,
@@ -830,39 +891,42 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       final isDirectory = suggestion.endsWith('/');
                       final isPath = suggestion.contains('/');
                       final activeRuntime = _activeRuntime();
-                      
+
                       return InkWell(
                         onTap: activeRuntime == null
                             ? null
-                            : () => _acceptSuggestion(activeRuntime, suggestion),
+                            : () =>
+                                  _acceptSuggestion(activeRuntime, suggestion),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          color: isSelected ? const Color(0xff094771) : Colors.transparent,
+                          color: isSelected
+                              ? const Color(0xff094771)
+                              : Colors.transparent,
                           child: Row(
                             children: [
                               Container(
                                 width: 24,
                                 height: 24,
                                 decoration: BoxDecoration(
-                                  color: isDirectory 
+                                  color: isDirectory
                                       ? Colors.amber.withValues(alpha: 0.15)
-                                      : isPath 
-                                          ? Colors.blue.withValues(alpha: 0.15)
-                                          : Colors.green.withValues(alpha: 0.15),
+                                      : isPath
+                                      ? Colors.blue.withValues(alpha: 0.15)
+                                      : Colors.green.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Icon(
-                                  isDirectory 
+                                  isDirectory
                                       ? Icons.folder_rounded
-                                      : isPath 
-                                          ? Icons.insert_drive_file_rounded
-                                          : Icons.terminal_rounded,
+                                      : isPath
+                                      ? Icons.insert_drive_file_rounded
+                                      : Icons.terminal_rounded,
                                   size: 16,
-                                  color: isDirectory 
-                                      ? Colors.amber 
-                                      : isPath 
-                                          ? Colors.blue.shade300 
-                                          : Colors.green.shade300,
+                                  color: isDirectory
+                                      ? Colors.amber
+                                      : isPath
+                                      ? Colors.blue.shade300
+                                      : Colors.green.shade300,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -879,7 +943,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
                               ),
                               if (!isPath)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.green.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
@@ -895,7 +962,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
                                 ),
                               if (isDirectory)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.amber.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
@@ -911,7 +981,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
                                 ),
                               if (isPath && !isDirectory)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.blue.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
@@ -941,16 +1014,13 @@ class _SetupTerminalState extends State<SetupTerminal> {
   }
 
   Widget _buildSessionDrawer(TerminalSessionState state, AppTheme appTheme) {
-
     return Drawer(
       backgroundColor: appTheme.selectScreenDrawerBg,
       surfaceTintColor: Colors.transparent,
       child: Column(
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
-              color: appTheme.editorPageDrawerBg,
-            ),
+            decoration: BoxDecoration(color: appTheme.editorPageDrawerBg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1008,7 +1078,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
                     children: [
                       IconButton(
                         tooltip: 'Restart session',
-                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _restartSession(session.id),
@@ -1020,7 +1093,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       ),
                       IconButton(
                         tooltip: 'Stop session',
-                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                         onPressed: session.isRunning
@@ -1031,12 +1107,17 @@ class _SetupTerminalState extends State<SetupTerminal> {
                           size: 18,
                           color: session.isRunning
                               ? appTheme.editorPageToolColor
-                              : appTheme.editorPageToolColor.withValues(alpha: 0.45),
+                              : appTheme.editorPageToolColor.withValues(
+                                  alpha: 0.45,
+                                ),
                         ),
                       ),
                       IconButton(
                         tooltip: 'Delete session',
-                        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _deleteSession(session.id),
@@ -1062,7 +1143,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
     return BlocProvider.value(
       value: _sessionBloc,
       child: BlocListener<TerminalSessionBloc, TerminalSessionState>(
-        listenWhen: (previous, current) => previous.activeSessionId != current.activeSessionId,
+        listenWhen: (previous, current) =>
+            previous.activeSessionId != current.activeSessionId,
         listener: (context, state) {
           _hideSelectionToolbar();
           _suggestionsNotifier.value = null;
@@ -1081,6 +1163,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
                           Expanded(
                             child: TerminalView(
                               activeRuntime.terminal,
+                              readOnly: widget.readOnly,
                               padding: EdgeInsets.zero,
                               controller: activeRuntime.controller,
                               autofocus: true,
@@ -1088,17 +1171,19 @@ class _SetupTerminalState extends State<SetupTerminal> {
                               theme: terminalTheme,
                             ),
                           ),
-                          TerminalKeyboardMenu(
-                            onSendSequence: sendToPty,
-                            onModifierChanged: (ctrl, alt, shift, resetCallback) {
-                              _setTerminalOutputWithAutocomplete(
-                                ctrl: ctrl,
-                                alt: alt,
-                                shift: shift,
-                                resetCallback: resetCallback,
-                              );
-                            },
-                          ),
+                          if (widget.showKeyboardMenu)
+                            TerminalKeyboardMenu(
+                              onSendSequence: sendToPty,
+                              onModifierChanged:
+                                  (ctrl, alt, shift, resetCallback) {
+                                    _setTerminalOutputWithAutocomplete(
+                                      ctrl: ctrl,
+                                      alt: alt,
+                                      shift: shift,
+                                      resetCallback: resetCallback,
+                                    );
+                                  },
+                            ),
                         ],
                       ),
                       _buildSuggestionBox(),
@@ -1127,12 +1212,18 @@ class _SetupTerminalState extends State<SetupTerminal> {
                             right: 6,
                             top: 6,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
                               decoration: BoxDecoration(
                                 color: appTheme.editorPageToolSelectedBgColor,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
                               child: Text(
                                 sessionCount > 99 ? '99+' : '$sessionCount',
                                 style: TextStyle(
@@ -1152,10 +1243,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
                 actions: [
                   IconButton(
                     tooltip: 'New session',
-                    onPressed: () => _createSession(
-                      makeActive: true,
-                      showFeedback: true,
-                    ),
+                    onPressed: () =>
+                        _createSession(makeActive: true, showFeedback: true),
                     icon: const Icon(Icons.add),
                   ),
                 ],
@@ -1172,8 +1261,9 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
 class TerminalKeyboardMenu extends StatefulWidget {
   final Function(String) onSendSequence;
-  final Function(bool ctrl, bool alt, bool shift, VoidCallback resetCallback) onModifierChanged;
-  
+  final Function(bool ctrl, bool alt, bool shift, VoidCallback resetCallback)
+  onModifierChanged;
+
   const TerminalKeyboardMenu({
     super.key,
     required this.onSendSequence,
@@ -1205,7 +1295,12 @@ class _TerminalKeyboardMenuState extends State<TerminalKeyboardMenu> {
         isShiftActive = false;
       }
     });
-    widget.onModifierChanged(isCtrlActive, isAltActive, isShiftActive, _resetModifiers);
+    widget.onModifierChanged(
+      isCtrlActive,
+      isAltActive,
+      isShiftActive,
+      _resetModifiers,
+    );
   }
 
   void _toggleAlt() {
@@ -1216,7 +1311,12 @@ class _TerminalKeyboardMenuState extends State<TerminalKeyboardMenu> {
         isShiftActive = false;
       }
     });
-    widget.onModifierChanged(isCtrlActive, isAltActive, isShiftActive, _resetModifiers);
+    widget.onModifierChanged(
+      isCtrlActive,
+      isAltActive,
+      isShiftActive,
+      _resetModifiers,
+    );
   }
 
   void _toggleShift() {
@@ -1227,7 +1327,12 @@ class _TerminalKeyboardMenuState extends State<TerminalKeyboardMenu> {
         isAltActive = false;
       }
     });
-    widget.onModifierChanged(isCtrlActive, isAltActive, isShiftActive, _resetModifiers);
+    widget.onModifierChanged(
+      isCtrlActive,
+      isAltActive,
+      isShiftActive,
+      _resetModifiers,
+    );
   }
 
   @override
@@ -1243,32 +1348,36 @@ class _TerminalKeyboardMenuState extends State<TerminalKeyboardMenu> {
                 onPressed: _toggleCtrl,
                 style: TextButton.styleFrom(
                   foregroundColor: isCtrlActive ? Colors.yellow : Colors.white,
-                  backgroundColor: isCtrlActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-                ), 
-                child: const Text("CTRL")
+                  backgroundColor: isCtrlActive
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                ),
+                child: const Text("CTRL"),
               ),
               TextButton(
                 onPressed: _toggleAlt,
                 style: TextButton.styleFrom(
                   foregroundColor: isAltActive ? Colors.yellow : Colors.white,
-                  backgroundColor: isAltActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-                ), 
-                child: const Text("ALT")
+                  backgroundColor: isAltActive
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                ),
+                child: const Text("ALT"),
               ),
               TextButton(
-                onPressed: () => widget.onSendSequence('\x1b[H'), 
-                style: TextButton.styleFrom(foregroundColor: Colors.white), 
-                child: const Text("HOME")
+                onPressed: () => widget.onSendSequence('\x1b[H'),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text("HOME"),
               ),
               IconButton(
-                onPressed: () => widget.onSendSequence('\x1b[A'), 
+                onPressed: () => widget.onSendSequence('\x1b[A'),
                 color: Colors.white,
-                icon: const Icon(Icons.arrow_upward)
+                icon: const Icon(Icons.arrow_upward),
               ),
               TextButton(
-                onPressed: () => widget.onSendSequence('\x1b[F'), 
-                style: TextButton.styleFrom(foregroundColor: Colors.white), 
-                child: const Text("END")
+                onPressed: () => widget.onSendSequence('\x1b[F'),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text("END"),
               ),
             ],
           ),
@@ -1276,38 +1385,40 @@ class _TerminalKeyboardMenuState extends State<TerminalKeyboardMenu> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton(
-                onPressed: () => widget.onSendSequence('\x1b'), 
-                style: TextButton.styleFrom(foregroundColor: Colors.white), 
-                child: const Text("ESC")
+                onPressed: () => widget.onSendSequence('\x1b'),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text("ESC"),
               ),
               TextButton(
                 onPressed: _toggleShift,
                 style: TextButton.styleFrom(
                   foregroundColor: isShiftActive ? Colors.yellow : Colors.white,
-                  backgroundColor: isShiftActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-                ), 
-                child: const Text("SHIFT")
+                  backgroundColor: isShiftActive
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                ),
+                child: const Text("SHIFT"),
               ),
               IconButton(
-                onPressed: () => widget.onSendSequence('\x1b[D'), 
-                color: Colors.white, 
-                icon: const Icon(Icons.arrow_back)
+                onPressed: () => widget.onSendSequence('\x1b[D'),
+                color: Colors.white,
+                icon: const Icon(Icons.arrow_back),
               ),
               Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: IconButton(
-                  onPressed: () => widget.onSendSequence('\x1b[B'), 
-                  color: Colors.white, 
-                  icon: const Icon(Icons.arrow_downward)
+                  onPressed: () => widget.onSendSequence('\x1b[B'),
+                  color: Colors.white,
+                  icon: const Icon(Icons.arrow_downward),
                 ),
               ),
               IconButton(
-                onPressed: () => widget.onSendSequence('\x1b[C'), 
-                color: Colors.white, 
-                icon: const Icon(Icons.arrow_forward)
+                onPressed: () => widget.onSendSequence('\x1b[C'),
+                color: Colors.white,
+                icon: const Icon(Icons.arrow_forward),
               ),
             ],
-          )
+          ),
         ],
       ),
     );

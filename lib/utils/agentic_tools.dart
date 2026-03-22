@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
+import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -9,59 +10,81 @@ import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
+import 'package:vsdroid/utils/constants.dart';
 import 'package:vsdroid/utils/functions.dart';
-
 
 class AgenticTools {
   final BuildContext context;
   final String workspacePath;
 
-  AgenticTools({
-    required this.workspacePath,
-    required this.context,
-  }): _activeEditor = context.read<ActiveEditorBloc>().state.activeEditors.singleWhere((editor) => editor.isActive);
+  AgenticTools({required this.workspacePath, required this.context})
+    : _activeEditor = context
+          .read<ActiveEditorBloc>()
+          .state
+          .activeEditors
+          .singleWhere((editor) => editor.isActive);
 
   late final ActiveEditor _activeEditor;
-  
-  Future<ToolResult<String>> activeEditorFile() async{
+
+  String _canonicalWorkspacePath() => Directory(workspacePath).absolute.path;
+
+  String _canonicalFilePath(String filePath) {
+    final resolvedPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspacePath, filePath);
+    return File(resolvedPath).absolute.path;
+  }
+
+  bool _isInsideWorkspace(String canonicalPath) {
+    final canonicalWorkspace = _canonicalWorkspacePath();
+    return canonicalPath == canonicalWorkspace ||
+        path.isWithin(canonicalWorkspace, canonicalPath);
+  }
+
+  Future<ToolResult<String>> activeEditorFile() async {
     try {
       return ToolResult.success(_activeEditor.file.path);
     } catch (e) {
-        return ToolResult.error("An error occured: ${e.toString()}");
+      return ToolResult.error("An error occured: ${e.toString()}");
     }
   }
 
-  Future<ToolResult<Map<String, dynamic>>> currentlySelectedText() async{
+  Future<ToolResult<Map<String, dynamic>>> currentlySelectedText() async {
     try {
       final controller = _activeEditor.controller;
-      final selStart = controller.getLineAtOffset(controller.selection.baseOffset);
-      final selEnd = controller.getLineAtOffset(controller.selection.extentOffset);
+      final selStart = controller.getLineAtOffset(
+        controller.selection.baseOffset,
+      );
+      final selEnd = controller.getLineAtOffset(
+        controller.selection.extentOffset,
+      );
       return ToolResult.success({
         "startLine": selStart,
         "endLine": selEnd,
-        "selectedText": controller.text.substring(controller.selection.baseOffset, controller.selection.extentOffset)
+        "selectedText": controller.text.substring(
+          controller.selection.baseOffset,
+          controller.selection.extentOffset,
+        ),
       });
     } catch (e) {
       return ToolResult.error("An error occured: ${e.toString()}");
     }
   }
 
-  Future<ToolResult<String>> readFile(String filePath, [int? startLine, int? endLine]) async {
+  Future<ToolResult<String>> readFile(
+    String filePath, [
+    int? startLine,
+    int? endLine,
+  ]) async {
     try {
-      String resolvedPath = filePath;
-      if (!path.isAbsolute(filePath)) {
-        resolvedPath = path.join(workspacePath, filePath);
-      }
-      
-      final file = File(resolvedPath);
-      final canonicalPath = file.absolute.path;
-      final canonicalWorkspace = Directory(workspacePath).absolute.path;
-      
-      if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
+      final canonicalPath = _canonicalFilePath(filePath);
+      final file = File(canonicalPath);
+
+      if (!_isInsideWorkspace(canonicalPath)) {
         return ToolResult.error(
           'Permission denied: File is outside the workspace\n'
           'Workspace: $workspacePath\n'
-          'Requested file: $filePath\n'
+          'Requested file: $filePath\n',
         );
       }
 
@@ -69,54 +92,50 @@ class AgenticTools {
         return ToolResult.error('File not found: $filePath');
       }
 
-      if(startLine == null && endLine == null){
+      if (startLine == null && endLine == null) {
         final content = await file.readAsString();
         return ToolResult.success(content);
       }
 
-      final controller = CodeForgeController()..text = await file.readAsString();
+      final controller = CodeForgeController()
+        ..text = await file.readAsString();
       final startLineIndex = controller.getLineStartOffset(startLine ?? 0);
-      final endLineIndex = controller.getLineStartOffset(endLine ?? controller.lineCount - 1);
-      return ToolResult.success(controller.text.substring(startLineIndex, endLineIndex));
-
+      final endLineIndex = controller.getLineStartOffset(
+        endLine ?? controller.lineCount - 1,
+      );
+      return ToolResult.success(
+        controller.text.substring(startLineIndex, endLineIndex),
+      );
     } catch (e) {
       return ToolResult.error('Error reading file: $e');
     }
   }
 
-  
   Future<ToolResult<void>> writeFile(String filePath, String content) async {
     try {
-      String resolvedPath = filePath;
-      if (!path.isAbsolute(filePath)) {
-        resolvedPath = path.join(workspacePath, filePath);
-      }
-      
-      final file = File(resolvedPath);
-      final canonicalPath = file.absolute.path;
-      final canonicalWorkspace = Directory(workspacePath).absolute.path;
-      
-      if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
+      final canonicalPath = _canonicalFilePath(filePath);
+      final file = File(canonicalPath);
+
+      if (!_isInsideWorkspace(canonicalPath)) {
         return ToolResult.error(
           'Permission denied: File is outside the workspace\n'
           'Workspace: $workspacePath\n'
-          'Requested file: $filePath\n'
+          'Requested file: $filePath\n',
         );
       }
-        await file.parent.create(recursive: true);
-        await file.writeAsString(content);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(content);
 
-        if (filePath == _activeEditor.file.path){
-          _activeEditor.controller.refetchFile();
-        }
-      
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        _activeEditor.controller.refetchFile();
+      }
+
       return ToolResult.success(null);
     } catch (e) {
       return ToolResult.error('Error writing file: $e');
     }
   }
 
-  
   Future<ToolResult<List<String>>> listFiles(
     String directoryPath, {
     String? pattern,
@@ -127,17 +146,17 @@ class AgenticTools {
       if (!path.isAbsolute(directoryPath)) {
         resolvedPath = path.join(workspacePath, directoryPath);
       }
-      
+
       final dir = Directory(resolvedPath);
       final canonicalPath = dir.absolute.path;
       final canonicalWorkspace = Directory(workspacePath).absolute.path;
-      
+
       if (!path.isWithin(canonicalWorkspace, canonicalPath) &&
           canonicalPath != canonicalWorkspace) {
         return ToolResult.error(
           'Permission denied: File is outside the workspace\n'
           'Workspace: $canonicalWorkspace\n'
-          'Path tried to access: $canonicalPath\n'
+          'Path tried to access: $canonicalPath\n',
         );
       }
 
@@ -151,7 +170,6 @@ class AgenticTools {
           .map((f) => path.relative(f.path, from: workspacePath))
           .toList();
 
-      
       if (pattern != null) {
         final regex = _globToRegex(pattern);
         return ToolResult.success(
@@ -175,11 +193,11 @@ class AgenticTools {
     try {
       final results = <SearchResult>[];
       final dir = Directory(workspacePath);
-      
+
       await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
           final relativePath = path.relative(entity.path, from: workspacePath);
-          
+
           if (filePattern != null) {
             final regex = _globToRegex(filePattern);
             if (!regex.hasMatch(relativePath)) continue;
@@ -187,7 +205,7 @@ class AgenticTools {
 
           try {
             final content = await entity.readAsString();
-            
+
             final controller = CodeForgeController()..text = content;
 
             String pattern;
@@ -206,31 +224,33 @@ class AgenticTools {
             if (matches.isNotEmpty) {
               final lines = content.split('\n');
               final processedLines = <int>{};
-              
+
               for (final match in matches) {
                 final lineNumber = controller.getLineAtOffset(match.start);
-                
+
                 if (!processedLines.contains(lineNumber)) {
                   processedLines.add(lineNumber);
-                  
+
                   if (lineNumber < lines.length) {
-                    results.add(SearchResult(
-                      filePath: relativePath,
-                      lineNumber: lineNumber + 1,
-                      lineContent: lines[lineNumber].trim(),
-                    ));
+                    results.add(
+                      SearchResult(
+                        filePath: relativePath,
+                        lineNumber: lineNumber + 1,
+                        lineContent: lines[lineNumber].trim(),
+                      ),
+                    );
                   }
                 }
               }
             }
-            
+
             controller.dispose();
           } catch (e) {
             continue;
           }
         }
       }
-      
+
       return ToolResult.success(results);
     } catch (e) {
       return ToolResult.error('Error searching files: $e');
@@ -243,49 +263,280 @@ class AgenticTools {
     String newText,
   ) async {
     try {
-      final readResult = await readFile(filePath);
+      if (oldText.isEmpty) {
+        return ToolResult.error('Old text cannot be empty for editFile.');
+      }
+
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final readResult = await readFile(canonicalPath);
       if (!readResult.success) {
         return ToolResult.error(readResult.error ?? 'Error reading file');
       }
 
       final content = readResult.data ?? '';
-      if (!content.contains(oldText)) {
+      final oldMatches = RegExp(
+        RegExp.escape(oldText),
+      ).allMatches(content).length;
+      if (oldMatches == 0) {
         return ToolResult.error(
           'Old text not found in file. This may be due to the file being modified.',
         );
       }
+      if (oldMatches > 1) {
+        return ToolResult.error(
+          'Old text appears multiple times in file. Provide a more specific oldText to avoid ambiguous edits.',
+        );
+      }
 
       final newContent = content.replaceFirst(oldText, newText);
-      return await writeFile(filePath, newContent);
+      final diffs = diff(content, newContent);
+      final patches = patchMake(diffs);
+
+      final patchController = CodeForgeController()..text = newContent;
+      final oldController = CodeForgeController()..text = content;
+
+      final pendingEdit = PendingEditFile(
+        filePath: canonicalPath,
+        oldText: content,
+        editHunks: PendingEditFile.patchesToHunks(
+          patches,
+          patchController,
+          oldController,
+        ),
+      );
+
+      patchController.dispose();
+      oldController.dispose();
+
+      await pendingEdit.saveToPrefs();
+      final writeResult = await writeFile(canonicalPath, newContent);
+      if (!writeResult.success) {
+        return writeResult;
+      }
+
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        final refreshedPending = await PendingEditFile.getForFile(
+          canonicalPath,
+        );
+        if (refreshedPending == null || refreshedPending.editHunks.isEmpty) {
+          _activeEditor.controller.clearGitDiffDecorations();
+        } else {
+          refreshedPending.applyDecorations(_activeEditor.controller);
+        }
+      }
+
+      return ToolResult.success(null);
     } catch (e) {
       return ToolResult.error('Error editing file: $e');
     }
   }
 
-  
-  Future<ToolResult<FileInfo>> getFileInfo(String filePath) async {
+  Future<ToolResult<PendingEditFile?>> getPendingEditsForFile(
+    String filePath,
+  ) async {
     try {
-      String resolvedPath = filePath;
-      if (!path.isAbsolute(filePath)) {
-        resolvedPath = path.join(workspacePath, filePath);
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
       }
-      
-      final file = File(resolvedPath);
-      final canonicalPath = file.absolute.path;
-      final canonicalWorkspace = Directory(workspacePath).absolute.path;
-      
-      if (!path.isWithin(canonicalWorkspace, canonicalPath)) {
-        return ToolResult.error('Permission denied: Path is outside workspace');
+      final pending = await PendingEditFile.getForFile(canonicalPath);
+      return ToolResult.success(pending);
+    } catch (e) {
+      return ToolResult.error('Error loading pending edits: $e');
+    }
+  }
+
+  Future<ToolResult<void>> applyPendingDecorationsForFile(
+    String filePath,
+    CodeForgeController controller,
+  ) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
       }
 
+      final pending = await PendingEditFile.getForFile(canonicalPath);
+      if (pending == null || pending.editHunks.isEmpty) {
+        controller.clearGitDiffDecorations();
+        return ToolResult.success(null);
+      }
+
+      pending.applyDecorations(controller);
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error applying pending decorations: $e');
+    }
+  }
+
+  Future<ToolResult<void>> keepPendingEditHunk(
+    String filePath,
+    String hunkId,
+  ) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      await PendingEditFile.removeHunk(canonicalPath, hunkId);
+
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        final pending = await PendingEditFile.getForFile(canonicalPath);
+        if (pending == null || pending.editHunks.isEmpty) {
+          _activeEditor.controller.clearGitDiffDecorations();
+        } else {
+          pending.applyDecorations(_activeEditor.controller);
+        }
+      }
+
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error keeping pending hunk: $e');
+    }
+  }
+
+  Future<ToolResult<void>> keepAllPendingEdits(String filePath) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      await PendingEditFile.removeFile(canonicalPath);
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        _activeEditor.controller.clearGitDiffDecorations();
+      }
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error keeping all pending edits: $e');
+    }
+  }
+
+  Future<ToolResult<void>> rejectPendingEditHunk(
+    String filePath,
+    String hunkId,
+  ) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final pending = await PendingEditFile.getForFile(canonicalPath);
+      if (pending == null) {
+        return ToolResult.error('No pending edits found for file.');
+      }
+
+      EditHunk? hunk;
+      for (final item in pending.editHunks) {
+        if (item.id == hunkId) {
+          hunk = item;
+          break;
+        }
+      }
+      if (hunk == null) {
+        return ToolResult.error('Pending hunk not found.');
+      }
+
+      final readResult = await readFile(canonicalPath);
+      if (!readResult.success) {
+        return ToolResult.error(readResult.error ?? 'Error reading file');
+      }
+      final content = readResult.data ?? '';
+
+      if (!content.contains(hunk.newText)) {
+        return ToolResult.error(
+          'Cannot reject hunk because edited content no longer matches current file.',
+        );
+      }
+
+      final reverted = content.replaceFirst(hunk.newText, hunk.oldText);
+      final writeResult = await writeFile(canonicalPath, reverted);
+      if (!writeResult.success) {
+        return writeResult;
+      }
+
+      await PendingEditFile.removeHunk(canonicalPath, hunkId);
+
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        final refreshed = await PendingEditFile.getForFile(canonicalPath);
+        if (refreshed == null || refreshed.editHunks.isEmpty) {
+          _activeEditor.controller.clearGitDiffDecorations();
+        } else {
+          refreshed.applyDecorations(_activeEditor.controller);
+        }
+      }
+
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error rejecting pending hunk: $e');
+    }
+  }
+
+  Future<ToolResult<void>> rejectAllPendingEdits(String filePath) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: Path is outside workspace.',
+        );
+      }
+
+      final pending = await PendingEditFile.getForFile(canonicalPath);
+      if (pending == null) {
+        return ToolResult.error('No pending edits found for file.');
+      }
+
+      final writeResult = await writeFile(canonicalPath, pending.oldText);
+      if (!writeResult.success) {
+        return writeResult;
+      }
+
+      await PendingEditFile.removeFile(canonicalPath);
+      if (_canonicalFilePath(_activeEditor.file.path) == canonicalPath) {
+        _activeEditor.controller.clearGitDiffDecorations();
+      }
+      return ToolResult.success(null);
+    } catch (e) {
+      return ToolResult.error('Error rejecting all pending edits: $e');
+    }
+  }
+
+  Future<ToolResult<FileInfo>> getFileInfo(String filePath) async {
+    try {
+      final canonicalPath = _canonicalFilePath(filePath);
+      if (!_isInsideWorkspace(canonicalPath)) {
+        return ToolResult.error('Permission denied: Path is outside workspace');
+      }
+      final file = File(canonicalPath);
+
       final stat = await file.stat();
-      
-      return ToolResult.success(FileInfo(
-        path: path.relative(resolvedPath, from: workspacePath),
-        size: stat.size,
-        modified: stat.modified,
-        isDirectory: stat.type == FileSystemEntityType.directory,
-      ));
+
+      return ToolResult.success(
+        FileInfo(
+          path: path.relative(canonicalPath, from: workspacePath),
+          size: stat.size,
+          modified: stat.modified,
+          isDirectory: stat.type == FileSystemEntityType.directory,
+        ),
+      );
     } catch (e) {
       return ToolResult.error('Error getting file info: $e');
     }
@@ -321,11 +572,12 @@ class AgenticTools {
         if (isProcessing || completer.isCompleted || isDisposed) {
           return;
         }
-        
+
         isProcessing = true;
 
         try {
-          await controller.evaluateJavascript(source: """
+          await controller.evaluateJavascript(
+            source: """
             (async () => {
               const start = Date.now();
               const timeout = 10000;
@@ -341,7 +593,8 @@ class AgenticTools {
               }
               return false;
             })();
-          """);
+          """,
+          );
 
           if (isDisposed) return;
           await Future.delayed(const Duration(milliseconds: 500));
@@ -371,10 +624,10 @@ class AgenticTools {
     );
 
     await headless.run();
-    
+
     try {
       final htmlString = await completer.future;
-      
+
       if (htmlString.isEmpty) {
         return ToolResult.error("Failed to fetch content");
       }
@@ -390,14 +643,34 @@ class AgenticTools {
     }
   }
 
-  //TODO
-  /* Future<ToolResult<String>> runShellCommand(String command, [List<String> args = const [], Map<String, String> envs = const {}]){
-    final env = {
-      "HOME": workspacePath
-    };
-    
-    env.addAll(envs);
-  } */
+  Future<ToolResult<Map<String, String>>> runShellCommand(
+    String command, [
+    List<String> args = const [],
+    Map<String, String> envs = const {},
+  ]) async {
+    try {
+      final env = {
+        "HOME": workspacePath,
+        'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
+      };
+
+      env.addAll(envs);
+      final process = await Process.run(
+        command,
+        args,
+        environment: env,
+        workingDirectory: workspacePath,
+      );
+      return ToolResult.success({
+        "pid": process.pid.toString(),
+        "exitCode": process.exitCode.toString(),
+        "stdout": process.stdout.toString(),
+        "stderr": process.stderr.toString(),
+      });
+    } catch (e) {
+      return ToolResult.error('Error running command: $e');
+    }
+  }
 
   WebPageContent _parseWebContent(String htmlString, String url) {
     final document = html.parse(htmlString);
@@ -407,7 +680,7 @@ class AgenticTools {
     final headings = _extractHeadings(document);
     final mainContent = _extractMainContent(document);
     final links = _extractLinks(document, url);
-    
+
     return WebPageContent(
       url: url,
       title: title,
@@ -420,44 +693,60 @@ class AgenticTools {
   }
 
   String _extractTitle(dom.Document document) {
-    return document.querySelector('title')?.text.trim() ?? 
-      document.querySelector('meta[property="og:title"]')?.attributes['content']?.trim() ??
-      document.querySelector('h1')?.text.trim() ?? 
-      'Untitled Page';
+    return document.querySelector('title')?.text.trim() ??
+        document
+            .querySelector('meta[property="og:title"]')
+            ?.attributes['content']
+            ?.trim() ??
+        document.querySelector('h1')?.text.trim() ??
+        'Untitled Page';
   }
 
   String? _extractDescription(dom.Document document) {
-    return document.querySelector('meta[name="description"]')?.attributes['content']?.trim() ??
-      document.querySelector('meta[property="og:description"]')?.attributes['content']?.trim() ??
-      document.querySelector('meta[name="twitter:description"]')?.attributes['content']?.trim();
+    return document
+            .querySelector('meta[name="description"]')
+            ?.attributes['content']
+            ?.trim() ??
+        document
+            .querySelector('meta[property="og:description"]')
+            ?.attributes['content']
+            ?.trim() ??
+        document
+            .querySelector('meta[name="twitter:description"]')
+            ?.attributes['content']
+            ?.trim();
   }
 
   Map<String, String> _extractMetadata(dom.Document document) {
     final metadata = <String, String>{};
-    final author = document.querySelector('meta[name="author"]')?.attributes['content']?.trim() ??
+    final author =
+      document.querySelector('meta[name="author"]')?.attributes['content']?.trim() ??
       document.querySelector('meta[property="article:author"]')?.attributes['content']?.trim() ??
       document.querySelector('[rel="author"]')?.text.trim();
     if (author != null && author.isNotEmpty) metadata['author'] = author;
-    
-    final publishedTime = document.querySelector('meta[property="article:published_time"]')?.attributes['content']?.trim() ??
+
+    final publishedTime =
+      document.querySelector('meta[property="article:published_time"]')?.attributes['content']?.trim() ??
       document.querySelector('time[datetime]')?.attributes['datetime']?.trim();
-    if (publishedTime != null && publishedTime.isNotEmpty) metadata['published'] = publishedTime;
-    
+    if (publishedTime != null && publishedTime.isNotEmpty) {
+      metadata['published'] = publishedTime;
+    }
+
     final siteName = document.querySelector('meta[property="og:site_name"]')?.attributes['content']?.trim();
     if (siteName != null && siteName.isNotEmpty) metadata['site_name'] = siteName;
-    
+
     final type = document.querySelector('meta[property="og:type"]')?.attributes['content']?.trim();
     if (type != null && type.isNotEmpty) metadata['type'] = type;
-    
+
     final lang = document.documentElement?.attributes['lang']?.trim();
     if (lang != null && lang.isNotEmpty) metadata['language'] = lang;
-    
+
     return metadata;
   }
 
   List<String> _extractHeadings(dom.Document document) {
     final headings = <String>[];
-    
+
     for (final tag in ['h1', 'h2', 'h3']) {
       final elements = document.querySelectorAll(tag);
       for (final el in elements) {
@@ -467,25 +756,25 @@ class AgenticTools {
         }
       }
     }
-    
+
     return headings;
   }
 
   String _extractMainContent(dom.Document document) {
     dom.Element? mainContent;
-    
+
     final semanticSelectors = [
       'main',
       'article',
       '[role="main"]',
       '[role="article"]',
     ];
-    
+
     for (final selector in semanticSelectors) {
       mainContent = document.querySelector(selector);
       if (mainContent != null) break;
     }
-    
+
     if (mainContent == null) {
       final commonSelectors = [
         '.post-content',
@@ -498,40 +787,40 @@ class AgenticTools {
         '.post-body',
         '.article-body',
       ];
-      
+
       for (final selector in commonSelectors) {
         mainContent = document.querySelector(selector);
         if (mainContent != null && mainContent.text.trim().length > 100) break;
       }
     }
-    
+
     if (mainContent == null) {
       final candidates = document.querySelectorAll('div, section, article');
       dom.Element? bestCandidate;
       int maxLength = 0;
-      
+
       for (final candidate in candidates) {
         final clone = candidate.clone(true);
         _removeUnwantedElements(clone);
-        
+
         final textLength = clone.text.trim().length;
         if (textLength > maxLength && textLength > 200) {
           maxLength = textLength;
           bestCandidate = candidate;
         }
       }
-      
+
       mainContent = bestCandidate;
     }
-    
+
     mainContent ??= document.body;
-    
+
     if (mainContent != null) {
       final clone = mainContent.clone(true);
       _removeUnwantedElements(clone);
       return _cleanText(clone.text);
     }
-    
+
     return '';
   }
 
@@ -560,7 +849,7 @@ class AgenticTools {
       '.nav',
       '.navigation',
     ];
-    
+
     for (final selector in unwantedSelectors) {
       element.querySelectorAll(selector).forEach((el) => el.remove());
     }
@@ -569,38 +858,38 @@ class AgenticTools {
   List<LinkInfo> _extractLinks(dom.Document document, String baseUrl) {
     final links = <LinkInfo>[];
     final seenUrls = <String>{};
-    
+
     dom.Element? contentArea;
     for (final selector in ['main', 'article', '.content', '#content']) {
       contentArea = document.querySelector(selector);
       if (contentArea != null) break;
     }
-    
+
     final searchArea = contentArea ?? document.body;
     if (searchArea == null) return links;
-    
+
     final anchorElements = searchArea.querySelectorAll('a[href]');
-    
+
     for (final anchor in anchorElements) {
       final href = anchor.attributes['href'];
       final text = _cleanText(anchor.text);
-      
+
       if (href == null || href.isEmpty || text.isEmpty) continue;
       if (text.length > 100) continue;
-      
+
       final absoluteUrl = _resolveUrl(href, baseUrl);
-      
+
       if (seenUrls.contains(absoluteUrl)) continue;
       if (absoluteUrl.startsWith('#')) continue;
       if (absoluteUrl.startsWith('javascript:')) continue;
       if (absoluteUrl.startsWith('mailto:')) continue;
-      
+
       seenUrls.add(absoluteUrl);
       links.add(LinkInfo(text: text, url: absoluteUrl));
-      
+
       if (links.length >= 50) break;
     }
-    
+
     return links;
   }
 
@@ -627,7 +916,7 @@ class AgenticTools {
 
   Future<ToolResult<List<WebResult>>> searchInWeb(String searchQuery) async {
     final url = "https://duckduckgo.com/html/?q=$searchQuery";
-    final response = await http.get(Uri.parse(url));  
+    final response = await http.get(Uri.parse(url));
     final document = html.parse(response.body);
     final results = <WebResult>[];
     final resultDivs = document.querySelectorAll('.result');
@@ -642,11 +931,9 @@ class AgenticTools {
       final title = titleAnchor.text.trim();
       final snippet = snippetEl?.text.trim() ?? '';
       final rawHref = urlAnchor.attributes['href'];
-      final realUrl = ((){
+      final realUrl = (() {
         if (rawHref == null) return null;
-        final fullUrl = rawHref.startsWith('//')
-            ? 'https:$rawHref'
-            : rawHref;
+        final fullUrl = rawHref.startsWith('//') ? 'https:$rawHref' : rawHref;
 
         final uri = Uri.parse(fullUrl);
 
@@ -658,39 +945,31 @@ class AgenticTools {
 
       if (realUrl == null) continue;
 
-      results.add(WebResult(
-        title: title,
-        url: realUrl,
-        snippet: snippet,
-      ));
+      results.add(WebResult(title: title, url: realUrl, snippet: snippet));
     }
 
     return ToolResult.success(results);
   }
-  
+
   List<Map<String, dynamic>> getTools({bool readAccessOnly = false}) {
     return [
       {
         "type": "function",
         "function": {
           "name": "activeEditorFile",
-          "description": "Gets the path of the currently active/opened editor file",
-          "parameters": {
-            "type": "object",
-            "properties": {}
-          }
-        }
+          "description":
+              "Gets the path of the currently active/opened editor file",
+          "parameters": {"type": "object", "properties": {}},
+        },
       },
       {
         "type": "function",
         "function": {
           "name": "currentlySelectedText",
-          "description": "Gets the currently selected text in the active/opened editor",
-          "parameters": {
-            "type": "object",
-            "properties": {}
-          }
-        }
+          "description":
+              "Gets the currently selected text in the active/opened editor",
+          "parameters": {"type": "object", "properties": {}},
+        },
       },
       {
         "type": "function",
@@ -702,179 +981,236 @@ class AgenticTools {
             "properties": {
               "filePath": {
                 "type": "string",
-                "description": "The path to the file to read"
+                "description": "The path to the file to read",
               },
               "startLine": {
                 "type": "integer",
-                "description": "Optional start line number (1-indexed)"
+                "description": "Optional start line number (1-indexed)",
               },
               "endLine": {
                 "type": "integer",
-                "description": "Optional end line number (1-indexed)"
-              }
-            },
-            "required": ["filePath"]
-          }
-        }
-      },
-      if(!readAccessOnly) {
-        "type": "function",
-        "function": {
-          "name": "writeFile",
-          "description": "Writes content to a file, creating it if it doesn't exist",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "filePath": {
-                "type": "string",
-                "description": "The path to the file to write"
+                "description": "Optional end line number (1-indexed)",
               },
-              "content": {
-                "type": "string",
-                "description": "The content to write to the file"
-              }
             },
-            "required": ["filePath", "content"]
-          }
-        }
+            "required": ["filePath"],
+          },
+        },
       },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "writeFile",
+            "description":
+                "Writes content to a file, creating it if it doesn't exist",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "The path to the file to write",
+                },
+                "content": {
+                  "type": "string",
+                  "description": "The content to write to the file",
+                },
+              },
+              "required": ["filePath", "content"],
+            },
+          },
+        },
       {
         "type": "function",
         "function": {
           "name": "listFiles",
-          "description": "Lists files in a directory with optional glob pattern",
+          "description":
+              "Lists files in a directory with optional glob pattern",
           "parameters": {
             "type": "object",
             "properties": {
               "directoryPath": {
                 "type": "string",
-                "description": "The path to the directory to list"
+                "description": "The path to the directory to list",
               },
               "pattern": {
                 "type": "string",
-                "description": "Optional glob pattern to filter files"
+                "description": "Optional glob pattern to filter files",
               },
               "recursive": {
                 "type": "boolean",
-                "description": "Whether to list files recursively"
-              }
+                "description": "Whether to list files recursively",
+              },
             },
-            "required": ["directoryPath"]
-          }
-        }
+            "required": ["directoryPath"],
+          },
+        },
       },
       {
         "type": "function",
         "function": {
           "name": "searchInFiles",
-          "description": "Searches for text content across files in workspace with advanced search options",
+          "description":
+              "Searches for text content across files in workspace with advanced search options",
           "parameters": {
             "type": "object",
             "properties": {
               "query": {
                 "type": "string",
-                "description": "The text to search for (can be a regex pattern if useRegex is true)"
+                "description":
+                    "The text to search for (can be a regex pattern if useRegex is true)",
               },
               "filePattern": {
                 "type": "string",
-                "description": "Optional glob pattern to filter files"
+                "description": "Optional glob pattern to filter files",
               },
               "caseSensitive": {
                 "type": "boolean",
-                "description": "Whether the search is case sensitive"
+                "description": "Whether the search is case sensitive",
               },
               "matchWholeWord": {
                 "type": "boolean",
-                "description": "Whether to match whole words only"
+                "description": "Whether to match whole words only",
               },
               "useRegex": {
                 "type": "boolean",
-                "description": "Whether to treat the query as a regular expression"
-              }
+                "description":
+                    "Whether to treat the query as a regular expression",
+              },
             },
-            "required": ["query"]
-          }
-        }
+            "required": ["query"],
+          },
+        },
       },
-      if(!readAccessOnly){
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "editFile",
+            "description": "Applies a diff/patch to a file",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "The path to the file to edit",
+                },
+                "oldText": {
+                  "type": "string",
+                  "description": "The text to replace",
+                },
+                "newText": {
+                  "type": "string",
+                  "description": "The new text to insert",
+                },
+              },
+              "required": ["filePath", "oldText", "newText"],
+            },
+          },
+        },
+      {
         "type": "function",
         "function": {
-          "name": "editFile",
-          "description": "Applies a diff/patch to a file",
+          "name": "getPendingEditsForFile",
+          "description": "Gets pending agentic diff hunks for a file",
           "parameters": {
             "type": "object",
             "properties": {
               "filePath": {
                 "type": "string",
-                "description": "The path to the file to edit"
+                "description": "The path to the file",
               },
-              "oldText": {
-                "type": "string",
-                "description": "The text to replace"
-              },
-              "newText": {
-                "type": "string",
-                "description": "The new text to insert"
-              }
             },
-            "required": ["filePath", "oldText", "newText"]
-          }
-        }
+            "required": ["filePath"],
+          },
+        },
       },
       {
         "type": "function",
         "function": {
           "name": "getFileInfo",
-          "description": "Gets file/directory information including size and modification time",
+          "description":
+              "Gets file/directory information including size and modification time",
           "parameters": {
             "type": "object",
             "properties": {
               "filePath": {
                 "type": "string",
-                "description": "The path to the file or directory"
-              }
+                "description": "The path to the file or directory",
+              },
             },
-            "required": ["filePath"]
-          }
-        }
+            "required": ["filePath"],
+          },
+        },
       },
       {
         "type": "function",
         "function": {
           "name": "openLinks",
-          "description": "Fetches and parses web page content with structured information extraction",
+          "description":
+              "Fetches and parses web page content with structured information extraction",
           "parameters": {
             "type": "object",
             "properties": {
               "url": {
                 "type": "string",
-                "description": "The URL to fetch and parse"
-              }
+                "description": "The URL to fetch and parse",
+              },
             },
-            "required": ["url"]
-          }
-        }
+            "required": ["url"],
+          },
+        },
       },
       {
         "type": "function",
         "function": {
           "name": "searchInWeb",
-          "description": "Searches the web using DuckDuckGo and returns results with title, URL, and snippet",
+          "description":
+              "Searches the web using DuckDuckGo and returns results with title, URL, and snippet",
           "parameters": {
             "type": "object",
             "properties": {
               "searchQuery": {
                 "type": "string",
-                "description": "The search query to use"
-              }
+                "description": "The search query to use",
+              },
             },
-            "required": ["searchQuery"]
-          }
-        }
-      }
+            "required": ["searchQuery"],
+          },
+        },
+      },
+      if (!readAccessOnly)
+        {
+          "type": "function",
+          "function": {
+            "name": "runShellCommand",
+            "description":
+                "Runs a shell command from the workspace directory and returns stdout/stderr and exit code. IMPORTANT: This app runs on Android, not a full Linux desktop/server environment, so full Linux access is limited. Prefer bundled binaries first. Bundled commands include: clang, clang++, clangloader, node, python, python3, npm, npx, pip, pip3, tsc, ruby, kotlinc, git, jar, jarsigner, java, javac, javadoc, javap, jcmd, jconsole, jdb, jdeprscan, jdeps, jfr, jhsdb, jimage, jinfo, jlink, jmap, jmod, jpackage, jps, jrunscript, jstack, jstat, jstatd, jwebserver, keytool, rmiregistry, serialver, bash, sh, ccls, less, pager, git-remote-https, git-remote-http. Basic commands like cd, ls, grep, etc may come from Android PATH and can vary by device. Always plan commands with Android limitations in mind.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "description":
+                      "Executable to run. Prefer the bundled Android app binaries listed in this tool description.",
+                },
+                "args": {
+                  "type": "array",
+                  "description": "Optional command arguments",
+                  "items": {"type": "string"},
+                },
+                "envs": {
+                  "type": "object",
+                  "description": "Optional environment variables",
+                  "additionalProperties": {"type": "string"},
+                },
+              },
+              "required": ["command"],
+            },
+          },
+        },
     ];
   }
-  
+
   RegExp _globToRegex(String glob) {
     String pattern = glob
         .replaceAll('.', r'\.')
@@ -889,15 +1225,10 @@ class ToolResult<T> {
   final T? data;
   final String? error;
 
-  ToolResult.success(this.data)
-      : success = true,
-        error = null;
+  ToolResult.success(this.data) : success = true, error = null;
 
-  ToolResult.error(this.error)
-      : success = false,
-        data = null;
+  ToolResult.error(this.error) : success = false, data = null;
 }
-
 
 class SearchResult {
   final String filePath;
@@ -927,11 +1258,7 @@ class WebResult {
   final String url;
   final String snippet;
 
-  WebResult({
-    required this.title,
-    required this.url,
-    required this.snippet,
-  });
+  WebResult({required this.title, required this.url, required this.snippet});
 
   Map<String, dynamic> toJson() => {
     "title": title,
@@ -967,7 +1294,7 @@ class WebPageContent {
   final List<String> headings;
   final List<LinkInfo> links;
   final Map<String, String> metadata;
-  
+
   WebPageContent({
     required this.url,
     required this.title,
@@ -994,31 +1321,31 @@ class WebPageContent {
     buffer.writeln('Title: $title');
     buffer.writeln('URL: $url');
     if (description != null) buffer.writeln('Description: $description');
-    
+
     if (metadata.isNotEmpty) {
       buffer.writeln('\nMetadata:');
       metadata.forEach((key, value) {
         if (value.isNotEmpty) buffer.writeln('  $key: $value');
       });
     }
-    
+
     if (headings.isNotEmpty) {
       buffer.writeln('\nHeadings:');
       for (final heading in headings.take(10)) {
         buffer.writeln('  - $heading');
       }
     }
-    
+
     if (links.isNotEmpty) {
       buffer.writeln('\nImportant Links (${links.length}):');
       for (final link in links.take(10)) {
         buffer.writeln('  - ${link.text}: ${link.url}');
       }
     }
-    
+
     buffer.writeln('\nContent:');
     buffer.writeln(mainContent);
-    
+
     return buffer.toString();
   }
 }
@@ -1026,11 +1353,8 @@ class WebPageContent {
 class LinkInfo {
   final String text;
   final String url;
-  
+
   LinkInfo({required this.text, required this.url});
-  
-  Map<String, dynamic> toJson() => {
-    'text': text,
-    'url': url,
-  };
+
+  Map<String, dynamic> toJson() => {'text': text, 'url': url};
 }

@@ -7,29 +7,34 @@ import 'agentic_tools.dart';
 
 class CopilotChat {
   final String authToken;
-  static const String _defaultCopilotApiEndpoint = 'https://api.individual.githubcopilot.com';
+  static const String _defaultCopilotApiEndpoint =
+      'https://api.individual.githubcopilot.com';
   static const String _graphqlEndpoint = 'https://api.github.com/graphql';
 
   AgenticTools? _agenticTools;
   http.Client? _currentClient;
   String? _apiEndpoint;
   List<Map<String, dynamic>>? _cachedModels;
-  
+
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
-  final StreamController<Map<String, dynamic>> _conversationController = StreamController<Map<String, dynamic>>.broadcast();
-  
-  Stream<Map<String, dynamic>> get conversationStream => _conversationController.stream;
-  
+  final StreamController<Map<String, dynamic>> _conversationController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  Stream<Map<String, dynamic>> get conversationStream =>
+      _conversationController.stream;
+
   void cancelCurrentRequest() {
     _currentClient?.close();
     _currentClient = null;
   }
-  
+
   static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
     try {
       const FlutterSecureStorage storage = FlutterSecureStorage();
       final githubToken = await storage.read(key: 'github_access_token');
-      if (githubToken != null && githubToken.isNotEmpty && githubToken.startsWith('gho_')) {
+      if (githubToken != null &&
+          githubToken.isNotEmpty &&
+          githubToken.startsWith('gho_')) {
         return githubToken;
       }
     } catch (e) {
@@ -38,7 +43,7 @@ class CopilotChat {
 
     return "Failed to retrive the Github token. Make sure you're signed in with github.";
   }
-  
+
   CopilotChat({required this.authToken});
 
   Map<String, String> _commonHeaders({
@@ -79,7 +84,9 @@ class CopilotChat {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final api = ((decoded['data'] as Map<String, dynamic>?)?['viewer'] as Map<String, dynamic>?)?['copilotEndpoints'];
+        final api =
+            ((decoded['data'] as Map<String, dynamic>?)?['viewer']
+                as Map<String, dynamic>?)?['copilotEndpoints'];
         final endpoint = (api as Map<String, dynamic>?)?['api'] as String?;
         if (endpoint != null && endpoint.isNotEmpty) {
           _apiEndpoint = endpoint;
@@ -90,7 +97,6 @@ class CopilotChat {
       // Fall back to the public individual endpoint when discovery fails.
     }
 
-    // Do not cache fallback so later calls can retry endpoint discovery.
     return _defaultCopilotApiEndpoint;
   }
 
@@ -111,7 +117,8 @@ class CopilotChat {
   String _selectChatPath(String model, {required bool hasTools}) {
     final supportedEndpoints = _modelSupportedEndpoints(model);
 
-    if (supportedEndpoints.isEmpty || supportedEndpoints.contains('/chat/completions')) {
+    if (supportedEndpoints.isEmpty ||
+        supportedEndpoints.contains('/chat/completions')) {
       return '/chat/completions';
     }
 
@@ -139,11 +146,7 @@ class CopilotChat {
   ) {
     switch (path) {
       case '/responses':
-        return {
-          'model': model,
-          'input': messages,
-          'stream': true,
-        };
+        return {'model': model, 'input': messages, 'stream': true};
       case '/v1/messages':
         return {
           'model': model,
@@ -189,6 +192,36 @@ class CopilotChat {
     return null;
   }
 
+  int _lineCount(String? text) {
+    if (text == null || text.isEmpty) return 0;
+    return text.split('\n').length;
+  }
+
+  String _shellCommandPreview(String command, List<String> args) {
+    final parts = [command, ...args].map(_shellEscape).toList();
+    return parts.join(' ');
+  }
+
+  String _shellEscape(String value) {
+    if (value.isEmpty) return "''";
+    final safePattern = RegExp(r'^[A-Za-z0-9_./:-]+');
+    final match = safePattern.firstMatch(value);
+    if (match != null && match.start == 0 && match.end == value.length) {
+      return value;
+    }
+    return "'${value.replaceAll("'", "'\\''")}'";
+  }
+
+  String _toolEditMarker(String filePath, int added, int removed) {
+    final fileEncoded = base64Encode(utf8.encode(filePath));
+    return '[[VSDROID_EDIT:$fileEncoded|$added|$removed]]\n';
+  }
+
+  String _toolTerminalMarker(String command) {
+    final encoded = base64Encode(utf8.encode(command));
+    return '[[VSDROID_TERMINAL:$encoded]]\n';
+  }
+
   Future<Map<String, dynamic>> getCopilotModels() async {
     final apiEndpoint = await _resolveApiEndpoint();
     final response = await http.get(
@@ -200,11 +233,16 @@ class CopilotChat {
       final parsed = jsonDecode(response.body) as Map<String, dynamic>;
       final data = parsed['data'];
       if (data is List) {
-        _cachedModels = data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        _cachedModels = data
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
       }
       return parsed;
     } else {
-      throw Exception('Failed to fetch models: ${response.statusCode} ${response.body}');
+      throw Exception(
+        'Failed to fetch models: ${response.statusCode} ${response.body}',
+      );
     }
   }
 
@@ -214,17 +252,33 @@ class CopilotChat {
     ChatMode chatMode = ChatMode.ask,
     void Function(String)? onPartial,
   }) async {
-    final tools = chatMode == ChatMode.agent ? _agenticTools?.getTools() ?? [] : _agenticTools?.getTools(readAccessOnly: true) ?? [];
+    final tools = chatMode == ChatMode.agent
+        ? _agenticTools?.getTools() ?? []
+        : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
     final apiEndpoint = await _resolveApiEndpoint();
     final chatPath = _selectChatPath(model, hasTools: tools.isNotEmpty);
+    final streamedOutput = StringBuffer();
+
+    void pushPartial(String text) {
+      if (text.isEmpty) return;
+      streamedOutput.write(text);
+      onPartial?.call(text);
+    }
 
     while (true) {
-      final requestBody = _buildRequestBodyForPath(chatPath, model, conversationMessages, tools);
+      final requestBody = _buildRequestBodyForPath(
+        chatPath,
+        model,
+        conversationMessages,
+        tools,
+      );
 
       _currentClient = http.Client();
       final request = http.Request('POST', Uri.parse('$apiEndpoint$chatPath'));
-      request.headers.addAll(_commonHeaders(isJsonBody: true, chatMode: chatMode));
+      request.headers.addAll(
+        _commonHeaders(isJsonBody: true, chatMode: chatMode),
+      );
       request.body = jsonEncode(requestBody);
 
       final streamedResponse = await _currentClient!.send(request);
@@ -234,7 +288,9 @@ class CopilotChat {
         throw Exception(body);
       }
 
-      final lines = streamedResponse.stream.transform(utf8.decoder).transform(const LineSplitter());
+      final lines = streamedResponse.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
       Map<String, dynamic>? finalMessage;
       List<Map<String, dynamic>> toolCallDeltas = [];
 
@@ -247,12 +303,15 @@ class CopilotChat {
             if (chatPath == '/chat/completions') {
               final delta = json['choices']?[0]?['delta'];
               if (delta == null) continue;
-              finalMessage ??= {'role': delta['role'] ?? 'assistant', 'content': ''};
+              finalMessage ??= {
+                'role': delta['role'] ?? 'assistant',
+                'content': '',
+              };
 
               final deltaText = _extractDeltaText(json, chatPath);
               if (deltaText != null && deltaText.isNotEmpty) {
                 finalMessage['content'] += deltaText;
-                onPartial?.call(deltaText);
+                pushPartial(deltaText);
               }
 
               if (delta['tool_calls'] != null) {
@@ -267,11 +326,13 @@ class CopilotChat {
                   if (toolCallDelta['function'] != null) {
                     toolCallDeltas[index]['function'] ??= {};
                     if (toolCallDelta['function']['name'] != null) {
-                      toolCallDeltas[index]['function']['name'] = toolCallDelta['function']['name'];
+                      toolCallDeltas[index]['function']['name'] =
+                          toolCallDelta['function']['name'];
                     }
                     if (toolCallDelta['function']['arguments'] != null) {
                       toolCallDeltas[index]['function']['arguments'] ??= '';
-                      toolCallDeltas[index]['function']['arguments'] += toolCallDelta['function']['arguments'];
+                      toolCallDeltas[index]['function']['arguments'] +=
+                          toolCallDelta['function']['arguments'];
                     }
                   }
                 }
@@ -281,7 +342,7 @@ class CopilotChat {
               final deltaText = _extractDeltaText(json, chatPath);
               if (deltaText != null && deltaText.isNotEmpty) {
                 finalMessage['content'] += deltaText;
-                onPartial?.call(deltaText);
+                pushPartial(deltaText);
               }
             }
           } catch (e) {
@@ -305,7 +366,11 @@ class CopilotChat {
       conversationMessages.add(message);
 
       final toolCallsFromMessage = message['tool_calls'];
-      if (chatPath != '/chat/completions' || toolCallsFromMessage == null || toolCallsFromMessage.isEmpty) {
+      if (chatPath != '/chat/completions' ||
+          toolCallsFromMessage == null ||
+          toolCallsFromMessage.isEmpty) {
+        final output = streamedOutput.toString();
+        if (output.isNotEmpty) return output;
         return message['content'] ?? '';
       }
 
@@ -318,66 +383,164 @@ class CopilotChat {
           final errorMessage = "Failed to call $functionName";
           switch (functionName) {
             case 'activeEditorFile':
-              final res = await _agenticTools?.activeEditorFile() ?? ToolResult.error(errorMessage);
-              result = res.success ? (res.data ?? 'No active file') : (res.error ?? 'Error getting active file');
+              final res =
+                  await _agenticTools?.activeEditorFile() ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data ?? 'No active file')
+                  : (res.error ?? 'Error getting active file');
               break;
             case 'currentlySelectedText':
-              final res = await _agenticTools?.currentlySelectedText() ?? ToolResult.error(errorMessage);
+              final res =
+                  await _agenticTools?.currentlySelectedText() ??
+                  ToolResult.error(errorMessage);
               result = res.success
                   ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
                   : (res.error ?? 'Error getting selected text');
               break;
             case 'readFile':
-              final res = await _agenticTools?.readFile(
-                args['filePath'],
-                args['startLine'],
-                args['endLine'],
-              ) ?? ToolResult.error(errorMessage);
-              result = res.success ? (res.data ?? 'No content') : (res.error ?? 'Error reading file');
+              final res =
+                  await _agenticTools?.readFile(
+                    args['filePath'],
+                    args['startLine'],
+                    args['endLine'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data ?? 'No content')
+                  : (res.error ?? 'Error reading file');
               break;
             case 'writeFile':
-              final res = await _agenticTools?.writeFile(args['filePath'], args['content']) ?? ToolResult.error(errorMessage);
-              result = res.success ? 'File written successfully' : (res.error ?? 'Error writing file');
+              final res =
+                  await _agenticTools?.writeFile(
+                    args['filePath'],
+                    args['content'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'File written successfully'
+                  : (res.error ?? 'Error writing file');
               break;
             case 'listFiles':
-              final res = await _agenticTools?.listFiles(
-                args['directoryPath'],
-                pattern: args['pattern'],
-                recursive: args['recursive'] ?? false,
-              ) ?? ToolResult.error(errorMessage);
-              result = res.success ? (res.data?.join('\n') ?? 'No files') : (res.error ?? 'Error listing files');
+              final res =
+                  await _agenticTools?.listFiles(
+                    args['directoryPath'],
+                    pattern: args['pattern'],
+                    recursive: args['recursive'] ?? false,
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data?.join('\n') ?? 'No files')
+                  : (res.error ?? 'Error listing files');
               break;
             case 'searchInFiles':
-              final res = await _agenticTools?.searchInFiles(
-                args['query'],
-                filePattern: args['filePattern'],
-                caseSensitive: args['caseSensitive'] ?? false,
-                matchWholeWord: args['matchWholeWord'] ?? false,
-                useRegex: args['useRegex'] ?? false,
-              ) ?? ToolResult.error(errorMessage);
+              final res =
+                  await _agenticTools?.searchInFiles(
+                    args['query'],
+                    filePattern: args['filePattern'],
+                    caseSensitive: args['caseSensitive'] ?? false,
+                    matchWholeWord: args['matchWholeWord'] ?? false,
+                    useRegex: args['useRegex'] ?? false,
+                  ) ??
+                  ToolResult.error(errorMessage);
               result = res.success
-                  ? (res.data?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}').join('\n') ?? 'No results')
+                  ? (res.data
+                            ?.map(
+                              (s) =>
+                                  '${s.filePath}:${s.lineNumber}: ${s.lineContent}',
+                            )
+                            .join('\n') ??
+                        'No results')
                   : (res.error ?? 'Error searching files');
               break;
             case 'editFile':
-              final res = await _agenticTools?.editFile(args['filePath'], args['oldText'], args['newText']) ?? ToolResult.error(errorMessage);
-              result = res.success ? 'File edited successfully' : (res.error ?? 'Error editing file');
+              final res =
+                  await _agenticTools?.editFile(
+                    args['filePath'],
+                    args['oldText'],
+                    args['newText'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? 'File edited successfully'
+                  : (res.error ?? 'Error editing file');
+              if (res.success) {
+                final added = _lineCount(args['newText']?.toString());
+                final removed = _lineCount(args['oldText']?.toString());
+                pushPartial(
+                  _toolEditMarker(
+                    args['filePath']?.toString() ?? 'unknown',
+                    added,
+                    removed,
+                  ),
+                );
+              }
+              break;
+            case 'getPendingEditsForFile':
+              final res =
+                  await _agenticTools?.getPendingEditsForFile(
+                    args['filePath'],
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data == null
+                        ? 'No pending edits'
+                        : jsonEncode(res.data!.toJson()))
+                  : (res.error ?? 'Error getting pending edits');
               break;
             case 'getFileInfo':
-              final res = await _agenticTools?.getFileInfo(args['filePath']) ?? ToolResult.error(errorMessage);
+              final res =
+                  await _agenticTools?.getFileInfo(args['filePath']) ??
+                  ToolResult.error(errorMessage);
               result = res.success
                   ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
                   : (res.error ?? 'Error getting file info');
               break;
             case 'openLinks':
-              final res = await _agenticTools?.openLinks(args['url']) ?? ToolResult.error(errorMessage);
-              result = res.success ? (res.data?.toString() ?? 'No content') : (res.error ?? 'Error fetching web page');
+              final res =
+                  await _agenticTools?.openLinks(args['url']) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? (res.data?.toString() ?? 'No content')
+                  : (res.error ?? 'Error fetching web page');
               break;
             case 'searchInWeb':
-              final res = await _agenticTools?.searchInWeb(args['searchQuery']) ?? ToolResult.error(errorMessage);
+              final res =
+                  await _agenticTools?.searchInWeb(args['searchQuery']) ??
+                  ToolResult.error(errorMessage);
               result = res.success
-                  ? (res.data?.map((w) => '${w.title}\n${w.url}\n${w.snippet}').join('\n---\n') ?? 'No results')
+                  ? (res.data
+                            ?.map((w) => '${w.title}\n${w.url}\n${w.snippet}')
+                            .join('\n---\n') ??
+                        'No results')
                   : (res.error ?? 'Error searching web');
+              break;
+            case 'runShellCommand':
+              final parsedArgs =
+                  (args['args'] as List?)
+                      ?.map((item) => item.toString())
+                      .toList() ??
+                  <String>[];
+              final parsedEnvs =
+                  (args['envs'] as Map?)?.map(
+                    (key, value) => MapEntry(key.toString(), value.toString()),
+                  ) ??
+                  <String, String>{};
+              final preview = _shellCommandPreview(
+                args['command']?.toString() ?? '',
+                parsedArgs,
+              );
+              pushPartial(_toolTerminalMarker(preview));
+              final res =
+                  await _agenticTools?.runShellCommand(
+                    args['command'],
+                    parsedArgs,
+                    parsedEnvs,
+                  ) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data)
+                  : (res.error ?? 'Error running shell command');
               break;
             default:
               result = 'Unknown tool: $functionName';
@@ -401,7 +564,4 @@ class CopilotChat {
   }
 }
 
-enum ChatMode {
-  agent,
-  ask
-}
+enum ChatMode { agent, ask }

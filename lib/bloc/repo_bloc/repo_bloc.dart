@@ -107,15 +107,16 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
       final unpushed = hasUpstreamVal
           ? await getUnpushedCommitCount(event.workspace)
           : 0;
+      final unpulled = hasUpstreamVal
+          ? await getUnpulledCommitCount(event.workspace)
+          : 0;
 
-      // Load commits if they weren't previously loaded
-      List<CommitNode>? commits = existingCommits;
-      if (commits == null) {
-        try {
-          commits = await getGraph(event.workspace);
-        } catch (_) {
-          commits = [];
-        }
+      // Load commit graph every time so the UI stays in sync with upstream changes
+      List<CommitNode>? commits;
+      try {
+        commits = await getGraph(event.workspace);
+      } catch (_) {
+        commits = existingCommits ?? [];
       }
 
       emit(
@@ -133,6 +134,7 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
           hasRemote: hasRemoteVal,
           hasUpstream: hasUpstreamVal,
           unpushedCount: unpushed,
+          unpulledCount: unpulled,
         ),
       );
     } catch (e) {
@@ -190,6 +192,9 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
       final unpushed = hasUpstreamVal
           ? await getUnpushedCommitCount(event.workspace)
           : 0;
+      final unpulled = hasUpstreamVal
+          ? await getUnpulledCommitCount(event.workspace)
+          : 0;
 
       if (state is RepoStatusLoaded) {
         final currentState = state as RepoStatusLoaded;
@@ -204,6 +209,7 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
             hasRemote: hasRemoteVal,
             hasUpstream: hasUpstreamVal,
             unpushedCount: unpushed,
+            unpulledCount: unpulled,
           ),
         );
       }
@@ -219,6 +225,9 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
       final unpushed = hasUpstreamVal
           ? await getUnpushedCommitCount(event.workspace)
           : 0;
+      final unpulled = hasUpstreamVal
+          ? await getUnpulledCommitCount(event.workspace)
+          : 0;
       final remotes = await gitListRemotes(event.workspace);
       final hasRemoteVal = remotes.isNotEmpty;
 
@@ -229,6 +238,7 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
             hasRemote: hasRemoteVal,
             hasUpstream: hasUpstreamVal,
             unpushedCount: unpushed,
+            unpulledCount: unpulled,
             remotes: remotes,
           ),
         );
