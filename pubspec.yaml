@@ -9,7 +9,8 @@ environment:
 dependencies:
   android_intent_plus: ^6.0.0
   bloc: ^9.2.0
-  code_forge: ^9.3.0
+  code_forge:
+    path: /home/athul/Projects/code_forge
   diff_match_patch: ^0.4.1
   equatable: ^2.0.8
   file_icon: ^1.0.0

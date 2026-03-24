@@ -13,6 +13,7 @@ import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
 import '../../utils/languages.dart';
+import '../../utils/package_catalog.dart';
 import '../../utils/themes.dart';
 
 part 'ui_event.dart';
@@ -587,6 +588,48 @@ class DownloadManagerBloc extends Cubit<DownloadManagerState> {
       downloadProgress: newProgress,
       extractionProgress: newExtractionProgress
     ));
+  }
+}
+
+class PackageCatalogCubit extends Cubit<PackageCatalogState> {
+  bool _didInitialSync = false;
+
+  PackageCatalogCubit() : super(PackageCatalogState.initial());
+
+  Future<void> syncOnStartup() async {
+    if (_didInitialSync) return;
+    _didInitialSync = true;
+    await refreshCatalog();
+  }
+
+  Future<void> refreshCatalog() async {
+    emit(state.copyWith(isSyncing: true, remoteFetchFailed: false));
+
+    final result = await PackageCatalogService.syncOnStartup();
+    emit(
+      state.copyWith(
+        runtimes: result.runtimes,
+        extensions: result.extensions,
+        runtimeUpdates: result.runtimeUpdates,
+        extensionUpdates: result.extensionUpdates,
+        isSyncing: false,
+        remoteFetchFailed: result.remoteFetchFailed,
+        usedRemote: result.usedRemote,
+      ),
+    );
+  }
+
+  Future<void> refreshInstalledStatusOnly() async {
+    final result = await PackageCatalogService.refreshInstalledStatusOnly(
+      runtimes: state.runtimes,
+      extensions: state.extensions,
+    );
+    emit(
+      state.copyWith(
+        runtimeUpdates: result.runtimeUpdates,
+        extensionUpdates: result.extensionUpdates,
+      ),
+    );
   }
 }
 

@@ -350,6 +350,63 @@ class DownloadManagerState {
   }
 }
 
+class PackageCatalogState {
+  final List<RunTime> runtimes;
+  final List<Extension> extensions;
+  final Set<String> runtimeUpdates;
+  final Set<String> extensionUpdates;
+  final bool isSyncing;
+  final bool remoteFetchFailed;
+  final bool usedRemote;
+
+  const PackageCatalogState({
+    required this.runtimes,
+    required this.extensions,
+    required this.runtimeUpdates,
+    required this.extensionUpdates,
+    required this.isSyncing,
+    required this.remoteFetchFailed,
+    required this.usedRemote,
+  });
+
+  factory PackageCatalogState.initial() {
+    return const PackageCatalogState(
+      runtimes: [],
+      extensions: [],
+      runtimeUpdates: {},
+      extensionUpdates: {},
+      isSyncing: false,
+      remoteFetchFailed: false,
+      usedRemote: false,
+    );
+  }
+
+  PackageCatalogState copyWith({
+    List<RunTime>? runtimes,
+    List<Extension>? extensions,
+    Set<String>? runtimeUpdates,
+    Set<String>? extensionUpdates,
+    bool? isSyncing,
+    bool? remoteFetchFailed,
+    bool? usedRemote,
+  }) {
+    return PackageCatalogState(
+      runtimes: runtimes ?? this.runtimes,
+      extensions: extensions ?? this.extensions,
+      runtimeUpdates: runtimeUpdates ?? this.runtimeUpdates,
+      extensionUpdates: extensionUpdates ?? this.extensionUpdates,
+      isSyncing: isSyncing ?? this.isSyncing,
+      remoteFetchFailed: remoteFetchFailed ?? this.remoteFetchFailed,
+      usedRemote: usedRemote ?? this.usedRemote,
+    );
+  }
+
+  bool get hasUpdates =>
+      runtimeUpdates.isNotEmpty || extensionUpdates.isNotEmpty;
+
+  int get totalUpdateCount => runtimeUpdates.length + extensionUpdates.length;
+}
+
 enum CopilotStatus {
   notInitialized,
   initializing,

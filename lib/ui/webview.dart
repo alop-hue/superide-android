@@ -83,26 +83,28 @@ class _WebViewScreenState extends State<WebViewScreen> {
             appBar: AppBar(
               actions: [
                 PopupMenuButton(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadiusGeometry.circular(10)
+                  ),
                   tooltip: "Options",
                   popUpAnimationStyle: AnimationStyle(
-                      duration: const Duration(milliseconds: 100)),
+                    duration: const Duration(milliseconds: 100)
+                  ),
                   itemBuilder: (context) => [
                     PopupMenuItem(
                       child: ListTile(
                         splashColor: Colors.transparent,
                         onTap: () async {
                           if (isLoaded) {
-                            context
-                                .read<WebViewBloc>()
-                                .add(SetViewPort(isMobile: !state.isMobile));
+                            context.read<WebViewBloc>().add(SetViewPort(isMobile: !state.isMobile));
                             await controller.callAsyncJavaScript(
                               functionBody: """
-                                        if (window.setViewport) {
-                                          window.setViewport(isMobile);
-                                        } else {
-                                          console.error('setViewport is not defined');
-                                        }
-                                      """,
+                                if (window.setViewport) {
+                                  window.setViewport(isMobile);
+                                } else {
+                                  console.error('setViewport is not defined');
+                                }
+                              """,
                               arguments: {"isMobile": !state.isMobile},
                             );
                             if (context.mounted) {
@@ -112,14 +114,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
                         },
                         contentPadding: const EdgeInsets.all(0),
                         title: const Text("Desktop"),
-                        titleTextStyle:
-                            const TextStyle(color: Colors.grey, fontSize: 18),
-                        leading: const Icon(Icons.desktop_mac_sharp,
-                            color: Colors.grey, size: 30),
+                        titleTextStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                        leading: const Icon(
+                          Icons.desktop_mac_sharp,
+                          color: Colors.grey, size: 30),
                         trailing: Checkbox(
                             fillColor: WidgetStatePropertyAll(!state.isMobile
-                                ? const Color(0xff0e639c)
-                                : Colors.transparent),
+                              ? const Color(0xff0e639c)
+                              : Colors.transparent),
                             side: const BorderSide(color: Colors.grey),
                             value: !state.isMobile,
                             onChanged: null),
@@ -131,62 +133,50 @@ class _WebViewScreenState extends State<WebViewScreen> {
                         contentPadding: const EdgeInsets.all(0),
                         onTap: () async {
                           if (isLoaded) {
-                            context.read<WebViewBloc>().add(
-                                EnableConsole(isConsole: !state.isConsole));
+                            context.read<WebViewBloc>().add(EnableConsole(isConsole: !state.isConsole));
                             await controller.evaluateJavascript(source: """
-                                    if (window.setEruda) {
-                                      window.setEruda(${!state.isConsole});
-                                      } else {
-                                        console.error('setEruda is not defined');
-                                      }
-                                      """);
+                              if (window.setEruda) {
+                                window.setEruda(${!state.isConsole});
+                                } else {
+                                  console.error('setEruda is not defined');
+                                }
+                                """);
                             if (context.mounted) {
                               Navigator.of(context).pop();
                             }
                           }
                         },
                         title: const Text("Dev Tools"),
-                        titleTextStyle:
-                            const TextStyle(color: Colors.grey, fontSize: 18),
-                        leading: const Icon(Icons.construction_outlined,
-                            color: Colors.grey, size: 30),
+                        titleTextStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                        leading: const Icon(
+                          Icons.construction_outlined,
+                          color: Colors.grey, size: 30
+                        ),
                         trailing: Checkbox(
-                            fillColor: WidgetStatePropertyAll(state.isConsole
-                                ? const Color(0xff0e639c)
-                                : Colors.transparent),
-                            side: const BorderSide(color: Colors.grey),
-                            value: state.isConsole,
-                            onChanged: null),
+                          fillColor: WidgetStatePropertyAll(state.isConsole
+                            ? const Color(0xff0e639c)
+                            : Colors.transparent),
+                          side: const BorderSide(color: Colors.grey),
+                          value: state.isConsole,
+                          onChanged: null),
                       ),
                     ),
-                    PopupMenuItem(
-                      child: ListTile(
-                        onTap: () async {
-                          if (isLoaded) {
-                            //TODO: preserve states on reload
-                            await controller.reload();
-                          }
-                        },
-                        leading: const Icon(Icons.replay_outlined,
-                        color: Colors.grey, size: 30),
-                        title: const Text("Reload"),
-                        titleTextStyle: const TextStyle(color: Colors.grey, fontSize: 18)))
                   ],
                 )
               ],
               title: isLoaded
-                  ? FutureBuilder(future: (() async {
-                      return await controller.getTitle();
-                    })(), builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
-                      return Text(snapshot.data ?? "WebView",
-                          style: const TextStyle(color: Colors.white));
-                    })
-                  : const Text("WebView"),
+                ? FutureBuilder(future: (() async {
+                    return await controller.getTitle();
+                  })(), builder: (context, snapshot) {
+                    if (snapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator());
+                    }
+                    return Text(snapshot.data ?? "WebView",
+                        style: const TextStyle(color: Colors.white));
+                  })
+                : const Text("WebView"),
             ),
             body: InAppWebView(
               initialSettings: InAppWebViewSettings(

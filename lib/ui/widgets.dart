@@ -1217,6 +1217,66 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     );
   }
 
+  Future<void> _requestExternalModelCompletion() async {
+    final aiState = context.read<AIBloc>().state;
+    final completionModel = aiState.completionModel;
+    if (completionModel == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selected completion model is not configured correctly.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final text = controller.text;
+    final cursorOffset = controller.selection.start.clamp(0, text.length);
+    final cursorLine = controller.getLineAtOffset(cursorOffset);
+    final beforeCursor = text.substring(0, cursorOffset);
+    final lineStartOffset = beforeCursor.lastIndexOf('\n') + 1;
+    final cursorColumn = cursorOffset - lineStartOffset;
+
+    final prompt = '''Language: ${language.name}\nFile: ${file.path}\nCode:\n$beforeCursor<|CURSOR|>${text.substring(cursorOffset)}''';
+
+    try {
+      final suggestion = await completionModel.completionResponse(prompt);
+      if (!mounted) return;
+      if (suggestion.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No completion available for this position.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      controller.clearGhostText();
+      controller.setGhostText(
+        GhostText(
+          line: cursorLine,
+          column: cursorColumn,
+          text: suggestion,
+          style: TextStyle(
+            color: Colors.grey.withValues(alpha: 0.6),
+            fontStyle: FontStyle.italic,
+          ),
+          shouldPersist: false,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Completion request failed: $e'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _pendingRefreshTimer?.cancel();
@@ -1374,7 +1434,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                                   if(codeModel == "copilot"){
                                     _editorKey.currentState?.requestCopilotCompletionManual();
                                   } else {
-                                    //TODO
+                                    await _requestExternalModelCompletion();
                                   }
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(

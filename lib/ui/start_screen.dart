@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../ui/home.dart';
 import '../utils/functions.dart';
@@ -85,6 +87,7 @@ class _StartScreenState extends State<StartScreen> {
     await setupProjectDir();
     await setupTempDir();
     await ensureCopilotEnabledPrefInitialized();
+    if(context.mounted) await context.read<PackageCatalogCubit>().syncOnStartup();
 
     final String sharedPath = await NativeChannel.getLibraryPath();
 

@@ -50,6 +50,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => WebViewBloc()),
         BlocProvider(create: (_) => MenuSearchBloc()),
         BlocProvider(create: (_) => DownloadManagerBloc()),
+        BlocProvider(create: (_) => PackageCatalogCubit()),
         BlocProvider(create: (_) => GithubAuthCubit()),
         BlocProvider(create: (_) => ChatSessionBloc()..add(LoadChatSessions())),
         BlocProvider(create: (_) => GeneralBloc(

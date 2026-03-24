@@ -60,11 +60,10 @@ packages:
   code_forge:
     dependency: "direct main"
     description:
-      name: code_forge
-      sha256: "7b6ffa52108f10bd40d94c7b4dcaa0bfecda60a9814fb7f3d2af868b5b2ded03"
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.3.0"
+      path: "/home/athul/Projects/code_forge"
+      relative: false
+    source: path
+    version: "9.4.0"
   collection:
     dependency: transitive
     description:

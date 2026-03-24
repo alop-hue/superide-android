@@ -1111,7 +1111,7 @@ Future<String> gitHubSignIn() async {
     final result = await FlutterWebAuth2.authenticate(
       url: authUrl.toString(),
       callbackUrlScheme: 'vsdroid',
-      options: const FlutterWebAuth2Options(intentFlags: ephemeralIntentFlags),
+      options: const FlutterWebAuth2Options(preferEphemeral: true),
     );
 
     final code = Uri.parse(result).queryParameters['code'];
@@ -1546,6 +1546,48 @@ Future<LspConfig?> startLspServer({
   try {
     final String sharedPath = await NativeChannel.getLibraryPath();
     final String runtimeDir = runtimesDir;
+    List<String> resolveServerArgs(String ext, List<String> args) {
+      final normalizedExt = ext.toLowerCase();
+
+      if (['py', 'sh', 'bash', 'zsh'].contains(normalizedExt)) {
+        final matched = extensions.where(
+          (item) => item.fileExtension.contains(normalizedExt),
+        );
+        if (matched.isNotEmpty && matched.first.serverFile.isNotEmpty) {
+          return [matched.first.serverFile.first, ...args];
+        }
+      }
+
+      if (normalizedExt == 'html') {
+        final matched = extensions.where(
+          (item) => item.fileExtension.any((ex) => ex == 'html'),
+        );
+        if (matched.isNotEmpty && matched.first.serverFile.isNotEmpty) {
+          return [matched.first.serverFile[0], ...args];
+        }
+      }
+
+      if (normalizedExt == 'css') {
+        final matched = extensions.where(
+          (item) => item.fileExtension.any((ex) => ex == 'css'),
+        );
+        if (matched.isNotEmpty && matched.first.serverFile.length > 1) {
+          return [matched.first.serverFile[1], ...args];
+        }
+      }
+
+      if (normalizedExt == 'json') {
+        final matched = extensions.where(
+          (item) => item.fileExtension.any((ex) => ex == 'json'),
+        );
+        if (matched.isNotEmpty && matched.first.serverFile.length > 2) {
+          return [matched.first.serverFile[2], ...args];
+        }
+      }
+
+      return args;
+    }
+
     final config = await LspStdioConfig.start(
       executable: executable,
       capabilities: capabilities ?? const LspClientCapabilities(),
@@ -1578,55 +1620,7 @@ Future<LspConfig?> startLspServer({
             ...args,
           ];
         }
-        if (['py', 'sh', 'bash', 'zsh'].contains(ext)) {
-          return [
-            extensions
-                .singleWhere(
-                  (item) =>
-                      item.fileExtension.isNotEmpty &&
-                      item.fileExtension.contains(ext),
-                )
-                .serverFile[0],
-            ...args,
-          ];
-        }
-
-        if (ext == 'html') {
-          return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "html"),
-                )
-                .serverFile[0],
-            ...args,
-          ];
-        }
-
-        if (ext == 'css') {
-          return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "css"),
-                )
-                .serverFile[1],
-            ...args,
-          ];
-        }
-
-        if (ext == 'json') {
-          return [
-            extensions
-                .singleWhere(
-                  (item) => item.fileExtension.any((ex) => ex == "json"),
-                )
-                .serverFile[2],
-            ...args,
-          ];
-        }
-
-        /* if(ext == 'md'){
-            return [extensions.singleWhere((item) => item.fileExtension.any((ex)=> ex == "md")).serverFile[3], ...args];
-          } */
+        return resolveServerArgs(ext, args);
       })(),
       environment: {
         ...environment ?? {},

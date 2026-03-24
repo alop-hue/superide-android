@@ -36,6 +36,7 @@ class _SelectTypeState extends State<SelectType> {
   final createFileController = TextEditingController();
   final _createFileKey = GlobalKey<FormState>();
   final _cloneRepoKey = GlobalKey<FormState>();
+  bool _didShowPackageUpdateToast = false;
 
   Map<String, dynamic>? _normalizeRecentEntry(dynamic rawEntry) {
     if (rawEntry is Map &&
@@ -195,7 +196,22 @@ class _SelectTypeState extends State<SelectType> {
     context.read<GithubAuthCubit>().refresh();
     return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, appThemestate) {
-        return Scaffold(
+        return BlocListener<PackageCatalogCubit, PackageCatalogState>(
+          listenWhen: (previous, current) =>
+              !_didShowPackageUpdateToast &&
+              !previous.hasUpdates &&
+              current.hasUpdates,
+          listener: (context, state) {
+            _didShowPackageUpdateToast = true;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '${state.totalUpdateCount} package update(s) available in Downloads.',
+                ),
+              ),
+            );
+          },
+          child: Scaffold(
           resizeToAvoidBottomInset: false,
           drawer: Drawer(
             backgroundColor: appThemestate.appTheme.selectScreenDrawerBg,
@@ -302,24 +318,58 @@ class _SelectTypeState extends State<SelectType> {
             actions: [
               Transform.scale(
                 scale: 0.8,
-                child: IconButton(
-                  tooltip: "Runtimes",
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            DownloadManager(),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              return SizeTransition(
-                                sizeFactor: animation,
-                                child: child,
-                              );
-                            },
+                child: BlocBuilder<PackageCatalogCubit, PackageCatalogState>(
+                  builder: (context, packageState) {
+                    return IconButton(
+                      tooltip: "Runtimes",
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                DownloadManager(),
+                            transitionsBuilder:
+                                (context, animation, secondaryAnimation, child) {
+                                  return SizeTransition(
+                                    sizeFactor: animation,
+                                    child: child,
+                                  );
+                                },
+                          ),
+                        );
+                      },
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(Icons.download, size: 35),
+                          if (packageState.hasUpdates)
+                            Positioned(
+                              right: -2,
+                              top: -4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(minWidth: 16),
+                                child: Text(
+                                  '${packageState.totalUpdateCount}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   },
-                  icon: Icon(Icons.download, size: 35),
                 ),
               ),
               IconButton(
@@ -1503,7 +1553,7 @@ class _SelectTypeState extends State<SelectType> {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }

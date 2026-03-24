@@ -7,7 +7,6 @@ import 'package:flutter_file_downloader/flutter_file_downloader.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
-import '../utils/languages.dart';
 
 class DownloadManager extends StatefulWidget {
   const DownloadManager({super.key});
@@ -26,6 +25,16 @@ class _DownloadManagerState extends State<DownloadManager> {
     appThemeState = context.read<AppThemeBloc>().state;
     _isOnDownloadPage = true;
     super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final catalogState = context.read<PackageCatalogCubit>().state;
+      if (catalogState.runtimes.isEmpty &&
+          catalogState.extensions.isEmpty &&
+          !catalogState.isSyncing) {
+        context.read<PackageCatalogCubit>().refreshCatalog();
+      }
+    });
   }
 
   @override
@@ -132,6 +141,9 @@ class _DownloadManagerState extends State<DownloadManager> {
       }
       
       downloadBloc.markFullyCompleted(index);
+      if (mounted) {
+        await context.read<PackageCatalogCubit>().refreshInstalledStatusOnly();
+      }
     } catch (e) {
       debugPrint('Error during extraction: $e');
       downloadBloc.markFullyCompleted(index); 
@@ -141,6 +153,10 @@ class _DownloadManagerState extends State<DownloadManager> {
 
   @override
   Widget build(BuildContext context) {
+    final catalogState = context.watch<PackageCatalogCubit>().state;
+    final runtimeItems = catalogState.runtimes;
+    final extensionItems = catalogState.extensions;
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -172,10 +188,19 @@ class _DownloadManagerState extends State<DownloadManager> {
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: ListView.builder(
-                itemCount: runtimes.length,
+              child: runtimeItems.isEmpty
+                  ? _buildCatalogStateView(
+                      title: 'No runtime catalog available',
+                      actionLabel: 'Retry',
+                      onRetry: () => context.read<PackageCatalogCubit>().refreshCatalog(),
+                    )
+                  : ListView.builder(
+                itemCount: runtimeItems.length,
                 itemBuilder: (_, index) {
-                  final runtime = runtimes[index];
+                  final runtime = runtimeItems[index];
+                  final hasUpdate = catalogState.runtimeUpdates.contains(
+                    runtime.parentName,
+                  );
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     child: Card(
@@ -187,7 +212,32 @@ class _DownloadManagerState extends State<DownloadManager> {
                         ),
                         title: Padding(
                           padding: const EdgeInsets.only(bottom: 5),
-                          child: Text("${runtime.name} - ${runtime.version}"),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text("${runtime.name} - ${runtime.version ?? ''}"),
+                              ),
+                              if (hasUpdate)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withAlpha(40),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'Update',
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,8 +261,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                           child: BlocBuilder<DownloadManagerBloc, DownloadManagerState>(
                             builder: (context, downloadState) {
                               final percent = downloadState.downloadProgress[index] ?? 0;
-                              final File archiveFile = File("$runtimesDir/${runtimes[index].archiveName}");
-                              final Directory parentDir = Directory("$runtimesDir/${runtimes[index].parentName}");
+                              final File archiveFile = File("$runtimesDir/${runtimeItems[index].archiveName}");
+                              final Directory parentDir = Directory("$runtimesDir/${runtimeItems[index].parentName}");
                               
                               
                               final isExtracting = downloadState.isExtracting(index);
@@ -353,8 +403,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   _startDownload(
                                     context,
                                     index,
-                                    runtimes[index].url,
-                                    runtimes[index].archiveName,
+                                    runtimeItems[index].url,
+                                    runtimeItems[index].archiveName,
                                     downloadsDir,
                                     false, 
                                   );
@@ -379,11 +429,20 @@ class _DownloadManagerState extends State<DownloadManager> {
             ),
             Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: ListView.builder(
-                itemCount: extensions.length,
+              child: extensionItems.isEmpty
+                  ? _buildCatalogStateView(
+                      title: 'No extension catalog available',
+                      actionLabel: 'Retry',
+                      onRetry: () => context.read<PackageCatalogCubit>().refreshCatalog(),
+                    )
+                  : ListView.builder(
+                itemCount: extensionItems.length,
                 itemBuilder: (_, index) {
-                  final extensionIndex = index + runtimes.length;
-                  final exten = extensions[index];
+                  final extensionIndex = index + runtimeItems.length;
+                  final exten = extensionItems[index];
+                  final hasUpdate = catalogState.extensionUpdates.contains(
+                    exten.parentName,
+                  );
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     child: Card(
@@ -395,7 +454,30 @@ class _DownloadManagerState extends State<DownloadManager> {
                         ),
                         title: Padding(
                           padding: const EdgeInsets.only(bottom: 5),
-                          child: Text(exten.name),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(exten.name)),
+                              if (hasUpdate)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withAlpha(40),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'Update',
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,8 +501,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                           child: BlocBuilder<DownloadManagerBloc, DownloadManagerState>(
                             builder: (context, downloadState) {
                               final percent = downloadState.downloadProgress[extensionIndex] ?? 0;
-                              final File archiveFile = File("$extensionDir/${extensions[index].archiveName}");
-                              final Directory parentDir = Directory("$extensionDir/${extensions[index].parentName}");
+                              final File archiveFile = File("$extensionDir/${extensionItems[index].archiveName}");
+                              final Directory parentDir = Directory("$extensionDir/${extensionItems[index].parentName}");
                               
                               
                               final isExtracting = downloadState.isExtracting(extensionIndex);
@@ -566,8 +648,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   _startDownload(
                                     context,
                                     extensionIndex,
-                                    extensions[index].url,
-                                    extensions[index].archiveName,
+                                    extensionItems[index].url,
+                                    extensionItems[index].archiveName,
                                     downloadsDir,
                                     true, 
                                   );
@@ -592,6 +674,80 @@ class _DownloadManagerState extends State<DownloadManager> {
             )
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogStateView({
+    required String title,
+    required String actionLabel,
+    required VoidCallback onRetry,
+  }) {
+    final catalogState = context.watch<PackageCatalogCubit>().state;
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+
+    if (catalogState.isSyncing) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: appThemeState.appTheme.isDark
+                  ? const Color(0xff5090c8)
+                  : const Color(0xff2c6fa8),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Fetching package catalog...',
+              style: TextStyle(color: textColor),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (catalogState.remoteFetchFailed) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.wifi_off_rounded,
+                size: 36,
+                color: textColor.withAlpha(170),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Failed to fetch latest package data.',
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: TextStyle(color: textColor.withAlpha(170)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              FilledButton.tonal(
+                onPressed: onRetry,
+                child: Text(actionLabel),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Text(
+        title,
+        style: TextStyle(color: textColor.withAlpha(190)),
       ),
     );
   }

@@ -215,7 +215,7 @@ class RunTime{
   final String name, details, url, archiveName, parentName;
   final int archiveSize;
   final String? version;
-  final dynamic icon;
+  final String iconUrl;
 
   RunTime({
     required this.name,
@@ -224,16 +224,42 @@ class RunTime{
     required this.parentName,
     required this.archiveSize,
     required this.url,
-    required this.icon,
+    required this.iconUrl,
     this.version
   });
+
+  factory RunTime.fromJson(Map<String, dynamic> json) {
+    return RunTime(
+      name: json['name']?.toString() ?? '',
+      details: json['details']?.toString() ?? '',
+      archiveName: json['archiveName']?.toString() ?? '',
+      parentName: json['parentName']?.toString() ?? '',
+      archiveSize: (json['archiveSize'] as num?)?.toInt() ?? 0,
+      url: json['url']?.toString() ?? '',
+      iconUrl: (json['icon-url'] ?? json['iconUrl'] ?? '').toString(),
+      version: json['version']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'details': details,
+    'version': version,
+    'url': url,
+    'archiveName': archiveName,
+    'archiveSize': archiveSize,
+    'parentName': parentName,
+    'icon-url': iconUrl,
+  };
+
+  Widget get icon => _buildPackageIcon(iconUrl, size: 35);
 }
 
 class Extension{
   final String name, details, url, archiveName, parentName;
   final List<String> fileExtension, serverFile;
   final double archiveSize;
-  final dynamic icon;  
+  final String iconUrl;
   Extension({
     required this.name,
     required this.details,
@@ -241,10 +267,63 @@ class Extension{
     required this.parentName,
     required this.archiveSize,
     required this.url,
-    required this.icon,
+    required this.iconUrl,
     required this.fileExtension,
     required this.serverFile
   });
+
+  factory Extension.fromJson(Map<String, dynamic> json) {
+    return Extension(
+      name: json['name']?.toString() ?? '',
+      details: json['details']?.toString() ?? '',
+      archiveName: json['archiveName']?.toString() ?? '',
+      parentName: json['parentName']?.toString() ?? '',
+      archiveSize: (json['archiveSize'] as num?)?.toDouble() ?? 0,
+      url: json['url']?.toString() ?? '',
+      iconUrl: (json['icon-url'] ?? json['iconUrl'] ?? '').toString(),
+      fileExtension: (json['fileExtension'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      serverFile: (json['serverFile'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'details': details,
+    'archiveName': archiveName,
+    'parentName': parentName,
+    'archiveSize': archiveSize,
+    'url': url,
+    'fileExtension': fileExtension,
+    'serverFile': serverFile,
+    'icon-url': iconUrl,
+  };
+
+  Widget get icon => _buildPackageIcon(iconUrl, size: 35);
+}
+
+Widget _buildPackageIcon(String iconUrl, {double size = 35}) {
+  if (iconUrl.isEmpty) {
+    return Icon(Icons.extension, size: size);
+  }
+
+  final isRemote = iconUrl.startsWith('http://') || iconUrl.startsWith('https://');
+  final isSvg = iconUrl.toLowerCase().endsWith('.svg');
+
+  if (isRemote) {
+    if (isSvg) {
+      return SvgPicture.network(iconUrl, height: size, width: size);
+    }
+    return Image.network(iconUrl, height: size, width: size);
+  }
+
+  if (isSvg) {
+    return SvgPicture.asset(iconUrl, height: size, width: size);
+  }
+  return Image.asset(iconUrl, height: size, width: size);
 }
 
 final langtxt = Language(
@@ -818,168 +897,19 @@ List<Language> languages = [
   langverilog,
 ];
 
-final pythonRunTime = RunTime(
-  name: "Python",
-  details: "The python interpreter.\nDownload the based-pyright extension for LSP support.",
-  version: "3.13.5",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/python.zip",
-  archiveName: "python.zip",
-  archiveSize: 78,
-  parentName: "python",
-  icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35, width: 35),
-);
+final List<RunTime> runtimes = [];
 
-final nodeRunTime = RunTime(
-  name: "Node JS",
-  details: "The node js runtime.\nTypescript runtime and LSP server are included with this bundle.",
-  version: "24.4.1",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/node.zip",
-  archiveName: "node.zip",
-  archiveSize: 51,
-  parentName: "node",
-  icon: SvgPicture.asset('assets/material_icons/nodejs.svg',height: 35, width: 35),
-);
+final List<Extension> extensions = [];
 
-final clangRunTime = RunTime(
-  name: "Clang",
-  details: "The clang compiler for C/C++. CCLS Language server is included with this bundle",
-  version: "21.1.8",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/clang.zip",
-  archiveName: "clang.zip",
-  archiveSize: 86,
-  parentName: "clang",
-  icon: SvgPicture.asset('assets/icons/LLVM.svg',height: 35, width: 35),
-);
+void updatePackageCatalog({
+  required List<RunTime> fetchedRuntimes,
+  required List<Extension> fetchedExtensions,
+}) {
+  runtimes
+    ..clear()
+    ..addAll(fetchedRuntimes);
 
-final java17RunTime = RunTime(
-  name: "OpenJDK",
-  details: "The Java Virtual Machine.",
-  version: "21",
-  archiveSize: 135,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/java-21-openjdk.zip",
-  archiveName: "java-21-openjdk.zip",
-  parentName: "java-21-openjdk",
-  icon: SvgPicture.asset('assets/icons/Java.svg',height: 35, width: 35)
-);
-
-final kotlinRunTime = RunTime(
-  name: "Kotlin",
-  details: "The Kotlin runtime.\nNote: OpenJDK installation is required",
-  archiveName: "kotlin.zip",
-  parentName: "kotlin",
-  archiveSize: 74,
-  version: "2.2.0",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/kotlin.zip",
-  icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35, width: 35)
-);
-
-final rubyRunTime = RunTime(
-  name: "Ruby",
-  details: "The Ruby interpreter.",
-  version: "3.4.1",
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/ruby.zip",
-  parentName: "ruby",
-  archiveName: "ruby.zip",
-  archiveSize: 12,
-  icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35)
-);
-
-final List<RunTime> runtimes = [
-  pythonRunTime,
-  nodeRunTime,
-  clangRunTime,
-  java17RunTime,
-  kotlinRunTime,
-  rubyRunTime,
-];
-
-final basedpyright = Extension(
-  name: "Based-Pyright",
-  details: "Langauge server for python.\nNote: Node JS runtime is required.",
-  archiveName: "basedpyright.zip",
-  parentName: "basedpyright",
-  archiveSize: 8.4,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/basedpyright.zip",
-  icon: Image.asset(
-    "assets/icons/based_pyright_logo.png",
-    height: 55,
-    width: 55,
-    color: Colors.grey,
-    colorBlendMode: BlendMode.srcIn
-  ),
-  fileExtension: ["py"],
-  serverFile: ["/data/data/com.vsdroid/extensions/basedpyright/langserver.index.js"]
-);
-
-final vscodeExtractedLSPs = Extension(
-  name: "VScode-extracted LSP Servers",
-  details: "Language servers extracted from the VSCode. Contains HTML, CSS, Markdown, JSON and ESLint servers\nNote: Node JS runtime is required.",
-  archiveName: "vscode-langservers-extracted.zip",
-  parentName: "vscode-langservers-extracted",
-  archiveSize: 14,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/vscode-langservers-extracted.zip",
-  icon: Image.asset("assets/icons/html-css.png"),
-  fileExtension: ["html", "css", "md", "json"],
-  serverFile: [
-    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/html-language-server/node/htmlServerMain.js",
-    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/css-language-server/node/cssServerMain.js",
-    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/json-language-server/node/jsonServerMain.js",
-    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/markdown-language-server/node/main.js",
-    "$extensionDir/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/eslint-language-server/eslintServer.js",
-  ]
-);
-
-final jdtLs = Extension(
-  name: "JDT-LS",
-  details: "The Eclipse JDT-LS language server for java.\nNote: Open JDK installation is required.",
-  archiveName: "JDT-LS.zip",
-  parentName: "JDT-LS",
-  archiveSize: 47,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/JDT-LS.zip",
-  icon: Padding(
-    padding: const EdgeInsets.only(right: 18),
-    child: SvgPicture.asset("assets/icons/eclipse.svg", height: 35, width: 35),
-  ),
-  fileExtension: ["java"],
-  serverFile: []
-);
-
-final bashLsp = Extension(
-  name: "bash-language-server",
-  details: "Language server for bash/shell-script.\nNote: Nodejs runtime is required",
-  archiveName: "bash-language-server.zip",
-  parentName: "bash-language-server",
-  archiveSize: 4,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/bash-language-server.zip",
-  icon: Image.asset("assets/icons/bash.png"),
-  fileExtension: ["sh", "bash", "zsh"],
-  serverFile: ["$extensionDir/bash-language-server/node_modules/bash-language-server/out/cli.js"]
-);
-
-final copilot = Extension(
-  name: "Github Copilot",
-  details: "Enable github copilot in the editor.\nNote: Nodejs runtime is required",
-  archiveName: "copilot-language-server.zip",
-  parentName: "copilot-language-server",
-  archiveSize: 12,
-  url: "https://github.com/heckmon/android-arm64-shared-libraries/releases/download/v0.0.1/copilot-language-server.zip",
-  icon: SvgPicture.asset(
-    "assets/icons/github-copilot-icon.svg",
-    height: 35,
-    width: 35,
-    colorFilter: ColorFilter.mode(
-      Colors.grey,
-      BlendMode.srcIn
-    ),
-  ),
-  fileExtension: [],
-  serverFile: ["$extensionDir/copilot-language-server/language-server.js"]
-);
-
-final List<Extension> extensions = [
-  copilot,
-  basedpyright,
-  vscodeExtractedLSPs,
-  jdtLs,
-  bashLsp
-];
+  extensions
+    ..clear()
+    ..addAll(fetchedExtensions);
+}

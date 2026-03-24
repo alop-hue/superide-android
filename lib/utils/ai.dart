@@ -157,8 +157,7 @@ class Gemini extends Models {
     this.topP,
     this.topK,
     this.stopSequences,
-  }) : url =
-           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey';
+  }) : url = 'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey';
 
   @override
   String responseParser(dynamic response) {
