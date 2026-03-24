@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vsdroid/utils/constants.dart';
 import '../../utils/ai.dart';
@@ -192,14 +193,17 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
       final editors = <ActiveEditor>[];
       for (final editorJson in list) {
         final lang = languages.singleWhere((lang) => lang.name == editorJson["lang"]);
+        final filePath = editorJson["file"]?.toString() ?? '';
+        final fileExt = path.extension(filePath).toLowerCase().replaceFirst('.', '');
+        final languageId = (fileExt == 'tsx' || fileExt == 'jsx') ? fileExt : lang.name;
         final key = buildLspCacheKey(
           workspacePath: rootDir,
-          languageId: lang.name,
+          languageId: languageId,
         );
         LspConfig? lspConfig;
         if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
           _lspConfigs[key] = await getOrStartSharedLspConfig(
-            languageId: lang.name,
+            languageId: languageId,
             ext: lang.extension[0],
             executable: lang.lspExecutable,
             args: lang.args ?? [],

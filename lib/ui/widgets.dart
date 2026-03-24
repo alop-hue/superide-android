@@ -980,6 +980,14 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   bool _isApplyingPendingAction = false;
   Timer? _pendingRefreshTimer;
 
+  String _lspLanguageIdForPath(Language lang, String filePath) {
+    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
+    if (ext == 'tsx' || ext == 'jsx') {
+      return ext;
+    }
+    return lang.name;
+  }
+
   @override
   void initState() {
     editor = widget.editor;
@@ -1633,7 +1641,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                                     LspConfig? lspConfig;
                                     if (config['enableLSP']) {
                                       lspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
-                                        languageId: lang.name,
+                                        languageId: _lspLanguageIdForPath(lang, targetFile.path),
                                         ext: lang.extension[0],
                                         executable: lang.lspExecutable,
                                         args: lang.args ?? [],

@@ -308,8 +308,7 @@ class _GithubPageState extends State<GithubPage> {
       filtered = filtered.where((r) {
         final name = (r['name'] as String).toLowerCase();
         final desc = (r['description'] as String?)?.toLowerCase() ?? '';
-        return name.contains(_searchQuery.toLowerCase()) || 
-               desc.contains(_searchQuery.toLowerCase());
+        return name.contains(_searchQuery.toLowerCase()) ||  desc.contains(_searchQuery.toLowerCase());
       }).toList();
     }
     

@@ -20,6 +20,12 @@ import '../utils/functions.dart';
 import '../utils/themes.dart';
 import 'widgets.dart';
 
+class DiagnosticsTickBloc extends Cubit<int> {
+  DiagnosticsTickBloc() : super(0);
+
+  void tick() => emit(state + 1);
+}
+
 class EditorPage extends StatefulWidget {
   final Language? languageDetails;
   final String rootDir;
@@ -44,11 +50,14 @@ class _EditorPageState extends State<EditorPage>
   final trasnformationController = TransformationController();
   final Map<CodeForgeController, String> _savedSnapshotByController = {};
   final Map<CodeForgeController, VoidCallback> _editorListeners = {};
+  final Map<CodeForgeController, VoidCallback> _diagnosticListeners = {};
   final Set<CodeForgeController> _dirtyControllers = {};
+  final Map<CodeForgeController, int> _lastErrorCountByController = {};
   late final TextEditingController createFileController, findWordController;
   late final TextEditingController replaceWordController, apiUrlController;
   late final TabController apiTabController, paramTabController;
   late final ActiveEditorBloc _activeEditorBloc;
+  late final DiagnosticsTickBloc _diagnosticsTickBloc;
   late List<int> mruOrder;
   bool _allowImmediatePop = false;
   bool _didInitializeEditors = false;
@@ -64,6 +73,7 @@ class _EditorPageState extends State<EditorPage>
       widget.rootDir,
       uiBloc.state.codeForgeConfig,
     );
+    _diagnosticsTickBloc = DiagnosticsTickBloc();
     mruOrder = [0];
     createFileController = TextEditingController();
     findWordController = TextEditingController();
@@ -119,9 +129,14 @@ class _EditorPageState extends State<EditorPage>
     for (final entry in _editorListeners.entries) {
       entry.key.removeListener(entry.value);
     }
+    for (final entry in _diagnosticListeners.entries) {
+      entry.key.diagnosticsNotifier.removeListener(entry.value);
+    }
     _editorListeners.clear();
+    _diagnosticListeners.clear();
     _savedSnapshotByController.clear();
     _dirtyControllers.clear();
+    _lastErrorCountByController.clear();
     apiUrlController.dispose();
     apiTabController.dispose();
     paramTabController.dispose();
@@ -129,6 +144,7 @@ class _EditorPageState extends State<EditorPage>
     trasnformationController.dispose();
     tabController?.removeListener(_onTabChanged);
     tabController?.dispose();
+    _diagnosticsTickBloc.close();
     _activeEditorBloc.close();
     super.dispose();
   }
@@ -149,6 +165,17 @@ class _EditorPageState extends State<EditorPage>
     }
 
     super.didChangeAppLifecycleState(state);
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+
+    for (final entry in _diagnosticListeners.entries) {
+      entry.key.diagnosticsNotifier.removeListener(entry.value);
+    }
+    _diagnosticListeners.clear();
+    _lastErrorCountByController.clear();
   }
 
   void _updateTabController(int tabCount) {
@@ -403,9 +430,578 @@ class _EditorPageState extends State<EditorPage>
       _savedSnapshotByController.remove(controller);
     }
 
+    final removedDiagnosticControllers = _diagnosticListeners.keys
+        .where((controller) => !currentControllers.contains(controller))
+        .toList();
+    for (final controller in removedDiagnosticControllers) {
+      final listener = _diagnosticListeners.remove(controller);
+      if (listener != null) {
+        controller.diagnosticsNotifier.removeListener(listener);
+      }
+      _lastErrorCountByController.remove(controller);
+    }
+
     for (final editor in editors) {
       _attachDirtyListener(editor);
+      _attachDiagnosticListener(editor);
     }
+  }
+
+  ActiveEditor? _resolveActiveEditor(List<ActiveEditor> editors) {
+    if (editors.isEmpty) return null;
+
+    if (tabController != null && tabController!.index < editors.length) {
+      return editors[tabController!.index];
+    }
+
+    final activeIndex = editors.indexWhere((item) => item.isActive == true);
+    if (activeIndex >= 0) {
+      return editors[activeIndex];
+    }
+
+    return editors.first;
+  }
+
+  int _diagnosticErrorCount(List<LspErrors> diagnostics) {
+    return diagnostics.where((diag) => diag.severity == 1).length;
+  }
+
+  int _openEditorsErrorCount(List<ActiveEditor> editors) {
+    var total = 0;
+    for (final editor in editors) {
+      total += _diagnosticErrorCount(editor.controller.diagnostics);
+    }
+    return total;
+  }
+
+  String _diagnosticSeverityLabel(int severity) {
+    switch (severity) {
+      case 1:
+        return 'Error';
+      case 2:
+        return 'Warning';
+      case 3:
+        return 'Info';
+      case 4:
+        return 'Hint';
+      default:
+        return 'Issue';
+    }
+  }
+
+  Color _diagnosticSeverityColor(int severity, AppTheme appTheme) {
+    switch (severity) {
+      case 1:
+        return const Color(0xffe45757);
+      case 2:
+        return const Color(0xfff3a73f);
+      case 3:
+      case 4:
+        return appTheme.isDark
+            ? const Color(0xff58a6ff)
+            : const Color(0xff1267c4);
+      default:
+        return appTheme.editorPageToolColor;
+    }
+  }
+
+  IconData _diagnosticSeverityIcon(int severity) {
+    switch (severity) {
+      case 1:
+        return Icons.error_rounded;
+      case 2:
+        return Icons.warning_amber_rounded;
+      case 3:
+      case 4:
+        return Icons.info_outline_rounded;
+      default:
+        return Icons.bug_report_outlined;
+    }
+  }
+
+  int _offsetFromLineAndCharacter(
+    String text,
+    int zeroBasedLine,
+    int zeroBasedCharacter,
+  ) {
+    if (text.isEmpty) return 0;
+
+    final safeLine = zeroBasedLine < 0 ? 0 : zeroBasedLine;
+    final safeChar = zeroBasedCharacter < 0 ? 0 : zeroBasedCharacter;
+    final lines = text.split('\n');
+    if (safeLine >= lines.length) {
+      return text.length;
+    }
+
+    var offset = 0;
+    for (var index = 0; index < safeLine; index++) {
+      offset += lines[index].length + 1;
+    }
+
+    final lineLength = lines[safeLine].length;
+    offset += safeChar > lineLength ? lineLength : safeChar;
+    return offset > text.length ? text.length : offset;
+  }
+
+  void _attachDiagnosticListener(ActiveEditor editor) {
+    final controller = editor.controller;
+    final existingListener = _diagnosticListeners.remove(controller);
+    if (existingListener != null) {
+      controller.diagnosticsNotifier.removeListener(existingListener);
+    }
+
+    _lastErrorCountByController[controller] = _diagnosticErrorCount(
+      controller.diagnostics,
+    );
+
+    void listener() {
+      _lastErrorCountByController[controller] = _diagnosticErrorCount(
+        controller.diagnostics,
+      );
+
+      if (mounted && !_diagnosticsTickBloc.isClosed) {
+        _diagnosticsTickBloc.tick();
+      }
+    }
+
+    controller.diagnosticsNotifier.addListener(listener);
+    _diagnosticListeners[controller] = listener;
+  }
+
+  Widget _buildBadgedIcon({
+    required Widget icon,
+    required int count,
+    required AppTheme appTheme,
+    Color? badgeColor,
+  }) {
+    if (count <= 0) return icon;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        icon,
+        Positioned(
+          right: -5,
+          top: -6,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: badgeColor ?? const Color(0xffd9534f),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: appTheme.editorPageToolbarBg,
+                width: 1.2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDiagnosticDetailsSheet(
+    BuildContext actionContext,
+    ActiveEditor editor,
+    LspErrors diagnostic,
+    AppTheme appTheme,
+  ) {
+    final start = Map<String, dynamic>.from(diagnostic.range['start'] ?? {});
+    final end = Map<String, dynamic>.from(diagnostic.range['end'] ?? {});
+    final startLine = ((start['line'] as num?) ?? 0).toInt() + 1;
+    final startChar = ((start['character'] as num?) ?? 0).toInt() + 1;
+    final endLine = ((end['line'] as num?) ?? 0).toInt() + 1;
+    final endChar = ((end['character'] as num?) ?? 0).toInt() + 1;
+    final severityColor = _diagnosticSeverityColor(diagnostic.severity, appTheme);
+
+    showModalBottomSheet<void>(
+      context: actionContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: appTheme.isDark
+                ? const Color(0xff1f1f1f)
+                : const Color(0xfff4f6f8),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: appTheme.editorPageToolColor.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: severityColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          _diagnosticSeverityIcon(diagnostic.severity),
+                          color: severityColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _diagnosticSeverityLabel(diagnostic.severity),
+                              style: TextStyle(
+                                color: severityColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              diagnostic.message,
+                              style: TextStyle(
+                                color: appTheme.selectScreenCardTextColor,
+                                fontSize: 15,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: appTheme.editorPageDrawerBg,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          path.basename(editor.file.path),
+                          style: TextStyle(
+                            color: appTheme.selectScreenCardTextColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Line $startLine:$startChar  ->  $endLine:$endChar',
+                          style: TextStyle(
+                            color: appTheme.editorPageToolColor,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDiagnosticSummaryCard({
+    required String label,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required AppTheme appTheme,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: appTheme.editorPageDrawerBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 5),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: appTheme.editorPageToolColor,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticSection({
+    required String title,
+    required List<LspErrors> diagnostics,
+    required ActiveEditor editor,
+    required AppTheme appTheme,
+  }) {
+    if (diagnostics.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: appTheme.selectScreenCardTextColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...diagnostics.map((diag) {
+          final severityColor = _diagnosticSeverityColor(diag.severity, appTheme);
+          final start = Map<String, dynamic>.from(diag.range['start'] ?? {});
+          final line = ((start['line'] as num?) ?? 0).toInt() + 1;
+          final character = ((start['character'] as num?) ?? 0).toInt() + 1;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  final offset = _offsetFromLineAndCharacter(
+                    editor.controller.text,
+                    line - 1,
+                    character - 1,
+                  );
+                  editor.controller.selection = TextSelection.collapsed(
+                    offset: offset,
+                  );
+                  _showDiagnosticDetailsSheet(
+                    context,
+                    editor,
+                    diag,
+                    appTheme,
+                  );
+                },
+                child: Ink(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: appTheme.editorPageDrawerBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: severityColor.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Icon(
+                          _diagnosticSeverityIcon(diag.severity),
+                          color: severityColor,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              diag.message,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: appTheme.selectScreenCardTextColor,
+                                fontSize: 14,
+                                height: 1.3,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Line $line:$character',
+                              style: TextStyle(
+                                color: appTheme.editorPageToolColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildDiagnosticsPane(
+    AppTheme appTheme,
+    ActiveEditorState editorState,
+  ) {
+    final activeEditor = _resolveActiveEditor(editorState.activeEditors);
+    if (activeEditor == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Open a file to view diagnostics.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: appTheme.editorPageToolColor,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final diagnostics = activeEditor.controller.diagnostics;
+    final errors = diagnostics.where((diag) => diag.severity == 1).toList();
+    final warnings = diagnostics.where((diag) => diag.severity == 2).toList();
+    final infos = diagnostics
+        .where((diag) => diag.severity == 3 || diag.severity == 4)
+        .toList();
+
+    if (diagnostics.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.task_alt_rounded,
+                color: appTheme.editorPageToolColor,
+                size: 34,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'No diagnostics in this file',
+                style: TextStyle(
+                  color: appTheme.selectScreenCardTextColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'LSP issues will appear here when available.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: appTheme.editorPageToolColor),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+      children: [
+        Text(
+          'DIAGNOSTICS',
+          style: TextStyle(
+            color: appTheme.selectScreenCardTextColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _buildDiagnosticSummaryCard(
+              label: 'Errors',
+              count: errors.length,
+              color: _diagnosticSeverityColor(1, appTheme),
+              icon: _diagnosticSeverityIcon(1),
+              appTheme: appTheme,
+            ),
+            const SizedBox(width: 8),
+            _buildDiagnosticSummaryCard(
+              label: 'Warnings',
+              count: warnings.length,
+              color: _diagnosticSeverityColor(2, appTheme),
+              icon: _diagnosticSeverityIcon(2),
+              appTheme: appTheme,
+            ),
+            const SizedBox(width: 8),
+            _buildDiagnosticSummaryCard(
+              label: 'Info',
+              count: infos.length,
+              color: _diagnosticSeverityColor(3, appTheme),
+              icon: _diagnosticSeverityIcon(3),
+              appTheme: appTheme,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildDiagnosticSection(
+          title: 'Errors',
+          diagnostics: errors,
+          editor: activeEditor,
+          appTheme: appTheme,
+        ),
+        if (errors.isNotEmpty) const SizedBox(height: 8),
+        _buildDiagnosticSection(
+          title: 'Warnings',
+          diagnostics: warnings,
+          editor: activeEditor,
+          appTheme: appTheme,
+        ),
+        if (warnings.isNotEmpty) const SizedBox(height: 8),
+        _buildDiagnosticSection(
+          title: 'Info & Hints',
+          diagnostics: infos,
+          editor: activeEditor,
+          appTheme: appTheme,
+        ),
+      ],
+    );
   }
 
   Future<void> _saveEditor(
@@ -763,6 +1359,7 @@ class _EditorPageState extends State<EditorPage>
         return MultiBlocProvider(
           providers: [
             BlocProvider.value(value: _activeEditorBloc),
+            BlocProvider.value(value: _diagnosticsTickBloc),
             BlocProvider(create: (_) => StackBloc()),
             BlocProvider(create: (_) => FindWordBloc()),
             BlocProvider(create: (_) => ApiBloc()),
@@ -859,12 +1456,11 @@ class _EditorPageState extends State<EditorPage>
                                       ),
                                       Icons.file_copy_outlined,
                                       color: state.stackIndex == 0
-                                          ? appTheme.editorPageToolSelectedColor
-                                          : appTheme.editorPageToolColor,
+                                        ? appTheme.editorPageToolSelectedColor
+                                        : appTheme.editorPageToolColor,
                                       bgColor: state.stackIndex == 0
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(
@@ -872,42 +1468,50 @@ class _EditorPageState extends State<EditorPage>
                                       ),
                                       Icons.search,
                                       color: state.stackIndex == 1
-                                          ? appTheme.editorPageToolSelectedColor
-                                          : appTheme.editorPageToolColor,
+                                        ? appTheme.editorPageToolSelectedColor
+                                        : appTheme.editorPageToolColor,
                                       bgColor: state.stackIndex == 1
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                     ),
-                                    drawerButtons(
-                                      () => context.read<StackBloc>().add(
-                                        StackIndexChange(stackValue: 2),
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 7.5),
+                                      child: drawerButtons(
+                                        () => context.read<StackBloc>().add(
+                                          StackIndexChange(stackValue: 2),
+                                        ),
+                                        BlocBuilder<DiagnosticsTickBloc, int>(
+                                          builder: (context, _) {
+                                            final openErrorCount =
+                                                _openEditorsErrorCount(
+                                                  editorState.activeEditors,
+                                                );
+                                            return _buildBadgedIcon(
+                                              icon: Icon(
+                                                Icons.rule_rounded,
+                                                color: state.stackIndex == 2
+                                                    ? appTheme.editorPageToolSelectedColor
+                                                    : appTheme.editorPageToolColor,
+                                              ),
+                                              count: openErrorCount,
+                                              appTheme: appTheme,
+                                            );
+                                          },
+                                        ),
+                                        bgColor: state.stackIndex == 2
+                                            ? appTheme
+                                                  .editorPageToolSelectedBgColor
+                                            : Colors.transparent,
                                       ),
-                                      FontAwesomeIcons.codeBranch,
-                                      color: state.stackIndex == 2
-                                          ? appTheme.editorPageToolSelectedColor
-                                          : appTheme.editorPageToolColor,
-                                      bgColor: state.stackIndex == 2
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(
                                         StackIndexChange(stackValue: 3),
                                       ),
-                                      SvgPicture.asset(
-                                        'assets/icons/rest-api-icon.svg',
-                                        height: 34,
-                                        width: 34,
-                                        colorFilter: ColorFilter.mode(
-                                          state.stackIndex == 3
-                                              ? appTheme
-                                                    .editorPageToolSelectedColor
-                                              : appTheme.editorPageToolColor,
-                                          BlendMode.srcIn,
-                                        ),
-                                      ),
+                                      FontAwesomeIcons.codeBranch,
+                                      color: state.stackIndex == 3
+                                          ? appTheme.editorPageToolSelectedColor
+                                          : appTheme.editorPageToolColor,
                                       bgColor: state.stackIndex == 3
                                           ? appTheme
                                                 .editorPageToolSelectedBgColor
@@ -918,11 +1522,32 @@ class _EditorPageState extends State<EditorPage>
                                         StackIndexChange(stackValue: 4),
                                       ),
                                       SvgPicture.asset(
+                                        'assets/icons/rest-api-icon.svg',
+                                        height: 34,
+                                        width: 34,
+                                        colorFilter: ColorFilter.mode(
+                                          state.stackIndex == 4
+                                              ? appTheme
+                                                    .editorPageToolSelectedColor
+                                              : appTheme.editorPageToolColor,
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                      bgColor: state.stackIndex == 4
+                                          ? appTheme
+                                                .editorPageToolSelectedBgColor
+                                          : Colors.transparent,
+                                    ),
+                                    drawerButtons(
+                                      () => context.read<StackBloc>().add(
+                                        StackIndexChange(stackValue: 5),
+                                      ),
+                                      SvgPicture.asset(
                                         'assets/icons/ai.svg',
                                         height: 34,
                                         width: 34,
                                       ),
-                                      bgColor: state.stackIndex == 4
+                                      bgColor: state.stackIndex == 5
                                           ? appTheme
                                                 .editorPageToolSelectedBgColor
                                           : Colors.transparent,
@@ -1434,6 +2059,14 @@ class _EditorPageState extends State<EditorPage>
                                         }
                                       },
                                     ),
+                                    BlocBuilder<DiagnosticsTickBloc, int>(
+                                      builder: (context, _) {
+                                        return _buildDiagnosticsPane(
+                                          appTheme,
+                                          editorState,
+                                        );
+                                      },
+                                    ),
                                     SourceControl(
                                       appTheme: appTheme,
                                       workSpace: widget.rootDir,
@@ -1683,6 +2316,29 @@ class _EditorPageState extends State<EditorPage>
                       },
                     ),
                     appBar: AppBar(
+                      leading: Builder(
+                        builder: (leadingContext) {
+                          return IconButton(
+                            onPressed: () => Scaffold.of(leadingContext).openDrawer(),
+                            icon: BlocBuilder<DiagnosticsTickBloc, int>(
+                              builder: (context, _) {
+                                final openErrorCount = _openEditorsErrorCount(
+                                  editorState.activeEditors,
+                                );
+                                return _buildBadgedIcon(
+                                  icon: Icon(
+                                    Icons.menu_rounded,
+                                    color: appTheme.editorPageToolColor,
+                                  ),
+                                  count: openErrorCount,
+                                  appTheme: appTheme,
+                                );
+                              },
+                            ),
+                            tooltip: 'Open tools',
+                          );
+                        },
+                      ),
                       title: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: tabController == null
