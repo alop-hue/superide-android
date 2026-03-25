@@ -1843,6 +1843,9 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
 }
 
 class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
+  static const double _guideIndentWidth = 14;
+  static const double _guideRowHeight = 30;
+
   String? newEntryPath;
   String? renamingPath;
   bool isFolderCreation = false;
@@ -2188,6 +2191,22 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
   }
 
   Widget _buildDirectoryTree(Directory directory, RepoStatusState repoState) {
+    return _buildDirectoryTreeNode(
+      directory,
+      repoState,
+      ancestorHasNext: const [],
+      isRoot: true,
+      isLast: true,
+    );
+  }
+
+  Widget _buildDirectoryTreeNode(
+    Directory directory,
+    RepoStatusState repoState, {
+    required List<bool> ancestorHasNext,
+    required bool isRoot,
+    required bool isLast,
+  }) {
     final entries = directory.listSync();
     entries.sort((a, b) {
       if (a is Directory && b is File) return -1;
@@ -2195,8 +2214,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return a.path.compareTo(b.path);
     });
 
+    final ownPrefix = isRoot
+        ? const SizedBox.shrink()
+        : _buildTreePrefix(ancestorHasNext: ancestorHasNext, isLast: isLast);
+
+    final childAncestorHasNext = [...ancestorHasNext, !isLast];
+
     if (renamingPath == directory.path) {
-      return _buildRenameField(directory.path, true);
+      return _buildRenameField(directory.path, true, prefix: ownPrefix);
     }
 
     return Column(
@@ -2209,51 +2234,120 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             directory,
             details.globalPosition,
           ),
-          child: Row(
-            children: [
-              isUnfolded(directory.path)
-                  ? widget.folderStyle?.folderOpenedicon ??
-                        FolderStyle().folderOpenedicon
-                  : widget.folderStyle?.folderClosedicon ??
-                        FolderStyle().folderClosedicon,
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  path.basename(directory.path),
-                  style:
-                      widget.folderStyle?.folderNameStyle ??
-                      FolderStyle().folderNameStyle,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+          child: SizedBox(
+            height: _guideRowHeight,
+            child: Row(
+              children: [
+                ownPrefix,
+                isUnfolded(directory.path)
+                    ? widget.folderStyle?.folderOpenedicon ??
+                          FolderStyle().folderOpenedicon
+                    : widget.folderStyle?.folderClosedicon ??
+                          FolderStyle().folderClosedicon,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    path.basename(directory.path),
+                    style:
+                        widget.folderStyle?.folderNameStyle ??
+                        FolderStyle().folderNameStyle,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-              ),
-              if (widget.folderActions != null) ...widget.folderActions!,
-            ],
+                if (widget.folderActions != null) ...widget.folderActions!,
+              ],
+            ),
           ),
         ),
         if (isUnfolded(directory.path))
           Padding(
-            padding: const EdgeInsets.only(left: 16.0, right: 7.0),
+            padding: const EdgeInsets.only(right: 7.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...entries.map(
-                  (entry) => entry is Directory
-                      ? _buildDirectoryTree(entry, repoState)
-                      : _buildFileItem(entry as File, repoState),
-                ),
-                if (newEntryPath == directory.path)
-                  _buildNewEntryField(directory),
-              ],
+              children: () {
+                final children = <Widget>[];
+                final total = entries.length;
+
+                for (int i = 0; i < entries.length; i++) {
+                  final entry = entries[i];
+                  final entryIsLast = i == total - 1 && newEntryPath != directory.path;
+
+                  if (entry is Directory) {
+                    children.add(
+                      _buildDirectoryTreeNode(
+                        entry,
+                        repoState,
+                        ancestorHasNext: childAncestorHasNext,
+                        isRoot: false,
+                        isLast: entryIsLast,
+                      ),
+                    );
+                  } else {
+                    children.add(
+                      _buildFileItem(
+                        entry as File,
+                        repoState,
+                        ancestorHasNext: childAncestorHasNext,
+                        isLast: entryIsLast,
+                      ),
+                    );
+                  }
+                }
+
+                if (newEntryPath == directory.path) {
+                  children.add(
+                    _buildNewEntryField(
+                      directory,
+                      prefix: _buildTreePrefix(
+                        ancestorHasNext: childAncestorHasNext,
+                        isLast: true,
+                      ),
+                    ),
+                  );
+                }
+                return children;
+              }(),
             ),
           ),
       ],
     );
   }
 
-  Widget _buildNewEntryField(Directory parent) {
+  Widget _buildTreePrefix({
+    required List<bool> ancestorHasNext,
+    required bool isLast,
+  }) {
+    final guideColor = widget.appTheme.selectScreenCardTextColor.withValues(
+      alpha: widget.appTheme.isDark ? 0.24 : 0.32,
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final hasNext in ancestorHasNext)
+          _GuideSegment(
+            width: _guideIndentWidth,
+            height: _guideRowHeight,
+            lineColor: guideColor,
+            showVertical: hasNext,
+          ),
+        _GuideSegment(
+          width: _guideIndentWidth,
+          height: _guideRowHeight,
+          lineColor: guideColor,
+          showVertical: true,
+          isNodeConnector: true,
+          isLast: isLast,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewEntryField(Directory parent, {Widget? prefix}) {
     return Row(
       children: [
+        prefix ?? const SizedBox.shrink(),
         isFolderCreation
             ? widget.editingFieldStyle?.folderIcon ??
                   EditingFieldStyle().folderIcon
@@ -2295,9 +2389,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  Widget _buildRenameField(String entityPath, bool isFolder) {
+  Widget _buildRenameField(String entityPath, bool isFolder, {Widget? prefix}) {
     return Row(
       children: [
+        prefix ?? const SizedBox.shrink(),
         isFolder
             ? widget.editingFieldStyle?.folderIcon ??
                   EditingFieldStyle().folderIcon
@@ -2340,9 +2435,19 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  Widget _buildFileItem(File file, RepoStatusState repoState) {
+  Widget _buildFileItem(
+    File file,
+    RepoStatusState repoState, {
+    required List<bool> ancestorHasNext,
+    required bool isLast,
+  }) {
+    final prefix = _buildTreePrefix(
+      ancestorHasNext: ancestorHasNext,
+      isLast: isLast,
+    );
+
     if (renamingPath == file.path) {
-      return _buildRenameField(file.path, false);
+      return _buildRenameField(file.path, false, prefix: prefix);
     }
 
     final (color, letter) = _getFileColor(file, repoState);
@@ -2359,32 +2464,36 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         final position = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
         _showFileContextMenu(context, file, position);
       },
-      child: Row(
-        children: [
-          widget.fileIconBuilder?.call(
-                path.extension(file.path).toLowerCase(),
-              ) ??
-              widget.fileStyle?.fileIcon ??
-              FileStyle().fileIcon,
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              path.basename(file.path),
-              style: baseStyle.copyWith(color: color),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-          if (letter != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
+      child: SizedBox(
+        height: _guideRowHeight,
+        child: Row(
+          children: [
+            prefix,
+            widget.fileIconBuilder?.call(
+                  path.extension(file.path).toLowerCase(),
+                ) ??
+                widget.fileStyle?.fileIcon ??
+                FileStyle().fileIcon,
+            const SizedBox(width: 8),
+            Expanded(
               child: Text(
-                letter,
-                style: baseStyle.copyWith(color: color, fontSize: 15),
+                path.basename(file.path),
+                style: baseStyle.copyWith(color: color),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
-          if (widget.fileActions != null) ...widget.fileActions!,
-        ],
+            if (letter != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text(
+                  letter,
+                  style: baseStyle.copyWith(color: color, fontSize: 15),
+                ),
+              ),
+            if (widget.fileActions != null) ...widget.fileActions!,
+          ],
+        ),
       ),
     );
   }
@@ -2681,6 +2790,86 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         },
       );
     }
+  }
+}
+
+class _GuideSegment extends StatelessWidget {
+  final double width;
+  final double height;
+  final Color lineColor;
+  final bool showVertical;
+  final bool isNodeConnector;
+  final bool isLast;
+
+  const _GuideSegment({
+    required this.width,
+    required this.height,
+    required this.lineColor,
+    required this.showVertical,
+    this.isNodeConnector = false,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        painter: _GuideSegmentPainter(
+          color: lineColor,
+          showVertical: showVertical,
+          isNodeConnector: isNodeConnector,
+          isLast: isLast,
+        ),
+      ),
+    );
+  }
+}
+
+class _GuideSegmentPainter extends CustomPainter {
+  final Color color;
+  final bool showVertical;
+  final bool isNodeConnector;
+  final bool isLast;
+
+  const _GuideSegmentPainter({
+    required this.color,
+    required this.showVertical,
+    required this.isNodeConnector,
+    required this.isLast,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final x = size.width / 2;
+    final yMid = size.height / 2;
+
+    if (showVertical && !isNodeConnector) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      return;
+    }
+
+    if (!isNodeConnector) return;
+
+    canvas.drawLine(Offset(x, 0), Offset(x, yMid), paint);
+    if (!isLast) {
+      canvas.drawLine(Offset(x, yMid), Offset(x, size.height), paint);
+    }
+    canvas.drawLine(Offset(x, yMid), Offset(size.width, yMid), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GuideSegmentPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.showVertical != showVertical ||
+        oldDelegate.isNodeConnector != isNodeConnector ||
+        oldDelegate.isLast != isLast;
   }
 }
 

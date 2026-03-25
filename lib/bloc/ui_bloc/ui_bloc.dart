@@ -976,6 +976,12 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   StreamSubscription? _conversationSubscription;
   bool _isFetchingModels = false;
 
+  static const Set<String> _supportedChatEndpoints = {
+    '/chat/completions',
+    '/responses',
+    '/v1/messages',
+  };
+
   CopilotChatBloc() : super(CopilotChatState.initial()) {
     on<CopilotChatFetchModels>(_onChatFetchModels);
     on<_CopilotChatInternalUpdateMessages>(_onInternalUpdateMessages);
@@ -984,6 +990,48 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   }
 
   CopilotChat? get chatClient => _chatClient;
+
+  bool _isLikelyNonChatModel(Map<String, dynamic> model) {
+    final id = (model['id']?.toString() ?? '').toLowerCase();
+    final name = (model['name']?.toString() ?? '').toLowerCase();
+    final text = '$id $name';
+
+    const blockedTokens = [
+      'embedding',
+      'embed',
+      'text-embedding',
+      'ada',
+      'whisper',
+      'tts',
+      'dall-e',
+      'image',
+      'audio',
+      'moderation',
+      'rerank',
+      'transcribe',
+      'speech',
+    ];
+
+    return blockedTokens.any(text.contains);
+  }
+
+  bool _isChatCapableModel(Map<String, dynamic> model) {
+    final pickerEnabled = model['model_picker_enabled'];
+    if (pickerEnabled == false) return false;
+
+    if (_isLikelyNonChatModel(model)) return false;
+
+    final endpointsRaw = model['supported_endpoints'];
+    if (endpointsRaw is List) {
+      final endpoints = endpointsRaw.map((e) => e.toString()).toSet();
+      if (endpoints.isNotEmpty &&
+          endpoints.intersection(_supportedChatEndpoints).isEmpty) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 
   Future<void> _initializeChatClient() async {
     final authToken = await CopilotChat.loadAuthToken();
@@ -1014,6 +1062,7 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
             .whereType<Map>()
             .map((model) => Map<String, dynamic>.from(model))
             .where((model) => model['id'] != null && model['name'] != null)
+            .where(_isChatCapableModel)
             .toList();
 
         final modelSummaries = parsedModels
@@ -1025,7 +1074,7 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
             })
             .join(', ');
         debugPrint(
-          '[CopilotChatBloc] Parsed model count: ${parsedModels.length}. Models: $modelSummaries',
+          '[CopilotChatBloc] Parsed filtered model count: ${parsedModels.length}. Models: $modelSummaries',
         );
 
         emit(state.copyWith(

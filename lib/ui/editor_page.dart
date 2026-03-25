@@ -44,8 +44,7 @@ class EditorPage extends StatefulWidget {
   State<EditorPage> createState() => _EditorPageState();
 }
 
-class _EditorPageState extends State<EditorPage>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, WidgetsBindingObserver {
   final createFileKey = GlobalKey<FormState>();
   final trasnformationController = TransformationController();
   final Map<CodeForgeController, String> _savedSnapshotByController = {};
@@ -63,6 +62,11 @@ class _EditorPageState extends State<EditorPage>
   bool _didInitializeEditors = false;
   Map<String, String> params = {}, headers = {};
   TabController? tabController;
+  bool _hasViteProject = false;
+  int _vitePort = 5173;
+  bool _viteUseHttps = false;
+  bool _isOpeningVitePreview = false;
+  Process? _vitePreviewProcess;
 
   @override
   void initState() {
@@ -79,8 +83,7 @@ class _EditorPageState extends State<EditorPage>
     findWordController = TextEditingController();
     replaceWordController = TextEditingController();
     apiUrlController = TextEditingController();
-    trasnformationController.value = Matrix4.identity()
-      ..scaleByVector3(Vector3(1.45, 1.45, 1.45));
+    trasnformationController.value = Matrix4.identity()..scaleByVector3(Vector3(1.45, 1.45, 1.45));
     apiTabController = TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
     assert(
@@ -92,6 +95,240 @@ class _EditorPageState extends State<EditorPage>
       "Cloned directory should be a project.",
     );
     _initializeCopilotForEditorIfEnabled();
+    _loadVitePreviewInfo();
+  }
+
+  Future<void> _loadVitePreviewInfo() async {
+    final viteTs = File(path.join(widget.rootDir, 'vite.config.ts'));
+    final viteJs = File(path.join(widget.rootDir, 'vite.config.js'));
+    final packageJson = File(path.join(widget.rootDir, 'package.json'));
+
+    final hasViteConfig = await viteTs.exists() || await viteJs.exists();
+    final hasPkg = await packageJson.exists();
+    final hasVite = hasViteConfig && hasPkg;
+
+    if (!hasVite) {
+      if (!mounted) return;
+      setState(() {
+        _hasViteProject = false;
+        _vitePort = 5173;
+        _viteUseHttps = false;
+      });
+      return;
+    }
+
+    String configText = '';
+    if (await viteTs.exists()) {
+      configText = await viteTs.readAsString();
+    } else if (await viteJs.exists()) {
+      configText = await viteJs.readAsString();
+    }
+
+    String packageText = '';
+    if (await packageJson.exists()) {
+      packageText = await packageJson.readAsString();
+    }
+
+    final detectedPort = _extractVitePort(configText) ??
+        _extractVitePort(packageText) ??
+        5173;
+    final useHttps = _extractViteHttps(configText) ||
+        _extractViteHttps(packageText);
+
+    if (!mounted) return;
+    setState(() {
+      _hasViteProject = true;
+      _vitePort = detectedPort;
+      _viteUseHttps = useHttps;
+    });
+  }
+
+  int? _extractVitePort(String text) {
+    final patterns = <RegExp>[
+      RegExp(r'port\s*:\s*(\d+)', caseSensitive: false),
+      RegExp(r'--port(?:\s+|=)(\d+)', caseSensitive: false),
+      RegExp(r'\s-p(?:\s+|=)(\d+)', caseSensitive: false),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        return int.tryParse(match.group(1) ?? '');
+      }
+    }
+    return null;
+  }
+
+  bool _extractViteHttps(String text) {
+    final patterns = <RegExp>[
+      RegExp(r'https\s*:\s*true', caseSensitive: false),
+      RegExp(r'--https\b', caseSensitive: false),
+    ];
+    return patterns.any((pattern) => pattern.hasMatch(text));
+  }
+
+  Future<int> _resolveRunningVitePort() async {
+    final candidates = <int>{
+      _vitePort,
+      for (int p = 5173; p <= 5190; p++) p,
+    };
+
+    for (final port in candidates) {
+      try {
+        final socket = await Socket.connect(
+          '127.0.0.1',
+          port,
+          timeout: const Duration(milliseconds: 150),
+        );
+        await socket.close();
+        return port;
+      } catch (_) {}
+    }
+
+    return _vitePort;
+  }
+
+  Future<bool> _isPortOpen(int port) async {
+    try {
+      final socket = await Socket.connect(
+        '127.0.0.1',
+        port,
+        timeout: const Duration(milliseconds: 200),
+      );
+      await socket.close();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _startViteServerInBackground() async {
+    if (_vitePreviewProcess != null) return;
+
+    final viteBin = File(path.join(widget.rootDir, 'node_modules/vite/bin/vite.js'));
+    if (!await viteBin.exists()) {
+      throw Exception('Vite binary not found. Install dependencies first.');
+    }
+
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final process = await Process.start(
+      '$binDir/node',
+      [
+        'node_modules/vite/bin/vite.js',
+        '--host',
+        '0.0.0.0',
+      ],
+      workingDirectory: widget.rootDir,
+      environment: {
+        'PATH': '$binDir:/bin:/usr/bin',
+        'HOME': homeDir,
+        'VSDROID_SHARED_PATH': sharedPath,
+        'LD_LIBRARY_PATH':
+            '$runtimesDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+      },
+    );
+
+    process.exitCode.then((_) {
+      if (identical(_vitePreviewProcess, process)) {
+        _vitePreviewProcess = null;
+      }
+    });
+    _vitePreviewProcess = process;
+  }
+
+  Future<int?> _waitForVitePort({Duration timeout = const Duration(seconds: 8)}) async {
+    final started = DateTime.now();
+    while (DateTime.now().difference(started) < timeout) {
+      final resolved = await _resolveRunningVitePort();
+      if (await _isPortOpen(resolved)) {
+        return resolved;
+      }
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    return null;
+  }
+
+  Future<void> _openVitePreview() async {
+    if (_isOpeningVitePreview || !mounted) return;
+    setState(() => _isOpeningVitePreview = true);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Row(
+              children: const [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+                SizedBox(width: 12),
+                Expanded(child: Text('Opening web view...')),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      int? runningPort;
+      final currentPort = await _resolveRunningVitePort();
+      if (await _isPortOpen(currentPort)) {
+        runningPort = currentPort;
+      } else {
+        await _startViteServerInBackground();
+        runningPort = await _waitForVitePort();
+      }
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (runningPort == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not start Vite server. Open terminal to inspect logs.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final url =
+          '${_viteUseHttps ? 'https' : 'http'}://localhost:$runningPort';
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, scondaryAnimation) =>
+              WebViewScreen(streamUrl: url),
+          transitionsBuilder: (
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+          ) {
+            return SizeTransition(sizeFactor: animation, child: child);
+          },
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open preview: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningVitePreview = false);
+      }
+    }
   }
 
   Future<void> _initializeCopilotForEditorIfEnabled() async {
@@ -145,6 +382,8 @@ class _EditorPageState extends State<EditorPage>
     tabController?.removeListener(_onTabChanged);
     tabController?.dispose();
     _diagnosticsTickBloc.close();
+    _vitePreviewProcess?.kill(ProcessSignal.sigterm);
+    _vitePreviewProcess = null;
     _activeEditorBloc.close();
     super.dispose();
   }
@@ -254,7 +493,6 @@ class _EditorPageState extends State<EditorPage>
 
       pending.applyDecorations(controller);
     } catch (_) {
-      // Pending diff lookup must never block normal file opening.
     }
   }
 
@@ -2558,6 +2796,20 @@ class _EditorPageState extends State<EditorPage>
                               ),
                             ),
                           ),
+                        if (_hasViteProject)
+                          IconButton(
+                            tooltip: 'Open Vite Preview',
+                            onPressed: _isOpeningVitePreview
+                                ? null
+                                : () => _openVitePreview(),
+                            icon: _isOpeningVitePreview
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.slideshow),
+                          ),
                         IconButton(
                           onPressed: () async {
                             if (editorState.activeEditors.isEmpty) return;
@@ -2627,52 +2879,28 @@ class _EditorPageState extends State<EditorPage>
                                 if (context.mounted) {
                                   Navigator.of(context).push(
                                     PageRouteBuilder(
-                                      pageBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            scondaryAnimation,
-                                          ) =>
-                                              WebViewScreen(htmlFile: filePath),
-                                      transitionsBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                            child,
-                                          ) {
-                                            return SizeTransition(
-                                              sizeFactor: animation,
-                                              child: child,
-                                            );
-                                          },
+                                      pageBuilder: (context, animation, scondaryAnimation) => WebViewScreen(htmlFile: filePath),
+                                      transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                        return SizeTransition(
+                                          sizeFactor: animation,
+                                          child: child,
+                                        );
+                                      },
                                     ),
                                   );
                                 }
                                 break;
                               case '.c':
-                                final String compileCommand =
-                                    "clang -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
-                                final String runCommand =
-                                    'clangloader ${temp.path}/libtemp.so';
-                                runCode(
-                                  context,
-                                  "$compileCommand && $runCommand",
-                                  widget.rootDir,
-                                );
+                                final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                                final String runCommand = 'clangloader ${temp.path}/libtemp.so';
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.cpp':
                               case '.c++':
                               case '.cc':
-                                final String compileCommand =
-                                    "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
-                                final String runCommand =
-                                    'clangloader ${temp.path}/libtemp.so';
-                                runCode(
-                                  context,
-                                  "$compileCommand && $runCommand",
-                                  widget.rootDir,
-                                );
+                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                                final String runCommand = 'clangloader ${temp.path}/libtemp.so';
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.java':
                                 final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
@@ -2709,11 +2937,7 @@ class _EditorPageState extends State<EditorPage>
                                 break;
                               default:
                                 final lang = languages.firstWhere(
-                                  (language) => language.extension.contains(
-                                    path
-                                        .extension(filePath.path)
-                                        .replaceFirst(".", ""),
-                                  ),
+                                  (language) => language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
                                   orElse: () => languages[0],
                                 );
                                 final String command = lang.command ?? '';
@@ -2721,10 +2945,7 @@ class _EditorPageState extends State<EditorPage>
                                   PageRouteBuilder(
                                     pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
                                       projectDir: widget.rootDir,
-                                      args: [
-                                        "-c",
-                                        "$command ${filePath.path}",
-                                      ],
+                                      args: ["-c", "$command ${filePath.path}"],
                                     ),
                                     transitionsBuilder:(context, animation, secondaryAnimation, child,) {
                                       return SizeTransition(
@@ -2742,23 +2963,14 @@ class _EditorPageState extends State<EditorPage>
                           onPressed: () {
                             Navigator.of(context).push(
                               PageRouteBuilder(
-                                pageBuilder:
-                                    (context, animation, scondaryAnimation) =>
-                                        SetupTerminal(
-                                          projectDir: widget.rootDir,
-                                        ),
-                                transitionsBuilder:
-                                    (
-                                      context,
-                                      animation,
-                                      secondaryAnimation,
-                                      child,
-                                    ) {
-                                      return SizeTransition(
-                                        sizeFactor: animation,
-                                        child: child,
-                                      );
-                                    },
+                                pageBuilder: (context, animation, scondaryAnimation) =>
+                                  SetupTerminal(projectDir: widget.rootDir),
+                                transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                  return SizeTransition(
+                                    sizeFactor: animation,
+                                    child: child,
+                                  );
+                                },
                               ),
                             );
                           },
@@ -2769,17 +2981,14 @@ class _EditorPageState extends State<EditorPage>
                     body: editorState.activeEditors.isNotEmpty
                         ? TabBarView(
                             controller: tabController,
-                            children: editorState.activeEditors
-                                .map(
-                                  (editor) => EditorArea(
-                                    key: ValueKey(editor.file.path),
-                                    editor: editor,
-                                    appTheme: appTheme,
-                                    workspacePath: widget.rootDir,
-                                    tabController: tabController,
-                                  ),
-                                )
-                                .toList(),
+                            children: editorState.activeEditors.map((editor) => EditorArea(
+                                key: ValueKey(editor.file.path),
+                                editor: editor,
+                                appTheme: appTheme,
+                                workspacePath: widget.rootDir,
+                                tabController: tabController,
+                              ),
+                            ).toList(),
                           )
                         : SingleChildScrollView(
                             child: Center(

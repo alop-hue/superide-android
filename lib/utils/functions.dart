@@ -1111,7 +1111,7 @@ Future<String> gitHubSignIn() async {
     final result = await FlutterWebAuth2.authenticate(
       url: authUrl.toString(),
       callbackUrlScheme: 'vsdroid',
-      options: const FlutterWebAuth2Options(preferEphemeral: true),
+      options: const FlutterWebAuth2Options(),
     );
 
     final code = Uri.parse(result).queryParameters['code'];
@@ -1164,6 +1164,11 @@ Future<String> gitHubSignIn() async {
 
     return "success";
   } catch (e) {
+    final err = e.toString();
+    if (err.contains('PlatformException(CANCELED') ||
+        err.toLowerCase().contains('user canceled')) {
+      return 'Sign in was canceled';
+    }
     return e.toString();
   }
 }
@@ -1739,6 +1744,19 @@ class NativeChannel {
       return result;
     } on PlatformException catch (e) {
       return "Failed to load library: ${e.message}";
+    }
+  }
+
+  static Future<List<String>> consumePendingOpenFiles() async {
+    try {
+      final List<dynamic>? raw = await _channel.invokeMethod<List<dynamic>>(
+        'consumePendingOpenFiles',
+      );
+      if (raw == null) return const [];
+      return raw.map((item) => item.toString()).toList();
+    } on PlatformException catch (e) {
+      debugPrint('Failed to read pending open files: ${e.message}');
+      return const [];
     }
   }
 }

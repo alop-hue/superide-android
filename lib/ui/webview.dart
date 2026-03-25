@@ -6,12 +6,17 @@ import 'package:path/path.dart' as path;
 import '../bloc/ui_bloc/ui_bloc.dart';
 
 class WebViewScreen extends StatefulWidget {
-  final File htmlFile;
+  final File? htmlFile;
+  final String? streamUrl;
 
   const WebViewScreen({
     super.key,
-    required this.htmlFile,
-  });
+    this.htmlFile,
+    this.streamUrl,
+  }) : assert(
+      htmlFile != null || (streamUrl != null && streamUrl != ''),
+      'Either htmlFile or streamUrl must be provided',
+    );
 
   @override
   State<WebViewScreen> createState() => _WebViewScreenState();
@@ -23,13 +28,21 @@ class _WebViewScreenState extends State<WebViewScreen> {
   HttpServer? server;
 
   Future<void> startServer() async {
+    if (widget.streamUrl != null) return;
     if (server != null) return;
 
     server = await HttpServer.bind(InternetAddress.anyIPv4, 5285);
     server!.listen((HttpRequest request) async {
       String requestedPath =
           request.uri.path.isEmpty ? '/index.html' : request.uri.path;
-      File fileToServe = File('${widget.htmlFile.parent.path}$requestedPath');
+      final htmlFile = widget.htmlFile;
+      if (htmlFile == null) {
+        request.response.statusCode = HttpStatus.badRequest;
+        request.response.write('Missing html file');
+        await request.response.close();
+        return;
+      }
+      File fileToServe = File('${htmlFile.parent.path}$requestedPath');
 
       if (await fileToServe.exists()) {
         if (requestedPath.endsWith('.html')) {
@@ -62,7 +75,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   void initState() {
     super.initState();
-    startServer();
+    if (widget.streamUrl == null) {
+      startServer();
+    }
   }
 
   @override
@@ -73,6 +88,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final initialUrl = widget.streamUrl ??
+        'http://localhost:5285/${path.basename(widget.htmlFile!.path)}';
+
     return PopScope(
       onPopInvokedWithResult: (val, _) async {
         await stopServer();
@@ -185,7 +203,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
                 cacheEnabled: false,
                 clearCache: true),
               initialUrlRequest: URLRequest(
-                url: WebUri("http://localhost:5285/${path.basename(widget.htmlFile.path)}")
+                url: WebUri(initialUrl),
               ),
               onWebViewCreated: (InAppWebViewController webViewController) {
                 controller = webViewController;

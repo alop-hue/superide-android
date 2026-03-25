@@ -38,6 +38,49 @@ class _SelectTypeState extends State<SelectType> {
   final _cloneRepoKey = GlobalKey<FormState>();
   bool _didShowPackageUpdateToast = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openPendingSharedFile();
+    });
+  }
+
+  Future<void> _openPendingSharedFile() async {
+    final pendingFiles = await NativeChannel.consumePendingOpenFiles();
+    if (!mounted || pendingFiles.isEmpty) return;
+
+    final imported = File(pendingFiles.first);
+    if (!imported.existsSync()) return;
+
+    final language = languages.firstWhere(
+      (item) => item.extension.contains(
+        path.extension(imported.path).replaceFirst('.', ''),
+      ),
+      orElse: () => languages[0],
+    );
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
+          languageDetails: language,
+          rootDir: imported.parent.path,
+          file: imported,
+          isProject: false,
+        ),
+        transitionsBuilder: (
+          context,
+          animation,
+          secondaryAnimation,
+          child,
+        ) {
+          return SizeTransition(sizeFactor: animation, child: child);
+        },
+      ),
+    );
+  }
+
   Map<String, dynamic>? _normalizeRecentEntry(dynamic rawEntry) {
     if (rawEntry is Map &&
         rawEntry['type'] is String &&

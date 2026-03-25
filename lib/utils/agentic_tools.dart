@@ -21,10 +21,10 @@ class AgenticTools {
 
   AgenticTools({required this.workspacePath, required this.context})
     : _activeEditor = context
-          .read<ActiveEditorBloc>()
-          .state
-          .activeEditors
-          .singleWhere((editor) => editor.isActive);
+      .read<ActiveEditorBloc>()
+      .state
+      .activeEditors
+      .singleWhere((editor) => editor.isActive);
 
   late final ActiveEditor _activeEditor;
 
@@ -41,6 +41,107 @@ class AgenticTools {
     final canonicalWorkspace = _canonicalWorkspacePath();
     return canonicalPath == canonicalWorkspace ||
         path.isWithin(canonicalWorkspace, canonicalPath);
+  }
+
+  String _diagnosticSeverityLabel(int severity) {
+    switch (severity) {
+      case 1:
+        return 'Error';
+      case 2:
+        return 'Warning';
+      case 3:
+        return 'Info';
+      case 4:
+        return 'Hint';
+      default:
+        return 'Issue';
+    }
+  }
+
+  bool _hasLspDiagnosticsAvailability() {
+    final editors = context.read<ActiveEditorBloc>().state.activeEditors;
+    return editors.any((editor) => editor.controller.lspConfig != null);
+  }
+
+  Future<ToolResult<Map<String, dynamic>>> getLspDiagnostics([
+    String? filePath,
+  ]) async {
+    try {
+      final editors = context.read<ActiveEditorBloc>().state.activeEditors;
+      final lspEditors = editors
+          .where((editor) => editor.controller.lspConfig != null)
+          .toList();
+
+      if (lspEditors.isEmpty) {
+        return ToolResult.error(
+          'LSP diagnostics are unavailable because no active editor has an LSP server attached.',
+        );
+      }
+
+      final requestedCanonicalPath =
+          filePath == null ? null : _canonicalFilePath(filePath);
+
+      if (requestedCanonicalPath != null &&
+          !_isInsideWorkspace(requestedCanonicalPath)) {
+        return ToolResult.error(
+          'Permission denied: File is outside the workspace.',
+        );
+      }
+
+      final selectedEditors = requestedCanonicalPath == null
+        ? lspEditors
+        : lspEditors.where((editor) => _canonicalFilePath(editor.file.path) == requestedCanonicalPath).toList();
+
+      if (selectedEditors.isEmpty) {
+        return ToolResult.error(
+          requestedCanonicalPath == null
+            ? 'No LSP-enabled editors are currently open.'
+            : 'No open LSP-enabled editor found for file: $filePath',
+        );
+      }
+
+      final diagnostics = <Map<String, dynamic>>[];
+      for (final editor in selectedEditors) {
+        final relativePath = path.relative(editor.file.path, from: workspacePath);
+
+        for (final diagnostic in editor.controller.diagnostics) {
+          final start = Map<String, dynamic>.from(
+            diagnostic.range['start'] ?? {},
+          );
+          final end = Map<String, dynamic>.from(diagnostic.range['end'] ?? {});
+
+          final startLine = ((start['line'] as num?) ?? 0).toInt() + 1;
+          final startCharacter =
+              ((start['character'] as num?) ?? 0).toInt() + 1;
+          final endLine = ((end['line'] as num?) ?? 0).toInt() + 1;
+          final endCharacter = ((end['character'] as num?) ?? 0).toInt() + 1;
+
+          diagnostics.add({
+            'filePath': relativePath,
+            'message': diagnostic.message,
+            'severity': diagnostic.severity,
+            'severityLabel': _diagnosticSeverityLabel(diagnostic.severity),
+            'range': {
+              'start': {
+                'line': startLine,
+                'character': startCharacter,
+              },
+              'end': {
+                'line': endLine,
+                'character': endCharacter,
+              },
+            },
+          });
+        }
+      }
+
+      return ToolResult.success({
+        'count': diagnostics.length,
+        'diagnostics': diagnostics,
+      });
+    } catch (e) {
+      return ToolResult.error('Error getting LSP diagnostics: $e');
+    }
   }
 
   Future<ToolResult<String>> activeEditorFile() async {
@@ -1679,6 +1780,25 @@ class AgenticTools {
           "parameters": {"type": "object", "properties": {}},
         },
       },
+      if (_hasLspDiagnosticsAvailability())
+        {
+          "type": "function",
+          "function": {
+            "name": "getLspDiagnostics",
+            "description":
+                "Gets diagnostics from LSP-enabled open editors including message, severity and exact range location.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description":
+                      "Optional file path. If provided, diagnostics are returned only for that open file.",
+                },
+              },
+            },
+          },
+        },
       {
         "type": "function",
         "function": {

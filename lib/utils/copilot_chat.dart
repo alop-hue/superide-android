@@ -487,6 +487,14 @@ class CopilotChat {
                   ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
                   : (res.error ?? 'Error getting selected text');
               break;
+            case 'getLspDiagnostics':
+              final res =
+                  await _agenticTools?.getLspDiagnostics(args['filePath']) ??
+                  ToolResult.error(errorMessage);
+              result = res.success
+                  ? jsonEncode(res.data)
+                  : (res.error ?? 'Error getting LSP diagnostics');
+              break;
             case 'readFile':
               final res =
                   await _agenticTools?.readFile(
