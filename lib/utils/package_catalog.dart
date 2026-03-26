@@ -149,21 +149,19 @@ class PackageCatalogService {
   _loadInstalledCatalog() async {
     final runtimeDir = Directory(runtimesDir);
     final extensionDirPath = Directory(extensionDir);
-
     final installedRuntimes = <RunTime>[];
     final installedExtensions = <Extension>[];
 
     if (runtimeDir.existsSync()) {
       final runtimeEntries = runtimeDir
-          .listSync(followLinks: false)
-          .whereType<Directory>()
-          .toList();
+        .listSync(followLinks: false)
+        .whereType<Directory>()
+        .toList();
       for (final dir in runtimeEntries) {
-        final packageFile = File('${dir.path}/vsd-package.json');
+        final packageFile = File('${dir.path}/rsx-package.json');
         if (!packageFile.existsSync()) continue;
         try {
-          final parsed =
-              jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
+          final parsed = jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
           installedRuntimes.add(RunTime.fromJson(parsed));
         } catch (_) {}
       }
@@ -171,15 +169,14 @@ class PackageCatalogService {
 
     if (extensionDirPath.existsSync()) {
       final extensionEntries = extensionDirPath
-          .listSync(followLinks: false)
-          .whereType<Directory>()
-          .toList();
+        .listSync(followLinks: false)
+        .whereType<Directory>()
+        .toList();
       for (final dir in extensionEntries) {
-        final packageFile = File('${dir.path}/vsd-package.json');
+        final packageFile = File('${dir.path}/rsx-package.json');
         if (!packageFile.existsSync()) continue;
         try {
-          final parsed =
-              jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
+          final parsed = jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
           installedExtensions.add(Extension.fromJson(parsed));
         } catch (_) {}
       }
@@ -273,31 +270,22 @@ class PackageCatalogService {
       return catalogVersion != installedVersion;
     }
 
-    return _runtimeSignature(catalog) != _runtimeSignature(installed);
+    final catalogArchive = catalog.archiveName.trim();
+    final installedArchive = installed.archiveName.trim();
+    if (catalogArchive.isNotEmpty && installedArchive.isNotEmpty) {
+      return catalogArchive != installedArchive;
+    }
+
+    return false;
   }
 
   static bool _isExtensionUpdateAvailable(Extension catalog, Extension installed) {
-    return _extensionSignature(catalog) != _extensionSignature(installed);
-  }
+    final catalogArchive = catalog.archiveName.trim();
+    final installedArchive = installed.archiveName.trim();
+    if (catalogArchive.isNotEmpty && installedArchive.isNotEmpty) {
+      return catalogArchive != installedArchive;
+    }
 
-  static String _runtimeSignature(RunTime item) {
-    return [
-      item.url,
-      item.archiveName,
-      item.archiveSize.toString(),
-      item.details,
-      item.version ?? '',
-    ].join('|');
-  }
-
-  static String _extensionSignature(Extension item) {
-    return [
-      item.url,
-      item.archiveName,
-      item.archiveSize.toString(),
-      item.details,
-      item.serverFile.join(','),
-      item.fileExtension.join(','),
-    ].join('|');
+    return false;
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/utils/constants.dart';
 
 final txt = Mode();
 final unknown = Mode();
@@ -343,7 +343,7 @@ final langpython = Language(
   command: 'python',
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
   type: 'interpreted',
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  lspExecutable: "/data/data/com.roxum/bin/node",
   args: ["--stdio"]
 );
 final langjavascript = Language(
@@ -355,7 +355,7 @@ final langjavascript = Language(
   command: 'node',
   icon: SvgPicture.asset('assets/material_icons/javascript.svg',height: 35,width: 35),
   type: 'interpreted',
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  lspExecutable: "/data/data/com.roxum/bin/node",
   args: ["--stdio"]
 );
 final langtypescript = Language(
@@ -367,7 +367,7 @@ final langtypescript = Language(
     command: 'tsc',
     icon: SvgPicture.asset('assets/material_icons/typescript.svg',height: 35,width: 35),
     type: 'interpreted',
-    lspExecutable: "/data/data/com.vsdroid/bin/node",
+    lspExecutable: "/data/data/com.roxum/bin/node",
     args: ["--stdio"]
 );
 final langjava = Language(
@@ -379,7 +379,7 @@ final langjava = Language(
   icon: SvgPicture.asset('assets/material_icons/java.svg', height: 35,width: 35),
   command: 'javac',
   type: 'compiled',
-  lspExecutable: "/data/data/com.vsdroid/bin/java",
+  lspExecutable: "/data/data/com.roxum/bin/java",
 );
 final langc = Language(
   name: 'C',
@@ -390,7 +390,7 @@ final langc = Language(
   command: 'clang',
   icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
   type: 'compiled',
-  lspExecutable: "/data/data/com.vsdroid/bin/ccls",
+  lspExecutable: "/data/data/com.roxum/bin/ccls",
 );
 final langcpp = Language(
   name: 'C++',
@@ -401,7 +401,7 @@ final langcpp = Language(
   command: 'clang++',
   icon: SvgPicture.asset('assets/material_icons/cpp.svg',height: 35,width: 35),
   type: 'compiled',
-  lspExecutable: "/data/data/com.vsdroid/bin/ccls",
+  lspExecutable: "/data/data/com.roxum/bin/ccls",
 );
 
 final langdart = Language(
@@ -449,7 +449,7 @@ final langhtml = Language(
 ''',
   icon: SvgPicture.asset('assets/material_icons/html.svg',height: 35,width: 35),
   args: ["--stdio"],
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  lspExecutable: "/data/data/com.roxum/bin/node",
 );
 final langcss = Language(
   name: 'CSS',
@@ -457,7 +457,7 @@ final langcss = Language(
   details: 'Used to style and format web pages.',
   language: builtinAllLanguages['css'],
   helloWorld: '/* Hello, World! */',
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  lspExecutable: "/data/data/com.roxum/bin/node",
   args: ["--stdio"],
   icon: SvgPicture.asset('assets/material_icons/css.svg',height: 35,width: 35),
 );
@@ -567,7 +567,7 @@ final langjson = Language(
   details: 'A lightweight format for data interchange.',
   language: builtinAllLanguages['json'],
   icon: SvgPicture.asset('assets/material_icons/json.svg',height: 35,width: 35),
-  lspExecutable: "/data/data/com.vsdroid/bin/node",
+  lspExecutable: "/data/data/com.roxum/bin/node",
   args: ["--stdio"],
   helloWorld: '{ "hello": "world" }',
 );

@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
+import 'package:roxum/utils/constants.dart';
+import 'package:roxum/utils/functions.dart';
 
 enum CopilotAccountStatus {
   notSignedIn,
@@ -170,7 +170,7 @@ class CopilotLsp {
       environment: {
         'HOME': configPath,
         'XDG_CONFIG_HOME': configPath,
-        'VSDROID_SHARED_PATH': sharedPath
+        'ROXUM_SHARED_PATH': sharedPath
       },
     );
 
@@ -356,11 +356,11 @@ class CopilotLsp {
         },
         'initializationOptions': {
           'editorInfo': {
-            'name': 'VSdroid',
+            'name': 'Roxum',
             'version': '1.0.0',
           },
           'editorPluginInfo': {
-            'name': 'GitHub Copilot for VSdroid',
+            'name': 'GitHub Copilot for Roxum',
             'version': '1.0.0',
           },
         },
@@ -390,11 +390,11 @@ class CopilotLsp {
       method: 'setEditorInfo',
       params: {
         'editorInfo': {
-          'name': 'VSdroid',
+          'name': 'Roxum',
           'version': '1.0.0',
         },
         'editorPluginInfo': {
-          'name': 'GitHub Copilot for VSdroid',
+          'name': 'GitHub Copilot for Roxum',
           'version': '1.0.0',
         },
       },

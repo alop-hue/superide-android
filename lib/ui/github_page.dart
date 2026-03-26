@@ -7,12 +7,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/ui/editor_page.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/themes.dart';
+import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/ui/editor_page.dart';
+import 'package:roxum/utils/constants.dart';
+import 'package:roxum/utils/functions.dart';
+import 'package:roxum/utils/themes.dart';
 
 class GithubPage extends StatefulWidget {
   const GithubPage({super.key});

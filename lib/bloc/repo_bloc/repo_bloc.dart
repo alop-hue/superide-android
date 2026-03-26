@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/utils/functions.dart';
+import 'package:roxum/utils/functions.dart';
 
 part 'repo_event.dart';
 part 'repo_state.dart';

@@ -115,7 +115,7 @@ Map<String, String> gitEnvs(String sharedPath) => {
   'GIT_EXEC_PATH': '$binDir/git-core',
   'GIT_SSL_CAINFO': '$certDir/cacert.pem',
   'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-  'VSDROID_SHARED_PATH': sharedPath,
+  'ROXUM_SHARED_PATH': sharedPath,
 };
 
 Future<void> cloneRepo(
@@ -163,14 +163,14 @@ Future<void> initRepo(String workspacePath) async {
 
   await Process.run(
     "$binDir/git",
-    ["config", "--local", "user.name", "VSdroid user"],
+    ["config", "--local", "user.name", "Roxum user"],
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath),
   );
 
   await Process.run(
     "$binDir/git",
-    ["config", "--local", "user.email", "vsdroid@local"],
+    ["config", "--local", "user.email", "roxum@local"],
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath),
   );
@@ -201,7 +201,7 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
 
     if (patternsToAdd.isNotEmpty) {
       await gitignoreFile.writeAsString(
-        '$existingContent\n\n# Auto-added by VSdroid\n${patternsToAdd.join('\n')}\n',
+        '$existingContent\n\n# Auto-added by Roxum\n${patternsToAdd.join('\n')}\n',
         mode: FileMode.append,
       );
     }
@@ -212,7 +212,7 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
 
 List<String> _getGitignorePatterns() {
   return [
-    '# VSdroid and Editor files',
+    '# Roxum and Editor files',
     '.vscode/',
     '.idea/',
     '*.swp',
@@ -1104,13 +1104,13 @@ Future<String> gitHubSignIn() async {
   final authUrl = Uri.https('github.com', '/login/oauth/authorize', {
     'client_id': clientId,
     'scope': 'repo read:user',
-    'redirect_uri': 'vsdroid://oauth',
+    'redirect_uri': 'roxum://oauth',
   });
 
   try {
     final result = await FlutterWebAuth2.authenticate(
       url: authUrl.toString(),
-      callbackUrlScheme: 'vsdroid',
+      callbackUrlScheme: 'roxum',
       options: const FlutterWebAuth2Options(),
     );
 
@@ -1306,7 +1306,7 @@ Future<File?> pickFile() async {
 }
 
 Future<Directory?> pickDir() async {
-  const MethodChannel saf = MethodChannel('vsdroid/saf');
+  const MethodChannel saf = MethodChannel('roxum/saf');
   final String? treeUri = await saf.invokeMethod<String>('pickSafDir');
 
   if (treeUri == null) return null;
@@ -1629,7 +1629,7 @@ Future<LspConfig?> startLspServer({
       })(),
       environment: {
         ...environment ?? {},
-        'VSDROID_SHARED_PATH': sharedPath,
+        'ROXUM_SHARED_PATH': sharedPath,
         'LD_LIBRARY_PATH':
             '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
         'JAVA_HOME': '$runtimeDir/java-21-openjdk',
@@ -1736,7 +1736,7 @@ class Extractor {
 }
 
 class NativeChannel {
-  static const MethodChannel _channel = MethodChannel('com.vsdroid');
+  static const MethodChannel _channel = MethodChannel('com.roxum');
 
   static Future<String> getLibraryPath() async {
     try {

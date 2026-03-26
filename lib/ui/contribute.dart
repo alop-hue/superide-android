@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/themes.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/utils/themes.dart';
 
 class ContributePage extends StatelessWidget {
-  final String repoUrl = 'https://github.com/heckmon/vsdroid';
+  final String repoUrl = 'https://github.com/heckmon/roxum';
 
   const ContributePage({super.key});
 
@@ -71,7 +71,7 @@ class ContributePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
                         Text(
-                          'Contribute to VSDroid!',
+                          'Contribute to Roxum!',
                           style: TextStyle(
                             color: theme.selectScreenCardTextColor,
                             fontSize: 24,
@@ -81,7 +81,7 @@ class ContributePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'VSDroid is a powerful, open-source code editor and IDE built with Flutter, designed for developers on the go.',
+                          'Roxum is a powerful, open-source code editor and IDE built with Flutter, designed for developers on the go.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,

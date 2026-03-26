@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:flutter_file_downloader/flutter_file_downloader.dart';
@@ -19,6 +20,28 @@ class _DownloadManagerState extends State<DownloadManager> {
   final Set<int> loadingIndexes = {};
   late final AppThemeState appThemeState;
   bool _isOnDownloadPage = true;
+  final List<_ComingSoonRuntimeItem> _comingSoonRuntimes = [
+    _ComingSoonRuntimeItem(
+      name: 'Rust Runtime',
+      details: 'Planned for next release.',
+      icon: SvgPicture.asset("assets/material_icons/rust.svg"),
+    ),
+    _ComingSoonRuntimeItem(
+      name: 'Dart Runtime',
+      details: 'Planned for next release.',
+      icon: SvgPicture.asset("assets/material_icons/dart.svg"),
+    ),
+    _ComingSoonRuntimeItem(
+      name: 'Go Runtime',
+      details: 'Planned for next release.',
+      icon: SvgPicture.asset("assets/material_icons/go_gopher.svg"),
+    ),
+    _ComingSoonRuntimeItem(
+      name: 'PHP Runtime',
+      details: 'Planned for next release.',
+      icon: SvgPicture.asset("assets/material_icons/php.svg"),
+    ),
+  ];
 
   @override
   void initState() {
@@ -141,12 +164,13 @@ class _DownloadManagerState extends State<DownloadManager> {
       }
       
       downloadBloc.markFullyCompleted(index);
+    } catch (e) {
+      debugPrint('Error during extraction: $e');
+      downloadBloc.markFullyCompleted(index);
+    } finally {
       if (mounted) {
         await context.read<PackageCatalogCubit>().refreshInstalledStatusOnly();
       }
-    } catch (e) {
-      debugPrint('Error during extraction: $e');
-      downloadBloc.markFullyCompleted(index); 
     }
   }
 
@@ -188,15 +212,92 @@ class _DownloadManagerState extends State<DownloadManager> {
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: runtimeItems.isEmpty
+              child: runtimeItems.isEmpty &&
+                      (catalogState.isSyncing || catalogState.remoteFetchFailed)
                   ? _buildCatalogStateView(
                       title: 'No runtime catalog available',
                       actionLabel: 'Retry',
                       onRetry: () => context.read<PackageCatalogCubit>().refreshCatalog(),
                     )
                   : ListView.builder(
-                itemCount: runtimeItems.length,
+                itemCount: runtimeItems.length + _comingSoonRuntimes.length,
                 itemBuilder: (_, index) {
+                  if (index >= runtimeItems.length) {
+                    final comingSoonRuntime =
+                        _comingSoonRuntimes[index - runtimeItems.length];
+                    final textColor = appThemeState
+                        .appTheme
+                        .selectScreenCardTextColor
+                        .withAlpha(180);
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      child: Card(
+                        child: Opacity(
+                          opacity: 0.7,
+                          child: ListTile(
+                            enabled: false,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Padding(
+                              padding: const EdgeInsets.only(left: 12),
+                              child: comingSoonRuntime.icon,
+                            ),
+                            title: Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      comingSoonRuntime.name,
+                                      style: TextStyle(color: textColor),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withAlpha(45),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'Coming soon',
+                                      style: TextStyle(
+                                        color: Colors.amber,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            subtitle: Text(
+                              comingSoonRuntime.details,
+                              style: TextStyle(color: textColor.withAlpha(180)),
+                            ),
+                            trailing: SizedBox(
+                              height: 50,
+                              width: 100,
+                              child: LinearPercentIndicator(
+                                progressColor: Colors.grey.withAlpha(120),
+                                percent: 0.0,
+                                width: 95,
+                                lineHeight: 40,
+                                barRadius: const Radius.circular(20),
+                                center: const Icon(Icons.lock_outline_rounded),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
                   final runtime = runtimeItems[index];
                   final hasUpdate = catalogState.runtimeUpdates.contains(
                     runtime.parentName,
@@ -315,7 +416,26 @@ class _DownloadManagerState extends State<DownloadManager> {
                               }
                               
                               final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(index);
-                              
+                              final isUpdateAvailable = hasUpdate;
+
+                              if (isFullyInstalled && isUpdateAvailable) {
+                                return IconButton(
+                                  onPressed: () async {
+                                    if (!context.mounted) return;
+                                    _startDownload(
+                                      context,
+                                      index,
+                                      runtimeItems[index].url,
+                                      runtimeItems[index].archiveName,
+                                      downloadsDir,
+                                      false,
+                                    );
+                                  },
+                                  icon: Icon(Icons.system_update, color: Colors.orange),
+                                  tooltip: 'Update to latest version',
+                                );
+                              }
+
                               if (isFullyInstalled) {
                                 return IconButton(
                                   onPressed: (){
@@ -557,7 +677,26 @@ class _DownloadManagerState extends State<DownloadManager> {
                               
                               
                               final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(extensionIndex);
-                              
+                              final isUpdateAvailable = hasUpdate;
+
+                              if (isFullyInstalled && isUpdateAvailable) {
+                                return IconButton(
+                                  onPressed: () async {
+                                    if (!context.mounted) return;
+                                    _startDownload(
+                                      context,
+                                      extensionIndex,
+                                      extensionItems[index].url,
+                                      extensionItems[index].archiveName,
+                                      downloadsDir,
+                                      true,
+                                    );
+                                  },
+                                  icon: Icon(Icons.system_update, color: Colors.orange),
+                                  tooltip: 'Update to latest version',
+                                );
+                              }
+
                               if (isFullyInstalled) {
                                 return IconButton(
                                   onPressed: () {
@@ -751,4 +890,16 @@ class _DownloadManagerState extends State<DownloadManager> {
       ),
     );
   }
+}
+
+class _ComingSoonRuntimeItem {
+  final String name;
+  final String details;
+  final dynamic icon;
+
+  _ComingSoonRuntimeItem({
+    required this.name,
+    required this.details,
+    required this.icon,
+  });
 }

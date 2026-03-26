@@ -8,7 +8,7 @@ import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/utils/constants.dart';
 import '../../utils/ai.dart';
 import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
@@ -979,7 +979,7 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   static const Set<String> _supportedChatEndpoints = {
     '/chat/completions',
     '/responses',
-    '/v1/messages',
+    '/messages',
   };
 
   CopilotChatBloc() : super(CopilotChatState.initial()) {
@@ -990,6 +990,21 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   }
 
   CopilotChat? get chatClient => _chatClient;
+
+  String _normalizeEndpoint(String endpoint) {
+    var normalized = endpoint.trim().toLowerCase();
+    if (normalized.isEmpty) return normalized;
+    if (!normalized.startsWith('/')) {
+      normalized = '/$normalized';
+    }
+    if (normalized.startsWith('/v1/')) {
+      normalized = normalized.substring(3);
+    }
+    if (normalized.endsWith('/') && normalized.length > 1) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
 
   bool _isLikelyNonChatModel(Map<String, dynamic> model) {
     final id = (model['id']?.toString() ?? '').toLowerCase();
@@ -1023,7 +1038,10 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
 
     final endpointsRaw = model['supported_endpoints'];
     if (endpointsRaw is List) {
-      final endpoints = endpointsRaw.map((e) => e.toString()).toSet();
+      final endpoints = endpointsRaw
+          .map((e) => _normalizeEndpoint(e.toString()))
+          .where((e) => e.isNotEmpty)
+          .toSet();
       if (endpoints.isNotEmpty &&
           endpoints.intersection(_supportedChatEndpoints).isEmpty) {
         return false;
@@ -1034,10 +1052,11 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
   }
 
   Future<void> _initializeChatClient() async {
-    final authToken = await CopilotChat.loadAuthToken();
-    if (authToken != null) {
+    final authContext = await CopilotChat.loadAuthContext();
+    if (authContext != null) {
       _chatClient = CopilotChat(
-        authToken: authToken,
+        authToken: authContext.authToken,
+        initialApiEndpoint: authContext.apiEndpoint,
       );
     }
   }

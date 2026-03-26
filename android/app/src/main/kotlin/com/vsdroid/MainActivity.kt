@@ -1,4 +1,4 @@
-package com.vsdroid
+package com.roxum
 
 import android.app.Activity
 import android.content.Intent
@@ -14,8 +14,8 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
 
-    private val CORE_CHANNEL = "com.vsdroid"
-    private val SAF_CHANNEL = "vsdroid/saf"
+    private val CORE_CHANNEL = "com.roxum"
+    private val SAF_CHANNEL = "roxum/saf"
     private val PICK_DIR_REQUEST = 9001
 
     private var pendingSafResult: MethodChannel.Result? = null
@@ -132,7 +132,7 @@ class MainActivity : FlutterActivity() {
         val src = DocumentFile.fromTreeUri(this, treeUri)
             ?: throw IllegalArgumentException("Invalid SAF tree URI")
 
-        val projectsRoot = File("/data/data/com.vsdroid/VSdroid/Projects")
+        val projectsRoot = File("/data/data/com.roxum/Roxum/Projects")
         if (!projectsRoot.exists()) projectsRoot.mkdirs()
 
         val target = File(projectsRoot, src.name ?: "ImportedProject")
@@ -212,7 +212,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun importUriToAppFile(uri: Uri): String? {
-        val targetRoot = File("/data/data/$packageName/VSdroid/Files")
+        val targetRoot = File("/data/data/$packageName/Roxum/Files")
         if (!targetRoot.exists()) targetRoot.mkdirs()
 
         val preferredName = queryDisplayName(uri)

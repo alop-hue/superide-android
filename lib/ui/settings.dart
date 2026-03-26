@@ -9,7 +9,7 @@ import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/utils/constants.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import 'downloads.dart';
 import '../utils/functions.dart';
@@ -1540,36 +1540,6 @@ int main() {
                       settingsDivider,
                       const SizedBox(height: 20),
                       settingsType("AI Configuration", appThemeState.appTheme.isDark),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff0078d4).withValues(alpha: 0.1),
-                          border: Border.all(
-                            color: const Color(0xff0078d4).withValues(alpha: 0.3),
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: const Color(0xff0078d4),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                "Note: The Copilot sign-in that is given below only provides code completion.\n"
-                                "Sign in with GitHub from the home screen to enable copilot chat and agentic coding.",
-                                style: TextStyle(
-                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       BlocBuilder<AIBloc, AIState>(
                         builder: (context, aiState) {
                           final copilotState = context.watch<CopilotBloc>().state;
@@ -1895,7 +1865,7 @@ int main() {
                                             final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
                                             if (!copilotSignedIn && aiState.config.isEmpty) {
                                               return Text(
-                                                "No models created yet",
+                                                "No models have been created yet",
                                                 style: TextStyle(
                                                   color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                                   fontSize: 16

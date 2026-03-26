@@ -15,7 +15,7 @@ import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:vsdroid/utils/agentic_tools.dart';
+import 'package:roxum/utils/agentic_tools.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -369,6 +369,7 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   StreamSubscription<CopilotState>? _copilotSubscription;
   String? _currentCopilotUuid;
   bool _isUpdatingGhostText = false;
+  bool _awaitingManualCopilotCompletion = false;
 
   @override
   void initState() {
@@ -417,6 +418,20 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
       if (!mounted) return;
       
       final completion = state.currentCompletion;
+      if (_awaitingManualCopilotCompletion) {
+        if (completion != null) {
+          _awaitingManualCopilotCompletion = false;
+        } else {
+          _awaitingManualCopilotCompletion = false;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No completion available'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
       if (completion != null && completion.uuid != _currentCopilotUuid) {
         _currentCopilotUuid = completion.uuid;
         _displayCopilotGhostText(completion);
@@ -505,6 +520,8 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
     final lines = text.substring(0, cursor).split('\n');
     final line = lines.length - 1;
     final character = lines.last.length;
+
+    _awaitingManualCopilotCompletion = true;
     
     copilotBloc.add(CopilotRequestCompletion(
       filePath: widget.filePath.path,
@@ -2349,10 +2366,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       children: [
         prefix ?? const SizedBox.shrink(),
         isFolderCreation
-            ? widget.editingFieldStyle?.folderIcon ??
-                  EditingFieldStyle().folderIcon
-            : widget.editingFieldStyle?.fileIcon ??
-                  EditingFieldStyle().fileIcon,
+          ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
+          : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -2410,10 +2425,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorHeight: widget.editingFieldStyle?.cursorHeight,
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
-              decoration:
-                  (widget.editingFieldStyle?.textfieldDecoration ??
-                          EditingFieldStyle().textfieldDecoration)
-                      .copyWith(hintText: path.basename(entityPath)),
+              decoration: (
+                widget.editingFieldStyle?.textfieldDecoration
+                  ?? EditingFieldStyle().textfieldDecoration
+                ).copyWith(hintText: path.basename(entityPath)),
               controller: _renameController,
               onSubmitted: (_) => renameEntry(entityPath, isFolder),
             ),
@@ -2421,14 +2436,12 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         ),
         IconButton(
           icon:
-              widget.editingFieldStyle?.doneIcon ??
-              EditingFieldStyle().doneIcon,
+            widget.editingFieldStyle?.doneIcon ??
+            EditingFieldStyle().doneIcon,
           onPressed: () => renameEntry(entityPath, isFolder),
         ),
         IconButton(
-          icon:
-              widget.editingFieldStyle?.cancelIcon ??
-              EditingFieldStyle().cancelIcon,
+          icon: widget.editingFieldStyle?.cancelIcon ?? EditingFieldStyle().cancelIcon,
           onPressed: stopRenaming,
         ),
       ],
@@ -2441,6 +2454,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     required List<bool> ancestorHasNext,
     required bool isLast,
   }) {
+    final baseStyle =
+        widget.fileStyle?.fileNameStyle ??
+        FileStyle().fileNameStyle ??
+        const TextStyle();
+
     final prefix = _buildTreePrefix(
       ancestorHasNext: ancestorHasNext,
       isLast: isLast,
@@ -2451,10 +2469,6 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     }
 
     final (color, letter) = _getFileColor(file, repoState);
-    final baseStyle =
-        widget.fileStyle?.fileNameStyle ??
-        FileStyle().fileNameStyle ??
-        const TextStyle();
     final key = GlobalKey();
     return InkWell(
       key: key,
@@ -2478,7 +2492,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             Expanded(
               child: Text(
                 path.basename(file.path),
-                style: baseStyle.copyWith(color: color),
+                style: baseStyle.copyWith(color: color, height: 1.0),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -8685,8 +8699,8 @@ class _ModelOption {
 }
 
 class _AIChatState extends State<AIChat> {
-  static final RegExp _toolEditPattern = RegExp(r'^\[\[VSDROID_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
-  static final RegExp _toolTerminalPattern = RegExp(r'^\[\[VSDROID_TERMINAL:([^\]]+)\]\]$');
+  static final RegExp _toolEditPattern = RegExp(r'^\[\[ROXUM_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
+  static final RegExp _toolTerminalPattern = RegExp(r'^\[\[ROXUM_TERMINAL:([^\]]+)\]\]$');
 
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -12,7 +12,7 @@ class AboutPage extends StatelessWidget {
     final color = context.read<AppThemeBloc>().state.appTheme.selectScreenCardTextColor;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('About VSDroid'),
+        title: const Text('About Roxum'),
         titleTextStyle: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
@@ -34,7 +34,7 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'VSDroid',
+                'Roxum',
                 style: TextStyle(
                   color: color,
                   fontSize: 28,
@@ -48,7 +48,7 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'VSDroid is an open-source IDE for android with built in runtimes and features similar to VSCode.\nBuilt with Flutter, it aims to provide a seamless experience for developers on the go.\n\nIf you\'d like to support this project, please visit the donation page and consider making a contribution of any amount',
+                'Roxum is an open-source IDE for android with built in runtimes and features similar to VSCode.\nBuilt with Flutter, it aims to provide a seamless experience for developers on the go.\n\nIf you\'d like to support this project, please visit the donation page and consider making a contribution of any amount',
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w600,

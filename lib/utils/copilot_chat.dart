@@ -4,8 +4,18 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/utils/constants.dart';
 import 'agentic_tools.dart';
+
+class CopilotAuthContext {
+  final String authToken;
+  final String? apiEndpoint;
+
+  const CopilotAuthContext({
+    required this.authToken,
+    this.apiEndpoint,
+  });
+}
 
 class CopilotChat {
   final String authToken;
@@ -19,6 +29,9 @@ class CopilotChat {
   String? _apiEndpoint;
   List<Map<String, dynamic>>? _cachedModels;
 
+  static const String _copilotTokenEndpoint =
+      'https://api.github.com/copilot_internal/v2/token';
+
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
   final StreamController<Map<String, dynamic>> _conversationController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -31,7 +44,9 @@ class CopilotChat {
     _currentClient = null;
   }
 
-  static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
+  static Future<CopilotAuthContext?> loadAuthContext({
+    bool preferGithubToken = true,
+  }) async {
     try {
       const FlutterSecureStorage storage = FlutterSecureStorage();
       final all = await storage.readAll();
@@ -40,12 +55,12 @@ class CopilotChat {
         domain: 'github.com',
       );
       if (tokenFromCopilotConfig != null && tokenFromCopilotConfig.isNotEmpty) {
-        return tokenFromCopilotConfig;
+        return CopilotAuthContext(authToken: tokenFromCopilotConfig);
       }
 
       final explicitCopilotToken = all['copilot_chat_auth_token'];
       if (explicitCopilotToken != null && explicitCopilotToken.isNotEmpty) {
-        return explicitCopilotToken;
+        return CopilotAuthContext(authToken: explicitCopilotToken);
       }
 
       final copilotEntry = all.entries.cast<MapEntry<String, String?>>().firstWhere(
@@ -58,18 +73,73 @@ class CopilotChat {
       );
 
       if (copilotEntry.value != null && copilotEntry.value!.isNotEmpty) {
-        return copilotEntry.value;
+        return CopilotAuthContext(authToken: copilotEntry.value!);
       }
 
       final githubToken = all['github_access_token'];
       if (githubToken != null && githubToken.isNotEmpty) {
-        return githubToken;
+        final exchanged = await _exchangeGithubTokenForCopilotContext(githubToken);
+        if (exchanged != null) {
+          return exchanged;
+        }
+        return CopilotAuthContext(authToken: githubToken);
       }
     } catch (e) {
       return null;
     }
 
     return null;
+  }
+
+  static Future<String?> loadAuthToken({bool preferGithubToken = true}) async {
+    final authContext = await loadAuthContext(
+      preferGithubToken: preferGithubToken,
+    );
+    return authContext?.authToken;
+  }
+
+  static Future<CopilotAuthContext?> _exchangeGithubTokenForCopilotContext(
+    String githubToken,
+  ) async {
+    Future<http.Response> requestWithAuth(String authHeader) {
+      return http.get(
+        Uri.parse(_copilotTokenEndpoint),
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+          'X-GitHub-Api-Version': '2025-04-01',
+        },
+      );
+    }
+
+    try {
+      var response = await requestWithAuth('token $githubToken');
+      if (response.statusCode != 200) {
+        response = await requestWithAuth('Bearer $githubToken');
+      }
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final token = decoded['token'] as String?;
+      if (token == null || token.isEmpty) {
+        return null;
+      }
+
+      final endpoints = decoded['endpoints'] as Map<String, dynamic>?;
+      final apiEndpoint = endpoints?['api'] as String?;
+
+      return CopilotAuthContext(
+        authToken: token,
+        apiEndpoint: (apiEndpoint != null && apiEndpoint.isNotEmpty)
+            ? apiEndpoint
+            : null,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<String?> _loadCopilotOauthTokenFromConfigFiles({
@@ -113,7 +183,10 @@ class CopilotChat {
     return null;
   }
 
-  CopilotChat({required this.authToken});
+  CopilotChat({
+    required this.authToken,
+    String? initialApiEndpoint,
+  }) : _apiEndpoint = initialApiEndpoint;
 
   Map<String, String> _commonHeaders({
     bool isJsonBody = false,
@@ -128,8 +201,8 @@ class CopilotChat {
       'Authorization': 'Bearer $authToken',
       'Accept': 'application/json',
       'Copilot-Integration-Id': 'vscode-chat',
-      'User-Agent': 'VSdroid/1.0.0',
-      'Editor-Version': 'VSdroid/1.0.0',
+      'User-Agent': 'Roxum/1.0.0',
+      'Editor-Version': 'Roxum/1.0.0',
       'X-GitHub-Api-Version': '2025-10-01',
       if (initiator != null) 'X-Initiator': initiator,
       if (initiator != null) 'X-Interaction-Type': 'conversation-panel',
@@ -141,18 +214,6 @@ class CopilotChat {
   Future<String> _resolveApiEndpoint() async {
     if (_apiEndpoint != null && _apiEndpoint!.isNotEmpty) {
       return _apiEndpoint!;
-    }
-
-    try {
-      final preferredProbe = await http.get(
-        Uri.parse('$_preferredCopilotApiEndpoint/models'),
-        headers: _commonHeaders(),
-      );
-      if (preferredProbe.statusCode == 200) {
-        _apiEndpoint = _preferredCopilotApiEndpoint;
-        return _apiEndpoint!;
-      }
-    } catch (_) {
     }
 
     try {
@@ -178,8 +239,35 @@ class CopilotChat {
     } catch (_) {
     }
 
+    try {
+      final preferredProbe = await http.get(
+        Uri.parse('$_preferredCopilotApiEndpoint/models'),
+        headers: _commonHeaders(),
+      );
+      if (preferredProbe.statusCode == 200) {
+        _apiEndpoint = _preferredCopilotApiEndpoint;
+        return _apiEndpoint!;
+      }
+    } catch (_) {
+    }
+
     _apiEndpoint = _defaultCopilotApiEndpoint;
     return _apiEndpoint!;
+  }
+
+  String _normalizeEndpoint(String endpoint) {
+    var normalized = endpoint.trim().toLowerCase();
+    if (normalized.isEmpty) return normalized;
+    if (!normalized.startsWith('/')) {
+      normalized = '/$normalized';
+    }
+    if (normalized.startsWith('/v1/')) {
+      normalized = normalized.substring(3);
+    }
+    if (normalized.endsWith('/') && normalized.length > 1) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
   }
 
   Set<String> _modelSupportedEndpoints(String model) {
@@ -193,7 +281,11 @@ class CopilotChat {
     if (modelData.isEmpty) return const {};
     final endpoints = modelData['supported_endpoints'];
     if (endpoints is! List) return const {};
-    return endpoints.whereType<String>().toSet();
+    return endpoints
+      .whereType<String>()
+      .map(_normalizeEndpoint)
+      .where((item) => item.isNotEmpty)
+      .toSet();
   }
 
   String _selectChatPath(String model, {required bool hasTools}) {
@@ -212,7 +304,7 @@ class CopilotChat {
       return '/responses';
     }
 
-    if (supportedEndpoints.contains('/v1/messages')) {
+    if (supportedEndpoints.contains('/messages')) {
       return '/v1/messages';
     }
 
@@ -295,12 +387,12 @@ class CopilotChat {
 
   String _toolEditMarker(String filePath, int added, int removed) {
     final fileEncoded = base64Encode(utf8.encode(filePath));
-    return '[[VSDROID_EDIT:$fileEncoded|$added|$removed]]\n';
+    return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
   }
 
   String _toolTerminalMarker(String command) {
     final encoded = base64Encode(utf8.encode(command));
-    return '[[VSDROID_TERMINAL:$encoded]]\n';
+    return '[[ROXUM_TERMINAL:$encoded]]\n';
   }
 
   Future<Map<String, dynamic>> getCopilotModels() async {

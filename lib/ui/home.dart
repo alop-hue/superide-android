@@ -8,7 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
+import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
 import 'about.dart';
 import 'donation_page.dart';
 import 'editor_page.dart';

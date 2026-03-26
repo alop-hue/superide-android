@@ -9,9 +9,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
-import 'package:vsdroid/bloc/repo_bloc/repo_bloc.dart';
-import 'package:vsdroid/ui/mdview.dart';
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
+import 'package:roxum/ui/mdview.dart';
+import 'package:roxum/utils/constants.dart';
 import 'webview.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -222,7 +222,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       environment: {
         'PATH': '$binDir:/bin:/usr/bin',
         'HOME': homeDir,
-        'VSDROID_SHARED_PATH': sharedPath,
+        'ROXUM_SHARED_PATH': sharedPath,
         'LD_LIBRARY_PATH':
             '$runtimesDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
       },
@@ -3022,7 +3022,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                   padding:
                                                     const EdgeInsets.only(left: 15,top: 8, bottom: 8),
                                                   child: Text(
-                                                    "Note: This is a clone of the selected folder in VSDroid's private directory. Modifications here will not affect the original folder.",
+                                                    "Note: This is a clone of the selected folder in Roxum's private directory. Modifications here will not affect the original folder.",
                                                     style: TextStyle(
                                                       color: Colors.grey[appTheme.isDark ? 500 : 600],
                                                     ),

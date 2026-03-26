@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_pty/flutter_pty.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
-import 'package:vsdroid/utils/themes.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/utils/constants.dart';
+import 'package:roxum/utils/functions.dart';
+import 'package:roxum/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -430,11 +430,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PS1': ' \x1b[32m\\w \x1b[0m\$ ',
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'PROMPT_DIRTRIM': '2',
-      'VSDROID_SHARED_PATH': _sharedPath,
+      'ROXUM_SHARED_PATH': _sharedPath,
       'LD_LIBRARY_PATH':
           '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$_sharedPath/libc++_shared.so',
-      'PREFIX': '/data/data/com.vsdroid',
+      'PREFIX': '/data/data/com.roxum',
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',

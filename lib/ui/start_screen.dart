@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/constants.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/utils/constants.dart';
 import '../ui/home.dart';
 import '../utils/functions.dart';
 
@@ -111,8 +111,8 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libccls.so', 'dst': '$binDir/ccls'},
       {'src': '$sharedPath/libless.so', 'dst': '$binDir/less', 'env': {'LD_LIBRARY_PATH' : libDir}},
       {'src': '$sharedPath/libless.so', 'dst': '$binDir/pager', 'env': {'LD_LIBRARY_PATH' : libDir}},
-      ...loaderTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
-      ...javaTools.map((tool) => loader(tool, env: {'VSDROID_SHARED_PATH': sharedPath})),
+      ...loaderTools.map((tool) => loader(tool, env: {'ROXUM_SHARED_PATH': sharedPath})),
+      ...javaTools.map((tool) => loader(tool, env: {'ROXUM_SHARED_PATH': sharedPath})),
     ];
 
     final totalLinks = symlinks.length;

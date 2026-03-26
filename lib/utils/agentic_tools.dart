@@ -11,9 +11,9 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:vsdroid/bloc/ui_bloc/ui_bloc.dart';
-import 'package:vsdroid/utils/constants.dart';
-import 'package:vsdroid/utils/functions.dart';
+import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
+import 'package:roxum/utils/constants.dart';
+import 'package:roxum/utils/functions.dart';
 
 class AgenticTools {
   final BuildContext context;
