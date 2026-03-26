@@ -5,7 +5,7 @@ import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 import 'package:roxum/utils/themes.dart';
 
 class ContributePage extends StatelessWidget {
-  final String repoUrl = 'https://github.com/heckmon/roxum';
+  final String repoUrl = 'https://github.com/heckmon/roxum-ide';
 
   const ContributePage({super.key});
 

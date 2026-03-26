@@ -29,8 +29,7 @@ class AboutPage extends StatelessWidget {
             children: [
               const CircleAvatar(
                 radius: 40,
-                //TODO:LOGO
-                // backgroundImage: AssetImage('assets/logo.png'),
+                backgroundImage: AssetImage('assets/icons/app-icon.png'),
               ),
               const SizedBox(height: 24),
               Text(
