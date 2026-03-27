@@ -189,30 +189,46 @@ class _StartScreenState extends State<StartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.read<AppThemeBloc>().state.appTheme;
     return Scaffold(
       body: Center(
         child: isDone
           ? const CircularProgressIndicator()
-          : Column(
+          : SizedBox(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text("Setting things up..."),
+                Text(
+                  "Setting things up...",
+                  style: TextStyle(
+                    color: theme.selectScreenCardTextColor
+                  ),
+                ),
                 const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.only(left: 60),
-                  child: LinearPercentIndicator(
-                    progressColor: Colors.blue,
-                    percent: progress,
+                Align(
+                  alignment: Alignment.center,
+                  child: SizedBox(
                     width: 300,
-                    lineHeight: 10,
-                    barRadius: Radius.circular(15),
+                    child: LinearPercentIndicator(
+                      progressColor: Colors.blue,
+                      percent: progress,
+                      lineHeight: 10,
+                      barRadius: const Radius.circular(15),
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text("${(progress * 100).toStringAsFixed(0)}%"),
+                Text(
+                  "${(progress * 100).toStringAsFixed(0)}%",
+                  style: TextStyle(
+                    color: theme.selectScreenCardTextColor
+                  ),
+                ),
               ],
             ),
+          ),
       ),
     );
   }

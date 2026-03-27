@@ -201,7 +201,7 @@ class Language {
     required this.details,
     required this.language,
     required this.helloWorld,
-    this.icon,
+    required this.icon,
     this.command,
     this.type,
     this.lspExecutable,
@@ -726,12 +726,15 @@ final langavrasm = Language(
 );
 final langcoffeescript = Language(
     name: 'Coffeescript',
-  extension: ['coffee'],
+    extension: ['coffee'],
     details: 'Compiles to JavaScript, offering a cleaner syntax.',
     language: builtinAllLanguages['coffeescript'],
     helloWorld: 'console.log "Hello, World!"',
     command: 'coffee',
-    type: 'interpreted');
+    type: 'interpreted',
+    icon: SvgPicture.asset('assets/material_icons/coffeescript.svg',height: 35,width: 35),
+  );
+
 final langaccesslog = Language(
   name: 'Access Log',
   extension: ['log'],

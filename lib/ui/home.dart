@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1530,6 +1529,7 @@ class _SelectTypeState extends State<SelectType> {
                                                             details: "Unknown language",
                                                             language: unknown,
                                                             helloWorld: "Unknown type of file",
+                                                            icon: null
                                                           );
                                                         })(),
                                                         isProject: false,
@@ -1580,7 +1580,7 @@ class _SelectTypeState extends State<SelectType> {
                                                 (lang) =>lang.extension.contains(
                                                   path.extension(entryPath,).toLowerCase().replaceFirst(".",""))).toList();
                                               if (matchingLang.isNotEmpty) return matchingLang[0].icon;
-                                              return FileIcon(entryPath);
+                                              return langtxt.icon;
                                             })(),
                                           ),
                                         );

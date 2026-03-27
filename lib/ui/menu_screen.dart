@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:file_icon/file_icon.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../ui/editor_page.dart';
 import '../utils/constants.dart';
@@ -14,7 +13,7 @@ class MenuScreen extends StatelessWidget {
     final List<Card> allLangs = languages
         .map((e) => Card(child: ListTile(
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-          leading: e.icon ?? FileIcon(".${e.extension}", size: 45),
+          leading: e.icon ?? langtxt.icon,
           title: Padding(
             padding: const EdgeInsets.only(left: 5),
             child: Text(e.name),
@@ -67,7 +66,7 @@ class MenuScreen extends StatelessWidget {
                           .map((e) => Card(child: ListTile(
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.all(Radius.circular(10))),
-                            leading: e.icon ??FileIcon(".${e.extension}", size: 45),
+                            leading: e.icon ?? langtxt.icon,
                             title: Padding(
                               padding: const EdgeInsets.only(left: 5),
                               child: Text(e.name),

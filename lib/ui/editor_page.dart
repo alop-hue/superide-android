@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
-import 'package:file_icon/file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -2016,7 +2015,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                   width: 25,
                                                   child:languages.firstWhere(
                                                     (lang) => lang.extension.contains(ext.replaceFirst(".", "")),
-                                                    orElse: () => languages[0]).icon ?? FileIcon(ext),
+                                                    orElse: () => languages[0]).icon ?? langtxt.icon,
                                                 );
                                               },
                                               folderStyle: FolderStyle(
