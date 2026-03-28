@@ -3804,6 +3804,11 @@ class _SourceControlState extends State<SourceControl> {
   final ScrollController _unstagedScrollController = ScrollController();
   StreamSubscription<FileSystemEvent>? _gitWatcher;
   DateTime? _lastGitRefresh;
+  bool _isGeneratingCommitMessage = false;
+  bool _requestedCopilotCommitModels = false;
+
+  static const int _maxCommitDiffChars = 16000;
+  static const int _maxUntrackedPreviewChars = 1200;
 
   @override
   void initState() {
@@ -3847,6 +3852,337 @@ class _SourceControlState extends State<SourceControl> {
           }
         }
       });
+    }
+  }
+
+  void _requestCopilotModelsIfNeeded(
+    bool githubSignedIn,
+    CopilotChatState chatState,
+  ) {
+    if (!githubSignedIn) {
+      _requestedCopilotCommitModels = false;
+      return;
+    }
+
+    if (_requestedCopilotCommitModels ||
+        chatState.isFetchingModels ||
+        chatState.hasFetchedModels) {
+      return;
+    }
+
+    _requestedCopilotCommitModels = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<CopilotChatBloc>().add(CopilotChatFetchModels(forceRefresh: true));
+    });
+  }
+
+  Future<ProcessResult> _runGitCommand(List<String> args) async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    return Process.run(
+      '$binDir/git',
+      args,
+      workingDirectory: widget.workSpace,
+      environment: gitEnvs(sharedPath),
+    );
+  }
+
+  Future<List<String>> _loadRecentCommitSubjects() async {
+    final result = await _runGitCommand(['log', '-n', '8', '--pretty=format:%s']);
+    if (result.exitCode != 0) {
+      return const [];
+    }
+
+    return result.stdout
+        .toString()
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+  }
+
+  Future<String> _loadCommitDiffContext({required bool stagedOnly}) async {
+    final diffArgs = stagedOnly
+        ? ['diff', '--cached', '--no-color', '--no-ext-diff', '--patch', '--unified=3', '--']
+        : ['diff', '--no-color', '--no-ext-diff', '--patch', '--unified=3', '--'];
+
+    final trackedDiffResult = await _runGitCommand(diffArgs);
+    final buffer = StringBuffer();
+    if (trackedDiffResult.exitCode == 0) {
+      final trackedDiff = trackedDiffResult.stdout.toString().trimRight();
+      if (trackedDiff.isNotEmpty) {
+        buffer.writeln(trackedDiff);
+      }
+    }
+
+    if (!stagedOnly) {
+      final untrackedFilesResult = await _runGitCommand([
+        'ls-files',
+        '--others',
+        '--exclude-standard',
+      ]);
+
+      final untrackedFiles = untrackedFilesResult.stdout
+          .toString()
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .take(6)
+          .toList();
+
+      if (untrackedFiles.isNotEmpty) {
+        buffer.writeln('\n# Untracked file previews');
+      }
+
+      for (final relativePath in untrackedFiles) {
+        final file = File(path.join(widget.workSpace, relativePath));
+        if (!file.existsSync()) continue;
+
+        try {
+          final bytes = await file.readAsBytes();
+          if (bytes.contains(0)) continue;
+
+          final decoded = utf8.decode(bytes, allowMalformed: true).trimRight();
+          if (decoded.isEmpty) continue;
+
+          final preview = _truncateText(decoded, _maxUntrackedPreviewChars);
+          buffer.writeln('\n## $relativePath');
+          for (final line in preview.split('\n')) {
+            buffer.writeln('+$line');
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    return _truncateText(buffer.toString().trim(), _maxCommitDiffChars);
+  }
+
+  String _truncateText(String value, int maxChars) {
+    if (value.length <= maxChars) return value;
+    return '${value.substring(0, maxChars)}\n\n[truncated]';
+  }
+
+  String _buildCommitGenerationPrompt({
+    required String diffText,
+    required List<String> recentCommits,
+    required bool stagedOnly,
+  }) {
+    final styleHints = recentCommits.isEmpty
+        ? '- No recent commits found.'
+        : recentCommits.map((msg) => '- $msg').join('\n');
+
+    final source = stagedOnly
+        ? 'staged changes only'
+        : 'working tree changes (including untracked file previews)';
+
+    return '''
+You are generating a git commit message.
+
+Rules:
+- Return exactly one commit subject line.
+- Use imperative mood.
+- Maximum 72 characters.
+- Do not use markdown, bullet points, quotes, or code fences.
+- Do not include issue numbers unless they appear explicitly in the changes.
+
+Changes source: $source
+
+Recent commit style examples (style reference only):
+$styleHints
+
+Changes:
+$diffText
+''';
+  }
+
+  String _normalizeGeneratedCommitMessage(String raw) {
+    var text = raw.trim();
+    final fenced = RegExp(r'```(?:\w+)?\s*([\s\S]*?)\s*```').firstMatch(text);
+    if (fenced != null) {
+      text = fenced.group(1)!.trim();
+    }
+
+    final lines = text
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return '';
+
+    var message = lines.first;
+    message = message.replaceFirst(RegExp(r'^[-*]\s+'), '');
+    message = message.replaceFirst(
+      RegExp(r'^(commit message|message)\s*:\s*', caseSensitive: false),
+      '',
+    );
+
+    if ((message.startsWith('"') && message.endsWith('"')) ||
+        (message.startsWith('\'') && message.endsWith('\''))) {
+      message = message.substring(1, message.length - 1).trim();
+    }
+
+    if (message.length > 72) {
+      final chunk = message.substring(0, 72);
+      final lastSpace = chunk.lastIndexOf(' ');
+      if (lastSpace >= 50) {
+        message = chunk.substring(0, lastSpace).trimRight();
+      } else {
+        message = chunk.trimRight();
+      }
+    }
+
+    return message;
+  }
+
+  List<Models> _collectExternalCommitModels(AIState aiState) {
+    if (!aiState.isEnabled) return const [];
+
+    final models = <Models>[];
+    final seen = <String>{};
+
+    void addModel(Models? model) {
+      if (model == null) return;
+      final key = '${model.runtimeType}|${model.url}|${model.model ?? ''}';
+      if (seen.add(key)) {
+        models.add(model);
+      }
+    }
+
+    addModel(aiState.chatModel);
+    addModel(aiState.completionModel);
+    return models;
+  }
+
+  bool _canGenerateCommitMessage({
+    required AIState aiState,
+    required bool githubSignedIn,
+    required CopilotChatState chatState,
+  }) {
+    if (!aiState.isEnabled) return false;
+
+    final hasCopilotModels = githubSignedIn && chatState.models.isNotEmpty;
+    final hasExternalModels = _collectExternalCommitModels(aiState).isNotEmpty;
+    return hasCopilotModels || hasExternalModels;
+  }
+
+  Future<String?> _tryGenerateWithCopilotModels(
+    CopilotChatState chatState,
+    String prompt,
+  ) async {
+    final chatClient = context.read<CopilotChatBloc>().chatClient;
+    if (chatClient == null) return null;
+
+    final modelIds = chatState.models
+        .map((model) => model['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+
+    for (final modelId in modelIds) {
+      try {
+        final response = await chatClient.chatWithModel(
+          model: modelId,
+          messages: [
+            {'role': 'user', 'content': prompt},
+          ],
+          chatMode: ChatMode.ask,
+        );
+
+        final normalized = _normalizeGeneratedCommitMessage(response);
+        if (normalized.isNotEmpty) {
+          return normalized;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  Future<String?> _tryGenerateWithExternalModels(
+    List<Models> models,
+    String prompt,
+  ) async {
+    for (final model in models) {
+      try {
+        final response = await model.completionResponse(prompt);
+        final normalized = _normalizeGeneratedCommitMessage(response);
+        if (normalized.isNotEmpty) {
+          return normalized;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _generateCommitMessage({
+    required BuildContext context,
+    required AIState aiState,
+    required CopilotChatState chatState,
+    required bool githubSignedIn,
+  }) async {
+    if (_isGeneratingCommitMessage) return;
+
+    final repoState = context.read<RepoStatusBloc>().state;
+    if (repoState is! RepoStatusLoaded) {
+      _showErrorSnackBar(context, 'Repository status is still loading');
+      return;
+    }
+
+    if (repoState.staged.isEmpty && repoState.unstaged.isEmpty) {
+      _showErrorSnackBar(context, 'No changes available to generate a commit message');
+      return;
+    }
+
+    setState(() => _isGeneratingCommitMessage = true);
+
+    try {
+      final stagedOnly = repoState.staged.isNotEmpty;
+      final diffText = await _loadCommitDiffContext(stagedOnly: stagedOnly);
+      if (diffText.isEmpty) {
+        _showErrorSnackBar(context, 'Could not gather changes for commit message generation');
+        return;
+      }
+
+      final recentCommits = await _loadRecentCommitSubjects();
+      final prompt = _buildCommitGenerationPrompt(
+        diffText: diffText,
+        recentCommits: recentCommits,
+        stagedOnly: stagedOnly,
+      );
+
+      String? generated;
+
+      if (aiState.isEnabled && githubSignedIn && chatState.models.isNotEmpty) {
+        generated = await _tryGenerateWithCopilotModels(chatState, prompt);
+      }
+
+      if ((generated == null || generated.isEmpty) && aiState.isEnabled) {
+        final externalModels = _collectExternalCommitModels(aiState);
+        generated = await _tryGenerateWithExternalModels(externalModels, prompt);
+      }
+
+      if (!mounted) return;
+
+      if (generated == null || generated.isEmpty) {
+        _showErrorSnackBar(context, 'No working AI model could generate a commit message');
+        return;
+      }
+
+      context.read<GitCommitBloc>().add(GitCommitEvent(commitMessage: generated));
+      _showSuccessSnackBar(context, 'Commit message generated');
+    } catch (_) {
+      if (!mounted) return;
+      _showErrorSnackBar(context, 'Failed to generate commit message');
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingCommitMessage = false);
+      }
     }
   }
 
@@ -7712,13 +8048,70 @@ class _SourceControlState extends State<SourceControl> {
                               );
                             },
                             decoration: InputDecoration(
-                              suffixIcon: IconButton(
-                                onPressed: () {},
-                                icon: SvgPicture.asset(
-                                  'assets/icons/ai.svg',
-                                  height: 20,
-                                  width: 20,
-                                ),
+                              suffixIcon: BlocBuilder<AIBloc, AIState>(
+                                builder: (context, aiState) {
+                                  return BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                                    builder: (context, authState) {
+                                      return BlocBuilder<CopilotChatBloc, CopilotChatState>(
+                                        builder: (context, chatState) {
+                                          _requestCopilotModelsIfNeeded(authState.isSignedIn, chatState);
+
+                                          final canGenerate = !_isGeneratingCommitMessage &&
+                                              _canGenerateCommitMessage(
+                                                aiState: aiState,
+                                                githubSignedIn: authState.isSignedIn,
+                                                chatState: chatState,
+                                              );
+
+                                          final tooltip = _isGeneratingCommitMessage
+                                              ? 'Generating commit message...'
+                                              : (!aiState.isEnabled
+                                                  ? 'AI is disabled in settings'
+                                                  : canGenerate
+                                                      ? 'Generate commit message'
+                                                      : (chatState.isFetchingModels
+                                                          ? 'Loading AI models...'
+                                                          : 'No AI model available'));
+
+                                          return Tooltip(
+                                            message: tooltip,
+                                            child: IconButton(
+                                              onPressed: canGenerate
+                                                  ? () => _generateCommitMessage(
+                                                        context: context,
+                                                        aiState: aiState,
+                                                        chatState: chatState,
+                                                        githubSignedIn: authState.isSignedIn,
+                                                      )
+                                                  : null,
+                                              icon: _isGeneratingCommitMessage
+                                                  ? const SizedBox(
+                                                      height: 20,
+                                                      width: 20,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    )
+                                                  : SvgPicture.asset(
+                                                      'assets/icons/ai.svg',
+                                                      height: 20,
+                                                      width: 20,
+                                                      colorFilter: ColorFilter.mode(
+                                                        canGenerate
+                                                            ? widget.appTheme.selectScreenCardTextColor
+                                                                .withValues(alpha: 0.85)
+                                                            : widget.appTheme.selectScreenCardTextColor
+                                                                .withValues(alpha: 0.35),
+                                                        BlendMode.srcIn,
+                                                      ),
+                                                    ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
                               ),
                               hintText: "Commit message",
                               hintStyle: TextStyle(
