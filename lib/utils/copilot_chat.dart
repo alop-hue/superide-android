@@ -55,11 +55,23 @@ class CopilotChat {
         domain: 'github.com',
       );
       if (tokenFromCopilotConfig != null && tokenFromCopilotConfig.isNotEmpty) {
+        final exchanged = await _exchangeGithubTokenForCopilotContext(
+          tokenFromCopilotConfig,
+        );
+        if (exchanged != null) {
+          return exchanged;
+        }
         return CopilotAuthContext(authToken: tokenFromCopilotConfig);
       }
 
       final explicitCopilotToken = all['copilot_chat_auth_token'];
       if (explicitCopilotToken != null && explicitCopilotToken.isNotEmpty) {
+        final exchanged = await _exchangeGithubTokenForCopilotContext(
+          explicitCopilotToken,
+        );
+        if (exchanged != null) {
+          return exchanged;
+        }
         return CopilotAuthContext(authToken: explicitCopilotToken);
       }
 
@@ -73,6 +85,12 @@ class CopilotChat {
       );
 
       if (copilotEntry.value != null && copilotEntry.value!.isNotEmpty) {
+        final exchanged = await _exchangeGithubTokenForCopilotContext(
+          copilotEntry.value!,
+        );
+        if (exchanged != null) {
+          return exchanged;
+        }
         return CopilotAuthContext(authToken: copilotEntry.value!);
       }
 
@@ -288,20 +306,23 @@ class CopilotChat {
       .toSet();
   }
 
-  String _selectChatPath(String model, {required bool hasTools}) {
+  String _selectChatPath(String model, {required bool wantsToolCalls}) {
     final supportedEndpoints = _modelSupportedEndpoints(model);
 
-    if (supportedEndpoints.isEmpty ||
-        supportedEndpoints.contains('/chat/completions')) {
+    if (supportedEndpoints.isEmpty) {
       return '/chat/completions';
     }
 
-    if (hasTools) {
+    if (wantsToolCalls && supportedEndpoints.contains('/chat/completions')) {
       return '/chat/completions';
     }
 
     if (supportedEndpoints.contains('/responses')) {
       return '/responses';
+    }
+
+    if (supportedEndpoints.contains('/chat/completions')) {
+      return '/chat/completions';
     }
 
     if (supportedEndpoints.contains('/messages')) {
@@ -433,12 +454,24 @@ class CopilotChat {
     ChatMode chatMode = ChatMode.ask,
     void Function(String)? onPartial,
   }) async {
-    final tools = chatMode == ChatMode.agent
+    var tools = chatMode == ChatMode.agent
         ? _agenticTools?.getTools() ?? []
         : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
     final apiEndpoint = await _resolveApiEndpoint();
-    final chatPath = _selectChatPath(model, hasTools: tools.isNotEmpty);
+    final chatPath = _selectChatPath(
+      model,
+      wantsToolCalls: tools.isNotEmpty,
+    );
+    if (chatPath != '/chat/completions' && tools.isNotEmpty) {
+      if (chatMode == ChatMode.agent) {
+        throw Exception(
+          'Selected Copilot model does not support agent tools on this endpoint. Choose a model that supports /chat/completions.',
+        );
+      }
+      // Tool calling is only implemented for /chat/completions payloads.
+      tools = [];
+    }
     final streamedOutput = StringBuffer();
 
     void pushPartial(String text) {

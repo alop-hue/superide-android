@@ -9075,6 +9075,35 @@ class _AIChatState extends State<AIChat> {
     return '${compact}x';
   }
 
+  String _normalizeCopilotEndpoint(String endpoint) {
+    var normalized = endpoint.trim().toLowerCase();
+    if (normalized.isEmpty) return normalized;
+    if (!normalized.startsWith('/')) {
+      normalized = '/$normalized';
+    }
+    if (normalized.startsWith('/v1/')) {
+      normalized = normalized.substring(3);
+    }
+    if (normalized.endsWith('/') && normalized.length > 1) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
+
+  Set<String> _copilotSupportedEndpoints(Map<String, dynamic> model) {
+    final raw = model['supported_endpoints'];
+    if (raw is! List) return const {};
+    return raw
+        .whereType<String>()
+        .map(_normalizeCopilotEndpoint)
+        .where((item) => item.isNotEmpty)
+        .toSet();
+  }
+
+  bool _copilotSupportsAgentMode(Map<String, dynamic> model) {
+    return _copilotSupportedEndpoints(model).contains('/chat/completions');
+  }
+
   Widget _buildModeSelector(Color textColor, bool isDark, ChatMode chatMode) {
     return Container(
       height: 32,
@@ -9146,11 +9175,18 @@ class _AIChatState extends State<AIChat> {
         final id = model['id'] as String?;
         final name = model['name'] as String?;
         if (id == null || name == null) continue;
+        final supportsAgent = _copilotSupportsAgentMode(model);
+        final rateLabel = _formatCopilotRate(model);
+        final capabilityLabel = supportsAgent ? null : 'Ask only';
+        final detailParts = <String>[
+          if (rateLabel != null && rateLabel.isNotEmpty) rateLabel,
+          if (capabilityLabel != null) capabilityLabel,
+        ];
         models.add(_ModelOption(
           id: id,
           name: name,
           provider: 'GitHub Copilot',
-          rateLabel: _formatCopilotRate(model),
+          rateLabel: detailParts.isEmpty ? null : detailParts.join(' | '),
           icon: SvgPicture.asset(
             'assets/icons/github-copilot-icon.svg',
             height: 14,
@@ -9219,7 +9255,7 @@ class _AIChatState extends State<AIChat> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (model.provider != null) ...[
+                  if (model.provider != null && !model.isCopilot) ...[
                     const SizedBox(width: 4),
                     Text(
                       '(${model.provider})',
@@ -9878,12 +9914,21 @@ class _AIChatState extends State<AIChat> {
 
     try {
       final messages = _buildChatHistory(currentList);
+      final chatMode = mounted
+          ? context.read<AIChatUIBloc>().state.chatMode
+          : ChatMode.ask;
+      if (chatMode == ChatMode.agent) {
+        messages.insert(0, {
+          'role': 'system',
+          'content': 'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
+        });
+      }
       messages.add({'role': 'user', 'content': prompt});
       copilotChatBloc.chatClient!.agenticTools = AgenticTools(workspacePath: workspacePath, context: context);
       final response = await copilotChatBloc.chatClient!.chatWithModel(
         model: modelId,
         messages: messages,
-        chatMode: mounted ? context.read<AIChatUIBloc>().state.chatMode : ChatMode.ask,
+        chatMode: chatMode,
         onPartial: (partial) {
           newList[index] = newList[index].copyWith(modelResponse: (newList[index].modelResponse ?? "") + partial);
           chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
@@ -10065,7 +10110,21 @@ class _AIChatState extends State<AIChat> {
                                         ? _stopGeneration
                                         : () async {
                                             final selectedModel = aiChatUIState.selectedModelId ?? '';
-                                            if (chatState.models.any((model) => model['id'] == selectedModel)) {
+                                            final selectedCopilotModel = chatState.models.firstWhere(
+                                              (model) => model['id'] == selectedModel,
+                                              orElse: () => const <String, dynamic>{},
+                                            );
+                                            if (selectedCopilotModel.isNotEmpty) {
+                                              if (aiChatUIState.chatMode == ChatMode.agent &&
+                                                  !_copilotSupportsAgentMode(selectedCopilotModel)) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Selected Copilot model supports Ask only. Choose a model with /chat/completions for Agent edits.'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                                return;
+                                              }
                                               _sendCopilotChatPrompt(
                                                 conversations,
                                                 sessionState.currentSession?.id,
