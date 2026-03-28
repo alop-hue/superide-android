@@ -386,7 +386,7 @@ int main() {
           const url = 'https://github.com/login/device';
           final uri = Uri.parse(url);
           try {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
           } catch (e) {
             debugPrint('Failed to launch URL: $e');
           }
@@ -892,7 +892,6 @@ int main() {
                 ),
                 const SizedBox(height: 12),
                 
-                // Description
                 Text(
                   'Your GitHub account does not have access to GitHub Copilot. Please ensure you have an active Copilot subscription.',
                   textAlign: TextAlign.center,
@@ -904,7 +903,6 @@ int main() {
                 ),
                 const SizedBox(height: 24),
                 
-                // Action button
                 SizedBox(
                   width: double.infinity,
                   height: 44,

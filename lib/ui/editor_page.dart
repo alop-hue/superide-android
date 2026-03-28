@@ -2978,65 +2978,65 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                       ],
                     ),
                     body: editorState.activeEditors.isNotEmpty
-                        ? TabBarView(
-                            controller: tabController,
-                            children: editorState.activeEditors.map((editor) => EditorArea(
-                                key: ValueKey(editor.file.path),
-                                editor: editor,
-                                appTheme: appTheme,
-                                workspacePath: widget.rootDir,
-                                tabController: tabController,
+                  ? TabBarView(
+                      controller: tabController,
+                      children: editorState.activeEditors.map((editor) => EditorArea(
+                          key: ValueKey(editor.file.path),
+                          editor: editor,
+                          appTheme: appTheme,
+                          workspacePath: widget.rootDir,
+                          tabController: tabController,
+                        ),
+                      ).toList(),
+                    )
+                  : SingleChildScrollView(
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 10),
+                            Text(
+                              "Open a file to Edit",
+                              style: TextStyle(
+                                color: appTheme.selectScreenCardTextColor,
+                                fontSize: 20,
                               ),
-                            ).toList(),
-                          )
-                        : SingleChildScrollView(
-                            child: Center(
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 15),
                               child: Column(
                                 children: [
-                                  const SizedBox(height: 10),
                                   Text(
-                                    "Open a file to Edit",
+                                    isRepoThere
+                                      ? "Version control (.git) found \u2713"
+                                      : "No version control (.git) found on this folder/project",
                                     style: TextStyle(
-                                      color: appTheme.selectScreenCardTextColor,
-                                      fontSize: 20,
+                                      color: Colors.grey[appTheme.isDark ? 500 : 600],
                                     ),
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 15),
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          isRepoThere
-                                            ? "Version control (.git) found \u2713"
-                                            : "No version control (.git) found on this folder/project",
-                                          style: TextStyle(
-                                            color: Colors.grey[appTheme.isDark ? 500 : 600],
-                                          ),
-                                        ),
-                                        if (!widget.isCloned)
-                                          Card(
-                                            child: Wrap(
-                                              children: [
-                                                Padding(
-                                                  padding:
-                                                    const EdgeInsets.only(left: 15,top: 8, bottom: 8),
-                                                  child: Text(
-                                                    "Note: This is a clone of the selected folder in Roxum's private directory. Modifications here will not affect the original folder.",
-                                                    style: TextStyle(
-                                                      color: Colors.grey[appTheme.isDark ? 500 : 600],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                  if (!widget.isCloned)
+                                    Card(
+                                      child: Wrap(
+                                        children: [
+                                          Padding(
+                                            padding:
+                                              const EdgeInsets.only(left: 15,top: 8, bottom: 8),
+                                            child: Text(
+                                              "Note: This is a clone of the selected folder in Roxum's private directory. Modifications here will not affect the original folder.",
+                                              style: TextStyle(
+                                                color: Colors.grey[appTheme.isDark ? 500 : 600],
+                                              ),
                                             ),
                                           ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
-                          ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },

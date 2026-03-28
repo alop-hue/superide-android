@@ -1538,6 +1538,85 @@ void runCode(BuildContext context, String command, String rootDir) {
   }
 }
 
+String _resolveLspServerPath(String serverPath) {
+  final normalized = serverPath
+      .replaceAll('\$extensionDir', extensionDir)
+      .replaceAll('\${extensionDir}', extensionDir);
+  if (path.isAbsolute(normalized)) return normalized;
+  return path.join(extensionDir, normalized);
+}
+
+bool isLspServerAvailable({
+  required String ext,
+  required String? executable,
+  required List<String> args,
+}) {
+  if (executable == null || executable.isEmpty) return false;
+  final executableExists = File(executable).existsSync();
+  if (!executableExists) return false;
+
+  final normalizedExt = ext.toLowerCase();
+
+  if (normalizedExt == 'js' || normalizedExt == 'ts') {
+    return File(
+      '$runtimesDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
+    ).existsSync();
+  }
+
+  if (normalizedExt == 'java') {
+    return File(
+      '$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar',
+    ).existsSync();
+  }
+
+  if (normalizedExt == 'c' ||
+      normalizedExt == 'cpp' ||
+      normalizedExt == 'cc' ||
+      normalizedExt == 'c++') {
+    return true;
+  }
+
+  String? serverFile;
+
+  if (['py', 'sh', 'bash', 'zsh'].contains(normalizedExt)) {
+    final matched = extensions.where(
+      (item) => item.fileExtension.contains(normalizedExt),
+    );
+    if (matched.isNotEmpty && matched.first.serverFile.isNotEmpty) {
+      serverFile = matched.first.serverFile.first;
+    }
+  } else if (normalizedExt == 'html') {
+    final matched = extensions.where(
+      (item) => item.fileExtension.any((ex) => ex == 'html'),
+    );
+    if (matched.isNotEmpty && matched.first.serverFile.isNotEmpty) {
+      serverFile = matched.first.serverFile[0];
+    }
+  } else if (normalizedExt == 'css') {
+    final matched = extensions.where(
+      (item) => item.fileExtension.any((ex) => ex == 'css'),
+    );
+    if (matched.isNotEmpty && matched.first.serverFile.length > 1) {
+      serverFile = matched.first.serverFile[1];
+    }
+  } else if (normalizedExt == 'json') {
+    final matched = extensions.where(
+      (item) => item.fileExtension.any((ex) => ex == 'json'),
+    );
+    if (matched.isNotEmpty && matched.first.serverFile.length > 2) {
+      serverFile = matched.first.serverFile[2];
+    }
+  }
+
+  if (serverFile != null && serverFile.isNotEmpty) {
+    final resolved = _resolveLspServerPath(serverFile);
+    return File(resolved).existsSync();
+  }
+
+  // For languages that don't require extension-based server scripts.
+  return true;
+}
+
 Future<LspConfig?> startLspServer({
   required String ext,
   required String? executable,

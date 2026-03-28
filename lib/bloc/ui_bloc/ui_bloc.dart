@@ -149,6 +149,10 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
     required List<String> args,
     LspClientCapabilities? capabilities,
   }) async {
+    if (!isLspServerAvailable(ext: ext, executable: executable, args: args)) {
+      return null;
+    }
+
     final key = buildLspCacheKey(
       workspacePath: rootDir,
       languageId: languageId,
