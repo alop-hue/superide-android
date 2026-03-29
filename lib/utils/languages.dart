@@ -909,6 +909,7 @@ List<Language> languages = [
   langjulia,
   langlisp,
   langverilog,
+  langH
 ];
 
 final List<RunTime> runtimes = [];

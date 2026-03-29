@@ -365,14 +365,46 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     return isPreviewFilePath(editor.file.path);
   }
 
-  IconData _iconForEditorFile(File file) {
-    if (isImageFilePath(file.path) || isSvgFilePath(file.path)) {
-      return Icons.image;
+  Widget _buildTabIconForEditor(ActiveEditor editor, AppTheme appTheme) {
+    if (isImageFilePath(editor.file.path) || isSvgFilePath(editor.file.path)) {
+      return Icon(
+        Icons.image,
+        size: 16,
+        color: appTheme.isDark
+            ? const Color(0xffc0c0c0)
+            : const Color(0xff4b4b4b),
+      );
     }
-    if (isPdfFilePath(file.path)) {
-      return Icons.picture_as_pdf;
+
+    if (isPdfFilePath(editor.file.path)) {
+      return Icon(
+        Icons.picture_as_pdf,
+        size: 16,
+        color: appTheme.isDark
+            ? const Color(0xffc0c0c0)
+            : const Color(0xff4b4b4b),
+      );
     }
-    return Icons.insert_drive_file;
+
+    final icon = editor.languageDetails.icon;
+    if (icon is Widget) {
+      return SizedBox(
+        height: 16,
+        width: 16,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: icon,
+        ),
+      );
+    }
+
+    return Icon(
+      Icons.insert_drive_file,
+      size: 16,
+      color: appTheme.isDark
+          ? const Color(0xffc0c0c0)
+          : const Color(0xff4b4b4b),
+    );
   }
 
   Future<ActiveEditor> _buildEditorForFile(File file) async {
@@ -396,7 +428,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       orElse: () => languages[0],
     );
 
-    final activeEditorBloc = context.read<ActiveEditorBloc>();
+    final activeEditorBloc = _activeEditorBloc;
     final codeForgeConfig = context.read<ConfigBloc>().state.codeForgeConfig;
     LspConfig? lspConfig;
 
@@ -448,7 +480,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       mruOrder.insert(0, existingIndex);
 
       if (!actionContext.mounted) return;
-      actionContext.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+      _activeEditorBloc.add(ActiveEditorEvent(currentState));
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -475,7 +507,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     mruOrder.insert(0, currentState.length - 1);
 
     if (!actionContext.mounted) return;
-    actionContext.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+    _activeEditorBloc.add(ActiveEditorEvent(currentState));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -627,7 +659,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
 
     try {
       final searchState = context.read<WorkspaceSearchBloc>().state;
-      final editorState = context.read<ActiveEditorBloc>().state;
+      final editorState = _activeEditorBloc.state;
 
       if (searchState.query.isEmpty) return;
       if (editorState.activeEditors.isEmpty) return;
@@ -2709,14 +2741,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                     height: 32,
                                     child: Row(
                                       children: [
-                                        Icon(
-                                          _iconForEditorFile(
-                                            editorState.activeEditors[index].file,
-                                          ),
-                                          size: 16,
-                                          color: appTheme.isDark
-                                              ? const Color(0xffc0c0c0)
-                                              : const Color(0xff4b4b4b),
+                                        _buildTabIconForEditor(
+                                          editorState.activeEditors[index],
+                                          appTheme,
                                         ),
                                         Padding(
                                           padding: const EdgeInsets.only(
