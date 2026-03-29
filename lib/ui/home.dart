@@ -31,53 +31,69 @@ class SelectType extends StatefulWidget {
   State<SelectType> createState() => _SelectTypeState();
 }
 
-class _SelectTypeState extends State<SelectType> {
+class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
   final createFileController = TextEditingController();
   final _createFileKey = GlobalKey<FormState>();
   final _cloneRepoKey = GlobalKey<FormState>();
   bool _didShowPackageUpdateToast = false;
+  bool _checkingPendingSharedFile = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _openPendingSharedFile();
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_openPendingSharedFile());
+    }
+  }
+
   Future<void> _openPendingSharedFile() async {
-    final pendingFiles = await NativeChannel.consumePendingOpenFiles();
-    if (!mounted || pendingFiles.isEmpty) return;
+    if (_checkingPendingSharedFile) return;
+    _checkingPendingSharedFile = true;
 
-    final imported = File(pendingFiles.first);
-    if (!imported.existsSync()) return;
+    try {
+      final pendingFiles = await NativeChannel.consumePendingOpenFiles();
+      if (!mounted || pendingFiles.isEmpty) return;
 
-    final language = languages.firstWhere(
-      (item) => item.extension.contains(
-        path.extension(imported.path).replaceFirst('.', ''),
-      ),
-      orElse: () => languages[0],
-    );
+      final imported = File(pendingFiles.first);
+      if (!imported.existsSync()) return;
 
-    if (!mounted) return;
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
-          languageDetails: language,
-          rootDir: imported.parent.path,
-          file: imported,
-          isProject: false,
+      final language = languages.firstWhere(
+        (item) => item.extension.contains(
+          path.extension(imported.path).replaceFirst('.', ''),
         ),
-        transitionsBuilder: (
-          context,
-          animation,
-          secondaryAnimation,
-          child,
-        ) {
-          return SizeTransition(sizeFactor: animation, child: child);
-        },
-      ),
-    );
+        orElse: () => languages[0],
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
+            languageDetails: language,
+            rootDir: imported.parent.path,
+            file: imported,
+            isProject: false,
+          ),
+          transitionsBuilder: (
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+          ) {
+            return SizeTransition(sizeFactor: animation, child: child);
+          },
+        ),
+      );
+    } finally {
+      _checkingPendingSharedFile = false;
+    }
   }
 
   Map<String, dynamic>? _normalizeRecentEntry(dynamic rawEntry) {
@@ -103,6 +119,7 @@ class _SelectTypeState extends State<SelectType> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     createFileController.dispose();
     super.dispose();
   }

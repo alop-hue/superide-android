@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -359,6 +361,192 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     return language.name;
   }
 
+  bool _isPreviewEditor(ActiveEditor editor) {
+    return isPreviewFilePath(editor.file.path);
+  }
+
+  IconData _iconForEditorFile(File file) {
+    if (isImageFilePath(file.path) || isSvgFilePath(file.path)) {
+      return Icons.image;
+    }
+    if (isPdfFilePath(file.path)) {
+      return Icons.picture_as_pdf;
+    }
+    return Icons.insert_drive_file;
+  }
+
+  Future<ActiveEditor> _buildEditorForFile(File file) async {
+    if (isPreviewFilePath(file.path)) {
+      final previewController = CodeForgeController()..readOnly = true;
+      return ActiveEditor(
+        controller: previewController,
+        undoRedoController: UndoRedoController(),
+        file: file,
+        isActive: true,
+        languageDetails: languages[0],
+        hscroll: ScrollController(),
+        vscroll: ScrollController(),
+      );
+    }
+
+    final lang = languages.firstWhere(
+      (language) => language.extension.contains(
+        path.extension(file.path).replaceFirst('.', ''),
+      ),
+      orElse: () => languages[0],
+    );
+
+    final activeEditorBloc = context.read<ActiveEditorBloc>();
+    final codeForgeConfig = context.read<ConfigBloc>().state.codeForgeConfig;
+    LspConfig? lspConfig;
+
+    if (codeForgeConfig['enableLSP']) {
+      lspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
+        languageId: _lspLanguageIdForPath(lang, file.path),
+        ext: lang.extension[0],
+        executable: lang.lspExecutable,
+        args: lang.args ?? [],
+        capabilities: _getLspCapabilities(
+          codeForgeConfig,
+          lang.name.toLowerCase(),
+        ),
+      );
+    }
+
+    final newController = CodeForgeController(lspConfig: lspConfig);
+    await _applyPendingAgenticDiffForFile(newController, file.path);
+
+    return ActiveEditor(
+      controller: newController,
+      undoRedoController: UndoRedoController(),
+      file: file,
+      isActive: true,
+      languageDetails: lang,
+      findController: FindController(newController),
+      hscroll: ScrollController(),
+      vscroll: ScrollController(),
+    );
+  }
+
+  Future<void> _openFileInTabs({
+    required BuildContext actionContext,
+    required List<ActiveEditor> currentState,
+    required File file,
+    int? lineNumber,
+    String searchQuery = '',
+  }) async {
+    final canonicalPath = file.absolute.path;
+    final existingIndex = currentState.indexWhere(
+      (editor) => File(editor.file.path).absolute.path == canonicalPath,
+    );
+
+    if (existingIndex >= 0) {
+      for (int i = 0; i < currentState.length; i++) {
+        currentState[i].isActive = i == existingIndex;
+      }
+      mruOrder.remove(existingIndex);
+      mruOrder.insert(0, existingIndex);
+
+      if (!actionContext.mounted) return;
+      actionContext.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (tabController != null && existingIndex < tabController!.length) {
+          tabController!.animateTo(existingIndex);
+        }
+        if (searchQuery.isNotEmpty && lineNumber != null) {
+          final existingEditor = currentState[existingIndex];
+          if (existingEditor.findController != null) {
+            _goToMatchNearLine(existingEditor, lineNumber, searchQuery);
+          }
+        }
+        _applyWorkspaceSearchToActiveEditor();
+      });
+      return;
+    }
+
+    for (final editor in currentState) {
+      editor.isActive = false;
+    }
+
+    final newEditor = await _buildEditorForFile(file);
+    currentState.add(newEditor);
+    mruOrder.insert(0, currentState.length - 1);
+
+    if (!actionContext.mounted) return;
+    actionContext.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final newIndex = currentState.indexWhere((item) => item.isActive == true);
+      if (tabController != null && newIndex >= 0 && newIndex < tabController!.length) {
+        tabController!.animateTo(newIndex);
+      }
+
+      if (searchQuery.isNotEmpty && lineNumber != null && newEditor.findController != null) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+          _goToMatchNearLine(newEditor, lineNumber, searchQuery);
+        });
+      }
+
+      _applyWorkspaceSearchToActiveEditor();
+    });
+  }
+
+  Widget _buildImagePreviewPane(ActiveEditor editor, AppTheme appTheme) {
+    return Container(
+      color: appTheme.editorPageDrawerBg,
+      alignment: Alignment.center,
+      child: InteractiveViewer(
+        minScale: 0.2,
+        maxScale: 8,
+        child: Image.file(
+          editor.file,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.broken_image_outlined, size: 44),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Failed to load image preview',
+                    style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSvgPreviewPane(ActiveEditor editor, AppTheme appTheme) {
+    return _SvgPreviewPane(file: editor.file, appTheme: appTheme);
+  }
+
+  Widget _buildPreviewPane(ActiveEditor editor, AppTheme appTheme) {
+    if (isImageFilePath(editor.file.path)) {
+      return _buildImagePreviewPane(editor, appTheme);
+    }
+
+    if (isSvgFilePath(editor.file.path)) {
+      return _buildSvgPreviewPane(editor, appTheme);
+    }
+
+    if (isPdfFilePath(editor.file.path)) {
+      return _PdfPreviewPane(filePath: editor.file.path, appTheme: appTheme);
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -593,6 +781,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   }
 
   bool _isTrackableEditor(ActiveEditor editor) {
+    if (_isPreviewEditor(editor)) {
+      return false;
+    }
     if (editor.customTitle?.contains('(Working Tree)') == true) {
       return false;
     }
@@ -1137,6 +1328,22 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       );
     }
 
+    if (_isPreviewEditor(activeEditor)) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Diagnostics are not available for image/SVG/PDF preview tabs.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: appTheme.editorPageToolColor,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
     final diagnostics = activeEditor.controller.diagnostics;
     final errors = diagnostics.where((diag) => diag.severity == 1).toList();
     final warnings = diagnostics.where((diag) => diag.severity == 2).toList();
@@ -1426,7 +1633,9 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
           }
           prefs.setString('recent', jsonEncode(uniqueData));
         })(),
-        uiBloc.state.codeForgeConfig['enableLSP'] && !widget.isProject
+        uiBloc.state.codeForgeConfig['enableLSP'] &&
+            !widget.isProject &&
+            !(widget.file != null && isPreviewFilePath(widget.file!.path))
             ? (() async {
                 final initialPath =
                     widget.file?.path ??
@@ -1573,19 +1782,25 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
           if (widget.isProject) {
             _activeEditorBloc.add(OpenRecentActiveEditor());
           } else {
+            final isPreviewInitial = isPreviewFilePath(target!.path);
             final initialController = CodeForgeController(lspConfig: lspConfig);
-            _applyPendingAgenticDiffForFile(initialController, target!.path);
+            if (isPreviewInitial) {
+              initialController.readOnly = true;
+            } else {
+              _applyPendingAgenticDiffForFile(initialController, target.path);
+            }
             final initialUndoController = UndoRedoController();
-            final initialFindController = FindController(initialController);
             _activeEditorBloc.add(
               ActiveEditorEvent([
                 ActiveEditor(
                   file: target,
                   controller: initialController,
-                  languageDetails: widget.languageDetails!,
+                  languageDetails: widget.languageDetails ?? languages[0],
                   undoRedoController: initialUndoController,
                   isActive: true,
-                  findController: initialFindController,
+                  findController: isPreviewInitial
+                      ? null
+                      : FindController(initialController),
                   hscroll: ScrollController(),
                   vscroll: ScrollController(),
                 ),
@@ -2010,11 +2225,31 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                 ),
                                               ),
                                               fileIconBuilder: (ext) {
+                                                final normalizedExt = ext
+                                                        .toLowerCase()
+                                                        .startsWith('.')
+                                                    ? ext.toLowerCase()
+                                                    : '.${ext.toLowerCase()}';
+                                                if (isImageFilePath('preview$normalizedExt') ||
+                                                    isSvgFilePath('preview$normalizedExt')) {
+                                                  return const Icon(
+                                                    Icons.image,
+                                                    color: Colors.green,
+                                                    size: 20,
+                                                  );
+                                                }
+                                                if (normalizedExt == '.pdf') {
+                                                  return const Icon(
+                                                    Icons.picture_as_pdf,
+                                                    color: Colors.red,
+                                                    size: 20,
+                                                  );
+                                                }
                                                 return SizedBox(
                                                   height: 25,
                                                   width: 25,
                                                   child:languages.firstWhere(
-                                                    (lang) => lang.extension.contains(ext.replaceFirst(".", "")),
+                                                    (lang) => lang.extension.contains(normalizedExt.replaceFirst('.', '')),
                                                     orElse: () => languages[0]).icon ?? langtxt.icon,
                                                 );
                                               },
@@ -2075,85 +2310,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                 ),
                                               ),
                                               onFileTap: (f) async {
-                                                final List<ActiveEditor>
-                                                currentState = List.from(
-                                                  editorState.activeEditors,
-                                                );
-                                                final canonicalPath =
-                                                    File(f.path).absolute.path;
-                                                final existingIndex =
-                                                    currentState.indexWhere(
-                                                      (editor) =>File(editor.file.path).absolute.path ==canonicalPath);
-
-                                                if (existingIndex >= 0) {
-                                                  for (int i = 0; i < currentState.length; i++) {
-                                                    currentState[i].isActive = i == existingIndex;
-                                                  }
-                                                  if (context.mounted) {
-                                                    context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState),);
-                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                      if (tabController != null && existingIndex < tabController!.length) {
-                                                        tabController!.animateTo(existingIndex);
-                                                      }
-                                                    });
-                                                  }
-                                                  return;
-                                                }
-
-                                                for (ActiveEditor item
-                                                    in currentState) {
-                                                  item.isActive = false;
-                                                }
-                                                final lang = languages.firstWhere((language) => language.extension.contains(
-                                                  path.extension(f.path,).replaceFirst(".","")),
-                                                  orElse: () => languages[0]);
-                                                final bloc = context
-                                                    .read<ActiveEditorBloc>();
-                                                final languageId =
-                                                    _lspLanguageIdForPath(
-                                                      lang,
-                                                      f.path,
+                                                final currentState =
+                                                    List<ActiveEditor>.from(
+                                                      editorState.activeEditors,
                                                     );
-                                                LspConfig? lspConfig;
-                                                if (uiBloc.state.codeForgeConfig['enableLSP']) {
-                                                  lspConfig = await bloc.getOrStartSharedLspConfig(
-                                                    languageId: languageId,
-                                                    ext: lang.extension[0],
-                                                    executable: lang.lspExecutable,
-                                                    args: lang.args ?? [],
-                                                    capabilities: _getLspCapabilities(
-                                                      uiBloc.state.codeForgeConfig,
-                                                      lang.name.toLowerCase(),
-                                                    ),
-                                                  );
-                                                }
-                                                final newController = CodeForgeController(lspConfig: lspConfig);
-                                                _applyPendingAgenticDiffForFile(newController, f.path);
-                                                final newHscroll = ScrollController();
-                                                final newVscroll = ScrollController();
-                                                currentState.add(
-                                                  ActiveEditor(
-                                                    controller: newController,
-                                                    undoRedoController: UndoRedoController(),
-                                                    file: f,
-                                                    isActive: true,
-                                                    languageDetails: lang,
-                                                    findController: FindController(newController,),
-                                                    hscroll: newHscroll,
-                                                    vscroll: newVscroll,
-                                                  ),
+                                                await _openFileInTabs(
+                                                  actionContext: context,
+                                                  currentState: currentState,
+                                                  file: f,
                                                 );
-                                                mruOrder.insert(0, currentState.length - 1);
-                                                if (context.mounted) {
-                                                  context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState),);
-                                                  WidgetsBinding.instance .addPostFrameCallback((_) {
-                                                    final newIndex = currentState.indexWhere((item) => item.isActive ==true);
-                                                    if (tabController != null && tabController! .length > newIndex && newIndex >= 0) {
-                                                      tabController!.animateTo(newIndex,);
-                                                    }
-                                                    _applyWorkspaceSearchToActiveEditor();
-                                                  });
-                                                }
                                               },
                                             ),
                                           ],
@@ -2169,131 +2334,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       tabController: tabController,
                                       workspacePath: widget.rootDir,
                                       onFileOpen: (file, lineNumber, searchQuery) async {
-                                        final List<ActiveEditor> currentState =
-                                            List.from(
+                                        final currentState =
+                                            List<ActiveEditor>.from(
                                               editorState.activeEditors,
                                             );
-                                        final canonicalPath = File(file.path).absolute.path;
-                                        final existingIndex = currentState.indexWhere(
-                                          (editor) => File(editor.file.path).absolute.path == canonicalPath,
+                                        await _openFileInTabs(
+                                          actionContext: context,
+                                          currentState: currentState,
+                                          file: file,
+                                          lineNumber: lineNumber,
+                                          searchQuery: searchQuery,
                                         );
-
-                                        if (existingIndex >= 0) {
-                                          for (int i = 0; i < currentState.length; i++) {
-                                            currentState[i].isActive = i == existingIndex;
-                                          }
-                                          context.read<ActiveEditorBloc>().add(
-                                            ActiveEditorEvent(currentState),
-                                          );
-                                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                                            if (tabController != null && existingIndex < tabController!.length) {
-                                              tabController!.animateTo(existingIndex);
-                                            }
-                                            final editor = currentState[existingIndex];
-                                            if (editor.findController != null && searchQuery.isNotEmpty) {
-                                              _goToMatchNearLine(
-                                                editor,
-                                                lineNumber,
-                                                searchQuery,
-                                              );
-                                            }
-                                          });
-                                        } else {
-                                          for (ActiveEditor item
-                                              in currentState) {
-                                            item.isActive = false;
-                                          }
-                                          final lang = languages.firstWhere(
-                                            (language) =>
-                                                language.extension.contains(
-                                                  path
-                                                      .extension(file.path)
-                                                      .replaceFirst(".", ""),
-                                                ),
-                                            orElse: () => languages[0],
-                                          );
-                                          final bloc = context
-                                              .read<ActiveEditorBloc>();
-                                          final languageId =
-                                              _lspLanguageIdForPath(
-                                                lang,
-                                                file.path,
-                                              );
-                                          LspConfig? newLspConfig;
-                                          if (uiBloc.state.codeForgeConfig['enableLSP']) {
-                                            newLspConfig = await bloc.getOrStartSharedLspConfig(
-                                              languageId: languageId,
-                                              ext: lang.extension[0],
-                                              executable: lang.lspExecutable,
-                                              args: lang.args ?? [],
-                                              capabilities:_getLspCapabilities(
-                                                uiBloc.state.codeForgeConfig,
-                                                lang.name.toLowerCase(),
-                                              ),
-                                            );
-                                          }
-                                          final newController =
-                                              CodeForgeController(
-                                                lspConfig: newLspConfig,
-                                              );
-                                          _applyPendingAgenticDiffForFile(
-                                            newController,
-                                            file.path,
-                                          );
-                                          final newFindController =
-                                              FindController(newController);
-                                          final newHscroll = ScrollController();
-                                          final newVscroll = ScrollController();
-                                          currentState.add(
-                                            ActiveEditor(
-                                              controller: newController,
-                                              undoRedoController:
-                                                  UndoRedoController(),
-                                              file: file,
-                                              isActive: true,
-                                              languageDetails: lang,
-                                              findController: newFindController,
-                                              hscroll: newHscroll,
-                                              vscroll: newVscroll,
-                                            ),
-                                          );
-                                          mruOrder.insert(
-                                            0,
-                                            currentState.length - 1,
-                                          );
-                                          if (context.mounted) {
-                                            context
-                                                .read<ActiveEditorBloc>()
-                                                .add(
-                                                  ActiveEditorEvent(
-                                                    currentState,
-                                                  ),
-                                                );
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                              final newIndex = currentState.indexWhere(
-                                                (item) => item.isActive == true);
-                                              if (tabController != null && tabController!.length > newIndex && newIndex >= 0) {
-                                                tabController!.animateTo(
-                                                  newIndex,
-                                                );
-                                              }
-                                              if (searchQuery.isNotEmpty) {
-                                                Future.delayed(
-                                                  const Duration(
-                                                    milliseconds: 100,
-                                                  ),
-                                                  () {
-                                                    _goToMatchNearLine(
-                                                      currentState.last,
-                                                      lineNumber,
-                                                      searchQuery,
-                                                    );
-                                                  },
-                                                );
-                                              }
-                                            });
-                                          }
-                                        }
                                       },
                                     ),
                                     BlocBuilder<DiagnosticsTickBloc, int>(
@@ -2658,6 +2709,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                     height: 32,
                                     child: Row(
                                       children: [
+                                        Icon(
+                                          _iconForEditorFile(
+                                            editorState.activeEditors[index].file,
+                                          ),
+                                          size: 16,
+                                          color: appTheme.isDark
+                                              ? const Color(0xffc0c0c0)
+                                              : const Color(0xff4b4b4b),
+                                        ),
                                         Padding(
                                           padding: const EdgeInsets.only(
                                             left: 8,
@@ -2869,6 +2929,16 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               return;
                             }
 
+                            if (isPreviewFilePath(filePath.path) && context.mounted) {
+                              final message = isPdfFilePath(filePath.path)
+                                  ? 'PDF files can be previewed but are not executable.'
+                                  : 'Image/SVG files can be previewed but are not executable.';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(message)),
+                              );
+                              return;
+                            }
+
                             final String extention = path.extension(
                               filePath.path,
                             );
@@ -2980,14 +3050,18 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                     body: editorState.activeEditors.isNotEmpty
                   ? TabBarView(
                       controller: tabController,
-                      children: editorState.activeEditors.map((editor) => EditorArea(
+                      children: editorState.activeEditors.map((editor) {
+                        if (_isPreviewEditor(editor)) {
+                          return _buildPreviewPane(editor, appTheme);
+                        }
+                        return EditorArea(
                           key: ValueKey(editor.file.path),
                           editor: editor,
                           appTheme: appTheme,
                           workspacePath: widget.rootDir,
                           tabController: tabController,
-                        ),
-                      ).toList(),
+                        );
+                      }).toList(),
                     )
                   : SingleChildScrollView(
                       child: Center(
@@ -3044,6 +3118,241 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
           ),
         );
       },
+    );
+  }
+}
+
+class _PdfPreviewPane extends StatefulWidget {
+  final String filePath;
+  final AppTheme appTheme;
+
+  const _PdfPreviewPane({
+    required this.filePath,
+    required this.appTheme,
+  });
+
+  @override
+  State<_PdfPreviewPane> createState() => _PdfPreviewPaneState();
+}
+
+class _SvgPreviewPane extends StatefulWidget {
+  final File file;
+  final AppTheme appTheme;
+
+  const _SvgPreviewPane({
+    required this.file,
+    required this.appTheme,
+  });
+
+  @override
+  State<_SvgPreviewPane> createState() => _SvgPreviewPaneState();
+}
+
+class _SvgPreviewPaneState extends State<_SvgPreviewPane> {
+  late Future<String> _svgTextFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _svgTextFuture = _loadSvgText();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SvgPreviewPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.path != widget.file.path) {
+      _svgTextFuture = _loadSvgText();
+    }
+  }
+
+  bool _isGzipData(Uint8List data) {
+    return data.length >= 2 && data[0] == 0x1f && data[1] == 0x8b;
+  }
+
+  Future<String> _loadSvgText() async {
+    if (!await widget.file.exists()) {
+      throw Exception('SVG file not found.');
+    }
+
+    final bytes = await widget.file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw Exception('SVG file is empty.');
+    }
+
+    final ext = path.extension(widget.file.path).toLowerCase();
+    final shouldDecompress = ext == '.svgz' || _isGzipData(bytes);
+
+    final rawBytes = shouldDecompress
+        ? Uint8List.fromList(gzip.decode(bytes))
+        : bytes;
+
+    final svgText = utf8.decode(rawBytes, allowMalformed: true);
+    if (svgText.trim().isEmpty) {
+      throw Exception('SVG content is empty.');
+    }
+    return svgText;
+  }
+
+  Widget _buildError(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.broken_image_outlined, size: 44),
+          const SizedBox(height: 10),
+          Text(
+            'Failed to load SVG preview',
+            style: TextStyle(
+              color: widget.appTheme.selectScreenCardTextColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: widget.appTheme.editorPageDrawerBg,
+      alignment: Alignment.center,
+      child: FutureBuilder<String>(
+        future: _svgTextFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              width: 42,
+              height: 42,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return _buildError(snapshot.error.toString());
+          }
+
+          final svgText = snapshot.data;
+          if (svgText == null || svgText.trim().isEmpty) {
+            return _buildError('No SVG data available.');
+          }
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : 480.0;
+              final maxHeight = constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : 640.0;
+
+              final viewWidth = maxWidth > 240 ? maxWidth * 0.92 : maxWidth;
+              final viewHeight =
+                  maxHeight > 240 ? maxHeight * 0.92 : maxHeight;
+
+              return InteractiveViewer(
+                minScale: 0.2,
+                maxScale: 8,
+                child: SizedBox(
+                  width: viewWidth > 0 ? viewWidth : 320,
+                  height: viewHeight > 0 ? viewHeight : 320,
+                  child: SvgPicture.string(
+                    svgText,
+                    fit: BoxFit.contain,
+                    allowDrawingOutsideViewBox: true,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PdfPreviewPaneState extends State<_PdfPreviewPane> {
+  bool _isReady = false;
+  String? _errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!File(widget.filePath).existsSync()) {
+      return Center(
+        child: Text(
+          'PDF file not found.',
+          style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.picture_as_pdf_outlined, size: 44),
+              const SizedBox(height: 8),
+              Text(
+                'Failed to load PDF preview',
+                style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[500]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        PDFView(
+          key: ValueKey(widget.filePath),
+          filePath: widget.filePath,
+          enableSwipe: true,
+          swipeHorizontal: false,
+          autoSpacing: true,
+          pageFling: true,
+          fitPolicy: FitPolicy.BOTH,
+          onRender: (_) {
+            if (!mounted) return;
+            setState(() {
+              _isReady = true;
+            });
+          },
+          onError: (error) {
+            if (!mounted) return;
+            setState(() {
+              _errorMessage = error.toString();
+              _isReady = true;
+            });
+          },
+          onPageError: (page, error) {
+            if (!mounted) return;
+            setState(() {
+              _errorMessage = 'Page $page: $error';
+              _isReady = true;
+            });
+          },
+        ),
+        if (!_isReady)
+          const Center(
+            child: CircularProgressIndicator(),
+          ),
+      ],
     );
   }
 }

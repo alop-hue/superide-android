@@ -4144,7 +4144,7 @@ $diffText
     try {
       final stagedOnly = repoState.staged.isNotEmpty;
       final diffText = await _loadCommitDiffContext(stagedOnly: stagedOnly);
-      if (diffText.isEmpty) {
+      if (diffText.isEmpty && context.mounted) {
         _showErrorSnackBar(context, 'Could not gather changes for commit message generation');
         return;
       }
@@ -4167,7 +4167,7 @@ $diffText
         generated = await _tryGenerateWithExternalModels(externalModels, prompt);
       }
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       if (generated == null || generated.isEmpty) {
         _showErrorSnackBar(context, 'No working AI model could generate a commit message');

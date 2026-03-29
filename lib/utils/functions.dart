@@ -16,6 +16,50 @@ import '../terminal/terminal.dart';
 import '../utils/constants.dart';
 import '../utils/languages.dart';
 
+const Set<String> supportedImageExtensions = {
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.bmp',
+  '.wbmp',
+  '.ico',
+  '.tif',
+  '.tiff',
+  '.heic',
+  '.heif',
+  '.avif',
+};
+
+const Set<String> supportedSvgExtensions = {
+  '.svg',
+  '.svgz',
+};
+
+bool isImageFilePath(String filePath) {
+  return supportedImageExtensions.contains(
+    path.extension(filePath).toLowerCase(),
+  );
+}
+
+bool isPdfFilePath(String filePath) {
+  return path.extension(filePath).toLowerCase() == '.pdf';
+}
+
+bool isSvgFilePath(String filePath) {
+  return supportedSvgExtensions.contains(
+    path.extension(filePath).toLowerCase(),
+  );
+}
+
+bool isPreviewFilePath(String filePath) {
+  return
+      isImageFilePath(filePath) ||
+      isSvgFilePath(filePath) ||
+      isPdfFilePath(filePath);
+}
+
 Future<Directory> setupProjectDir() async {
   final target = Directory(projectDir);
   if (!target.existsSync()) {

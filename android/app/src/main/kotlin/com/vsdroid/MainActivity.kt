@@ -5,8 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.annotation.NonNull
 import androidx.documentfile.provider.DocumentFile
+import io.endigo.plugins.pdfviewflutter.PDFViewFlutterPlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -14,6 +16,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
 
+    private val TAG = "MainActivity"
     private val CORE_CHANNEL = "com.roxum"
     private val SAF_CHANNEL = "roxum/saf"
     private val PICK_DIR_REQUEST = 9001
@@ -34,6 +37,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        ensurePdfViewPluginRegistered(flutterEngine)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -83,6 +87,16 @@ class MainActivity : FlutterActivity() {
 
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun ensurePdfViewPluginRegistered(flutterEngine: FlutterEngine) {
+        try {
+            if (!flutterEngine.plugins.has(PDFViewFlutterPlugin::class.java)) {
+                flutterEngine.plugins.add(PDFViewFlutterPlugin())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register flutter_pdfview plugin", e)
         }
     }
 

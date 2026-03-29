@@ -198,30 +198,39 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
       for (final editorJson in list) {
         final lang = languages.singleWhere((lang) => lang.name == editorJson["lang"]);
         final filePath = editorJson["file"]?.toString() ?? '';
-        final fileExt = path.extension(filePath).toLowerCase().replaceFirst('.', '');
-        final languageId = (fileExt == 'tsx' || fileExt == 'jsx') ? fileExt : lang.name;
-        final key = buildLspCacheKey(
-          workspacePath: rootDir,
-          languageId: languageId,
-        );
+        final isPreviewFile = filePath.isNotEmpty && isPreviewFilePath(filePath);
         LspConfig? lspConfig;
-        if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
-          _lspConfigs[key] = await getOrStartSharedLspConfig(
+        if (!isPreviewFile) {
+          final fileExt =
+              path.extension(filePath).toLowerCase().replaceFirst('.', '');
+          final languageId =
+              (fileExt == 'tsx' || fileExt == 'jsx') ? fileExt : lang.name;
+          final key = buildLspCacheKey(
+            workspacePath: rootDir,
             languageId: languageId,
-            ext: lang.extension[0],
-            executable: lang.lspExecutable,
-            args: lang.args ?? [],
           );
+          if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
+            _lspConfigs[key] = await getOrStartSharedLspConfig(
+              languageId: languageId,
+              ext: lang.extension[0],
+              executable: lang.lspExecutable,
+              args: lang.args ?? [],
+            );
+          }
+          lspConfig = _lspConfigs[key];
         }
-        lspConfig = _lspConfigs[key];
         final controller = CodeForgeController(lspConfig: lspConfig)
-          ..text = editorJson["text"];
+          ..text = isPreviewFile ? '' : editorJson["text"];
+        if (isPreviewFile) {
+          controller.readOnly = true;
+        }
 
-        // Re-apply persisted agentic diff decorations for restored editors.
-        final canonicalPath = File(editorJson["file"]).absolute.path;
-        final pendingEdit = await PendingEditFile.getForFile(canonicalPath);
-        if (pendingEdit != null && pendingEdit.editHunks.isNotEmpty) {
-          pendingEdit.applyDecorations(controller);
+        if (!isPreviewFile) {
+          final canonicalPath = File(editorJson["file"]).absolute.path;
+          final pendingEdit = await PendingEditFile.getForFile(canonicalPath);
+          if (pendingEdit != null && pendingEdit.editHunks.isNotEmpty) {
+            pendingEdit.applyDecorations(controller);
+          }
         }
 
         final editor = ActiveEditor(
@@ -229,7 +238,7 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
           controller: controller,
           languageDetails: lang,
           undoRedoController: UndoRedoController(),
-          findController: FindController(controller),
+          findController: isPreviewFile ? null : FindController(controller),
           hscroll: ScrollController(initialScrollOffset: editorJson["hscroll"] ?? 0.0),
           vscroll: ScrollController(initialScrollOffset: editorJson["vscroll"] ?? 0.0),
           isActive: editorJson["isActive"],

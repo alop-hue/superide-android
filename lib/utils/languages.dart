@@ -392,6 +392,17 @@ final langc = Language(
   type: 'compiled',
   lspExecutable: "/data/data/com.roxum/bin/ccls",
 );
+
+final langH = Language(
+  name: 'C/C++ header file',
+  extension: ['h', 'hpp'],
+  details: "C/C++ header file",
+  language: builtinAllLanguages['c'],
+  helloWorld: "",
+  lspExecutable: "/data/data/com.roxum/bin/ccls",
+  icon: SvgPicture.asset('assets/material_icons/h.svg',height: 35,width: 35),
+);
+
 final langcpp = Language(
   name: 'C++',
   extension: ['cpp','c++','cc'],
