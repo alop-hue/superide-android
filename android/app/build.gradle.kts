@@ -25,7 +25,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -37,6 +37,10 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -55,10 +59,20 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            excludes += setOf("**/armeabi-v7a/**", "**/x86_64/**")
+        }
+    }
+
+    dynamicFeatures.addAll(setOf(":app:node_feature", ":app:python_feature"))
 }
 
 dependencies {
     implementation("androidx.documentfile:documentfile:1.0.1")  // For DocumentFile and SAF support
+    implementation("com.google.android.play:feature-delivery:2.1.0")
 }
 
 

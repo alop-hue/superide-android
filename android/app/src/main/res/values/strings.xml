@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="node_feature_title">Node Feature</string>
+    <string name="python_feature_title">Python Feature</string>
+    <!-- <string name="ruby_feature_title">Ruby Feature</string> -->
+    <string name="title_java_feature">Java Feature</string>
+    <string name="title_clang_feature">Clang Feature</string>
+</resources>

@@ -99,11 +99,14 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'ruby', 'kotlinc',
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc',
       'git'
     ];
 
     final symlinks = [
+      {'src': '$sharedPath/libz.so', 'dst': '$libDir/libz.so.1'},
+      {'src': '$sharedPath/libncursesw.so', 'dst': '$libDir/libncursesw.so.6'},
+      {'src': '$sharedPath/libcrypto.so', 'dst': '$libDir/libcrypto.so.3'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/bash'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/sh'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-https'},
@@ -151,24 +154,6 @@ class _StartScreenState extends State<StartScreen> {
       Directory(certDir).createSync(recursive: true);
       final certBytes = await rootBundle.load('assets/certificates/cacert.pem');
       File('$certDir/cacert.pem').writeAsBytesSync(certBytes.buffer.asUint8List());
-    }
-
-    if (!File('$libDir/libcrypto.so.3').existsSync()) {
-      libDirectory.createSync(recursive: true);
-      final bytes = await rootBundle.load('assets/lib/libcrypto.so.3');
-      File('$libDir/libcrypto.so.3').writeAsBytesSync(bytes.buffer.asUint8List());
-    }
-    
-    if (!File('$libDir/libz.so.1').existsSync()) {
-      libDirectory.createSync(recursive: true);
-      final bytes = await rootBundle.load('assets/lib/libz.so.1');
-      File('$libDir/libz.so.1').writeAsBytesSync(bytes.buffer.asUint8List());
-    }
-    
-    if (!File('$libDir/libncursesw.so.6').existsSync()) {
-      libDirectory.createSync(recursive: true);
-      final bytes = await rootBundle.load('assets/lib/libncursesw.so.6');
-      File('$libDir/libncursesw.so.6').writeAsBytesSync(bytes.buffer.asUint8List());
     }
 
     setState(() {

@@ -568,7 +568,7 @@ final langruby = Language(
   details: 'Dynamic language, often used with the Rails framework.',
   language: builtinAllLanguages['ruby'],
   helloWorld: 'puts "Hello, World!"',
-  command: 'ruby',
+  // command: 'ruby',
   icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35),
   type: 'compiled(no binary)'
 );

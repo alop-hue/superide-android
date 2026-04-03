@@ -15,4 +15,7 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <!-- Workaround for PlayCore transparent overlay service theme required by Play Core dependency -->
+    <style name="Theme.PlayCore.Transparent" parent="@android:style/Theme.Translucent.NoTitleBar" />
 </resources>

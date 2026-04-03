@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +10,20 @@ import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
 
+class _PfdRuntimeConfig {
+  final String moduleName;
+  final String assetArchiveName;
+  final double weight;
+  final String displayName;
+
+  const _PfdRuntimeConfig({
+    required this.moduleName,
+    required this.assetArchiveName,
+    required this.weight,
+    required this.displayName,
+  });
+}
+
 class DownloadManager extends StatefulWidget {
   const DownloadManager({super.key});
 
@@ -19,7 +34,106 @@ class DownloadManager extends StatefulWidget {
 class _DownloadManagerState extends State<DownloadManager> {
   final Set<int> loadingIndexes = {};
   late final AppThemeState appThemeState;
+  StreamSubscription<Map<String, dynamic>>? _pfdSubscription;
   bool _isOnDownloadPage = true;
+  static const Map<String, _PfdRuntimeConfig> _pfdRuntimes = {
+    'node': _PfdRuntimeConfig(
+      moduleName: 'node_feature',
+      assetArchiveName: 'node.zip',
+      weight: 80.0,
+      displayName: 'Node',
+    ),
+    'python': _PfdRuntimeConfig(
+      moduleName: 'python_feature',
+      assetArchiveName: 'python.zip',
+      weight: 80.0,
+      displayName: 'Python',
+    ),
+  };
+  static const List<String> _pythonDynloadModules = [
+    'array.cpython-313-aarch64-linux-android.so',
+    '_asyncio.cpython-313-aarch64-linux-android.so',
+    'binascii.cpython-313-aarch64-linux-android.so',
+    '_bisect.cpython-313-aarch64-linux-android.so',
+    '_blake2.cpython-313-aarch64-linux-android.so',
+    '_bz2.cpython-313-aarch64-linux-android.so',
+    'cmath.cpython-313-aarch64-linux-android.so',
+    '_codecs_cn.cpython-313-aarch64-linux-android.so',
+    '_codecs_hk.cpython-313-aarch64-linux-android.so',
+    '_codecs_iso2022.cpython-313-aarch64-linux-android.so',
+    '_codecs_jp.cpython-313-aarch64-linux-android.so',
+    '_codecs_kr.cpython-313-aarch64-linux-android.so',
+    '_codecs_tw.cpython-313-aarch64-linux-android.so',
+    '_contextvars.cpython-313-aarch64-linux-android.so',
+    '_csv.cpython-313-aarch64-linux-android.so',
+    '_ctypes.cpython-313-aarch64-linux-android.so',
+    '_ctypes_test.cpython-313-aarch64-linux-android.so',
+    '_datetime.cpython-313-aarch64-linux-android.so',
+    '_decimal.cpython-313-aarch64-linux-android.so',
+    '_elementtree.cpython-313-aarch64-linux-android.so',
+    'fcntl.cpython-313-aarch64-linux-android.so',
+    '_hashlib.cpython-313-aarch64-linux-android.so',
+    '_heapq.cpython-313-aarch64-linux-android.so',
+    '_interpchannels.cpython-313-aarch64-linux-android.so',
+    '_interpqueues.cpython-313-aarch64-linux-android.so',
+    '_interpreters.cpython-313-aarch64-linux-android.so',
+    '_json.cpython-313-aarch64-linux-android.so',
+    '_lsprof.cpython-313-aarch64-linux-android.so',
+    '_lzma.cpython-313-aarch64-linux-android.so',
+    'math.cpython-313-aarch64-linux-android.so',
+    '_md5.cpython-313-aarch64-linux-android.so',
+    'mmap.cpython-313-aarch64-linux-android.so',
+    '_multibytecodec.cpython-313-aarch64-linux-android.so',
+    '_opcode.cpython-313-aarch64-linux-android.so',
+    '_pickle.cpython-313-aarch64-linux-android.so',
+    '_posixsubprocess.cpython-313-aarch64-linux-android.so',
+    'pyexpat.cpython-313-aarch64-linux-android.so',
+    '_queue.cpython-313-aarch64-linux-android.so',
+    '_random.cpython-313-aarch64-linux-android.so',
+    'resource.cpython-313-aarch64-linux-android.so',
+    'select.cpython-313-aarch64-linux-android.so',
+    '_sha1.cpython-313-aarch64-linux-android.so',
+    '_sha2.cpython-313-aarch64-linux-android.so',
+    '_sha3.cpython-313-aarch64-linux-android.so',
+    '_socket.cpython-313-aarch64-linux-android.so',
+    '_sqlite3.cpython-313-aarch64-linux-android.so',
+    '_ssl.cpython-313-aarch64-linux-android.so',
+    '_statistics.cpython-313-aarch64-linux-android.so',
+    '_struct.cpython-313-aarch64-linux-android.so',
+    'syslog.cpython-313-aarch64-linux-android.so',
+    'termios.cpython-313-aarch64-linux-android.so',
+    '_testbuffer.cpython-313-aarch64-linux-android.so',
+    '_testcapi.cpython-313-aarch64-linux-android.so',
+    '_testclinic.cpython-313-aarch64-linux-android.so',
+    '_testclinic_limited.cpython-313-aarch64-linux-android.so',
+    '_testexternalinspection.cpython-313-aarch64-linux-android.so',
+    '_testimportmultiple.cpython-313-aarch64-linux-android.so',
+    '_testinternalcapi.cpython-313-aarch64-linux-android.so',
+    '_testlimitedcapi.cpython-313-aarch64-linux-android.so',
+    '_testmultiphase.cpython-313-aarch64-linux-android.so',
+    '_testsinglephase.cpython-313-aarch64-linux-android.so',
+    'unicodedata.cpython-313-aarch64-linux-android.so',
+    'xxlimited_35.cpython-313-aarch64-linux-android.so',
+    'xxlimited.cpython-313-aarch64-linux-android.so',
+    'xxsubtype.cpython-313-aarch64-linux-android.so',
+    '_xxtestfuzz.cpython-313-aarch64-linux-android.so',
+    'zlib.cpython-313-aarch64-linux-android.so',
+    '_zoneinfo.cpython-313-aarch64-linux-android.so',
+  ];
+  static const Map<String, String> _pythonLibSymlinkMap = {
+    'libcrypto.so': 'libcrypto_python.so',
+    'libsqlite3.so': 'libsqlite3_python.so',
+    'libssl.so': 'libssl_python.so',
+  };
+  static const List<String> _pythonEnginesModules = [
+    'afalg.so',
+    'capi.so',
+    'loader_attic.so',
+    'padlock.so',
+  ];
+  static const List<String> _pythonOsslModules = [
+    'legacy.so',
+  ];
   final List<_ComingSoonRuntimeItem> _comingSoonRuntimes = [
     _ComingSoonRuntimeItem(
       name: 'Rust Runtime',
@@ -63,18 +177,94 @@ class _DownloadManagerState extends State<DownloadManager> {
   @override
   void dispose() {
     _isOnDownloadPage = false;
+    _pfdSubscription?.cancel();
     super.dispose();
   }
 
-  void _startDownload(BuildContext context, int index, String url, String archiveName, String targetDir, bool isExtension) {
+  _PfdRuntimeConfig? _runtimePfdConfig(
+    String? runtimeParentName, {
+    required bool isExtension,
+  }) {
+    if (isExtension || !Platform.isAndroid || runtimeParentName == null) {
+      return null;
+    }
+    return _pfdRuntimes[runtimeParentName.toLowerCase()];
+  }
+
+  Future<void> _startDownload(
+    BuildContext context,
+    int index,
+    String url,
+    String archiveName,
+    String targetDir,
+    bool isExtension, {
+    String? runtimeParentName,
+  }) async {
     final downloadBloc = context.read<DownloadManagerBloc>();
-    
+
     setState(() {
       loadingIndexes.add(index);
     });
 
-    final archivePath = "$targetDir/$archiveName";
+    final pfdConfig = _runtimePfdConfig(
+      runtimeParentName,
+      isExtension: isExtension,
+    );
+
+    if (pfdConfig != null) {
+      final pfdOk = await _ensurePfdFeatureInstalled(
+        context,
+        index,
+        downloadBloc,
+        config: pfdConfig,
+      );
+      if (!pfdOk) {
+        if (mounted) {
+          setState(() {
+            loadingIndexes.remove(index);
+          });
+        }
+        downloadBloc.clearProgress(index);
+        return;
+      }
+    }
+
+    final archivePath = pfdConfig != null
+        ? "$tempDir/${pfdConfig.assetArchiveName}"
+        : "$targetDir/$archiveName";
     final extractDir = isExtension ? extensionDir : runtimesDir;
+
+    if (pfdConfig != null && context.mounted) {
+      final staged = await _stageRuntimeArchiveFromPfd(
+        context: context,
+        config: pfdConfig,
+        archivePath: archivePath,
+      );
+      if (!staged) {
+        if (mounted) {
+          setState(() {
+            loadingIndexes.remove(index);
+          });
+        }
+        downloadBloc.clearProgress(index);
+        return;
+      }
+
+      await _startExtraction(
+        downloadBloc,
+        index,
+        archivePath,
+        extractDir,
+        archiveName,
+        runtimeParentName: runtimeParentName,
+      );
+      if (mounted) {
+        setState(() {
+          loadingIndexes.remove(index);
+        });
+      }
+      return;
+    }
 
     FileDownloader.downloadFile(
       url: url,
@@ -82,7 +272,10 @@ class _DownloadManagerState extends State<DownloadManager> {
       downloadDestination: DownloadDestinations.appFiles,
       notificationType: NotificationType.all,
       onProgress: (fileName, progress) {
-        downloadBloc.updateProgress(index, progress);
+        final mergedProgress = pfdConfig != null
+          ? _mergeProgress(pfdConfig.weight, progress)
+            : progress;
+        downloadBloc.updateProgress(index, mergedProgress);
         
         if (mounted && _isOnDownloadPage) {
           setState(() {
@@ -113,7 +306,14 @@ class _DownloadManagerState extends State<DownloadManager> {
         
         
         if (progress >= 100.0 && !downloadBloc.state.isExtracting(index) && !downloadBloc.state.isFullyCompleted(index)) {
-          _startExtraction(downloadBloc, index, archivePath, extractDir, archiveName);
+          _startExtraction(
+            downloadBloc,
+            index,
+            archivePath,
+            extractDir,
+            archiveName,
+            runtimeParentName: runtimeParentName,
+          );
         }
       },
       onDownloadCompleted: (path) async {
@@ -139,7 +339,128 @@ class _DownloadManagerState extends State<DownloadManager> {
     );
   }
 
-  Future<void> _startExtraction(DownloadManagerBloc downloadBloc, int index, String archivePath, String extractDir, String archiveName) async {
+  Future<bool> _stageRuntimeArchiveFromPfd({
+    required BuildContext context,
+    required _PfdRuntimeConfig config,
+    required String archivePath,
+  }) async {
+    try {
+      await NativeChannel.copyModuleAssetToPath(
+        moduleName: config.moduleName,
+        assetName: config.assetArchiveName,
+        targetPath: archivePath,
+      );
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to stage ${config.displayName.toLowerCase()} runtime bundle: $e',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  double _mergeProgress(double basePercent, double secondStagePercent) {
+    final clamped = secondStagePercent.clamp(0.0, 100.0);
+    return basePercent + (clamped * ((100.0 - basePercent) / 100.0));
+  }
+
+  Future<bool> _ensurePfdFeatureInstalled(
+    BuildContext context,
+    int index,
+    DownloadManagerBloc downloadBloc,
+    {
+    required _PfdRuntimeConfig config,
+    }
+  ) async {
+    final alreadyInstalled = await NativeChannel.isModuleInstalled(config.moduleName);
+    if (alreadyInstalled) {
+      downloadBloc.updateProgress(index, config.weight);
+      return true;
+    }
+
+    final completer = Completer<bool>();
+    await _pfdSubscription?.cancel();
+    _pfdSubscription = NativeChannel.moduleInstallEvents().listen(
+      (event) {
+        final moduleName = event['moduleName']?.toString();
+        if (moduleName != config.moduleName) return;
+
+        final status = event['status']?.toString().toLowerCase() ?? 'unknown';
+        final dynamic progressValue = event['progress'];
+        final double pfdProgress = progressValue is num ? progressValue.toDouble() : 0.0;
+        downloadBloc.updateProgress(
+          index,
+          _mergeProgress(0.0, pfdProgress) * (config.weight / 100.0),
+        );
+
+        if (status == 'installed') {
+          downloadBloc.updateProgress(index, config.weight);
+          if (!completer.isCompleted) {
+            completer.complete(true);
+          }
+          return;
+        }
+
+        if (status == 'failed' || status == 'canceled') {
+          if (!completer.isCompleted) {
+            completer.complete(false);
+          }
+        }
+      },
+      onError: (_) {
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+      },
+    );
+
+    try {
+      await NativeChannel.installModule(config.moduleName);
+      final ok = await completer.future.timeout(
+        const Duration(minutes: 3),
+        onTimeout: () => false,
+      );
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to download ${config.displayName.toLowerCase()} feature module',
+            ),
+          ),
+        );
+      }
+      return ok;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${config.displayName} feature install error: $e',
+            ),
+          ),
+        );
+      }
+      return false;
+    } finally {
+      await _pfdSubscription?.cancel();
+      _pfdSubscription = null;
+    }
+  }
+
+  Future<void> _startExtraction(
+    DownloadManagerBloc downloadBloc,
+    int index,
+    String archivePath,
+    String extractDir,
+    String archiveName, {
+    String? runtimeParentName,
+  }) async {
     downloadBloc.startExtracting(index);
     
     try {
@@ -162,6 +483,10 @@ class _DownloadManagerState extends State<DownloadManager> {
         final String sharedPath = await NativeChannel.getLibraryPath();
         await Process.run("ln", ["-sf", "$sharedPath/librg.so", "$extensionDir/copilot-language-server/bin/linux/arm64/rg"]);
       }
+
+      if (runtimeParentName?.toLowerCase() == 'python') {
+        await _createPythonRuntimeSymlinks();
+      }
       
       downloadBloc.markFullyCompleted(index);
     } catch (e) {
@@ -171,6 +496,74 @@ class _DownloadManagerState extends State<DownloadManager> {
       if (mounted) {
         await context.read<PackageCatalogCubit>().refreshInstalledStatusOnly();
       }
+    }
+  }
+
+  Future<void> _createPythonRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final pythonLibDir = Directory('$runtimesDir/python/lib');
+    final dynloadDir = Directory('$runtimesDir/python/lib/python3.13/lib-dynload');
+    final enginesDir = Directory('$runtimesDir/python/lib/engines-3');
+    final osslModulesDir = Directory('$runtimesDir/python/lib/ossl-modules');
+
+    if (!await pythonLibDir.exists() || !await dynloadDir.exists()) {
+      return;
+    }
+
+    if (!await enginesDir.exists()) {
+      await enginesDir.create(recursive: true);
+    }
+
+    if (!await osslModulesDir.exists()) {
+      await osslModulesDir.create(recursive: true);
+    }
+
+    for (final moduleFile in _pythonDynloadModules) {
+      await _ensureSymlink(
+        linkPath: '${dynloadDir.path}/$moduleFile',
+        targetPath: '$sharedPath/$moduleFile',
+      );
+    }
+
+    for (final entry in _pythonLibSymlinkMap.entries) {
+      await _ensureSymlink(
+        linkPath: '${pythonLibDir.path}/${entry.key}',
+        targetPath: '$sharedPath/${entry.value}',
+      );
+    }
+
+    for (final moduleFile in _pythonEnginesModules) {
+      await _ensureSymlink(
+        linkPath: '${enginesDir.path}/$moduleFile',
+        targetPath: '$sharedPath/$moduleFile',
+      );
+    }
+
+    for (final moduleFile in _pythonOsslModules) {
+      await _ensureSymlink(
+        linkPath: '${osslModulesDir.path}/$moduleFile',
+        targetPath: '$sharedPath/$moduleFile',
+      );
+    }
+  }
+
+  Future<void> _ensureSymlink({
+    required String linkPath,
+    required String targetPath,
+  }) async {
+    try {
+      final existingType = await FileSystemEntity.type(linkPath, followLinks: false);
+      if (existingType == FileSystemEntityType.file) {
+        await File(linkPath).delete();
+      } else if (existingType == FileSystemEntityType.link) {
+        await Link(linkPath).delete();
+      } else if (existingType == FileSystemEntityType.directory) {
+        await Directory(linkPath).delete(recursive: true);
+      }
+
+      await Link(linkPath).create(targetPath, recursive: true);
+    } catch (e) {
+      debugPrint('Failed to create symlink $linkPath -> $targetPath: $e');
     }
   }
 
@@ -368,17 +761,24 @@ class _DownloadManagerState extends State<DownloadManager> {
                               
                               final isExtracting = downloadState.isExtracting(index);
                               final extractionPercent = downloadState.extractionProgress[index] ?? 0;
+                              final runtimePfdConfig = _runtimePfdConfig(
+                                runtime.parentName,
+                                isExtension: false,
+                              );
+                              final displayExtractionPercent = runtimePfdConfig != null
+                                  ? _mergeProgress(runtimePfdConfig.weight, extractionPercent)
+                                  : extractionPercent;
                               
                               
                               if (isExtracting) {
-                                if (extractionPercent > 0.0 && extractionPercent < 100.0) {
+                                if (displayExtractionPercent > 0.0 && displayExtractionPercent < 100.0) {
                                   return LinearPercentIndicator(
                                     progressColor: Colors.greenAccent.withAlpha(180),
-                                    percent: (extractionPercent / 100).clamp(0.0, 1.0),
+                                    percent: (displayExtractionPercent / 100).clamp(0.0, 1.0),
                                     width: 95,
                                     lineHeight: 40,
                                     barRadius: Radius.circular(20),
-                                    center: Text("${(extractionPercent).toStringAsFixed(0)}%",
+                                    center: Text("${(displayExtractionPercent).toStringAsFixed(0)}%",
                                       style: const TextStyle(fontSize: 12)),
                                   );
                                 } else {
@@ -429,6 +829,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                       runtimeItems[index].archiveName,
                                       downloadsDir,
                                       false,
+                                      runtimeParentName: runtimeItems[index].parentName,
                                     );
                                   },
                                   icon: Icon(Icons.system_update, color: Colors.orange),
@@ -469,6 +870,11 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               }
                                               if(parentDir.existsSync()){
                                                 parentDir.deleteSync(recursive: true);
+                                              }
+                                              if (runtimePfdConfig != null) {
+                                                NativeChannel.uninstallModule(
+                                                  runtimePfdConfig.moduleName,
+                                                );
                                               }
                                               context.read<DownloadManagerBloc>().removeDownload(index);
                                               setState(() {
@@ -527,6 +933,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                     runtimeItems[index].archiveName,
                                     downloadsDir,
                                     false, 
+                                    runtimeParentName: runtimeItems[index].parentName,
                                   );
                                 },
                                 child: LinearPercentIndicator(

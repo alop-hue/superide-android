@@ -431,14 +431,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'PROMPT_DIRTRIM': '2',
       'ROXUM_SHARED_PATH': _sharedPath,
-      'LD_LIBRARY_PATH':
-          '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
+      'LD_LIBRARY_PATH': '$_sharedPath:$runtimesDir/ruby:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$_sharedPath/libc++_shared.so',
       'PREFIX': '/data/data/com.roxum',
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
-      'TERMINFO': '$runtimesDir/mono/terminfo',
     };
 
     final process = Pty.start(

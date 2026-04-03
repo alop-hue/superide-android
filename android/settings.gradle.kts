@@ -24,3 +24,7 @@ plugins {
 }
 
 include(":app")
+include(":app:node_feature")
+project(":app:node_feature").projectDir = file("app/src/node_feature")
+include(":app:python_feature")
+project(":app:python_feature").projectDir = file("app/src/python_feature")
