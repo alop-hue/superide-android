@@ -2,6 +2,15 @@
 <resources>
     <string name="node_feature_title">Node Feature</string>
     <string name="python_feature_title">Python Feature</string>
+    <string name="java_feature_title">Java Feature</string>
+    <string name="kotlin_feature_title">Kotlin Feature</string>
+    <string name="clang_feature_title">Clang Feature</string>
+    <string name="dart_feature_title">Dart Feature</string>
+    <string name="basedpyright_feature_title">Based-Pyright Feature</string>
+    <string name="bash_language_server_feature_title">Bash Language Server Feature</string>
+    <string name="copilot_language_server_feature_title">GitHub Copilot Feature</string>
+    <string name="jdt_ls_feature_title">JDT-LS Feature</string>
+    <string name="vscode_langservers_extracted_feature_title">VSCode Langservers Extracted Feature</string>
     <!-- <string name="ruby_feature_title">Ruby Feature</string> -->
     <string name="title_java_feature">Java Feature</string>
     <string name="title_clang_feature">Clang Feature</string>

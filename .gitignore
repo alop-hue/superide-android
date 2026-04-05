@@ -52,3 +52,4 @@ app.*.map.json
 bundletool-all-*.jar
 app.apks
 .metadata
+app-debug.apks

@@ -371,17 +371,23 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   bool _isUpdatingGhostText = false;
   bool _awaitingManualCopilotCompletion = false;
 
+  void _bindControllerToFile() {
+    final controller = widget.codeController;
+    final targetPath = widget.filePath.path;
+
+    if (controller.openedFile != targetPath) {
+      controller.openedFile = targetPath;
+      controller.notifyListeners();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     final controller = widget.codeController;
     try {
-      if (controller.text.isEmpty && widget.filePath.existsSync()) {
-        controller.openedFile = widget.filePath.path;
-        controller.notifyListeners();
-      }
-    } catch (_) {
-    }
+      _bindControllerToFile();
+    } catch (_) {}
     final generalState = context.read<GeneralBloc>().state;
     final configState = context.read<ConfigBloc>().state;
     
@@ -410,6 +416,17 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
         });
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant CodeEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.filePath.path != widget.filePath.path ||
+        oldWidget.codeController != widget.codeController) {
+      try {
+        _bindControllerToFile();
+      } catch (_) {}
+    }
   }
 
   void _setupCopilotListener() {
@@ -1001,11 +1018,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   Timer? _pendingRefreshTimer;
 
   String _lspLanguageIdForPath(Language lang, String filePath) {
-    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
-    if (ext == 'tsx' || ext == 'jsx') {
-      return ext;
-    }
-    return lang.name;
+    return lspLanguageIdForFile(language: lang, filePath: filePath);
   }
 
   @override
@@ -1316,12 +1329,6 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     final sctrl = ScrollController();
     super.build(context);
     final codeForgeConfig = context.watch<ConfigBloc>().state.codeForgeConfig;
-    final activeEditorBloc = context.watch<ActiveEditorBloc>();
-    final lspLanguageId = _lspLanguageIdForPath(language, file.path);
-    final lspCacheKey = ActiveEditorBloc.buildLspCacheKey(
-      workspacePath: widget.workspacePath,
-      languageId: lspLanguageId,
-    );
     final lspExt = language.extension.isNotEmpty
         ? language.extension[0]
         : path.extension(file.path).replaceFirst('.', '');
@@ -1330,9 +1337,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
       executable: language.lspExecutable,
       args: language.args ?? const [],
     );
-    final workspaceLspConfig = activeEditorBloc.sharedLspConfigs[lspCacheKey];
-    final isWorkspaceLspRunning =
-        workspaceLspConfig != null && workspaceLspConfig == controller.lspConfig;
+    final isWorkspaceLspRunning = controller.lspConfig != null;
     final lspEnabled = (codeForgeConfig['enableLSP'] ?? false) == true;
     final lspFeatureToggle = Map<String, dynamic>.from(
       codeForgeConfig['LSPFeatureToggle'] ?? {},

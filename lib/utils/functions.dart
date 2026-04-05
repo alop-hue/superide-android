@@ -1590,6 +1590,60 @@ String _resolveLspServerPath(String serverPath) {
   return path.join(extensionDir, normalized);
 }
 
+String lspLanguageIdForExtension({
+  required String ext,
+  required String fallbackLanguageName,
+}) {
+  final normalizedExt = ext.toLowerCase().replaceFirst('.', '');
+
+  switch (normalizedExt) {
+    case 'c':
+      return 'c';
+    case 'cc':
+    case 'cpp':
+    case 'cxx':
+    case 'c++':
+    case 'h':
+    case 'hh':
+    case 'hpp':
+    case 'hxx':
+    case 'h++':
+      return 'cpp';
+    case 'js':
+    case 'mjs':
+    case 'cjs':
+      return 'javascript';
+    case 'jsx':
+      return 'javascriptreact';
+    case 'ts':
+      return 'typescript';
+    case 'tsx':
+      return 'typescriptreact';
+    case 'py':
+    case 'pyi':
+      return 'python';
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return 'shellscript';
+    default:
+      break;
+  }
+
+  return fallbackLanguageName.trim().toLowerCase();
+}
+
+String lspLanguageIdForFile({
+  required Language language,
+  required String filePath,
+}) {
+  final ext = path.extension(filePath);
+  return lspLanguageIdForExtension(
+    ext: ext,
+    fallbackLanguageName: language.name,
+  );
+}
+
 bool isLspServerAvailable({
   required String ext,
   required String? executable,
@@ -1600,6 +1654,11 @@ bool isLspServerAvailable({
   if (!executableExists) return false;
 
   final normalizedExt = ext.toLowerCase();
+
+  if (normalizedExt == 'dart') {
+    return File('$runtimesDir/dart/bin/dart').existsSync() ||
+        File('$binDir/dart').existsSync();
+  }
 
   if (normalizedExt == 'js' || normalizedExt == 'ts') {
     return File(
@@ -1657,7 +1716,6 @@ bool isLspServerAvailable({
     return File(resolved).existsSync();
   }
 
-  // For languages that don't require extension-based server scripts.
   return true;
 }
 
@@ -1674,6 +1732,12 @@ Future<LspConfig?> startLspServer({
   try {
     final String sharedPath = await NativeChannel.getLibraryPath();
     final String runtimeDir = runtimesDir;
+    final String normalizedExt = ext.toLowerCase();
+    final String dartRuntimeDir = '$runtimeDir/dart';
+    final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
+    final String resolvedExecutable = normalizedExt == 'dart'
+        ? dartRuntimeExecutable
+        : executable;
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
@@ -1716,47 +1780,98 @@ Future<LspConfig?> startLspServer({
       return args;
     }
 
+    final resolvedArgs = (() {
+      if (normalizedExt == 'ts' || normalizedExt == 'js') {
+        return [
+          "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+          ...args,
+        ];
+      } else if (normalizedExt == 'c' ||
+          normalizedExt == 'cpp' ||
+          normalizedExt == 'cc' ||
+          normalizedExt == 'c++' ||
+          normalizedExt == 'h' ||
+          normalizedExt == 'hpp' ||
+          normalizedExt == 'hh' ||
+          normalizedExt == 'hxx') {
+        return [
+          '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
+        ];
+      } else if (normalizedExt == 'dart') {
+        return [
+          "language-server",
+          "--protocol=lsp",
+          "--sdk=$dartRuntimeDir",
+        ];
+      } else if (normalizedExt == 'java') {
+        return [
+          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
+          "-Dosgi.bundles.defaultStartLevel=4",
+          "-Declipse.product=org.eclipse.jdt.ls.core.product",
+          "-Dlog.level=ALL",
+          "-Xmx1G",
+          "--add-modules=ALL-SYSTEM",
+          "--add-opens=java.base/java.util=ALL-UNNAMED",
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          "-jar",
+          "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
+          "-configuration",
+          "$extensionDir/JDT-LS/config_linux_arm",
+          "-data",
+          workspacePath,
+          ...args,
+        ];
+      }
+      return resolveServerArgs(ext, args);
+    })();
+
+    final resolvedEnvironment = {
+      ...environment ?? {},
+      'PATH': '$binDir:$runtimeDir/dart/bin:/bin:/usr/bin:${Platform.environment['PATH'] ?? ''}',
+      'ROXUM_SHARED_PATH': sharedPath,
+      'LD_LIBRARY_PATH': '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+      if (normalizedExt == 'dart') 'DART_ROOT': dartRuntimeDir,
+      'JAVA_HOME': '$runtimeDir/java-21-openjdk',
+    };
+
+    if (normalizedExt == 'dart') {
+      try {
+        final config = await LspStdioConfig.start(
+          executable: resolvedExecutable,
+          capabilities: capabilities ?? const LspClientCapabilities(),
+          args: resolvedArgs,
+          environment: resolvedEnvironment,
+          workspacePath: workspacePath,
+          languageId: langId.toLowerCase(),
+        );
+        debugPrint('Dart LSP started with runtime executable: $resolvedExecutable');
+        return config;
+      } catch (primaryError) {
+        debugPrint(
+          'Primary Dart LSP startup failed with $resolvedExecutable: $primaryError',
+        );
+        final fallbackExecutable = '$binDir/dart';
+        final fallbackConfig = await LspStdioConfig.start(
+          executable: fallbackExecutable,
+          capabilities: capabilities ?? const LspClientCapabilities(),
+          args: const [
+            'language-server',
+            '--protocol=lsp',
+          ],
+          environment: resolvedEnvironment,
+          workspacePath: workspacePath,
+          languageId: langId.toLowerCase(),
+        );
+        debugPrint('Dart LSP started with fallback executable: $fallbackExecutable');
+        return fallbackConfig;
+      }
+    }
+
     final config = await LspStdioConfig.start(
-      executable: executable,
+      executable: resolvedExecutable,
       capabilities: capabilities ?? const LspClientCapabilities(),
-      args: (() {
-        if (ext == 'ts' || ext == 'js') {
-          return [
-            "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
-            ...args,
-          ];
-        } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
-          return [
-            '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
-          ];
-        } else if (ext == 'java') {
-          return [
-            "-Declipse.application=org.eclipse.jdt.ls.core.id1",
-            "-Dosgi.bundles.defaultStartLevel=4",
-            "-Declipse.product=org.eclipse.jdt.ls.core.product",
-            "-Dlog.level=ALL",
-            "-Xmx1G",
-            "--add-modules=ALL-SYSTEM",
-            "--add-opens=java.base/java.util=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-            "-jar",
-            "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
-            "-configuration",
-            "$extensionDir/JDT-LS/config_linux_arm",
-            "-data",
-            workspacePath,
-            ...args,
-          ];
-        }
-        return resolveServerArgs(ext, args);
-      })(),
-      environment: {
-        ...environment ?? {},
-        'ROXUM_SHARED_PATH': sharedPath,
-        'LD_LIBRARY_PATH':
-            '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
-        'JAVA_HOME': '$runtimeDir/java-21-openjdk',
-      },
+      args: resolvedArgs,
+      environment: resolvedEnvironment,
       workspacePath: workspacePath,
       languageId: langId.toLowerCase(),
     );

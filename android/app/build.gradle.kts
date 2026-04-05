@@ -67,7 +67,21 @@ android {
         }
     }
 
-    dynamicFeatures.addAll(setOf(":app:node_feature", ":app:python_feature"))
+    dynamicFeatures.addAll(
+        setOf(
+            ":app:node_feature",
+            ":app:python_feature",
+            ":app:java_feature",
+            ":app:kotlin_feature",
+            ":app:clang_feature",
+            ":app:dart_feature",
+            ":app:basedpyright_feature",
+            ":app:bash_language_server_feature",
+            ":app:copilot_language_server_feature",
+            ":app:jdt_ls_feature",
+            ":app:vscode_langservers_extracted_feature",
+        )
+    )
 }
 
 dependencies {

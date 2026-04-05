@@ -22,7 +22,6 @@ const List<String> javaTools = [
   'jdeps',
   'jfr',
   'jhsdb',
-  'jimage',
   'jinfo',
   'jlink',
   'jmap',
@@ -99,7 +98,7 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc',
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc', 'dart',
       'git'
     ];
 
@@ -107,6 +106,8 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libz.so', 'dst': '$libDir/libz.so.1'},
       {'src': '$sharedPath/libncursesw.so', 'dst': '$libDir/libncursesw.so.6'},
       {'src': '$sharedPath/libcrypto.so', 'dst': '$libDir/libcrypto.so.3'},
+      {'src': '$sharedPath/libzstd.so', 'dst': '$libDir/libzstd.so.1'},
+      {'src': '$sharedPath/libxml2.so', 'dst': '$libDir/libxml2.so.16'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/bash'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/sh'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-https'},
@@ -150,6 +151,8 @@ class _StartScreenState extends State<StartScreen> {
       });
     }
 
+    await _refreshDartRuntimeSymlinks(sharedPath);
+
     if (!File('$certDir/cacert.pem').existsSync()) {
       Directory(certDir).createSync(recursive: true);
       final certBytes = await rootBundle.load('assets/certificates/cacert.pem');
@@ -170,6 +173,56 @@ class _StartScreenState extends State<StartScreen> {
         ));
       }
     });
+  }
+
+  Future<void> _refreshDartRuntimeSymlinks(String sharedPath) async {
+    final dartBinDir = Directory('$runtimesDir/dart/bin');
+    if (!await dartBinDir.exists()) {
+      return;
+    }
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dart',
+      targetPath: '$sharedPath/libdart.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dartvm',
+      targetPath: '$sharedPath/libdartvm.so',
+    );
+
+    final aotIntermediate = '${dartBinDir.path}/libdart.so';
+    await _ensureSymlink(
+      linkPath: aotIntermediate,
+      targetPath: '$sharedPath/libdartaotruntime.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dartaotruntime',
+      targetPath: aotIntermediate,
+    );
+  }
+
+  Future<void> _ensureSymlink({
+    required String linkPath,
+    required String targetPath,
+  }) async {
+    try {
+      final existingType = await FileSystemEntity.type(
+        linkPath,
+        followLinks: false,
+      );
+
+      if (existingType == FileSystemEntityType.file) {
+        await File(linkPath).delete();
+      } else if (existingType == FileSystemEntityType.link) {
+        await Link(linkPath).delete();
+      } else if (existingType == FileSystemEntityType.directory) {
+        await Directory(linkPath).delete(recursive: true);
+      }
+
+      await Link(linkPath).create(targetPath, recursive: true);
+    } catch (_) {}
   }
 
   @override

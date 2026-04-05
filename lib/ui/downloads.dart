@@ -49,6 +49,68 @@ class _DownloadManagerState extends State<DownloadManager> {
       weight: 80.0,
       displayName: 'Python',
     ),
+    'java': _PfdRuntimeConfig(
+      moduleName: 'java_feature',
+      assetArchiveName: 'java-21-openjdk.zip',
+      weight: 80.0,
+      displayName: 'Java',
+    ),
+    'java-21-openjdk': _PfdRuntimeConfig(
+      moduleName: 'java_feature',
+      assetArchiveName: 'java-21-openjdk.zip',
+      weight: 80.0,
+      displayName: 'Java',
+    ),
+    'kotlin': _PfdRuntimeConfig(
+      moduleName: 'kotlin_feature',
+      assetArchiveName: 'kotlin.zip',
+      weight: 80.0,
+      displayName: 'Kotlin',
+    ),
+    'clang': _PfdRuntimeConfig(
+      moduleName: 'clang_feature',
+      assetArchiveName: 'clang.zip',
+      weight: 80.0,
+      displayName: 'Clang',
+    ),
+    'dart': _PfdRuntimeConfig(
+      moduleName: 'dart_feature',
+      assetArchiveName: 'dart.zip',
+      weight: 80.0,
+      displayName: 'Dart',
+    ),
+  };
+  static const Map<String, _PfdRuntimeConfig> _pfdExtensions = {
+    'basedpyright': _PfdRuntimeConfig(
+      moduleName: 'basedpyright_feature',
+      assetArchiveName: 'basedpyright.zip',
+      weight: 80.0,
+      displayName: 'Based-Pyright',
+    ),
+    'bash-language-server': _PfdRuntimeConfig(
+      moduleName: 'bash_language_server_feature',
+      assetArchiveName: 'bash-language-server.zip',
+      weight: 80.0,
+      displayName: 'bash-language-server',
+    ),
+    'copilot-language-server': _PfdRuntimeConfig(
+      moduleName: 'copilot_language_server_feature',
+      assetArchiveName: 'copilot-language-server.zip',
+      weight: 80.0,
+      displayName: 'Github Copilot',
+    ),
+    'jdt-ls': _PfdRuntimeConfig(
+      moduleName: 'jdt_ls_feature',
+      assetArchiveName: 'JDT-LS.zip',
+      weight: 80.0,
+      displayName: 'JDT-LS',
+    ),
+    'vscode-langservers-extracted': _PfdRuntimeConfig(
+      moduleName: 'vscode_langservers_extracted_feature',
+      assetArchiveName: 'vscode-langservers-extracted.zip',
+      weight: 80.0,
+      displayName: 'VSCode Extracted LSP Servers',
+    ),
   };
   static const List<String> _pythonDynloadModules = [
     'array.cpython-313-aarch64-linux-android.so',
@@ -134,16 +196,63 @@ class _DownloadManagerState extends State<DownloadManager> {
   static const List<String> _pythonOsslModules = [
     'legacy.so',
   ];
+  static const List<String> _javaRuntimeLibraryPaths = [
+    'lib/libandroid-shmem.so',
+    'lib/libandroid-spawn.so',
+    'lib/libattach.so',
+    'lib/libawt_headless.so',
+    'lib/libawt.so',
+    'lib/libawt_xawt.so',
+    'lib/libdt_socket.so',
+    'lib/libextnet.so',
+    'lib/libfontmanager.so',
+    'lib/libinstrument.so',
+    'lib/libj2gss.so',
+    'lib/libj2pcsc.so',
+    'lib/libj2pkcs11.so',
+    'lib/libjaas.so',
+    'lib/libjavajpeg.so',
+    'lib/libjava.so',
+    'lib/libjawt.so',
+    'lib/libjdwp.so',
+    'lib/libjimage.so',
+    'lib/libjli.so',
+    'lib/libjsig.so',
+    'lib/libjsound.so',
+    'lib/liblcms.so',
+    'lib/lible.so',
+    'lib/libmanagement_agent.so',
+    'lib/libmanagement_ext.so',
+    'lib/libmanagement.so',
+    'lib/libmlib_image.so',
+    'lib/libnet.so',
+    'lib/libnio.so',
+    'lib/libprefs.so',
+    'lib/librmi.so',
+    'lib/libsctp.so',
+    'lib/libsplashscreen.so',
+    'lib/libsyslookup.so',
+    'lib/libverify.so',
+    'lib/libzip.so',
+    'lib/server/libjsig.so',
+    'lib/server/libjvm.so',
+  ];
+  static const List<String> _clangRuntimeLibraryPaths = [
+    'libclang-cpp.so',
+    'libffi.so',
+    'libLLVM.so',
+    'lib/clang/21/lib/linux/libclang_rt.asan-aarch64-android.so',
+    'lib/clang/21/lib/linux/libclang_rt.hwasan-aarch64-android.so',
+    'lib/clang/21/lib/linux/libclang_rt.tsan-aarch64-android.so',
+    'lib/clang/21/lib/linux/libclang_rt.ubsan_minimal-aarch64-android.so',
+    'lib/clang/21/lib/linux/libclang_rt.ubsan_standalone-aarch64-android.so',
+  ];
+  
   final List<_ComingSoonRuntimeItem> _comingSoonRuntimes = [
     _ComingSoonRuntimeItem(
       name: 'Rust Runtime',
       details: 'Planned for next release.',
       icon: SvgPicture.asset("assets/material_icons/rust.svg"),
-    ),
-    _ComingSoonRuntimeItem(
-      name: 'Dart Runtime',
-      details: 'Planned for next release.',
-      icon: SvgPicture.asset("assets/material_icons/dart.svg"),
     ),
     _ComingSoonRuntimeItem(
       name: 'Go Runtime',
@@ -182,13 +291,17 @@ class _DownloadManagerState extends State<DownloadManager> {
   }
 
   _PfdRuntimeConfig? _runtimePfdConfig(
-    String? runtimeParentName, {
+    String? packageParentName, {
     required bool isExtension,
   }) {
-    if (isExtension || !Platform.isAndroid || runtimeParentName == null) {
+    if (!Platform.isAndroid || packageParentName == null) {
       return null;
     }
-    return _pfdRuntimes[runtimeParentName.toLowerCase()];
+    final normalizedParentName = packageParentName.toLowerCase();
+    if (isExtension) {
+      return _pfdExtensions[normalizedParentName];
+    }
+    return _pfdRuntimes[normalizedParentName];
   }
 
   Future<void> _startDownload(
@@ -198,7 +311,7 @@ class _DownloadManagerState extends State<DownloadManager> {
     String archiveName,
     String targetDir,
     bool isExtension, {
-    String? runtimeParentName,
+    String? packageParentName,
   }) async {
     final downloadBloc = context.read<DownloadManagerBloc>();
 
@@ -207,9 +320,28 @@ class _DownloadManagerState extends State<DownloadManager> {
     });
 
     final pfdConfig = _runtimePfdConfig(
-      runtimeParentName,
+      packageParentName,
       isExtension: isExtension,
     );
+
+    if (Platform.isAndroid && pfdConfig == null) {
+      if (mounted) {
+        setState(() {
+          loadingIndexes.remove(index);
+        });
+      }
+      downloadBloc.clearProgress(index);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'This ${isExtension ? 'extension' : 'runtime'} is not available through Play Feature Delivery in this build.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
 
     if (pfdConfig != null) {
       final pfdOk = await _ensurePfdFeatureInstalled(
@@ -235,7 +367,7 @@ class _DownloadManagerState extends State<DownloadManager> {
     final extractDir = isExtension ? extensionDir : runtimesDir;
 
     if (pfdConfig != null && context.mounted) {
-      final staged = await _stageRuntimeArchiveFromPfd(
+      final staged = await _stagePackageArchiveFromPfd(
         context: context,
         config: pfdConfig,
         archivePath: archivePath,
@@ -256,7 +388,7 @@ class _DownloadManagerState extends State<DownloadManager> {
         archivePath,
         extractDir,
         archiveName,
-        runtimeParentName: runtimeParentName,
+        runtimeParentName: packageParentName,
       );
       if (mounted) {
         setState(() {
@@ -312,7 +444,7 @@ class _DownloadManagerState extends State<DownloadManager> {
             archivePath,
             extractDir,
             archiveName,
-            runtimeParentName: runtimeParentName,
+            runtimeParentName: packageParentName,
           );
         }
       },
@@ -339,7 +471,7 @@ class _DownloadManagerState extends State<DownloadManager> {
     );
   }
 
-  Future<bool> _stageRuntimeArchiveFromPfd({
+  Future<bool> _stagePackageArchiveFromPfd({
     required BuildContext context,
     required _PfdRuntimeConfig config,
     required String archivePath,
@@ -356,7 +488,7 @@ class _DownloadManagerState extends State<DownloadManager> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to stage ${config.displayName.toLowerCase()} runtime bundle: $e',
+              'Failed to stage ${config.displayName.toLowerCase()} feature bundle: $e',
             ),
           ),
         );
@@ -484,8 +616,24 @@ class _DownloadManagerState extends State<DownloadManager> {
         await Process.run("ln", ["-sf", "$sharedPath/librg.so", "$extensionDir/copilot-language-server/bin/linux/arm64/rg"]);
       }
 
-      if (runtimeParentName?.toLowerCase() == 'python') {
+      final normalizedRuntimeName = runtimeParentName?.toLowerCase();
+
+      if (normalizedRuntimeName == 'python' || archiveName == 'python.zip') {
         await _createPythonRuntimeSymlinks();
+      }
+
+      if (normalizedRuntimeName == 'java' ||
+          normalizedRuntimeName == 'java-21-openjdk' ||
+          archiveName == 'java-21-openjdk.zip') {
+        await _copyJavaRuntimeLibraries();
+      }
+
+      if (normalizedRuntimeName == 'clang' || archiveName == 'clang.zip') {
+        await _createClangRuntimeSymlinks();
+      }
+
+      if (normalizedRuntimeName == 'dart' || archiveName == 'dart.zip') {
+        await _createDartRuntimeSymlinks();
       }
       
       downloadBloc.markFullyCompleted(index);
@@ -547,6 +695,118 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
   }
 
+  Future<void> _copyJavaRuntimeLibraries() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final javaHomeDir = Directory('$runtimesDir/java-21-openjdk');
+
+    if (!await javaHomeDir.exists()) {
+      return;
+    }
+
+    for (final runtimeRelativePath in _javaRuntimeLibraryPaths) {
+      final sourcePath = '$sharedPath/${runtimeRelativePath.split('/').last}';
+      if (!await File(sourcePath).exists()) {
+        debugPrint('Missing Java runtime library for $runtimeRelativePath (checked $sourcePath)');
+        continue;
+      }
+
+      await _ensureFileCopy(
+        destinationPath: '${javaHomeDir.path}/$runtimeRelativePath',
+        sourcePath: sourcePath,
+      );
+    }
+  }
+
+  Future<void> _createClangRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final clangDir = Directory('$runtimesDir/clang');
+
+    if (!await clangDir.exists()) {
+      return;
+    }
+
+    for (final runtimeRelativePath in _clangRuntimeLibraryPaths) {
+      await _ensureSymlink(
+        linkPath: '${clangDir.path}/$runtimeRelativePath',
+        targetPath: '$sharedPath/${runtimeRelativePath.split('/').last}',
+      );
+    }
+  }
+
+  Future<void> _createDartRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final dartBinDir = Directory('$runtimesDir/dart/bin');
+    final launcherBinDir = Directory(binDir);
+
+    if (!await dartBinDir.exists()) {
+      return;
+    }
+
+    if (!await launcherBinDir.exists()) {
+      await launcherBinDir.create(recursive: true);
+    }
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dart',
+      targetPath: '$sharedPath/libdart.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dartvm',
+      targetPath: '$sharedPath/libdartvm.so',
+    );
+
+    final aotIntermediate = '${dartBinDir.path}/libdart.so';
+    await _ensureSymlink(
+      linkPath: aotIntermediate,
+      targetPath: '$sharedPath/libdartaotruntime.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${dartBinDir.path}/dartaotruntime',
+      targetPath: aotIntermediate,
+    );
+
+    await _ensureSymlink(
+      linkPath: '$binDir/dart',
+      targetPath: '$sharedPath/libloader.so',
+    );
+  }
+
+  Future<void> _ensureFileCopy({
+    required String destinationPath,
+    required String sourcePath,
+  }) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('Failed to copy missing source file: $sourcePath');
+        return;
+      }
+
+      final sourceStat = await sourceFile.stat();
+      final existingType = await FileSystemEntity.type(destinationPath, followLinks: false);
+
+      if (existingType == FileSystemEntityType.file) {
+        final destinationFile = File(destinationPath);
+        final destinationStat = await destinationFile.stat();
+        if (destinationStat.size == sourceStat.size) {
+          return;
+        }
+        await destinationFile.delete();
+      } else if (existingType == FileSystemEntityType.link) {
+        await Link(destinationPath).delete();
+      } else if (existingType == FileSystemEntityType.directory) {
+        await Directory(destinationPath).delete(recursive: true);
+      }
+
+      await File(destinationPath).parent.create(recursive: true);
+      await sourceFile.copy(destinationPath);
+    } catch (e) {
+      debugPrint('Failed to copy file $sourcePath -> $destinationPath: $e');
+    }
+  }
+
   Future<void> _ensureSymlink({
     required String linkPath,
     required String targetPath,
@@ -605,11 +865,10 @@ class _DownloadManagerState extends State<DownloadManager> {
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: runtimeItems.isEmpty &&
-                      (catalogState.isSyncing || catalogState.remoteFetchFailed)
+              child: runtimeItems.isEmpty
                   ? _buildCatalogStateView(
-                      title: 'No runtime catalog available',
-                      actionLabel: 'Retry',
+                      title: 'No runtimes available in this build',
+                      actionLabel: 'Refresh',
                       onRetry: () => context.read<PackageCatalogCubit>().refreshCatalog(),
                     )
                   : ListView.builder(
@@ -829,7 +1088,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                       runtimeItems[index].archiveName,
                                       downloadsDir,
                                       false,
-                                      runtimeParentName: runtimeItems[index].parentName,
+                                      packageParentName: runtimeItems[index].parentName,
                                     );
                                   },
                                   icon: Icon(Icons.system_update, color: Colors.orange),
@@ -933,7 +1192,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                     runtimeItems[index].archiveName,
                                     downloadsDir,
                                     false, 
-                                    runtimeParentName: runtimeItems[index].parentName,
+                                    packageParentName: runtimeItems[index].parentName,
                                   );
                                 },
                                 child: LinearPercentIndicator(
@@ -958,9 +1217,9 @@ class _DownloadManagerState extends State<DownloadManager> {
               padding: const EdgeInsets.only(top: 20),
               child: extensionItems.isEmpty
                   ? _buildCatalogStateView(
-                      title: 'No extension catalog available',
-                      actionLabel: 'Retry',
-                      onRetry: () => context.read<PackageCatalogCubit>().refreshCatalog(),
+                      title: 'No extensions installed',
+                      actionLabel: 'Refresh',
+                      onRetry: () => context.read<PackageCatalogCubit>().refreshInstalledStatusOnly(),
                     )
                   : ListView.builder(
                 itemCount: extensionItems.length,
@@ -1030,21 +1289,28 @@ class _DownloadManagerState extends State<DownloadManager> {
                               final percent = downloadState.downloadProgress[extensionIndex] ?? 0;
                               final File archiveFile = File("$extensionDir/${extensionItems[index].archiveName}");
                               final Directory parentDir = Directory("$extensionDir/${extensionItems[index].parentName}");
+                              final extensionPfdConfig = _runtimePfdConfig(
+                                exten.parentName,
+                                isExtension: true,
+                              );
                               
                               
                               final isExtracting = downloadState.isExtracting(extensionIndex);
                               final extractionPercent = downloadState.extractionProgress[extensionIndex] ?? 0;
+                              final displayExtractionPercent = extensionPfdConfig != null
+                                  ? _mergeProgress(extensionPfdConfig.weight, extractionPercent)
+                                  : extractionPercent;
                               
                               
                               if (isExtracting) {
-                                if (extractionPercent > 0.0 && extractionPercent < 100.0) {
+                                if (displayExtractionPercent > 0.0 && displayExtractionPercent < 100.0) {
                                   return LinearPercentIndicator(
                                     progressColor: Colors.greenAccent.withAlpha(180),
-                                    percent: (extractionPercent / 100).clamp(0.0, 1.0),
+                                    percent: (displayExtractionPercent / 100).clamp(0.0, 1.0),
                                     width: 95,
                                     lineHeight: 40,
                                     barRadius: Radius.circular(20),
-                                    center: Text("${(extractionPercent).toStringAsFixed(0)}%",
+                                    center: Text("${(displayExtractionPercent).toStringAsFixed(0)}%",
                                       style: const TextStyle(fontSize: 12)),
                                   );
                                 } else {
@@ -1097,6 +1363,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                       extensionItems[index].archiveName,
                                       downloadsDir,
                                       true,
+                                      packageParentName: extensionItems[index].parentName,
                                     );
                                   },
                                   icon: Icon(Icons.system_update, color: Colors.orange),
@@ -1137,6 +1404,11 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               }
                                               if (parentDir.existsSync()) {
                                                 parentDir.deleteSync(recursive: true);
+                                              }
+                                              if (extensionPfdConfig != null) {
+                                                NativeChannel.uninstallModule(
+                                                  extensionPfdConfig.moduleName,
+                                                );
                                               }
                                               context.read<DownloadManagerBloc>().removeDownload(extensionIndex);
                                               setState(() {
@@ -1186,18 +1458,15 @@ class _DownloadManagerState extends State<DownloadManager> {
                               
                               return GestureDetector(
                                 onTap: () async {
-                                  if (!(await Directory(downloadsDir).exists())) {
-                                    await Directory(downloadsDir).create(recursive: true);
-                                  }
-                                  
                                   if (!context.mounted) return;
-                                  _startDownload(
+                                  await _startDownload(
                                     context,
                                     extensionIndex,
                                     extensionItems[index].url,
                                     extensionItems[index].archiveName,
                                     downloadsDir,
-                                    true, 
+                                    true,
+                                    packageParentName: extensionItems[index].parentName,
                                   );
                                 },
                                 child: LinearPercentIndicator(
@@ -1244,7 +1513,7 @@ class _DownloadManagerState extends State<DownloadManager> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Fetching package catalog...',
+              'Loading package data...',
               style: TextStyle(color: textColor),
             ),
           ],

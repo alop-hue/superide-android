@@ -354,11 +354,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   }
 
   String _lspLanguageIdForPath(Language language, String filePath) {
-    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
-    if (ext == 'tsx' || ext == 'jsx') {
-      return ext;
-    }
-    return language.name;
+    return lspLanguageIdForFile(language: language, filePath: filePath);
   }
 
   bool _isPreviewEditor(ActiveEditor editor) {
@@ -2832,28 +2828,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                         if (!autoSaveEnabled)
                           OutlinedButton.icon(
                             onPressed: hasDirtyFiles
-                                ? () => _saveActiveEditor(
-                                    context,
-                                    editorState.activeEditors,
-                                  )
-                                : null,
+                              ? () => _saveActiveEditor(context, editorState.activeEditors)
+                              : null,
                             icon: Icon(
                               Icons.save_outlined,
                               size: 17,
                               color: hasDirtyFiles
-                                  ? appTheme.editorPageToolSelectedColor
-                                  : appTheme.editorPageToolColor.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                ? appTheme.editorPageToolSelectedColor
+                                : appTheme.editorPageToolColor.withValues(alpha: 0.6),
                             ),
                             label: Text(
                               'Save',
                               style: TextStyle(
                                 color: hasDirtyFiles
-                                    ? appTheme.editorPageToolSelectedColor
-                                    : appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.6,
-                                      ),
+                                  ? appTheme.editorPageToolSelectedColor
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.2,
                               ),
@@ -2864,17 +2853,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 vertical: 8,
                               ),
                               backgroundColor: hasDirtyFiles
-                                  ? appTheme.editorPageToolSelectedBgColor
-                                        .withValues(alpha: 0.35)
-                                  : appTheme.editorPageDrawerBg,
+                                ? appTheme.editorPageToolSelectedBgColor.withValues(alpha: 0.35)
+                                : appTheme.editorPageDrawerBg,
                               side: BorderSide(
                                 color: hasDirtyFiles
-                                    ? appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.45,
-                                      )
-                                    : appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.25,
-                                      ),
+                                  ? appTheme.editorPageToolColor.withValues(alpha: 0.45)
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.25),
                                 width: 1,
                               ),
                               shape: RoundedRectangleBorder(
@@ -2886,15 +2870,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           IconButton(
                             tooltip: 'Open Vite Preview',
                             onPressed: _isOpeningVitePreview
-                                ? null
-                                : () => _openVitePreview(),
+                              ? null
+                              : () => _openVitePreview(),
                             icon: _isOpeningVitePreview
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.slideshow),
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.slideshow),
                           ),
                         IconButton(
                           onPressed: () async {
@@ -2903,17 +2887,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                             if (!temp.existsSync()) {
                               temp.createSync(recursive: true);
                             }
-                            final activeEditorForRun =
-                                tabController != null &&
-                                    tabController!.index <
-                                        editorState.activeEditors.length
-                                ? editorState.activeEditors[tabController!
-                                      .index]
-                                : editorState.activeEditors.firstWhere(
-                                    (item) => item.isActive == true,
-                                    orElse: () =>
-                                        editorState.activeEditors.first,
-                                  );
+                            final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
+                              ? editorState.activeEditors[tabController!.index]
+                              : editorState.activeEditors.firstWhere(
+                                  (item) => item.isActive == true,
+                                  orElse: () => editorState.activeEditors.first,
+                                );
                             final File filePath = activeEditorForRun.file;
                             final viteTs = File(
                               path.join(widget.rootDir, 'vite.config.ts'),
@@ -2932,10 +2911,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               path.join(widget.rootDir, 'package.json'),
                             );
 
-                            final hasVite =
-                                await viteTs.exists() || await viteJs.exists();
-                            final hasNext =
-                                await nextTs.exists() || await nextJs.exists();
+                            final hasVite = await viteTs.exists() || await viteJs.exists();
+                            final hasNext = await nextTs.exists() || await nextJs.exists();
                             final hasPkg = await packageJson.exists();
 
                             if (hasVite && hasPkg && context.mounted) {
@@ -2958,8 +2935,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
 
                             if (isPreviewFilePath(filePath.path) && context.mounted) {
                               final message = isPdfFilePath(filePath.path)
-                                  ? 'PDF files can be previewed but are not executable.'
-                                  : 'Image/SVG files can be previewed but are not executable.';
+                                ? 'PDF files can be previewed but are not executable.'
+                                : 'Image/SVG files can be previewed but are not executable.';
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(message)),
                               );
@@ -3001,7 +2978,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               case '.java':
                                 final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
                                 final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                                runCode( context, "$compileCommand && $runCommand", widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.kt':
                               case '.kts':

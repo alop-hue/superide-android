@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/utils/constants.dart';
 import '../../utils/ai.dart';
@@ -201,15 +200,15 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
         final isPreviewFile = filePath.isNotEmpty && isPreviewFilePath(filePath);
         LspConfig? lspConfig;
         if (!isPreviewFile) {
-          final fileExt =
-              path.extension(filePath).toLowerCase().replaceFirst('.', '');
-          final languageId =
-              (fileExt == 'tsx' || fileExt == 'jsx') ? fileExt : lang.name;
+          final languageId = lspLanguageIdForFile(
+            language: lang,
+            filePath: filePath,
+          );
           final key = buildLspCacheKey(
             workspacePath: rootDir,
             languageId: languageId,
           );
-          if (!_lspConfigs.containsKey(key) && config['enableLSP']) {
+          if (config['enableLSP'] && _lspConfigs[key] == null) {
             _lspConfigs[key] = await getOrStartSharedLspConfig(
               languageId: languageId,
               ext: lang.extension[0],

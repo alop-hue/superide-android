@@ -436,7 +436,8 @@ final langdart = Language(
       value: 'if (condition) {\n  \n} else {\n  \n}',
       cursorLocations: {18, 31},
     ),
-  ]
+  ],
+  lspExecutable: '$binDir/dart'
 );
 
 final langhtml = Language(
