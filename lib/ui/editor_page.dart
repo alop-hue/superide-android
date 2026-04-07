@@ -2971,7 +2971,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               case '.cpp':
                               case '.c++':
                               case '.cc':
-                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
                                 final String runCommand = 'clangloader ${temp.path}/libtemp.so';
                                 runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
@@ -2990,6 +2990,151 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
                                 final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
                                 runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                break;
+                              case '.go':
+                                try {
+                                  final soPath = path.join(widget.rootDir, '.roxum-go-run.so');
+
+                                  final command =
+                                      'export GOROOT="$runtimesDir/go" '
+                                      '&& export PATH="\$GOROOT/bin:\$PATH" '
+                                      '&& export CC="clang" '
+                                      '&& export GOOS="android" '
+                                      '&& export GOARCH="arm64" '
+                                      '&& echo "Compiling..." '
+                                      '&& go_bak="\$(mktemp)" '
+                                      '&& cp "${filePath.path}" "\$go_bak" '
+                                      '&& cleanup(){ '
+                                      'cp "\$go_bak" "${filePath.path}"; '
+                                        'rm -f "\$go_bak" "$soPath" "${filePath.path}.roxum.tmp"; '
+                                      '}; '
+                                      'trap cleanup EXIT '
+
+                                      '&& if ! grep -q \'import "C"\' "${filePath.path}"; then '
+                                          'tmp_go="${filePath.path}.roxum.tmp"; '
+                                          'if grep -q "^import (" "${filePath.path}"; then '
+                                            "awk 'BEGIN{done=0} {print} !done && /^import \\(\$/ {print \"    \\\"C\\\"\"; done=1}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'elif grep -q "^import " "${filePath.path}"; then '
+                                            "awk 'BEGIN{done=0} !done && /^import / {print \"import \\\"C\\\"\"; done=1} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'else '
+                                            "awk 'BEGIN{done=0} !done && /^package / {print; print \"\"; print \"import \\\"C\\\"\"; done=1; next} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'fi; '
+                                      'fi '
+
+                                      '&& if ! grep -q "__entry" "${filePath.path}"; then '
+                                          "printf '\\n//export __entry\\nfunc __entry() {\\n    main()\\n}\\n' >> \"${filePath.path}\"; "
+                                      'fi '
+
+                                        '&& rm -f "$soPath" '
+                                      '&& GOOS=android GOARCH=arm64 CGO_ENABLED=1 '
+                                      'go build -buildmode=c-shared -o "$soPath" "${filePath.path}" '
+                                      '&& rustloader "$soPath"';
+
+                                  runCode(context, command, widget.rootDir);
+
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Go run failed: ${e.toString()}")),
+                                  );
+                                }
+                                break;
+                              case '.rs':
+                                try {
+                                  final cargoFile = File("${widget.rootDir}/Cargo.toml");
+                                  String command = "";
+
+                                  if (cargoFile.existsSync()) {
+                                    final mainRs = File("${widget.rootDir}/src/main.rs");
+                                    final libRs = File("${widget.rootDir}/src/lib.rs");
+
+                                    File targetFile;
+
+                                    if (mainRs.existsSync()) {
+                                      targetFile = mainRs;
+                                    } else if (libRs.existsSync()) {
+                                      targetFile = libRs;
+                                    } else {
+                                      throw Exception("No main.rs or lib.rs found");
+                                    }
+
+                                    final targetPath = targetFile.path;
+
+                                    command = '''
+set -e
+cargo_bak="\$(mktemp)"
+target_bak="\$(mktemp)"
+cargo_cfg_bak="\$(mktemp)"
+cp "${cargoFile.path}" "\$cargo_bak"
+cp "$targetPath" "\$target_bak"
+if [ -f .cargo/config.toml ]; then cp .cargo/config.toml "\$cargo_cfg_bak"; else : > "\$cargo_cfg_bak"; fi
+cleanup(){
+  cp "\$target_bak" "$targetPath";
+  cp "\$cargo_bak" "${cargoFile.path}";
+  if [ -s "\$cargo_cfg_bak" ]; then
+    mkdir -p .cargo;
+    cp "\$cargo_cfg_bak" .cargo/config.toml;
+  else
+    rm -f .cargo/config.toml;
+    rmdir .cargo 2>/dev/null || true;
+  fi;
+  rm -f "\$target_bak" "\$cargo_bak" "\$cargo_cfg_bak";
+};
+trap cleanup EXIT
+mkdir -p .cargo
+printf '[target.aarch64-linux-android]\nlinker = "clang"\n' > .cargo/config.toml
+if [ -n "\${RUSTFLAGS:-}" ]; then
+  export RUSTFLAGS="\$RUSTFLAGS --sysroot $runtimesDir/rust -C linker=clang";
+else
+  export RUSTFLAGS="--sysroot $runtimesDir/rust -C linker=clang";
+fi
+if ! awk 'BEGIN{inlib=0;found=0} /^[lib]/{inlib=1;next} /^[/{inlib=0} inlib && /crate-type/{found=1} END{exit found?0:1}' "${cargoFile.path}"; then
+  printf '\n[lib]\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
+fi
+if ! grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
+  echo "Error: main() not found. This runner requires a main function.";
+  exit 1;
+fi
+if ! grep -q "fn __entry" "$targetPath"; then
+  printf '\n#[no_mangle]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "$targetPath";
+fi
+cargo build --release
+so_file="\$(find target/release -maxdepth 1 -type f -name 'lib*.so' | head -n 1)"
+[ -n "\$so_file" ]
+rustloader "\$so_file"
+''';
+
+                                  } else {
+                                    final soPath = path.join(widget.rootDir, '.roxum-rust-run.so');
+
+                                    command = '''
+set -e
+rust_bak="\$(mktemp)"
+cp "${filePath.path}" "\$rust_bak"
+cleanup(){
+  cp "\$rust_bak" "${filePath.path}";
+  rm -f "\$rust_bak" "$soPath";
+};
+trap cleanup EXIT
+if ! grep -Eq 'fn[[:space:]]+main' "${filePath.path}"; then
+  echo "Error: main() not found. This runner requires a main function.";
+  exit 1;
+fi
+if ! grep -q "fn __entry" "${filePath.path}"; then
+  printf '\n#[no_mangle]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "${filePath.path}";
+fi
+rustc --crate-type=cdylib "${filePath.path}" -o "$soPath" -C linker=clang --sysroot "$runtimesDir/rust"
+rustloader "$soPath"
+''';
+                                  }
+
+                                  runCode(context, command, widget.rootDir);
+
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Rust run failed: ${e.toString()}")),
+                                  );
+                                }
+
                                 break;
                               case '.md':
                                 Navigator.of(context).push(

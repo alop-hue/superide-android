@@ -1,24 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:flutter_file_downloader/flutter_file_downloader.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
+import '../utils/languages.dart';
 
 class _PfdRuntimeConfig {
   final String moduleName;
-  final String assetArchiveName;
+  final String? assetArchiveName;
+  final bool requiresExtraction;
   final double weight;
   final String displayName;
 
   const _PfdRuntimeConfig({
     required this.moduleName,
-    required this.assetArchiveName,
+    this.assetArchiveName,
+    this.requiresExtraction = true,
     required this.weight,
     required this.displayName,
   });
@@ -36,6 +39,7 @@ class _DownloadManagerState extends State<DownloadManager> {
   late final AppThemeState appThemeState;
   StreamSubscription<Map<String, dynamic>>? _pfdSubscription;
   bool _isOnDownloadPage = true;
+
   static const Map<String, _PfdRuntimeConfig> _pfdRuntimes = {
     'node': _PfdRuntimeConfig(
       moduleName: 'node_feature',
@@ -79,14 +83,39 @@ class _DownloadManagerState extends State<DownloadManager> {
       weight: 80.0,
       displayName: 'Dart',
     ),
+    'rust': _PfdRuntimeConfig(
+      moduleName: 'rust_feature',
+      assetArchiveName: 'rust.zip',
+      weight: 80.0,
+      displayName: 'Rust',
+    ),
+    'go': _PfdRuntimeConfig(
+      moduleName: 'go_feature',
+      assetArchiveName: 'go.zip',
+      weight: 80.0,
+      displayName: 'Go',
+    ),
+    'ruby': _PfdRuntimeConfig(
+      moduleName: 'ruby_feature',
+      assetArchiveName: 'ruby.zip',
+      weight: 80.0,
+      displayName: 'Ruby',
+    ),
+    'lua': _PfdRuntimeConfig(
+      moduleName: 'lua_feature',
+      assetArchiveName: 'lua.zip',
+      weight: 80.0,
+      displayName: 'Lua',
+    ),
   };
   static const Map<String, _PfdRuntimeConfig> _pfdExtensions = {
-    'basedpyright': _PfdRuntimeConfig(
-      moduleName: 'basedpyright_feature',
-      assetArchiveName: 'basedpyright.zip',
+    'ty': _PfdRuntimeConfig(
+      moduleName: 'ty_feature',
+      requiresExtraction: false,
       weight: 80.0,
-      displayName: 'Based-Pyright',
+      displayName: 'Ty',
     ),
+    
     'bash-language-server': _PfdRuntimeConfig(
       moduleName: 'bash_language_server_feature',
       assetArchiveName: 'bash-language-server.zip',
@@ -112,6 +141,7 @@ class _DownloadManagerState extends State<DownloadManager> {
       displayName: 'VSCode Extracted LSP Servers',
     ),
   };
+
   static const List<String> _pythonDynloadModules = [
     'array.cpython-313-aarch64-linux-android.so',
     '_asyncio.cpython-313-aarch64-linux-android.so',
@@ -247,24 +277,18 @@ class _DownloadManagerState extends State<DownloadManager> {
     'lib/clang/21/lib/linux/libclang_rt.ubsan_minimal-aarch64-android.so',
     'lib/clang/21/lib/linux/libclang_rt.ubsan_standalone-aarch64-android.so',
   ];
-  
-  final List<_ComingSoonRuntimeItem> _comingSoonRuntimes = [
-    _ComingSoonRuntimeItem(
-      name: 'Rust Runtime',
-      details: 'Planned for next release.',
-      icon: SvgPicture.asset("assets/material_icons/rust.svg"),
-    ),
-    _ComingSoonRuntimeItem(
-      name: 'Go Runtime',
-      details: 'Planned for next release.',
-      icon: SvgPicture.asset("assets/material_icons/go_gopher.svg"),
-    ),
-    _ComingSoonRuntimeItem(
-      name: 'PHP Runtime',
-      details: 'Planned for next release.',
-      icon: SvgPicture.asset("assets/material_icons/php.svg"),
-    ),
+  static const List<String> _goToolBinaries = [
+    'asm',
+    'cgo',
+    'compile',
+    'cover',
+    'fix',
+    'link',
+    'preprofile',
+    'vet',
   ];
+  
+  final List<_ComingSoonRuntimeItem> _comingSoonRuntimes = [];
 
   @override
   void initState() {
@@ -312,6 +336,7 @@ class _DownloadManagerState extends State<DownloadManager> {
     String targetDir,
     bool isExtension, {
     String? packageParentName,
+    Extension? extensionMetadata,
   }) async {
     final downloadBloc = context.read<DownloadManagerBloc>();
 
@@ -359,12 +384,68 @@ class _DownloadManagerState extends State<DownloadManager> {
         downloadBloc.clearProgress(index);
         return;
       }
+
+      if (!pfdConfig.requiresExtraction) {
+        if (!context.mounted) {
+          if (mounted) {
+            setState(() {
+              loadingIndexes.remove(index);
+            });
+          }
+          downloadBloc.clearProgress(index);
+          return;
+        }
+
+        final completed = await _finalizeModuleOnlyInstall(
+          context: context,
+          index: index,
+          downloadBloc: downloadBloc,
+          config: pfdConfig,
+          packageParentName: packageParentName,
+          extensionMetadata: extensionMetadata,
+          isExtension: isExtension,
+        );
+
+        if (!completed) {
+          downloadBloc.clearProgress(index);
+        }
+
+        if (mounted) {
+          setState(() {
+            loadingIndexes.remove(index);
+          });
+        }
+        return;
+      }
+    }
+
+    final stagedArchiveName = pfdConfig?.assetArchiveName;
+    if (pfdConfig != null &&
+        (stagedArchiveName == null || stagedArchiveName.isEmpty)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${pfdConfig.displayName} feature is missing an install archive configuration.',
+            ),
+          ),
+        );
+      }
+      if (mounted) {
+        setState(() {
+          loadingIndexes.remove(index);
+        });
+      }
+      downloadBloc.clearProgress(index);
+      return;
     }
 
     final archivePath = pfdConfig != null
-        ? "$tempDir/${pfdConfig.assetArchiveName}"
+        ? "$tempDir/$stagedArchiveName"
         : "$targetDir/$archiveName";
-    final extractDir = isExtension ? extensionDir : runtimesDir;
+    final extractDir = isExtension
+      ? extensionDir
+      : runtimesDir;
 
     if (pfdConfig != null && context.mounted) {
       final staged = await _stagePackageArchiveFromPfd(
@@ -471,15 +552,105 @@ class _DownloadManagerState extends State<DownloadManager> {
     );
   }
 
+  Future<bool> _finalizeModuleOnlyInstall({
+    required BuildContext context,
+    required int index,
+    required DownloadManagerBloc downloadBloc,
+    required _PfdRuntimeConfig config,
+    required String? packageParentName,
+    required Extension? extensionMetadata,
+    required bool isExtension,
+  }) async {
+    final normalizedParent = packageParentName?.toLowerCase();
+    if (!isExtension || normalizedParent == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${config.displayName} is configured as module-only but not mapped as an extension.',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+
+    try {
+      if (normalizedParent == 'ty') {
+        final Extension metadata = extensionMetadata ?? extensions.firstWhere(
+          (item) => item.parentName.toLowerCase() == normalizedParent);
+        await _createTyExecutableSymlink();
+        await _writeInstalledExtensionMetadata(metadata);
+      } else {
+        throw Exception(
+          'Unsupported module-only extension: ${config.displayName}',
+        );
+      }
+
+      downloadBloc.updateProgress(index, 100.0);
+      downloadBloc.markFullyCompleted(index);
+      if (!context.mounted) return true;
+      await context.read<PackageCatalogCubit>().refreshInstalledStatusOnly();
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to install ${config.displayName.toLowerCase()}: $e',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _createTyExecutableSymlink() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final tyLibraryPath = '$sharedPath/libty.so';
+    if (!await File(tyLibraryPath).exists()) {
+      throw Exception('libty.so not found at $tyLibraryPath');
+    }
+
+    final launcherBinDir = Directory(binDir);
+    if (!await launcherBinDir.exists()) {
+      await launcherBinDir.create(recursive: true);
+    }
+
+    await _ensureSymlink(
+      linkPath: '$binDir/ty',
+      targetPath: tyLibraryPath,
+    );
+  }
+
+  Future<void> _writeInstalledExtensionMetadata(Extension extension) async {
+    final installDir = Directory('$extensionDir/${extension.parentName}');
+    if (!await installDir.exists()) {
+      await installDir.create(recursive: true);
+    }
+
+    final packageFile = File('${installDir.path}/rsx-package.json');
+    await packageFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(extension.toJson()),
+      flush: true,
+    );
+  }
+
   Future<bool> _stagePackageArchiveFromPfd({
     required BuildContext context,
     required _PfdRuntimeConfig config,
     required String archivePath,
   }) async {
+    final assetName = config.assetArchiveName;
+    if (assetName == null || assetName.isEmpty) {
+      return false;
+    }
+
     try {
       await NativeChannel.copyModuleAssetToPath(
         moduleName: config.moduleName,
-        assetName: config.assetArchiveName,
+        assetName: assetName,
         targetPath: archivePath,
       );
       return true;
@@ -635,6 +806,22 @@ class _DownloadManagerState extends State<DownloadManager> {
       if (normalizedRuntimeName == 'dart' || archiveName == 'dart.zip') {
         await _createDartRuntimeSymlinks();
       }
+
+      if (normalizedRuntimeName == 'rust' || archiveName == 'rust.zip') {
+        await _createRustRuntimeSymlinks();
+      }
+
+      if (normalizedRuntimeName == 'go' || archiveName == 'go.zip') {
+        await _createGoRuntimeSymlinks();
+      }
+
+      if (normalizedRuntimeName == 'ruby' || archiveName == 'ruby.zip') {
+        await _createRubyRuntimeSymlinks();
+      }
+
+      if (normalizedRuntimeName == 'lua' || archiveName == 'lua.zip') {
+        await _createLuaRuntimeSymlinks();
+      }
       
       downloadBloc.markFullyCompleted(index);
     } catch (e) {
@@ -733,6 +920,186 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
   }
 
+
+  Future<void> _createRustRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final sysBinDir = Directory(binDir);
+    final sysLibDir = Directory(libDir);
+
+    if (!await sysBinDir.exists()) {
+      await sysBinDir.create(recursive: true);
+    }
+    if (!await sysLibDir.exists()) {
+      await sysLibDir.create(recursive: true);
+    }
+
+    await _ensureSymlink(
+      linkPath: '$binDir/rustc',
+      targetPath: '$sharedPath/librustc.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$binDir/rustloader',
+      targetPath: '$sharedPath/librstloader.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$binDir/cargo',
+      targetPath: '$sharedPath/libcargo.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$libDir/libicudata.so.78',
+      targetPath: '$sharedPath/libicudata.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$libDir/libicuuc.so.78',
+      targetPath: '$sharedPath/libicuuc.so',
+    );
+
+    final rustlibAarch64Dir = Directory('$runtimesDir/rust/lib/rustlib/aarch64-linux-android/lib');
+    if (!await rustlibAarch64Dir.exists()) {
+      await rustlibAarch64Dir.create(recursive: true);
+    }
+
+    final otherLibs = [
+        'libandroid-execinfo.so',
+        'libdarling_macro-403b3f47737f0e10.so',
+        'libderive_setters-61a4b05c47bf1772.so',
+        'libderive_where-558b72763d14629c.so',
+        'libdisplaydoc-88ec4bfd0c13b0f9.so',
+        'libffi.so',
+        'libLLVM.so',
+        'libproc_macro_hack-b9a0cb31558b686e.so',
+        'libref_cast_impl-a8bcededf9b7ab39.so',
+        'librustc_driver-cd257725849a655d.so',
+        'librustc_fluent_macro-cc29f51bb1aff38e.so',
+        'librustc_index_macros-5b5db17373d6eb5f.so',
+        'librustc_macros-cd1aad3275f4d011.so',
+        'librustc_type_ir_macros-94b75363d95b2ff4.so',
+        'libschemars_derive-590652653e5b083d.so',
+        'libserde_derive-5c6bc018f5fc6183.so',
+        'libstd-6ea53b9eff82e224.so',
+        'libthiserror_impl-a3575ba7b15740eb.so',
+        'libtracing_attributes-ab9b431608591db8.so',
+        'libunic_langid_macros_impl-cb32e7867e91c5f5.so',
+        'libyoke_derive-9a29fbe7d205c401.so',
+        'libzerofrom_derive-6b82ce44af5b9e5d.so',
+        'libzerovec_derive-851096cd7124147b.so'
+    ];
+
+    for (final lib in otherLibs) {
+        await _ensureSymlink(
+            linkPath: '${rustlibAarch64Dir.path}/$lib',
+            targetPath: '$sharedPath/$lib',
+        );
+    }
+  }
+
+  Future<void> _createGoRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final goRuntimeBinDir = Directory('$runtimesDir/go/bin');
+    final goRuntimeToolDir = Directory('$runtimesDir/go/pkg/tool/android_arm64');
+    final launcherBinDir = Directory(binDir);
+
+    if (!await goRuntimeBinDir.exists()) {
+      await goRuntimeBinDir.create(recursive: true);
+    }
+
+    if (!await goRuntimeToolDir.exists()) {
+      await goRuntimeToolDir.create(recursive: true);
+    }
+
+    if (!await launcherBinDir.exists()) {
+      await launcherBinDir.create(recursive: true);
+    }
+
+    await _ensureSymlink(
+      linkPath: '${goRuntimeBinDir.path}/go',
+      targetPath: '$sharedPath/libgo.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${goRuntimeBinDir.path}/gofmt',
+      targetPath: '$sharedPath/libgofmt.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$binDir/go',
+      targetPath: '$sharedPath/libgo.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '$binDir/gofmt',
+      targetPath: '$sharedPath/libgofmt.so',
+    );
+
+    for (final toolName in _goToolBinaries) {
+      await _ensureSymlink(
+        linkPath: '${goRuntimeToolDir.path}/$toolName',
+        targetPath: '$sharedPath/lib$toolName.so',
+      );
+    }
+  }
+
+  Future<void> _createRubyRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final rubyRuntimeRoot = Directory('$runtimesDir/ruby/lib/ruby');
+    final sharedDir = Directory(sharedPath);
+    final systemLibDir = Directory(libDir);
+
+    if (!await rubyRuntimeRoot.exists() || !await sharedDir.exists()) {
+      return;
+    }
+
+    if (!await systemLibDir.exists()) {
+      await systemLibDir.create(recursive: true);
+    }
+
+    await for (final entity in sharedDir.list(followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+
+      final stagedName = entity.path.split('/').last;
+      if (!stagedName.startsWith('ruby_') || !stagedName.endsWith('.so')) {
+        continue;
+      }
+
+      final encodedRelative = stagedName.substring('ruby_'.length);
+      final relativePath = encodedRelative.replaceAll('__', '/');
+      await _ensureSymlink(
+        linkPath: '${rubyRuntimeRoot.path}/$relativePath',
+        targetPath: '$sharedPath/$stagedName',
+      );
+    }
+
+    await _ensureSymlink(
+      linkPath: '$libDir/libruby.so.3.4',
+      targetPath: '$sharedPath/libruby.so',
+    );
+  }
+
+  Future<void> _createLuaRuntimeSymlinks() async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    final luaBinDir = Directory('$runtimesDir/lua/bin');
+
+    if (!await luaBinDir.exists()) {
+      await luaBinDir.create(recursive: true);
+    }
+
+    await _ensureSymlink(
+      linkPath: '${luaBinDir.path}/lua',
+      targetPath: '$sharedPath/liblua.so',
+    );
+
+    await _ensureSymlink(
+      linkPath: '${luaBinDir.path}/luac',
+      targetPath: '$sharedPath/libluac.so',
+    );
+  }
+
   Future<void> _createDartRuntimeSymlinks() async {
     final sharedPath = await NativeChannel.getLibraryPath();
     final dartBinDir = Directory('$runtimesDir/dart/bin');
@@ -827,6 +1194,25 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
   }
 
+  void _deletePathIfExistsSync(String targetPath) {
+    try {
+      final existingType = FileSystemEntity.typeSync(
+        targetPath,
+        followLinks: false,
+      );
+
+      if (existingType == FileSystemEntityType.file) {
+        File(targetPath).deleteSync();
+      } else if (existingType == FileSystemEntityType.link) {
+        Link(targetPath).deleteSync();
+      } else if (existingType == FileSystemEntityType.directory) {
+        Directory(targetPath).deleteSync(recursive: true);
+      }
+    } catch (e) {
+      debugPrint('Failed to delete path $targetPath: $e');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -875,12 +1261,8 @@ class _DownloadManagerState extends State<DownloadManager> {
                 itemCount: runtimeItems.length + _comingSoonRuntimes.length,
                 itemBuilder: (_, index) {
                   if (index >= runtimeItems.length) {
-                    final comingSoonRuntime =
-                        _comingSoonRuntimes[index - runtimeItems.length];
-                    final textColor = appThemeState
-                        .appTheme
-                        .selectScreenCardTextColor
-                        .withAlpha(180);
+                    final comingSoonRuntime = _comingSoonRuntimes[index - runtimeItems.length];
+                    final textColor = appThemeState.appTheme.selectScreenCardTextColor.withAlpha(180);
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
@@ -1130,6 +1512,19 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               if(parentDir.existsSync()){
                                                 parentDir.deleteSync(recursive: true);
                                               }
+                                              if (runtime.parentName.toLowerCase() == 'rust') {
+                                                _deletePathIfExistsSync('$binDir/rustc');
+                                                _deletePathIfExistsSync('$binDir/cargo');
+                                                _deletePathIfExistsSync('$libDir/libicudata.so.78');
+                                                _deletePathIfExistsSync('$libDir/libicuuc.so.78');
+                                              }
+                                              if (runtime.parentName.toLowerCase() == 'go') {
+                                                _deletePathIfExistsSync('$binDir/go');
+                                                _deletePathIfExistsSync('$binDir/gofmt');
+                                              }
+                                              if (runtime.parentName.toLowerCase() == 'ruby') {
+                                                _deletePathIfExistsSync('$libDir/libruby.so.3.4');
+                                              }
                                               if (runtimePfdConfig != null) {
                                                 NativeChannel.uninstallModule(
                                                   runtimePfdConfig.moduleName,
@@ -1364,6 +1759,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                       downloadsDir,
                                       true,
                                       packageParentName: extensionItems[index].parentName,
+                                      extensionMetadata: extensionItems[index],
                                     );
                                   },
                                   icon: Icon(Icons.system_update, color: Colors.orange),
@@ -1404,6 +1800,9 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               }
                                               if (parentDir.existsSync()) {
                                                 parentDir.deleteSync(recursive: true);
+                                              }
+                                              if (exten.parentName.toLowerCase() == 'ty') {
+                                                _deletePathIfExistsSync('$binDir/ty');
                                               }
                                               if (extensionPfdConfig != null) {
                                                 NativeChannel.uninstallModule(
@@ -1467,6 +1866,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                     downloadsDir,
                                     true,
                                     packageParentName: extensionItems[index].parentName,
+                                    extensionMetadata: extensionItems[index],
                                   );
                                 },
                                 child: LinearPercentIndicator(

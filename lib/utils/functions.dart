@@ -1567,8 +1567,7 @@ void runCode(BuildContext context, String command, String rootDir) {
   try {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, scondaryAnimation) =>
-            SetupTerminal(projectDir: rootDir, args: ["-c", command]),
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(projectDir: rootDir, args: ["-c", command]),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SizeTransition(sizeFactor: animation, child: child);
         },
@@ -1741,7 +1740,7 @@ Future<LspConfig?> startLspServer({
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
-      if (['py', 'sh', 'bash', 'zsh'].contains(normalizedExt)) {
+      if (['sh', 'bash', 'zsh'].contains(normalizedExt)) {
         final matched = extensions.where(
           (item) => item.fileExtension.contains(normalizedExt),
         );
@@ -1786,6 +1785,8 @@ Future<LspConfig?> startLspServer({
           "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
           ...args,
         ];
+      } else if (normalizedExt == 'py' || normalizedExt == 'pyi') {
+        return ["server"];
       } else if (normalizedExt == 'c' ||
           normalizedExt == 'cpp' ||
           normalizedExt == 'cc' ||

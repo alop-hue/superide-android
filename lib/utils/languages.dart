@@ -343,8 +343,7 @@ final langpython = Language(
   command: 'python',
   icon: SvgPicture.asset('assets/material_icons/python.svg',height: 35,width: 35),
   type: 'interpreted',
-  lspExecutable: "/data/data/com.roxum/bin/node",
-  args: ["--stdio"]
+  lspExecutable: "/data/data/com.roxum/bin/ty",
 );
 final langjavascript = Language(
   name: 'Javascript',
@@ -569,7 +568,7 @@ final langruby = Language(
   details: 'Dynamic language, often used with the Rails framework.',
   language: builtinAllLanguages['ruby'],
   helloWorld: 'puts "Hello, World!"',
-  // command: 'ruby',
+  command: 'ruby',
   icon: SvgPicture.asset('assets/material_icons/ruby.svg',height: 35,width: 35),
   type: 'compiled(no binary)'
 );

@@ -4,7 +4,6 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -29,10 +28,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.roxum"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
@@ -54,8 +50,6 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -69,13 +63,17 @@ android {
 
     dynamicFeatures.addAll(
         setOf(
+            ":app:rust_feature",
+            ":app:go_feature",
+            ":app:ruby_feature",
+            ":app:lua_feature",
             ":app:node_feature",
             ":app:python_feature",
             ":app:java_feature",
             ":app:kotlin_feature",
             ":app:clang_feature",
             ":app:dart_feature",
-            ":app:basedpyright_feature",
+            ":app:ty_feature",
             ":app:bash_language_server_feature",
             ":app:copilot_language_server_feature",
             ":app:jdt_ls_feature",
@@ -85,7 +83,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.documentfile:documentfile:1.0.1")  // For DocumentFile and SAF support
+    implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("com.google.android.play:feature-delivery:2.1.0")
 }
 

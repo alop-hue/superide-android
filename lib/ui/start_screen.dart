@@ -38,6 +38,17 @@ const List<String> javaTools = [
   'serialver'
 ];
 
+const List<String> goToolBinaries = [
+  'asm',
+  'cgo',
+  'compile',
+  'cover',
+  'fix',
+  'link',
+  'preprofile',
+  'vet',
+];
+
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
 
@@ -98,14 +109,14 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc', 'dart',
-      'git'
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc',
     ];
 
     final symlinks = [
       {'src': '$sharedPath/libz.so', 'dst': '$libDir/libz.so.1'},
       {'src': '$sharedPath/libncursesw.so', 'dst': '$libDir/libncursesw.so.6'},
       {'src': '$sharedPath/libcrypto.so', 'dst': '$libDir/libcrypto.so.3'},
+      {'src': '$sharedPath/libssl.so', 'dst': '$libDir/libssl.so.3'},
       {'src': '$sharedPath/libzstd.so', 'dst': '$libDir/libzstd.so.1'},
       {'src': '$sharedPath/libxml2.so', 'dst': '$libDir/libxml2.so.16'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/bash'},
@@ -117,6 +128,8 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libless.so', 'dst': '$binDir/pager', 'env': {'LD_LIBRARY_PATH' : libDir}},
       ...loaderTools.map((tool) => loader(tool, env: {'ROXUM_SHARED_PATH': sharedPath})),
       ...javaTools.map((tool) => loader(tool, env: {'ROXUM_SHARED_PATH': sharedPath})),
+      {'src': '$binDir/clang', 'dst': '$binDir/aarch64-linux-android-clang'},
+      {'src': '$binDir/clang++', 'dst': '$binDir/aarch64-linux-android-clang++'},
     ];
 
     final totalLinks = symlinks.length;
@@ -151,6 +164,7 @@ class _StartScreenState extends State<StartScreen> {
       });
     }
 
+    await _refreshRustGoRuntimeSymlinks(sharedPath);
     await _refreshDartRuntimeSymlinks(sharedPath);
 
     if (!File('$certDir/cacert.pem').existsSync()) {
@@ -201,6 +215,49 @@ class _StartScreenState extends State<StartScreen> {
       linkPath: '${dartBinDir.path}/dartaotruntime',
       targetPath: aotIntermediate,
     );
+  }
+
+  Future<void> _refreshRustGoRuntimeSymlinks(String sharedPath) async {
+    final rustRuntimeDir = Directory('$runtimesDir/rust');
+    if (await rustRuntimeDir.exists()) {
+      await _ensureSymlink(
+        linkPath: '$binDir/rustc',
+        targetPath: '$sharedPath/librustc.so',
+      );
+
+      await _ensureSymlink(
+        linkPath: '$binDir/rustloader',
+        targetPath: '$sharedPath/librstloader.so',
+      );
+
+      await _ensureSymlink(
+        linkPath: '$binDir/cargo',
+        targetPath: '$sharedPath/libcargo.so',
+      );
+    }
+
+    final goRuntimeDir = Directory('$runtimesDir/go');
+    if (await goRuntimeDir.exists()) {
+      await _ensureSymlink(
+        linkPath: '$binDir/go',
+        targetPath: '$sharedPath/libgo.so',
+      );
+
+      await _ensureSymlink(
+        linkPath: '$binDir/gofmt',
+        targetPath: '$sharedPath/libgofmt.so',
+      );
+
+      final goToolDir = Directory('$runtimesDir/go/pkg/tool/android_arm64');
+      if (await goToolDir.exists()) {
+        for (final tool in goToolBinaries) {
+          await _ensureSymlink(
+            linkPath: '${goToolDir.path}/$tool',
+            targetPath: '$sharedPath/lib$tool.so',
+          );
+        }
+      }
+    }
   }
 
   Future<void> _ensureSymlink({
