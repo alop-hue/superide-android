@@ -115,6 +115,24 @@ class _DownloadManagerState extends State<DownloadManager> {
       weight: 80.0,
       displayName: 'Ty',
     ),
+    'rust-analyzer': _PfdRuntimeConfig(
+      moduleName: 'rust_analyzer_feature',
+      requiresExtraction: false,
+      weight: 80.0,
+      displayName: 'rust-analyzer',
+    ),
+    'gopls': _PfdRuntimeConfig(
+      moduleName: 'gopls_feature',
+      requiresExtraction: false,
+      weight: 80.0,
+      displayName: 'gopls',
+    ),
+    'emmyluals': _PfdRuntimeConfig(
+      moduleName: 'emmylua_feature',
+      requiresExtraction: false,
+      weight: 80.0,
+      displayName: 'EmmyLuaLs',
+    ),
     
     'bash-language-server': _PfdRuntimeConfig(
       moduleName: 'bash_language_server_feature',
@@ -576,16 +594,24 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
 
     try {
+      final Extension metadata = extensionMetadata ?? extensions.firstWhere(
+        (item) => item.parentName.toLowerCase() == normalizedParent);
+
       if (normalizedParent == 'ty') {
-        final Extension metadata = extensionMetadata ?? extensions.firstWhere(
-          (item) => item.parentName.toLowerCase() == normalizedParent);
         await _createTyExecutableSymlink();
-        await _writeInstalledExtensionMetadata(metadata);
+      } else if (normalizedParent == 'rust-analyzer') {
+        await _createRustAnalyzerExecutableSymlink();
+      } else if (normalizedParent == 'gopls') {
+        await _createGoplsExecutableSymlink();
+      } else if (normalizedParent == 'emmyluals') {
+        await _createEmmyLuaExecutableSymlink();
       } else {
         throw Exception(
           'Unsupported module-only extension: ${config.displayName}',
         );
       }
+
+      await _writeInstalledExtensionMetadata(metadata);
 
       downloadBloc.updateProgress(index, 100.0);
       downloadBloc.markFullyCompleted(index);
@@ -607,10 +633,41 @@ class _DownloadManagerState extends State<DownloadManager> {
   }
 
   Future<void> _createTyExecutableSymlink() async {
+    await _createModuleExecutableSymlink(
+      executableName: 'ty',
+      libraryFileName: 'libty.so',
+    );
+  }
+
+  Future<void> _createRustAnalyzerExecutableSymlink() async {
+    await _createModuleExecutableSymlink(
+      executableName: 'rust-analyzer',
+      libraryFileName: 'librust-analyzer.so',
+    );
+  }
+
+  Future<void> _createGoplsExecutableSymlink() async {
+    await _createModuleExecutableSymlink(
+      executableName: 'gopls',
+      libraryFileName: 'libgopls.so',
+    );
+  }
+
+  Future<void> _createEmmyLuaExecutableSymlink() async {
+    await _createModuleExecutableSymlink(
+      executableName: 'emmyluals',
+      libraryFileName: 'libemmy.so',
+    );
+  }
+
+  Future<void> _createModuleExecutableSymlink({
+    required String executableName,
+    required String libraryFileName,
+  }) async {
     final sharedPath = await NativeChannel.getLibraryPath();
-    final tyLibraryPath = '$sharedPath/libty.so';
-    if (!await File(tyLibraryPath).exists()) {
-      throw Exception('libty.so not found at $tyLibraryPath');
+    final libraryPath = '$sharedPath/$libraryFileName';
+    if (!await File(libraryPath).exists()) {
+      throw Exception('$libraryFileName not found at $libraryPath');
     }
 
     final launcherBinDir = Directory(binDir);
@@ -619,8 +676,8 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
 
     await _ensureSymlink(
-      linkPath: '$binDir/ty',
-      targetPath: tyLibraryPath,
+      linkPath: '$binDir/$executableName',
+      targetPath: libraryPath,
     );
   }
 

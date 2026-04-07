@@ -550,7 +550,8 @@ final langrust = Language(
   helloWorld: 'fn main(){\n println!("Hello, World!");\n}',
   command: 'rustc',
   icon: SvgPicture.asset('assets/material_icons/rust.svg',height: 35,width: 35),
-  type: 'compiled'
+  type: 'compiled',
+  lspExecutable: '/data/data/com.roxum/bin/rust-analyzer',
 );
 final langgo = Language(
   name: 'Go',
@@ -560,7 +561,8 @@ final langgo = Language(
   helloWorld:'package main\n\nimport "fmt"\n\nfunc main(){\n fmt.Println("Hello, World!")\n}',
   command: 'go run',
   icon: SvgPicture.asset('assets/material_icons/go_gopher.svg',height: 35,width: 35),
-  type: 'compiled(no binary)'
+  type: 'compiled(no binary)',
+  lspExecutable: '/data/data/com.roxum/bin/gopls',
 );
 final langruby = Language(
   name: 'Ruby',
@@ -626,7 +628,8 @@ final langlua = Language(
   command: 'lua',
   icon: SvgPicture.asset('assets/material_icons/lua.svg',height: 35,width: 35),
   helloWorld: 'print("Hello, World!")',
-  type: 'compiled(no binary)'
+  type: 'compiled(no binary)',
+  lspExecutable: '/data/data/com.roxum/bin/emmyluals',
 );
 final langbash = Language(
   name: 'Bash',
