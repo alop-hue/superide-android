@@ -1655,8 +1655,9 @@ bool isLspServerAvailable({
   final normalizedExt = ext.toLowerCase();
 
   if (normalizedExt == 'dart') {
-    return File('$runtimesDir/dart/bin/dart').existsSync() ||
-        File('$binDir/dart').existsSync();
+    return File('$runtimesDir/dart/bin/dartaotruntime').existsSync() &&
+      File('$runtimesDir/dart/bin/snapshots/analysis_server_aot.dart.snapshot')
+        .existsSync();
   }
 
   if (normalizedExt == 'js' || normalizedExt == 'ts') {
@@ -1734,8 +1735,11 @@ Future<LspConfig?> startLspServer({
     final String normalizedExt = ext.toLowerCase();
     final String dartRuntimeDir = '$runtimeDir/dart';
     final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
+    final String dartAotRuntimeExecutable = '$dartRuntimeDir/bin/dartaotruntime';
+    final String dartAnalysisServerSnapshot =
+      '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
     final String resolvedExecutable = normalizedExt == 'dart'
-        ? dartRuntimeExecutable
+      ? dartAotRuntimeExecutable
         : executable;
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
@@ -1800,9 +1804,9 @@ Future<LspConfig?> startLspServer({
         ];
       } else if (normalizedExt == 'dart') {
         return [
-          "language-server",
+          dartAnalysisServerSnapshot,
           "--protocol=lsp",
-          "--sdk=$dartRuntimeDir",
+          "--dart-sdk=$dartRuntimeDir",
         ];
       } else if (normalizedExt == 'java') {
         return [
@@ -1845,19 +1849,20 @@ Future<LspConfig?> startLspServer({
           workspacePath: workspacePath,
           languageId: langId.toLowerCase(),
         );
-        debugPrint('Dart LSP started with runtime executable: $resolvedExecutable');
+        debugPrint('Dart LSP started with AOT runtime executable: $resolvedExecutable');
         return config;
       } catch (primaryError) {
         debugPrint(
           'Primary Dart LSP startup failed with $resolvedExecutable: $primaryError',
         );
-        final fallbackExecutable = '$binDir/dart';
+        final fallbackExecutable = dartRuntimeExecutable;
         final fallbackConfig = await LspStdioConfig.start(
           executable: fallbackExecutable,
           capabilities: capabilities ?? const LspClientCapabilities(),
-          args: const [
+          args: [
             'language-server',
             '--protocol=lsp',
+            '--sdk=$dartRuntimeDir',
           ],
           environment: resolvedEnvironment,
           workspacePath: workspacePath,
