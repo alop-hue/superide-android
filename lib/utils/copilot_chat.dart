@@ -309,11 +309,11 @@ class CopilotChat {
   String _selectChatPath(String model, {required bool wantsToolCalls}) {
     final supportedEndpoints = _modelSupportedEndpoints(model);
 
-    if (supportedEndpoints.isEmpty) {
+    if (wantsToolCalls) {
       return '/chat/completions';
     }
 
-    if (wantsToolCalls && supportedEndpoints.contains('/chat/completions')) {
+    if (supportedEndpoints.isEmpty) {
       return '/chat/completions';
     }
 
@@ -386,6 +386,69 @@ class CopilotChat {
     return null;
   }
 
+  String? _extractReasoningDelta(Map<String, dynamic> json, String path) {
+    if (path == '/chat/completions') {
+      final delta = json['choices']?[0]?['delta'];
+      if (delta is! Map) return null;
+
+      final direct = delta['reasoning_content'];
+      if (direct is String && direct.isNotEmpty) return direct;
+
+      final reasoning = delta['reasoning'];
+      if (reasoning is String && reasoning.isNotEmpty) return reasoning;
+      if (reasoning is Map) {
+        final text = reasoning['text'];
+        if (text is String && text.isNotEmpty) return text;
+      }
+      if (reasoning is List) {
+        final buffer = StringBuffer();
+        for (final item in reasoning) {
+          if (item is String) {
+            buffer.write(item);
+          } else if (item is Map && item['text'] is String) {
+            buffer.write(item['text']);
+          }
+        }
+        final merged = buffer.toString();
+        if (merged.isNotEmpty) return merged;
+      }
+      return null;
+    }
+
+    if (path == '/responses') {
+      final type = (json['type'] as String?) ?? '';
+      if (!type.contains('reasoning')) return null;
+
+      final delta = json['delta'];
+      if (delta is String && delta.isNotEmpty) return delta;
+      final text = json['text'];
+      if (text is String && text.isNotEmpty) return text;
+
+      final summary = json['summary'];
+      if (summary is String && summary.isNotEmpty) return summary;
+
+      final content = json['content'];
+      if (content is String && content.isNotEmpty) return content;
+      return null;
+    }
+
+    if (path == '/v1/messages') {
+      final type = json['type'] as String?;
+      if (type == 'content_block_delta') {
+        final delta = json['delta'];
+        if (delta is Map) {
+          final deltaType = delta['type'] as String?;
+          if (deltaType == 'thinking_delta' || deltaType == 'reasoning_delta') {
+            final text = delta['text'];
+            if (text is String && text.isNotEmpty) return text;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   int _lineCount(String? text) {
     if (text == null || text.isEmpty) return 0;
     return text.split('\n').length;
@@ -414,6 +477,49 @@ class CopilotChat {
   String _toolTerminalMarker(String command) {
     final encoded = base64Encode(utf8.encode(command));
     return '[[ROXUM_TERMINAL:$encoded]]\n';
+  }
+
+  String _toolStatusMarker(String status) {
+    return '[[ROXUM_STATUS:$status]]\n';
+  }
+
+  String _toolStatusForFunction(String functionName) {
+    const analyzingTools = {
+      'activeEditorFile',
+      'currentlySelectedText',
+      'getLspDiagnostics',
+      'readFile',
+      'listFiles',
+      'readFilesBatch',
+      'globSearchFiles',
+      'searchInFiles',
+      'grepInFiles',
+      'getPendingEditsForFile',
+      'getFileInfo',
+      'gitStatus',
+      'gitDiff',
+      'gitLog',
+      'searchInWeb',
+      'openLinks',
+    };
+
+    const patchTools = {
+      'writeFile',
+      'deleteFile',
+      'renamePath',
+      'rename',
+      'insertAtLine',
+      'replaceAllInFile',
+      'editFile',
+    };
+
+    if (analyzingTools.contains(functionName)) {
+      return 'Analyzing';
+    }
+    if (patchTools.contains(functionName)) {
+      return 'Generating patch';
+    }
+    return 'Processing';
   }
 
   Future<Map<String, dynamic>> getCopilotModels() async {
@@ -463,16 +569,8 @@ class CopilotChat {
       model,
       wantsToolCalls: tools.isNotEmpty,
     );
-    if (chatPath != '/chat/completions' && tools.isNotEmpty) {
-      if (chatMode == ChatMode.agent) {
-        throw Exception(
-          'Selected Copilot model does not support agent tools on this endpoint. Choose a model that supports /chat/completions.',
-        );
-      }
-      // Tool calling is only implemented for /chat/completions payloads.
-      tools = [];
-    }
     final streamedOutput = StringBuffer();
+    var emittingThinking = false;
 
     void pushPartial(String text) {
       if (text.isEmpty) return;
@@ -522,39 +620,90 @@ class CopilotChat {
                 'content': '',
               };
 
+              final reasoningDelta = _extractReasoningDelta(json, chatPath);
+              if (reasoningDelta != null && reasoningDelta.isNotEmpty) {
+                if (!emittingThinking) {
+                  emittingThinking = true;
+                  const openMarker = '[[ROXUM_THINK_START]]\n';
+                  finalMessage['content'] += openMarker;
+                  pushPartial(openMarker);
+                }
+                finalMessage['content'] += reasoningDelta;
+                pushPartial(reasoningDelta);
+              }
+
               final deltaText = _extractDeltaText(json, chatPath);
               if (deltaText != null && deltaText.isNotEmpty) {
+                if (emittingThinking) {
+                  emittingThinking = false;
+                  const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+                  finalMessage['content'] += closeMarker;
+                  pushPartial(closeMarker);
+                }
                 finalMessage['content'] += deltaText;
                 pushPartial(deltaText);
               }
 
-              if (delta['tool_calls'] != null) {
-                for (var toolCallDelta in delta['tool_calls']) {
-                  final index = toolCallDelta['index'];
-                  if (index >= toolCallDeltas.length) {
+              if (delta['tool_calls'] is List) {
+                for (final rawToolCallDelta in delta['tool_calls']) {
+                  if (rawToolCallDelta is! Map) {
+                    continue;
+                  }
+
+                  final toolCallDelta = Map<String, dynamic>.from(rawToolCallDelta);
+                  final rawIndex = toolCallDelta['index'];
+                  final index = rawIndex is int
+                      ? rawIndex
+                      : int.tryParse(rawIndex?.toString() ?? '');
+                  if (index == null || index < 0) {
+                    continue;
+                  }
+
+                  while (index >= toolCallDeltas.length) {
                     toolCallDeltas.add({});
                   }
+
                   if (toolCallDelta['id'] != null) {
                     toolCallDeltas[index]['id'] = toolCallDelta['id'];
                   }
-                  if (toolCallDelta['function'] != null) {
-                    toolCallDeltas[index]['function'] ??= {};
-                    if (toolCallDelta['function']['name'] != null) {
+
+                  final functionDelta = toolCallDelta['function'];
+                  if (functionDelta is Map) {
+                    toolCallDeltas[index]['function'] ??= <String, dynamic>{};
+                    if (functionDelta['name'] != null) {
                       toolCallDeltas[index]['function']['name'] =
-                          toolCallDelta['function']['name'];
+                          functionDelta['name'];
                     }
-                    if (toolCallDelta['function']['arguments'] != null) {
+                    if (functionDelta['arguments'] != null) {
                       toolCallDeltas[index]['function']['arguments'] ??= '';
                       toolCallDeltas[index]['function']['arguments'] +=
-                          toolCallDelta['function']['arguments'];
+                          functionDelta['arguments'];
                     }
                   }
                 }
               }
             } else {
               finalMessage ??= {'role': 'assistant', 'content': ''};
+              final reasoningDelta = _extractReasoningDelta(json, chatPath);
+              if (reasoningDelta != null && reasoningDelta.isNotEmpty) {
+                if (!emittingThinking) {
+                  emittingThinking = true;
+                  const openMarker = '[[ROXUM_THINK_START]]\n';
+                  finalMessage['content'] += openMarker;
+                  pushPartial(openMarker);
+                }
+                finalMessage['content'] += reasoningDelta;
+                pushPartial(reasoningDelta);
+              }
+
               final deltaText = _extractDeltaText(json, chatPath);
               if (deltaText != null && deltaText.isNotEmpty) {
+                if (emittingThinking) {
+                  emittingThinking = false;
+                  const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+                  finalMessage['content'] += closeMarker;
+                  pushPartial(closeMarker);
+                }
                 finalMessage['content'] += deltaText;
                 pushPartial(deltaText);
               }
@@ -572,25 +721,87 @@ class CopilotChat {
         throw Exception('No message received from stream');
       }
 
+      if (emittingThinking) {
+        emittingThinking = false;
+        const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+        finalMessage['content'] += closeMarker;
+        pushPartial(closeMarker);
+      }
+
       final message = finalMessage;
       if (toolCallDeltas.isNotEmpty) {
-        message['tool_calls'] = toolCallDeltas;
+        final validToolCalls = toolCallDeltas.where((call) {
+          final id = call['id']?.toString();
+          final function = call['function'];
+          final functionName = function is Map ? function['name']?.toString() : null;
+          return id != null && id.isNotEmpty && functionName != null && functionName.isNotEmpty;
+        }).toList();
+
+        if (validToolCalls.isNotEmpty) {
+          message['tool_calls'] = validToolCalls;
+        }
       }
 
       conversationMessages.add(message);
 
-      final toolCallsFromMessage = message['tool_calls'];
+      final toolCallsFromMessage = message['tool_calls'] is List
+          ? message['tool_calls'] as List
+          : const [];
       if (chatPath != '/chat/completions' ||
-          toolCallsFromMessage == null ||
           toolCallsFromMessage.isEmpty) {
         final output = streamedOutput.toString();
         if (output.isNotEmpty) return output;
         return message['content'] ?? '';
       }
 
-      for (var call in toolCallsFromMessage) {
-        final functionName = call['function']['name'];
-        final args = jsonDecode(call['function']['arguments'] ?? '{}');
+      pushPartial(_toolStatusMarker('Processing'));
+
+      for (final rawCall in toolCallsFromMessage) {
+        if (rawCall is! Map) {
+          continue;
+        }
+
+        final call = Map<String, dynamic>.from(rawCall);
+        final callId = call['id']?.toString();
+        if (callId == null || callId.isEmpty) {
+          stderr.writeln('[CopilotChat] Malformed tool call without id: $call');
+          continue;
+        }
+
+        final function = call['function'];
+        if (function is! Map) {
+          stderr.writeln('[CopilotChat] Malformed tool call without function: $call');
+          continue;
+        }
+
+        final functionMap = Map<String, dynamic>.from(function);
+        final functionName = functionMap['name']?.toString();
+        if (functionName == null || functionName.isEmpty) {
+          stderr.writeln('[CopilotChat] Malformed tool call without name: $call');
+          continue;
+        }
+
+        pushPartial(_toolStatusMarker(_toolStatusForFunction(functionName)));
+
+        final rawArgs = functionMap['arguments'];
+        Map<String, dynamic> args = <String, dynamic>{};
+        if (rawArgs is String && rawArgs.trim().isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawArgs);
+            if (decoded is Map<String, dynamic>) {
+              args = decoded;
+            } else if (decoded is Map) {
+              args = Map<String, dynamic>.from(decoded);
+            }
+          } catch (_) {
+            stderr.writeln('[CopilotChat] Failed to decode tool args for $functionName: $rawArgs');
+          }
+        } else if (rawArgs is Map<String, dynamic>) {
+          args = rawArgs;
+        } else if (rawArgs is Map) {
+          args = Map<String, dynamic>.from(rawArgs);
+        }
+
         String result;
 
         try {
@@ -654,6 +865,9 @@ class CopilotChat {
                 final added = _lineCount(args['content']?.toString());
                 final removed = _lineCount(previousContent);
                 pushPartial(
+                  _toolStatusMarker('Generating patch (+$added/-$removed)'),
+                );
+                pushPartial(
                   _toolEditMarker(
                     args['filePath']?.toString() ?? 'unknown',
                     added,
@@ -671,11 +885,15 @@ class CopilotChat {
                   ? 'File deleted successfully'
                   : (res.error ?? 'Error deleting file');
               if (res.success) {
+                final removed = _lineCount(previousRead?.data);
+                pushPartial(
+                  _toolStatusMarker('Generating patch (+0/-$removed)'),
+                );
                 pushPartial(
                   _toolEditMarker(
                     args['filePath']?.toString() ?? 'unknown',
                     0,
-                    _lineCount(previousRead?.data),
+                    removed,
                   ),
                 );
               }
@@ -715,10 +933,14 @@ class CopilotChat {
                   ? 'Text inserted successfully'
                   : (res.error ?? 'Error inserting text');
               if (res.success) {
+                final added = _lineCount(args['text']?.toString());
+                pushPartial(
+                  _toolStatusMarker('Generating patch (+$added/-0)'),
+                );
                 pushPartial(
                   _toolEditMarker(
                     args['filePath']?.toString() ?? 'unknown',
-                    _lineCount(args['text']?.toString()),
+                    added,
                     0,
                   ),
                 );
@@ -739,11 +961,16 @@ class CopilotChat {
                   ? jsonEncode(res.data)
                   : (res.error ?? 'Error replacing text');
               if (res.success) {
+                final added = _lineCount(args['newText']?.toString());
+                final removed = _lineCount(args['oldText']?.toString());
+                pushPartial(
+                  _toolStatusMarker('Generating patch (+$added/-$removed)'),
+                );
                 pushPartial(
                   _toolEditMarker(
                     args['filePath']?.toString() ?? 'unknown',
-                    _lineCount(args['newText']?.toString()),
-                    _lineCount(args['oldText']?.toString()),
+                    added,
+                    removed,
                   ),
                 );
               }
@@ -838,6 +1065,9 @@ class CopilotChat {
               if (res.success) {
                 final added = _lineCount(args['newText']?.toString());
                 final removed = _lineCount(args['oldText']?.toString());
+                pushPartial(
+                  _toolStatusMarker('Generating patch (+$added/-$removed)'),
+                );
                 pushPartial(
                   _toolEditMarker(
                     args['filePath']?.toString() ?? 'unknown',
@@ -954,7 +1184,7 @@ class CopilotChat {
         conversationMessages.add({
           'role': 'tool',
           'content': result,
-          'tool_call_id': call['id'],
+          'tool_call_id': callId,
         });
       }
     }

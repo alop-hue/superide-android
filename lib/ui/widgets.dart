@@ -371,23 +371,17 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   bool _isUpdatingGhostText = false;
   bool _awaitingManualCopilotCompletion = false;
 
-  void _bindControllerToFile() {
-    final controller = widget.codeController;
-    final targetPath = widget.filePath.path;
-
-    if (controller.openedFile != targetPath) {
-      controller.openedFile = targetPath;
-      controller.notifyListeners();
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     final controller = widget.codeController;
     try {
-      _bindControllerToFile();
-    } catch (_) {}
+      if (controller.text.isEmpty && widget.filePath.existsSync()) {
+        controller.openedFile = widget.filePath.path;
+        controller.notifyListeners();
+      }
+    } catch (_) {
+    }
     final generalState = context.read<GeneralBloc>().state;
     final configState = context.read<ConfigBloc>().state;
     
@@ -416,17 +410,6 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
         });
       }
     });
-  }
-
-  @override
-  void didUpdateWidget(covariant CodeEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.filePath.path != widget.filePath.path ||
-        oldWidget.codeController != widget.codeController) {
-      try {
-        _bindControllerToFile();
-      } catch (_) {}
-    }
   }
 
   void _setupCopilotListener() {
@@ -1018,7 +1001,11 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   Timer? _pendingRefreshTimer;
 
   String _lspLanguageIdForPath(Language lang, String filePath) {
-    return lspLanguageIdForFile(language: lang, filePath: filePath);
+    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
+    if (ext == 'tsx' || ext == 'jsx') {
+      return ext;
+    }
+    return lang.name;
   }
 
   @override
@@ -1329,6 +1316,12 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     final sctrl = ScrollController();
     super.build(context);
     final codeForgeConfig = context.watch<ConfigBloc>().state.codeForgeConfig;
+    final activeEditorBloc = context.watch<ActiveEditorBloc>();
+    final lspLanguageId = _lspLanguageIdForPath(language, file.path);
+    final lspCacheKey = ActiveEditorBloc.buildLspCacheKey(
+      workspacePath: widget.workspacePath,
+      languageId: lspLanguageId,
+    );
     final lspExt = language.extension.isNotEmpty
         ? language.extension[0]
         : path.extension(file.path).replaceFirst('.', '');
@@ -1337,7 +1330,9 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
       executable: language.lspExecutable,
       args: language.args ?? const [],
     );
-    final isWorkspaceLspRunning = controller.lspConfig != null;
+    final workspaceLspConfig = activeEditorBloc.sharedLspConfigs[lspCacheKey];
+    final isWorkspaceLspRunning =
+        workspaceLspConfig != null && workspaceLspConfig == controller.lspConfig;
     final lspEnabled = (codeForgeConfig['enableLSP'] ?? false) == true;
     final lspFeatureToggle = Map<String, dynamic>.from(
       codeForgeConfig['LSPFeatureToggle'] ?? {},
@@ -3862,9 +3857,11 @@ class _SourceControlState extends State<SourceControl> {
 
   void _requestCopilotModelsIfNeeded(
     bool githubSignedIn,
+    bool copilotSignedIn,
     CopilotChatState chatState,
   ) {
-    if (!githubSignedIn) {
+    final copilotAvailable = githubSignedIn || copilotSignedIn;
+    if (!copilotAvailable) {
       _requestedCopilotCommitModels = false;
       return;
     }
@@ -4063,11 +4060,12 @@ $diffText
   bool _canGenerateCommitMessage({
     required AIState aiState,
     required bool githubSignedIn,
+    required bool copilotSignedIn,
     required CopilotChatState chatState,
   }) {
     if (!aiState.isEnabled) return false;
 
-    final hasCopilotModels = githubSignedIn && chatState.models.isNotEmpty;
+    final hasCopilotModels = (githubSignedIn || copilotSignedIn) && chatState.models.isNotEmpty;
     final hasExternalModels = _collectExternalCommitModels(aiState).isNotEmpty;
     return hasCopilotModels || hasExternalModels;
   }
@@ -4130,6 +4128,7 @@ $diffText
     required AIState aiState,
     required CopilotChatState chatState,
     required bool githubSignedIn,
+    required bool copilotSignedIn,
   }) async {
     if (_isGeneratingCommitMessage) return;
 
@@ -4163,7 +4162,7 @@ $diffText
 
       String? generated;
 
-      if (aiState.isEnabled && githubSignedIn && chatState.models.isNotEmpty) {
+      if (aiState.isEnabled && (githubSignedIn || copilotSignedIn) && chatState.models.isNotEmpty) {
         generated = await _tryGenerateWithCopilotModels(chatState, prompt);
       }
 
@@ -8059,12 +8058,14 @@ $diffText
                                     builder: (context, authState) {
                                       return BlocBuilder<CopilotChatBloc, CopilotChatState>(
                                         builder: (context, chatState) {
-                                          _requestCopilotModelsIfNeeded(authState.isSignedIn, chatState);
+                                          final copilotSignedIn = context.read<CopilotBloc>().state.isSignedIn;
+                                          _requestCopilotModelsIfNeeded(authState.isSignedIn, copilotSignedIn, chatState);
 
                                           final canGenerate = !_isGeneratingCommitMessage &&
                                               _canGenerateCommitMessage(
                                                 aiState: aiState,
                                                 githubSignedIn: authState.isSignedIn,
+                                                copilotSignedIn: copilotSignedIn,
                                                 chatState: chatState,
                                               );
 
@@ -8087,6 +8088,7 @@ $diffText
                                                         aiState: aiState,
                                                         chatState: chatState,
                                                         githubSignedIn: authState.isSignedIn,
+                                                        copilotSignedIn: copilotSignedIn,
                                                       )
                                                   : null,
                                               icon: _isGeneratingCommitMessage
@@ -9178,9 +9180,12 @@ class _ModelOption {
   });
 }
 
-class _AIChatState extends State<AIChat> {
+class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   static final RegExp _toolEditPattern = RegExp(r'^\[\[ROXUM_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
   static final RegExp _toolTerminalPattern = RegExp(r'^\[\[ROXUM_TERMINAL:([^\]]+)\]\]$');
+  static final RegExp _toolStatusPattern = RegExp(r'^\[\[ROXUM_STATUS:([^\]]+)\]\]$');
+  static const String _thinkingStartMarker = '[[ROXUM_THINK_START]]';
+  static const String _thinkingEndMarker = '[[ROXUM_THINK_END]]';
 
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -9191,10 +9196,18 @@ class _AIChatState extends State<AIChat> {
   Timer? _pendingRefreshTimer;
   bool _isApplyingPendingAction = false;
   bool _isPendingPollingActive = false;
+  late final AnimationController _statusPulseController;
+  List<AIConversation>? _pendingEditBaseConversations;
+  List<AIConversation>? _pendingEditedConversations;
+  String? _pendingEditOriginalText;
 
   @override
   void initState() {
     super.initState();
+    _statusPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
     final uiState = context.read<AIChatUIBloc>().state;
     _promptController.text = uiState.promptText;
     _promptController.addListener(_onPromptChanged);
@@ -9426,6 +9439,8 @@ class _AIChatState extends State<AIChat> {
     double? scrollOffset,
     bool? isGenerating,
   }) {
+    if (!mounted) return;
+
     final bloc = context.read<AIChatUIBloc>();
     final current = bloc.state;
     bloc.add(AIChatUIEvent(
@@ -9437,7 +9452,185 @@ class _AIChatState extends State<AIChat> {
     ));
   }
 
+  bool get _hasPendingConversationEdit => _pendingEditBaseConversations != null;
+
+  List<AIConversation> _cloneConversations(List<AIConversation> conversations) {
+    return conversations
+        .map((c) => AIConversation(c.userRequest, c.modelResponse))
+        .toList();
+  }
+
+  void _restorePendingConversationEdit() {
+    if (!_hasPendingConversationEdit) return;
+    setState(() {
+      _pendingEditBaseConversations = null;
+      _pendingEditedConversations = null;
+      _pendingEditOriginalText = null;
+    });
+  }
+
+  void _startPendingConversationEdit(int index, List<AIConversation> baseConversations) {
+    if (index < 0 || index >= baseConversations.length) return;
+
+    final originalText = baseConversations[index].userRequest;
+    final trimmedConversations = _cloneConversations(
+      baseConversations.take(index).toList(),
+    );
+
+    setState(() {
+      _pendingEditBaseConversations = _cloneConversations(baseConversations);
+      _pendingEditedConversations = trimmedConversations;
+      _pendingEditOriginalText = originalText;
+    });
+
+    _promptController.text = originalText;
+    _promptController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _promptController.text.length),
+    );
+  }
+
+  Future<void> _retryConversationFromIndex({
+    required int index,
+    required AIConversation conversation,
+    required List<AIConversation> sourceConversations,
+    required AIChatUIState aiChatUIState,
+    required ChatSessionState sessionState,
+    required CopilotChatState chatState,
+    required Models? chatModel,
+  }) async {
+    if (aiChatUIState.isGenerating) return;
+
+    final prompt = conversation.userRequest.trim();
+    if (prompt.isEmpty) return;
+
+    final retryConversations = _cloneConversations(
+      sourceConversations.take(index).toList(),
+    );
+
+    if (_hasPendingConversationEdit) {
+      _restorePendingConversationEdit();
+    }
+
+    _promptController.text = prompt;
+    _promptController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _promptController.text.length),
+    );
+
+    final selectedModel = aiChatUIState.selectedModelId ?? '';
+    final selectedCopilotModel = chatState.models.firstWhere(
+      (model) => model['id'] == selectedModel,
+      orElse: () => const <String, dynamic>{},
+    );
+
+    if (selectedCopilotModel.isNotEmpty) {
+      _sendCopilotChatPrompt(
+        retryConversations,
+        sessionState.currentSession?.id,
+        selectedModel,
+        widget.workspacePath,
+      );
+      return;
+    }
+
+    if (chatModel != null) {
+      _sendPrompt(chatModel, retryConversations, sessionState.currentSession?.id);
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Chat model not available'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  Future<void> _showUserBubbleActions({
+    required int index,
+    required AIConversation conversation,
+    required List<AIConversation> baseConversations,
+    required AIChatUIState aiChatUIState,
+    required ChatSessionState sessionState,
+    required CopilotChatState chatState,
+    required Models? chatModel,
+    required AppTheme appTheme,
+  }) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: appTheme.isDark ? const Color(0xff1e1e2e) : Colors.white,
+      builder: (sheetContext) {
+        final textColor = appTheme.selectScreenCardTextColor;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.copy_outlined, color: textColor),
+                title: Text('Copy', style: TextStyle(color: textColor)),
+                onTap: () => Navigator.of(sheetContext).pop('copy'),
+              ),
+              ListTile(
+                leading: Icon(Icons.edit_outlined, color: textColor),
+                title: Text('Edit', style: TextStyle(color: textColor)),
+                onTap: () => Navigator.of(sheetContext).pop('edit'),
+              ),
+              ListTile(
+                leading: Icon(Icons.refresh_outlined, color: textColor),
+                title: Text('Try again', style: TextStyle(color: textColor)),
+                onTap: () => Navigator.of(sheetContext).pop('retry'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    if (action == 'copy') {
+      await Clipboard.setData(ClipboardData(text: conversation.userRequest));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copied to clipboard')),
+      );
+      return;
+    }
+
+    if (action == 'edit') {
+      _startPendingConversationEdit(index, baseConversations);
+      return;
+    }
+
+    if (action == 'retry') {
+      await _retryConversationFromIndex(
+        index: index,
+        conversation: conversation,
+        sourceConversations: baseConversations,
+        aiChatUIState: aiChatUIState,
+        sessionState: sessionState,
+        chatState: chatState,
+        chatModel: chatModel,
+      );
+    }
+  }
+
+  String _userFacingChatErrorMessage(Object error) {
+    final text = error.toString();
+    if (text.contains('Connection closed')) {
+      return 'Generation stopped by user';
+    }
+    return 'Request failed: $text';
+  }
+
+  void _logChatError(String source, Object error, StackTrace stackTrace) {
+    debugPrint('[AIChat][$source] $error');
+    debugPrint('[AIChat][$source][stack] $stackTrace');
+  }
+
   void _stopGeneration() {
+    if (!mounted) return;
+
     _currentClient?.close();
     _currentClient = null;
     
@@ -9449,6 +9642,7 @@ class _AIChatState extends State<AIChat> {
 
   @override
   void dispose() {
+    _statusPulseController.dispose();
     _promptController.removeListener(_onPromptChanged);
     _scrollController.removeListener(_onScrollChanged);
     _currentClient?.close();
@@ -9471,35 +9665,6 @@ class _AIChatState extends State<AIChat> {
     final fixed = multiplier.toStringAsFixed(2);
     final compact = fixed.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
     return '${compact}x';
-  }
-
-  String _normalizeCopilotEndpoint(String endpoint) {
-    var normalized = endpoint.trim().toLowerCase();
-    if (normalized.isEmpty) return normalized;
-    if (!normalized.startsWith('/')) {
-      normalized = '/$normalized';
-    }
-    if (normalized.startsWith('/v1/')) {
-      normalized = normalized.substring(3);
-    }
-    if (normalized.endsWith('/') && normalized.length > 1) {
-      normalized = normalized.substring(0, normalized.length - 1);
-    }
-    return normalized;
-  }
-
-  Set<String> _copilotSupportedEndpoints(Map<String, dynamic> model) {
-    final raw = model['supported_endpoints'];
-    if (raw is! List) return const {};
-    return raw
-        .whereType<String>()
-        .map(_normalizeCopilotEndpoint)
-        .where((item) => item.isNotEmpty)
-        .toSet();
-  }
-
-  bool _copilotSupportsAgentMode(Map<String, dynamic> model) {
-    return _copilotSupportedEndpoints(model).contains('/chat/completions');
   }
 
   Widget _buildModeSelector(Color textColor, bool isDark, ChatMode chatMode) {
@@ -9563,7 +9728,8 @@ class _AIChatState extends State<AIChat> {
     bool githubSignedIn,
     String? selectedModelId,
   ) {
-    final isCopilotAvailable = githubSignedIn;
+    final copilotSignedIn = context.watch<CopilotBloc>().state.isSignedIn;
+    final isCopilotAvailable = githubSignedIn || copilotSignedIn;
     final hasExternalModels = aiState.config.isNotEmpty;
     final List<_ModelOption> models = [];
     
@@ -9573,12 +9739,9 @@ class _AIChatState extends State<AIChat> {
         final id = model['id'] as String?;
         final name = model['name'] as String?;
         if (id == null || name == null) continue;
-        final supportsAgent = _copilotSupportsAgentMode(model);
         final rateLabel = _formatCopilotRate(model);
-        final capabilityLabel = supportsAgent ? null : 'Ask only';
         final detailParts = <String>[
           if (rateLabel != null && rateLabel.isNotEmpty) rateLabel,
-          if (capabilityLabel != null) capabilityLabel,
         ];
         models.add(_ModelOption(
           id: id,
@@ -9726,14 +9889,65 @@ class _AIChatState extends State<AIChat> {
   String _stripToolUiMarkers(String input) {
     final lines = input.split('\n');
     final clean = <String>[];
+    var insideThinkingBlock = false;
     for (final line in lines) {
       final trimmed = line.trim();
-      if (_toolEditPattern.hasMatch(trimmed) || _toolTerminalPattern.hasMatch(trimmed)) {
+      if (trimmed == _thinkingStartMarker) {
+        insideThinkingBlock = true;
+        continue;
+      }
+      if (trimmed == _thinkingEndMarker) {
+        insideThinkingBlock = false;
+        continue;
+      }
+      if (insideThinkingBlock) {
+        continue;
+      }
+      if (_toolEditPattern.hasMatch(trimmed) ||
+          _toolTerminalPattern.hasMatch(trimmed) ||
+          _toolStatusPattern.hasMatch(trimmed)) {
         continue;
       }
       clean.add(line);
     }
     return clean.join('\n').trim();
+  }
+
+  Widget _buildToolStatusIndicator(String status, AppTheme appTheme) {
+    final baseColor = appTheme.selectScreenCardTextColor.withAlpha(135);
+    final glowColor = appTheme.selectScreenCardTextColor.withAlpha(230);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: AnimatedBuilder(
+        animation: _statusPulseController,
+        builder: (context, child) {
+          final t = _statusPulseController.value;
+          final center = -0.9 + (t * 2.8);
+
+          return ShaderMask(
+            blendMode: BlendMode.srcATop,
+            shaderCallback: (rect) {
+              return LinearGradient(
+                colors: [baseColor, glowColor, baseColor],
+                stops: const [0.2, 0.5, 0.8],
+                begin: Alignment(center - 1.0, 0),
+                end: Alignment(center + 1.0, 0),
+              ).createShader(rect);
+            },
+            child: child,
+          );
+        },
+        child: Text(
+          status,
+          style: TextStyle(
+            color: baseColor,
+            fontStyle: FontStyle.italic,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildToolEditSummary(String filePath, int added, int removed, AppTheme appTheme) {
@@ -9825,6 +10039,49 @@ class _AIChatState extends State<AIChat> {
     );
   }
 
+  Widget _buildThinkingPanel(String thinkingText, AppTheme appTheme) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 6),
+      decoration: BoxDecoration(
+        color: appTheme.isDark
+            ? Colors.white.withAlpha(8)
+            : Colors.black.withAlpha(6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withAlpha(70)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          dense: true,
+          title: Text(
+            'Thinking',
+            style: TextStyle(
+              color: appTheme.selectScreenCardTextColor.withAlpha(180),
+              fontStyle: FontStyle.italic,
+              fontSize: 12.5,
+            ),
+          ),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SelectableText(
+                thinkingText.trim(),
+                style: TextStyle(
+                  color: appTheme.selectScreenCardTextColor.withAlpha(190),
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAssistantResponseContent(
     String response,
     MarkdownConfig config,
@@ -9833,7 +10090,9 @@ class _AIChatState extends State<AIChat> {
     final lines = response.split('\n');
     final widgets = <Widget>[];
     final markdownBuffer = StringBuffer();
+    final thinkingBuffer = StringBuffer();
     var markerIndex = 0;
+    var insideThinkingBlock = false;
 
     void flushMarkdown() {
       final content = markdownBuffer.toString().trim();
@@ -9850,6 +10109,31 @@ class _AIChatState extends State<AIChat> {
 
     for (final line in lines) {
       final trimmed = line.trim();
+
+      if (trimmed == _thinkingStartMarker) {
+        flushMarkdown();
+        insideThinkingBlock = true;
+        thinkingBuffer.clear();
+        continue;
+      }
+
+      if (trimmed == _thinkingEndMarker) {
+        if (insideThinkingBlock) {
+          final thinkingText = thinkingBuffer.toString().trim();
+          if (thinkingText.isNotEmpty) {
+            widgets.add(_buildThinkingPanel(thinkingText, appTheme));
+          }
+          thinkingBuffer.clear();
+          insideThinkingBlock = false;
+        }
+        continue;
+      }
+
+      if (insideThinkingBlock) {
+        thinkingBuffer.writeln(line);
+        continue;
+      }
+
       final editMatch = _toolEditPattern.firstMatch(trimmed);
       if (editMatch != null) {
         flushMarkdown();
@@ -9858,6 +10142,16 @@ class _AIChatState extends State<AIChat> {
         final removed = int.tryParse(editMatch.group(3) ?? '0') ?? 0;
         widgets.add(_buildToolEditSummary(filePath, added, removed, appTheme));
         markerIndex++;
+        continue;
+      }
+
+      final statusMatch = _toolStatusPattern.firstMatch(trimmed);
+      if (statusMatch != null) {
+        flushMarkdown();
+        final status = statusMatch.group(1)?.trim() ?? '';
+        if (status.isNotEmpty) {
+          widgets.add(_buildToolStatusIndicator(status, appTheme));
+        }
         continue;
       }
 
@@ -9876,6 +10170,12 @@ class _AIChatState extends State<AIChat> {
     }
 
     flushMarkdown();
+    if (insideThinkingBlock) {
+      final thinkingText = thinkingBuffer.toString().trim();
+      if (thinkingText.isNotEmpty) {
+        widgets.add(_buildThinkingPanel(thinkingText, appTheme));
+      }
+    }
     if (widgets.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -10175,7 +10475,8 @@ class _AIChatState extends State<AIChat> {
       if (isFirstMessage && fullResponse.isNotEmpty) {
         _generateTitle(chatModel, prompt, fullResponse.toString());
       }
-    } catch (e) {
+    } catch (e, st) {
+      _logChatError('sendPrompt', e, st);
       final currentSession = chatSessionBloc.state.currentSession;
       if (currentSession != null) {
         final updated = currentSession.conversations
@@ -10183,7 +10484,7 @@ class _AIChatState extends State<AIChat> {
             .toList();
         if (index < updated.length) {
           updated[index] = updated[index].copyWith(
-            modelResponse: e.toString().contains('Connection closed') ? 'Generation stopped by user' : 'Failed to send request: ${e.toString()}',
+            modelResponse: _userFacingChatErrorMessage(e),
           );
           chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
         }
@@ -10362,7 +10663,8 @@ class _AIChatState extends State<AIChat> {
       });
       
       _updateBlocState(isGenerating: false);
-    } catch (e) {
+    } catch (e, st) {
+      _logChatError('sendCopilotChatPrompt', e, st);
       final currentSession = chatSessionBloc.state.currentSession;
       if (currentSession != null) {
         final updated = currentSession.conversations
@@ -10370,7 +10672,7 @@ class _AIChatState extends State<AIChat> {
             .toList();
         if (index < updated.length) {
           updated[index] = updated[index].copyWith(
-            modelResponse: e.toString().contains('Connection closed') ? 'Generation stopped by user' : 'Failed to send request: ${e.toString()}',
+            modelResponse: _userFacingChatErrorMessage(e),
           );
           chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
         }
@@ -10382,7 +10684,14 @@ class _AIChatState extends State<AIChat> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AIChatUIBloc, AIChatUIState>(
+    return PopScope(
+      canPop: !_hasPendingConversationEdit,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _hasPendingConversationEdit) {
+          _restorePendingConversationEdit();
+        }
+      },
+      child: BlocBuilder<AIChatUIBloc, AIChatUIState>(
       builder: (context, aiChatUIState) {
       return BlocBuilder<AppThemeBloc, AppThemeState>(
       builder: (context, appThemeState) {
@@ -10397,7 +10706,8 @@ class _AIChatState extends State<AIChat> {
                 
             return BlocBuilder<ChatSessionBloc, ChatSessionState>(
               builder: (context, sessionState) {
-                final conversations = sessionState.currentSession?.conversations ?? [];
+                final baseConversations = sessionState.currentSession?.conversations ?? [];
+                final conversations = _pendingEditedConversations ?? baseConversations;
                 final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
                 final textColor = appThemeState.appTheme.selectScreenCardTextColor;
                 final isDark = appThemeState.appTheme.isDark;
@@ -10405,12 +10715,13 @@ class _AIChatState extends State<AIChat> {
                 return BlocBuilder<GithubAuthCubit, GithubAuthState>(
                   builder: (context, authState) {
                     final githubSignedIn = authState.isSignedIn;
-                    final bool copilotModelsAvailable = githubSignedIn;
+                    final copilotSignedIn = context.watch<CopilotBloc>().state.isSignedIn;
+                    final bool copilotModelsAvailable = githubSignedIn || copilotSignedIn;
                     
                     if (!externalModelConfigured && !copilotModelsAvailable) {
                       return Center(
                         child: Text(
-                          "Chat Model is not configured. Either create a model in settings or sign in with GitHub.",
+                          "Chat model is not configured. Either create a model in settings or sign in with GitHub Copilot.",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: appThemeState.appTheme.selectScreenCardTextColor,
@@ -10424,7 +10735,7 @@ class _AIChatState extends State<AIChat> {
                         _updatePendingPolling(aiChatUIState.isGenerating);
                         final pendingCounts = _pendingDiffCounts(_pendingEdits);
 
-                        if (githubSignedIn && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
+                        if ((githubSignedIn || copilotSignedIn) && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
                           _requestedCopilotModelRefresh = true;
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             context.read<CopilotChatBloc>().add(CopilotChatFetchModels(forceRefresh: true));
@@ -10507,30 +10818,43 @@ class _AIChatState extends State<AIChat> {
                                       onPressed: aiChatUIState.isGenerating
                                         ? _stopGeneration
                                         : () async {
+                                            if (_hasPendingConversationEdit) {
+                                              final currentText = _promptController.text.trim();
+                                              final oldText = _pendingEditOriginalText?.trim() ?? '';
+                                              if (currentText == oldText) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Text must be different'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+                                            }
+
+                                            final sendingConversations = _cloneConversations(conversations);
+                                            if (_hasPendingConversationEdit) {
+                                              setState(() {
+                                                _pendingEditBaseConversations = null;
+                                                _pendingEditedConversations = null;
+                                                _pendingEditOriginalText = null;
+                                              });
+                                            }
+
                                             final selectedModel = aiChatUIState.selectedModelId ?? '';
                                             final selectedCopilotModel = chatState.models.firstWhere(
                                               (model) => model['id'] == selectedModel,
                                               orElse: () => const <String, dynamic>{},
                                             );
                                             if (selectedCopilotModel.isNotEmpty) {
-                                              if (aiChatUIState.chatMode == ChatMode.agent &&
-                                                  !_copilotSupportsAgentMode(selectedCopilotModel)) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('Selected Copilot model supports Ask only. Choose a model with /chat/completions for Agent edits.'),
-                                                    backgroundColor: Colors.orange,
-                                                  ),
-                                                );
-                                                return;
-                                              }
                                               _sendCopilotChatPrompt(
-                                                conversations,
+                                                sendingConversations,
                                                 sessionState.currentSession?.id,
                                                 selectedModel,
                                                 widget.workspacePath
                                               );
                                             } else if (chatModel != null) {
-                                              _sendPrompt(chatModel, conversations, sessionState.currentSession?.id);
+                                              _sendPrompt(chatModel, sendingConversations, sessionState.currentSession?.id);
                                             } else {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 const SnackBar(
@@ -10629,6 +10953,15 @@ class _AIChatState extends State<AIChat> {
                                         itemCount: conversations.length,
                                         itemBuilder: (context, index) {
                                           final isDark = appThemeState.appTheme.isDark;
+                                          final fileExtension = path.extension(widget.filePath);
+                                          final extensionWithoutDot = fileExtension.startsWith('.')
+                                              ? fileExtension.substring(1)
+                                              : fileExtension;
+                                          final previewLanguage = languages.singleWhere(
+                                            (item) => extensionWithoutDot.isNotEmpty &&
+                                                item.extension.contains(extensionWithoutDot),
+                                            orElse: () => languages.first,
+                                          );
                                           final config = isDark
                                             ? MarkdownConfig.darkConfig.copy(
                                                 configs: [
@@ -10638,11 +10971,7 @@ class _AIChatState extends State<AIChat> {
                                                     ),
                                                   ),
                                                   PreConfig(
-                                                    language: languages.singleWhere(
-                                                      (item) => item.extension.contains(
-                                                        path.extension(widget.filePath).substring(1),
-                                                      )
-                                                    ).name.toLowerCase(),
+                                                    language: previewLanguage.name.toLowerCase(),
                                                     theme: theme,
                                                     styleNotMatched: TextStyle(
                                                       color: theme['root']!.color
@@ -10669,26 +10998,38 @@ class _AIChatState extends State<AIChat> {
                                                     padding: const EdgeInsets.symmetric(
                                                       vertical: 6.5,
                                                     ),
-                                                    child: Container(
-                                                      padding: EdgeInsets.symmetric(
-                                                        vertical: 5,
-                                                        horizontal: 8,
+                                                    child: GestureDetector(
+                                                      onLongPress: () => _showUserBubbleActions(
+                                                        index: index,
+                                                        conversation: conv,
+                                                        baseConversations: baseConversations,
+                                                        aiChatUIState: aiChatUIState,
+                                                        sessionState: sessionState,
+                                                        chatState: chatState,
+                                                        chatModel: chatModel,
+                                                        appTheme: appThemeState.appTheme,
                                                       ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.blueAccent.withAlpha(
-                                                          200,
+                                                      child: Container(
+                                                        padding: EdgeInsets.symmetric(
+                                                          vertical: 5,
+                                                          horizontal: 8,
                                                         ),
-                                                        borderRadius: BorderRadius.only(
-                                                          topLeft: Radius.circular(16),
-                                                          topRight: Radius.zero,
-                                                          bottomLeft: Radius.circular(16),
-                                                          bottomRight: Radius.circular(16),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.blueAccent.withAlpha(
+                                                            200,
+                                                          ),
+                                                          borderRadius: BorderRadius.only(
+                                                            topLeft: Radius.circular(16),
+                                                            topRight: Radius.zero,
+                                                            bottomLeft: Radius.circular(16),
+                                                            bottomRight: Radius.circular(16),
+                                                          ),
                                                         ),
-                                                      ),
-                                                      child: Text(
-                                                        conv.userRequest,
-                                                        style: TextStyle(
-                                                          color: Colors.white,
+                                                        child: Text(
+                                                          conv.userRequest,
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
@@ -10745,13 +11086,14 @@ class _AIChatState extends State<AIChat> {
                     );
                   },
                 );
-              }
+              },
             );
-          }
+          },
         );
-      }
+      },
     );
-    }
+    },
+    ),
     );
   }
 
