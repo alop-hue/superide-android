@@ -9,6 +9,7 @@ import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
 import '../utils/themes.dart';
+import 'downloads.dart';
 import 'widgets.dart';
 
 class ProjectScreen extends StatefulWidget {
@@ -75,6 +76,59 @@ class _ProjectScreenState extends State<ProjectScreen> {
     } catch (e) {
       return [];
     }
+  }
+
+  List<TemplateRequirement> _missingTemplateRequirements(CLITemplates template) {
+    return template.requirements
+        .where((requirement) => !File(requirement.binaryPath).existsSync())
+        .toList();
+  }
+
+  Future<void> _showTemplatePrerequisiteDialog(
+    BuildContext context,
+    AppTheme appTheme,
+    List<TemplateRequirement> missing,
+  ) async {
+    final missingNames = missing.map((item) => item.title).join(' and ');
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: appTheme.isDark
+              ? const Color(0xff2b2b2b)
+              : const Color.fromARGB(255, 240, 240, 240),
+          title: Text(
+            'Runtime Setup Required',
+            style: TextStyle(color: appTheme.selectScreenCardTextColor),
+          ),
+          content: Text(
+            'Before creating this template, please install: $missingNames.\n\nOpen Downloads to install it first.',
+            style: TextStyle(color: appTheme.selectScreenCardTextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const DownloadManager(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SizeTransition(sizeFactor: animation, child: child);
+                    },
+                  ),
+                );
+              },
+              child: const Text('Open Downloads'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showNewProjectDialog(BuildContext context, AppTheme appTheme) {
@@ -607,15 +661,21 @@ class _ProjectScreenState extends State<ProjectScreen> {
                                                   }
 
                                                 } else if(item is CLITemplates) {
+                                                  final missing = _missingTemplateRequirements(item);
+                                                  if (missing.isNotEmpty) {
+                                                    await _showTemplatePrerequisiteDialog(context, appTheme, missing);
+                                                    return;
+                                                  }
+
                                                   Navigator.pop(context);
-                                                  item.name = _projectNameController.text;
+                                                  item.name = _projectNameController.text.trim();
                                                   await showDialog(
                                                     context: context,
                                                     builder: (ctx) => item.runCommand(),
                                                   );
 
-                                                  if (item.isVite && context.mounted) {
-                                                    final newDir = Directory("$projectDir/${_projectNameController.text}");
+                                                  if (item.openAfterCreate && context.mounted) {
+                                                    final newDir = Directory("$projectDir/${_projectNameController.text.trim()}");
                                                     WidgetsBinding.instance.addPostFrameCallback((_) {
                                                       if (!context.mounted) return;
                                                       try {
