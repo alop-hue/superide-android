@@ -96,6 +96,9 @@ class PlainTemplates extends ProjectTemplates {
 class CLITemplates extends ProjectTemplates {
   final String command;
   final bool isVite;
+  final bool appendProjectName;
+  final bool openAfterCreate;
+  final List<TemplateRequirement> requirements;
 
   String _command;
 
@@ -106,9 +109,12 @@ class CLITemplates extends ProjectTemplates {
     required super.icon,
     required this.command,
     this.isVite = false,
+    this.appendProjectName = false,
+    this.openAfterCreate = false,
+    this.requirements = const [],
   }) : _command = command ;
 
-  set name(String n) => _command = "$command ${isVite ? n : ''}";
+  set name(String n) => _command = "$command ${appendProjectName ? n : ''}";
 
   EmbeddedTerminal runCommand(){
     return EmbeddedTerminal(
@@ -116,6 +122,16 @@ class CLITemplates extends ProjectTemplates {
       args: ["-c", _command],
     );
   }
+}
+
+class TemplateRequirement {
+  final String binaryPath;
+  final String title;
+
+  const TemplateRequirement({
+    required this.binaryPath,
+    required this.title,
+  });
 }
 
 
@@ -137,7 +153,41 @@ List<ProjectTemplates> projTemps(BuildContext context) => [
     title: "Vite app",
     subtitle: "Create a vite app.",
     isVite: true,
+    appendProjectName: true,
+    openAfterCreate: true,
     icon: SvgPicture.asset("assets/material_icons/vitejs.svg", width: 30, height: 30),
     command: "npm init -y && npm install -g create-vite@latest && node /data/data/com.roxum/runtimes/node/lib/node_modules/create-vite/dist/index.js"
+  ),
+
+  CLITemplates(
+    context: context,
+    title: "Dart app",
+    subtitle: "Create a Dart console app.",
+    appendProjectName: true,
+    openAfterCreate: true,
+    requirements: const [
+      TemplateRequirement(
+        binaryPath: '$binDir/dart',
+        title: 'Dart runtime',
+      ),
+    ],
+    icon: SvgPicture.asset("assets/material_icons/dart.svg", width: 30, height: 30),
+    command: "dart create"
+  ),
+
+  CLITemplates(
+    context: context,
+    title: "Rust app",
+    subtitle: "Create a Rust project.",
+    appendProjectName: true,
+    openAfterCreate: true,
+    requirements: const [
+      TemplateRequirement(
+        binaryPath: '$binDir/cargo',
+        title: 'Rust runtime',
+      ),
+    ],
+    icon: SvgPicture.asset("assets/material_icons/rust.svg", width: 30, height: 30),
+    command: "cargo new"
   ),
 ];
