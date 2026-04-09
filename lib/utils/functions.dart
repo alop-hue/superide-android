@@ -1601,6 +1601,11 @@ bool isLspServerAvailable({
 
   final normalizedExt = ext.toLowerCase();
 
+  if (normalizedExt == 'dart') {
+    return File('$runtimesDir/dart/bin/dartaotruntime').existsSync() &&
+      File('$runtimesDir/dart/bin/snapshots/analysis_server_aot.dart.snapshot')
+        .existsSync();
+  }
   if (normalizedExt == 'js' || normalizedExt == 'ts') {
     return File(
       '$runtimesDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
@@ -1674,10 +1679,19 @@ Future<LspConfig?> startLspServer({
   try {
     final String sharedPath = await NativeChannel.getLibraryPath();
     final String runtimeDir = runtimesDir;
+    final String normalizedExt = ext.toLowerCase();
+    final String dartRuntimeDir = '$runtimeDir/dart';
+    final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
+    final String dartAotRuntimeExecutable = '$dartRuntimeDir/bin/dartaotruntime';
+    final String dartAnalysisServerSnapshot =
+      '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
+    final String resolvedExecutable = normalizedExt == 'dart'
+      ? dartAotRuntimeExecutable
+        : executable;
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
-      if (['py', 'sh', 'bash', 'zsh'].contains(normalizedExt)) {
+      if (['sh', 'bash', 'zsh'].contains(normalizedExt)) {
         final matched = extensions.where(
           (item) => item.fileExtension.contains(normalizedExt),
         );
@@ -1716,6 +1730,97 @@ Future<LspConfig?> startLspServer({
       return args;
     }
 
+    final resolvedArgs = (() {
+      if (normalizedExt == 'ts' || normalizedExt == 'js') {
+        return [
+          "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+          ...args,
+        ];
+      } else if (normalizedExt == 'py' || normalizedExt == 'pyi') {
+        return ["server"];
+      } else if (normalizedExt == 'c' ||
+          normalizedExt == 'cpp' ||
+          normalizedExt == 'cc' ||
+          normalizedExt == 'c++' ||
+          normalizedExt == 'h' ||
+          normalizedExt == 'hpp' ||
+          normalizedExt == 'hh' ||
+          normalizedExt == 'hxx') {
+        return [
+          '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
+        ];
+      } else if (normalizedExt == 'dart') {
+        return [
+          dartAnalysisServerSnapshot,
+          "--protocol=lsp",
+          "--dart-sdk=$dartRuntimeDir",
+        ];
+      } else if (normalizedExt == 'java') {
+        return [
+          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
+          "-Dosgi.bundles.defaultStartLevel=4",
+          "-Declipse.product=org.eclipse.jdt.ls.core.product",
+          "-Dlog.level=ALL",
+          "-Xmx1G",
+          "--add-modules=ALL-SYSTEM",
+          "--add-opens=java.base/java.util=ALL-UNNAMED",
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          "-jar",
+          "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
+          "-configuration",
+          "$extensionDir/JDT-LS/config_linux_arm",
+          "-data",
+          workspacePath,
+          ...args,
+        ];
+      }
+      return resolveServerArgs(ext, args);
+    })();
+
+    final resolvedEnvironment = {
+      ...environment ?? {},
+      'PATH': '$binDir:$runtimeDir/dart/bin:/bin:/usr/bin:${Platform.environment['PATH'] ?? ''}',
+      'ROXUM_SHARED_PATH': sharedPath,
+      'LD_LIBRARY_PATH': '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+      if (normalizedExt == 'dart') 'DART_ROOT': dartRuntimeDir,
+      'JAVA_HOME': '$runtimeDir/java-21-openjdk',
+    };
+
+    if (normalizedExt == 'dart') {
+      try {
+        final config = await LspStdioConfig.start(
+          executable: resolvedExecutable,
+          capabilities: capabilities ?? const LspClientCapabilities(),
+          args: resolvedArgs,
+          environment: resolvedEnvironment,
+          workspacePath: workspacePath,
+          languageId: langId.toLowerCase(),
+        );
+        debugPrint('Dart LSP started with AOT runtime executable: $resolvedExecutable');
+        return config;
+      } catch (primaryError) {
+        debugPrint(
+          'Primary Dart LSP startup failed with $resolvedExecutable: $primaryError',
+        );
+        final fallbackExecutable = dartRuntimeExecutable;
+        final fallbackConfig = await LspStdioConfig.start(
+          executable: fallbackExecutable,
+          capabilities: capabilities ?? const LspClientCapabilities(),
+          args: [
+            'language-server',
+            '--protocol=lsp',
+            '--sdk=$dartRuntimeDir',
+          ],
+          environment: resolvedEnvironment,
+          workspacePath: workspacePath,
+          languageId: langId.toLowerCase(),
+        );
+        debugPrint('Dart LSP started with fallback executable: $fallbackExecutable');
+        return fallbackConfig;
+      }
+    }
+
+>>>>>>> 1d87f7b (fix(lsp): update Dart LSP server to use AOT runtime and analysis server snapshot)
     final config = await LspStdioConfig.start(
       executable: executable,
       capabilities: capabilities ?? const LspClientCapabilities(),
@@ -1744,50 +1849,12 @@ Future<LspConfig?> startLspServer({
             "-configuration",
             "$extensionDir/JDT-LS/config_linux_arm",
             "-data",
-            workspacePath,
-            ...args,
           ];
         }
-        return resolveServerArgs(ext, args);
+          executable: resolvedExecutable,
       })(),
-      environment: {
-        ...environment ?? {},
-        'ROXUM_SHARED_PATH': sharedPath,
-        'LD_LIBRARY_PATH':
-            '$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
-        'JAVA_HOME': '$runtimeDir/java-21-openjdk',
-      },
-      workspacePath: workspacePath,
-      languageId: langId.toLowerCase(),
-    );
-    return config;
-  } catch (e) {
-    debugPrint('LSP Initialization failed: $e');
-  }
-  return null;
-}
-
-class Extractor {
-  static Future<void> extractZip(
-    BuildContext context,
-    String inputPath,
-    String outputDir, {
-    String? archiveName,
-  }) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final progressNotifier = ValueNotifier<double>(0.0);
-
-    final snackbar = SnackBar(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(days: 1),
-      content: ValueListenableBuilder<double>(
-        valueListenable: progressNotifier,
-        builder: (context, value, _) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
+          args: resolvedArgs,
+          environment: resolvedEnvironment,
               'Extracting${archiveName == null ? "" : " "}${archiveName ?? "..."}',
               style: const TextStyle(color: Colors.white),
             ),
