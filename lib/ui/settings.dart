@@ -386,7 +386,7 @@ int main() {
           const url = 'https://github.com/login/device';
           final uri = Uri.parse(url);
           try {
-            await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+            await launchUrl(uri, mode: LaunchMode.inAppWebView);
           } catch (e) {
             debugPrint('Failed to launch URL: $e');
           }

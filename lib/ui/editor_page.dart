@@ -3082,7 +3082,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           return _buildPreviewPane(editor, appTheme);
                         }
                         return EditorArea(
-                          key: ValueKey(editor.file.path),
+                          key: ObjectKey(editor),
                           editor: editor,
                           appTheme: appTheme,
                           workspacePath: widget.rootDir,
