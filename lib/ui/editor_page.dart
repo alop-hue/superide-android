@@ -354,11 +354,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   }
 
   String _lspLanguageIdForPath(Language language, String filePath) {
-    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
-    if (ext == 'tsx' || ext == 'jsx') {
-      return ext;
-    }
-    return language.name;
+    return lspLanguageIdForFile(language: language, filePath: filePath);
   }
 
   bool _isPreviewEditor(ActiveEditor editor) {
@@ -2832,28 +2828,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                         if (!autoSaveEnabled)
                           OutlinedButton.icon(
                             onPressed: hasDirtyFiles
-                                ? () => _saveActiveEditor(
-                                    context,
-                                    editorState.activeEditors,
-                                  )
-                                : null,
+                              ? () => _saveActiveEditor(context, editorState.activeEditors)
+                              : null,
                             icon: Icon(
                               Icons.save_outlined,
                               size: 17,
                               color: hasDirtyFiles
-                                  ? appTheme.editorPageToolSelectedColor
-                                  : appTheme.editorPageToolColor.withValues(
-                                      alpha: 0.6,
-                                    ),
+                                ? appTheme.editorPageToolSelectedColor
+                                : appTheme.editorPageToolColor.withValues(alpha: 0.6),
                             ),
                             label: Text(
                               'Save',
                               style: TextStyle(
                                 color: hasDirtyFiles
-                                    ? appTheme.editorPageToolSelectedColor
-                                    : appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.6,
-                                      ),
+                                  ? appTheme.editorPageToolSelectedColor
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.2,
                               ),
@@ -2864,17 +2853,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 vertical: 8,
                               ),
                               backgroundColor: hasDirtyFiles
-                                  ? appTheme.editorPageToolSelectedBgColor
-                                        .withValues(alpha: 0.35)
-                                  : appTheme.editorPageDrawerBg,
+                                ? appTheme.editorPageToolSelectedBgColor.withValues(alpha: 0.35)
+                                : appTheme.editorPageDrawerBg,
                               side: BorderSide(
                                 color: hasDirtyFiles
-                                    ? appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.45,
-                                      )
-                                    : appTheme.editorPageToolColor.withValues(
-                                        alpha: 0.25,
-                                      ),
+                                  ? appTheme.editorPageToolColor.withValues(alpha: 0.45)
+                                  : appTheme.editorPageToolColor.withValues(alpha: 0.25),
                                 width: 1,
                               ),
                               shape: RoundedRectangleBorder(
@@ -2886,15 +2870,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           IconButton(
                             tooltip: 'Open Vite Preview',
                             onPressed: _isOpeningVitePreview
-                                ? null
-                                : () => _openVitePreview(),
+                              ? null
+                              : () => _openVitePreview(),
                             icon: _isOpeningVitePreview
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.slideshow),
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.slideshow),
                           ),
                         IconButton(
                           onPressed: () async {
@@ -2903,17 +2887,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                             if (!temp.existsSync()) {
                               temp.createSync(recursive: true);
                             }
-                            final activeEditorForRun =
-                                tabController != null &&
-                                    tabController!.index <
-                                        editorState.activeEditors.length
-                                ? editorState.activeEditors[tabController!
-                                      .index]
-                                : editorState.activeEditors.firstWhere(
-                                    (item) => item.isActive == true,
-                                    orElse: () =>
-                                        editorState.activeEditors.first,
-                                  );
+                            final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
+                              ? editorState.activeEditors[tabController!.index]
+                              : editorState.activeEditors.firstWhere(
+                                  (item) => item.isActive == true,
+                                  orElse: () => editorState.activeEditors.first,
+                                );
                             final File filePath = activeEditorForRun.file;
                             final viteTs = File(
                               path.join(widget.rootDir, 'vite.config.ts'),
@@ -2932,10 +2911,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               path.join(widget.rootDir, 'package.json'),
                             );
 
-                            final hasVite =
-                                await viteTs.exists() || await viteJs.exists();
-                            final hasNext =
-                                await nextTs.exists() || await nextJs.exists();
+                            final hasVite = await viteTs.exists() || await viteJs.exists();
+                            final hasNext = await nextTs.exists() || await nextJs.exists();
                             final hasPkg = await packageJson.exists();
 
                             if (hasVite && hasPkg && context.mounted) {
@@ -2958,8 +2935,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
 
                             if (isPreviewFilePath(filePath.path) && context.mounted) {
                               final message = isPdfFilePath(filePath.path)
-                                  ? 'PDF files can be previewed but are not executable.'
-                                  : 'Image/SVG files can be previewed but are not executable.';
+                                ? 'PDF files can be previewed but are not executable.'
+                                : 'Image/SVG files can be previewed but are not executable.';
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(message)),
                               );
@@ -2987,21 +2964,21 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 }
                                 break;
                               case '.c':
-                                final String compileCommand = "clang -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                                final String compileCommand = "clang -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
                                 final String runCommand = 'clangloader ${temp.path}/libtemp.so';
                                 runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.cpp':
                               case '.c++':
                               case '.cc':
-                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o  ${temp.path}/libtemp.so";
+                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
                                 final String runCommand = 'clangloader ${temp.path}/libtemp.so';
                                 runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.java':
                                 final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
                                 final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                                runCode( context, "$compileCommand && $runCommand", widget.rootDir);
+                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
                                 break;
                               case '.kt':
                               case '.kts':
@@ -3013,6 +2990,151 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
                                 final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
                                 runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                break;
+                              case '.go':
+                                try {
+                                  final soPath = path.join(widget.rootDir, '.roxum-go-run.so');
+
+                                  final command =
+                                      'export GOROOT="$runtimesDir/go" '
+                                      '&& export PATH="\$GOROOT/bin:\$PATH" '
+                                      '&& export CC="clang" '
+                                      '&& export GOOS="android" '
+                                      '&& export GOARCH="arm64" '
+                                      '&& echo "Compiling..." '
+                                      '&& go_bak="\$(mktemp)" '
+                                      '&& cp "${filePath.path}" "\$go_bak" '
+                                      '&& cleanup(){ '
+                                      'cp "\$go_bak" "${filePath.path}"; '
+                                        'rm -f "\$go_bak" "$soPath" "${filePath.path}.roxum.tmp"; '
+                                      '}; '
+                                      'trap cleanup EXIT '
+
+                                      '&& if ! grep -q \'import "C"\' "${filePath.path}"; then '
+                                          'tmp_go="${filePath.path}.roxum.tmp"; '
+                                          'if grep -q "^import (" "${filePath.path}"; then '
+                                            "awk 'BEGIN{done=0} {print} !done && /^import \\(\$/ {print \"    \\\"C\\\"\"; done=1}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'elif grep -q "^import " "${filePath.path}"; then '
+                                            "awk 'BEGIN{done=0} !done && /^import / {print \"import \\\"C\\\"\"; done=1} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'else '
+                                            "awk 'BEGIN{done=0} !done && /^package / {print; print \"\"; print \"import \\\"C\\\"\"; done=1; next} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                          'fi; '
+                                      'fi '
+
+                                      '&& if ! grep -q "__entry" "${filePath.path}"; then '
+                                          "printf '\\n//export __entry\\nfunc __entry() {\\n    main()\\n}\\n' >> \"${filePath.path}\"; "
+                                      'fi '
+
+                                        '&& rm -f "$soPath" '
+                                      '&& GOOS=android GOARCH=arm64 CGO_ENABLED=1 '
+                                      'go build -buildmode=c-shared -o "$soPath" "${filePath.path}" '
+                                      '&& rustloader "$soPath"';
+
+                                  runCode(context, command, widget.rootDir);
+
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Go run failed: ${e.toString()}")),
+                                  );
+                                }
+                                break;
+                              case '.rs':
+                                try {
+                                  final cargoFile = File("${widget.rootDir}/Cargo.toml");
+                                  String command = "";
+
+                                  if (cargoFile.existsSync()) {
+                                    final mainRs = File("${widget.rootDir}/src/main.rs");
+                                    final libRs = File("${widget.rootDir}/src/lib.rs");
+
+                                    File targetFile;
+
+                                    if (mainRs.existsSync()) {
+                                      targetFile = mainRs;
+                                    } else if (libRs.existsSync()) {
+                                      targetFile = libRs;
+                                    } else {
+                                      throw Exception("No main.rs or lib.rs found");
+                                    }
+
+                                    final targetPath = targetFile.path;
+
+                                    command = '''
+set -e
+cargo_bak="\$(mktemp)"
+target_bak="\$(mktemp)"
+cargo_cfg_bak="\$(mktemp)"
+cp "${cargoFile.path}" "\$cargo_bak"
+cp "$targetPath" "\$target_bak"
+if [ -f .cargo/config.toml ]; then cp .cargo/config.toml "\$cargo_cfg_bak"; else : > "\$cargo_cfg_bak"; fi
+cleanup(){
+  cp "\$target_bak" "$targetPath";
+  cp "\$cargo_bak" "${cargoFile.path}";
+  if [ -s "\$cargo_cfg_bak" ]; then
+    mkdir -p .cargo;
+    cp "\$cargo_cfg_bak" .cargo/config.toml;
+  else
+    rm -f .cargo/config.toml;
+    rmdir .cargo 2>/dev/null || true;
+  fi;
+  rm -f "\$target_bak" "\$cargo_bak" "\$cargo_cfg_bak";
+};
+trap cleanup EXIT
+mkdir -p .cargo
+printf '[target.aarch64-linux-android]\nlinker = "clang"\n' > .cargo/config.toml
+if [ -n "\${RUSTFLAGS:-}" ]; then
+  export RUSTFLAGS="\$RUSTFLAGS --sysroot $runtimesDir/rust -C linker=clang";
+else
+  export RUSTFLAGS="--sysroot $runtimesDir/rust -C linker=clang";
+fi
+if ! awk 'BEGIN{inlib=0;found=0} /^[lib]/{inlib=1;next} /^[/{inlib=0} inlib && /crate-type/{found=1} END{exit found?0:1}' "${cargoFile.path}"; then
+  printf '\n[lib]\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
+fi
+if ! grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
+  echo "Error: main() not found. This runner requires a main function.";
+  exit 1;
+fi
+if ! grep -q "fn __entry" "$targetPath"; then
+  printf '\n#[no_mangle]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "$targetPath";
+fi
+cargo build --release
+so_file="\$(find target/release -maxdepth 1 -type f -name 'lib*.so' | head -n 1)"
+[ -n "\$so_file" ]
+rustloader "\$so_file"
+''';
+
+                                  } else {
+                                    final soPath = path.join(widget.rootDir, '.roxum-rust-run.so');
+
+                                    command = '''
+set -e
+rust_bak="\$(mktemp)"
+cp "${filePath.path}" "\$rust_bak"
+cleanup(){
+  cp "\$rust_bak" "${filePath.path}";
+  rm -f "\$rust_bak" "$soPath";
+};
+trap cleanup EXIT
+if ! grep -Eq 'fn[[:space:]]+main' "${filePath.path}"; then
+  echo "Error: main() not found. This runner requires a main function.";
+  exit 1;
+fi
+if ! grep -q "fn __entry" "${filePath.path}"; then
+  printf '\n#[no_mangle]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "${filePath.path}";
+fi
+rustc --crate-type=cdylib "${filePath.path}" -o "$soPath" -C linker=clang --sysroot "$runtimesDir/rust"
+rustloader "$soPath"
+''';
+                                  }
+
+                                  runCode(context, command, widget.rootDir);
+
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Rust run failed: ${e.toString()}")),
+                                  );
+                                }
+
                                 break;
                               case '.md':
                                 Navigator.of(context).push(
@@ -3082,7 +3204,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           return _buildPreviewPane(editor, appTheme);
                         }
                         return EditorArea(
-                          key: ObjectKey(editor),
+                          key: ValueKey(editor.file.path),
                           editor: editor,
                           appTheme: appTheme,
                           workspacePath: widget.rootDir,
