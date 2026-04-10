@@ -9,7 +9,7 @@ environment:
 dependencies:
   android_intent_plus: ^6.0.0
   bloc: ^9.2.0
-  code_forge: ^9.7.0
+  code_forge: ^9.8.0
   diff_match_patch: ^0.4.1
   equatable: ^2.0.8
   file_picker: ^10.3.10
