@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
-import 'package:flutter_file_downloader/flutter_file_downloader.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
@@ -37,8 +36,9 @@ class DownloadManager extends StatefulWidget {
 class _DownloadManagerState extends State<DownloadManager> {
   final Set<int> loadingIndexes = {};
   late final AppThemeState appThemeState;
-  StreamSubscription<Map<String, dynamic>>? _pfdSubscription;
-  bool _isOnDownloadPage = true;
+  late final Stream<Map<String, dynamic>> _pfdInstallEvents;
+  Future<void> _pfdInstallChain = Future<void>.value();
+  final Set<StreamSubscription<Map<String, dynamic>>> _activePfdSubscriptions = {};
 
   static const Map<String, _PfdRuntimeConfig> _pfdRuntimes = {
     'node': _PfdRuntimeConfig(
@@ -311,7 +311,7 @@ class _DownloadManagerState extends State<DownloadManager> {
   @override
   void initState() {
     appThemeState = context.read<AppThemeBloc>().state;
-    _isOnDownloadPage = true;
+    _pfdInstallEvents = NativeChannel.moduleInstallEvents().asBroadcastStream();
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -327,8 +327,10 @@ class _DownloadManagerState extends State<DownloadManager> {
 
   @override
   void dispose() {
-    _isOnDownloadPage = false;
-    _pfdSubscription?.cancel();
+    for (final subscription in _activePfdSubscriptions.toList()) {
+      subscription.cancel();
+    }
+    _activePfdSubscriptions.clear();
     super.dispose();
   }
 
@@ -346,6 +348,15 @@ class _DownloadManagerState extends State<DownloadManager> {
     return _pfdRuntimes[normalizedParentName];
   }
 
+  bool _hasAnotherDownloadInProgress(int currentIndex) {
+    return loadingIndexes.any((index) => index != currentIndex);
+  }
+
+  bool _isClangRuntimeInstalled() {
+    final clangDir = Directory('$runtimesDir/clang');
+    return clangDir.existsSync();
+  }
+
   Future<void> _startDownload(
     BuildContext context,
     int index,
@@ -357,6 +368,31 @@ class _DownloadManagerState extends State<DownloadManager> {
     Extension? extensionMetadata,
   }) async {
     final downloadBloc = context.read<DownloadManagerBloc>();
+    final normalizedParentName = packageParentName?.toLowerCase();
+
+    if (_hasAnotherDownloadInProgress(index)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Wait till the existing download finishes.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!isExtension &&
+        (normalizedParentName == 'rust' || normalizedParentName == 'go') &&
+        !_isClangRuntimeInstalled()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clang runtime is required before downloading Rust or Go.'),
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() {
       loadingIndexes.add(index);
@@ -496,78 +532,6 @@ class _DownloadManagerState extends State<DownloadManager> {
       }
       return;
     }
-
-    FileDownloader.downloadFile(
-      url: url,
-      name: archiveName,
-      downloadDestination: DownloadDestinations.appFiles,
-      notificationType: NotificationType.all,
-      onProgress: (fileName, progress) {
-        final mergedProgress = pfdConfig != null
-          ? _mergeProgress(pfdConfig.weight, progress)
-            : progress;
-        downloadBloc.updateProgress(index, mergedProgress);
-        
-        if (mounted && _isOnDownloadPage) {
-          setState(() {
-            loadingIndexes.remove(index);
-          });
-        } else if (mounted && !_isOnDownloadPage) {
-          
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              duration: const Duration(seconds: 1),
-              content: Row(
-                children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text('Downloading... ${(progress).toStringAsFixed(0)}%'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        
-        
-        if (progress >= 100.0 && !downloadBloc.state.isExtracting(index) && !downloadBloc.state.isFullyCompleted(index)) {
-          _startExtraction(
-            downloadBloc,
-            index,
-            archivePath,
-            extractDir,
-            archiveName,
-            runtimeParentName: packageParentName,
-          );
-        }
-      },
-      onDownloadCompleted: (path) async {
-        
-        
-        if (mounted && _isOnDownloadPage) {
-          setState(() {});
-        }
-      },
-      onDownloadError: (error) {
-        downloadBloc.clearProgress(index);
-        
-        if (mounted) {
-          setState(() {
-            loadingIndexes.remove(index);
-          });
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Download failed: $error'))
-          );
-        }
-      },
-    );
   }
 
   Future<bool> _finalizeModuleOnlyInstall({
@@ -730,6 +694,22 @@ class _DownloadManagerState extends State<DownloadManager> {
     return basePercent + (clamped * ((100.0 - basePercent) / 100.0));
   }
 
+  Future<T> _runPfdInstallSerial<T>(Future<T> Function() action) {
+    final previous = _pfdInstallChain;
+    final gate = Completer<void>();
+    _pfdInstallChain = gate.future;
+
+    return previous.catchError((_) {}).then((_) async {
+      try {
+        return await action();
+      } finally {
+        if (!gate.isCompleted) {
+          gate.complete();
+        }
+      }
+    });
+  }
+
   Future<bool> _ensurePfdFeatureInstalled(
     BuildContext context,
     int index,
@@ -738,79 +718,81 @@ class _DownloadManagerState extends State<DownloadManager> {
     required _PfdRuntimeConfig config,
     }
   ) async {
-    final alreadyInstalled = await NativeChannel.isModuleInstalled(config.moduleName);
-    if (alreadyInstalled) {
-      downloadBloc.updateProgress(index, config.weight);
-      return true;
-    }
+    return _runPfdInstallSerial(() async {
+      final alreadyInstalled = await NativeChannel.isModuleInstalled(config.moduleName);
+      if (alreadyInstalled) {
+        downloadBloc.updateProgress(index, config.weight);
+        return true;
+      }
 
-    final completer = Completer<bool>();
-    await _pfdSubscription?.cancel();
-    _pfdSubscription = NativeChannel.moduleInstallEvents().listen(
-      (event) {
-        final moduleName = event['moduleName']?.toString();
-        if (moduleName != config.moduleName) return;
+      final completer = Completer<bool>();
+      final subscription = _pfdInstallEvents.listen(
+        (event) {
+          final moduleName = event['moduleName']?.toString();
+          if (moduleName != config.moduleName) return;
 
-        final status = event['status']?.toString().toLowerCase() ?? 'unknown';
-        final dynamic progressValue = event['progress'];
-        final double pfdProgress = progressValue is num ? progressValue.toDouble() : 0.0;
-        downloadBloc.updateProgress(
-          index,
-          _mergeProgress(0.0, pfdProgress) * (config.weight / 100.0),
-        );
+          final status = event['status']?.toString().toLowerCase() ?? 'unknown';
+          final dynamic progressValue = event['progress'];
+          final double pfdProgress = progressValue is num ? progressValue.toDouble() : 0.0;
+          downloadBloc.updateProgress(
+            index,
+            _mergeProgress(0.0, pfdProgress) * (config.weight / 100.0),
+          );
 
-        if (status == 'installed') {
-          downloadBloc.updateProgress(index, config.weight);
-          if (!completer.isCompleted) {
-            completer.complete(true);
+          if (status == 'installed') {
+            downloadBloc.updateProgress(index, config.weight);
+            if (!completer.isCompleted) {
+              completer.complete(true);
+            }
+            return;
           }
-          return;
-        }
 
-        if (status == 'failed' || status == 'canceled') {
+          if (status == 'failed' || status == 'canceled') {
+            if (!completer.isCompleted) {
+              completer.complete(false);
+            }
+          }
+        },
+        onError: (_) {
           if (!completer.isCompleted) {
             completer.complete(false);
           }
-        }
-      },
-      onError: (_) {
-        if (!completer.isCompleted) {
-          completer.complete(false);
-        }
-      },
-    );
-
-    try {
-      await NativeChannel.installModule(config.moduleName);
-      final ok = await completer.future.timeout(
-        const Duration(minutes: 3),
-        onTimeout: () => false,
+        },
       );
-      if (!ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to download ${config.displayName.toLowerCase()} feature module',
-            ),
-          ),
+      _activePfdSubscriptions.add(subscription);
+
+      try {
+        await NativeChannel.installModule(config.moduleName);
+        final ok = await completer.future.timeout(
+          const Duration(minutes: 3),
+          onTimeout: () => false,
         );
-      }
-      return ok;
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${config.displayName} feature install error: $e',
+        if (!ok && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to download ${config.displayName.toLowerCase()} feature module',
+              ),
             ),
-          ),
-        );
+          );
+        }
+        return ok;
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${config.displayName} feature install error: $e',
+              ),
+            ),
+          );
+        }
+        return false;
+      } finally {
+        await subscription.cancel();
+        _activePfdSubscriptions.remove(subscription);
       }
-      return false;
-    } finally {
-      await _pfdSubscription?.cancel();
-      _pfdSubscription = null;
-    }
+    });
   }
 
   Future<void> _startExtraction(
@@ -1008,11 +990,6 @@ class _DownloadManagerState extends State<DownloadManager> {
     await _ensureSymlink(
       linkPath: '$libDir/libicudata.so.78',
       targetPath: '$sharedPath/libicudata.so',
-    );
-
-    await _ensureSymlink(
-      linkPath: '$libDir/libicuuc.so.78',
-      targetPath: '$sharedPath/libicuuc.so',
     );
 
     final rustlibAarch64Dir = Directory('$runtimesDir/rust/lib/rustlib/aarch64-linux-android/lib');

@@ -109,7 +109,8 @@ class _StartScreenState extends State<StartScreen> {
 
     final loaderTools = [
       'clang', 'clang++', 'clangloader', 'node', 'python', 'python3',
-      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc',
+      'npm', 'npx', 'pip', 'pip3', 'tsc', 'kotlinc', 'git', 'ruby',
+      'lua'
     ];
 
     final symlinks = [
@@ -119,6 +120,8 @@ class _StartScreenState extends State<StartScreen> {
       {'src': '$sharedPath/libssl.so', 'dst': '$libDir/libssl.so.3'},
       {'src': '$sharedPath/libzstd.so', 'dst': '$libDir/libzstd.so.1'},
       {'src': '$sharedPath/libxml2.so', 'dst': '$libDir/libxml2.so.16'},
+      {'src': '$sharedPath/libicuuc.so', 'dst': '$libDir/libicuuc.so.78'},
+      {'src': '$sharedPath/libicudata.so', 'dst': '$libDir/libicudata.so.78'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/bash'},
       {'src': '$sharedPath/libbash.so', 'dst': '$binDir/sh'},
       {'src': '$sharedPath/libgit-remote-https.so', 'dst': '$gitCore/git-remote-https'},

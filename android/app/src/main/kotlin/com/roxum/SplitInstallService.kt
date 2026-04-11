@@ -13,7 +13,7 @@ class SplitInstallService(context: Context) {
     private val splitInstallManager: SplitInstallManager =
         SplitInstallManagerFactory.create(appContext)
 
-    private var listener: SplitInstallStateUpdatedListener? = null
+    private val listenersBySessionId = mutableMapOf<Int, SplitInstallStateUpdatedListener>()
 
     fun isModuleInstalled(moduleName: String): Boolean {
         return splitInstallManager.installedModules.contains(moduleName)
@@ -43,8 +43,6 @@ class SplitInstallService(context: Context) {
             )
             return
         }
-
-        unregisterListener()
 
         val request = SplitInstallRequest.newBuilder()
             .addModule(moduleName)
@@ -89,16 +87,15 @@ class SplitInstallService(context: Context) {
                     )
 
                     if (statusCode == SplitInstallSessionStatus.INSTALLED) {
-                        // Refresh app info so native libs from the new split are visible.
                         SplitCompat.install(appContext)
                     }
 
                     if (isTerminalStatus(statusCode)) {
-                        unregisterListener()
+                        unregisterSessionListener(sessionId)
                     }
                 }
 
-                listener = stateListener
+                listenersBySessionId[sessionId] = stateListener
                 splitInstallManager.registerListener(stateListener)
             }
             .addOnFailureListener { exception ->
@@ -110,15 +107,19 @@ class SplitInstallService(context: Context) {
                         "errorMessage" to (exception.message ?: "Unknown install error"),
                     )
                 )
-                unregisterListener()
             }
     }
 
     fun unregisterListener() {
-        listener?.let {
-            splitInstallManager.unregisterListener(it)
+        listenersBySessionId.values.forEach { listener ->
+            splitInstallManager.unregisterListener(listener)
         }
-        listener = null
+        listenersBySessionId.clear()
+    }
+
+    private fun unregisterSessionListener(sessionId: Int) {
+        val listener = listenersBySessionId.remove(sessionId) ?: return
+        splitInstallManager.unregisterListener(listener)
     }
 
     private fun mapStatus(statusCode: Int): String {

@@ -3112,7 +3112,7 @@ pub extern "C" fn __entry() {
     });
 }
 EOF
-  if ! grep -Eq '^[[:space:]]*\[lib\][[:space:]]*\$' "${cargoFile.path}"; then
+  if ! grep -Eq '^[[:space:]]*[lib][[:space:]]*\$' "${cargoFile.path}"; then
     printf '\n[lib]\npath = "src/.roxum_entry_lib.rs"\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
   fi
 fi
