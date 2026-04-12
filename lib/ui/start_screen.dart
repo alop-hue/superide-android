@@ -114,6 +114,7 @@ class _StartScreenState extends State<StartScreen> {
     ];
 
     final symlinks = [
+      {'src': '$sharedPath/libreadline.so', 'dst': '$libDir/libreadline.so.8'},
       {'src': '$sharedPath/libz.so', 'dst': '$libDir/libz.so.1'},
       {'src': '$sharedPath/libncursesw.so', 'dst': '$libDir/libncursesw.so.6'},
       {'src': '$sharedPath/libcrypto.so', 'dst': '$libDir/libcrypto.so.3'},

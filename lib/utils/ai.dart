@@ -2,48 +2,17 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:http/http.dart' as http;
 
-/// A class that provides AI completion functionality.
-/// Click here for documentation: [AICompletion](https://github.com/heckmon/flutter_code_crafter/blob/main/docs/AICompletion.md)
-///
-/// Example usage:
-///
-/// ```dart
-///import 'package:flutter/material.dart';
-///import 'package:code_forge/code_forge.dart';
-///
-///final aiCompletion = AiCompletion(
-///    model: Gemini(
-///        apiKey: "Your API Key",
-///    )
-///)
-///```
-///
-///Then pass the `aiCompletion` instance to the `CodeForge` widget:
-///
-///```dart
-///CodeForge(
-///    controller: controller,
-///    theme: anOldHopeTheme,
-///    aiCompletion: aiCompletion, // Pass the AI completion instance here
-///),
-///```
-///
+enum ToolCallingMethod {
+  none,
+  openAiCompatible,
+  anthropicMessages,
+  geminiFunctionCalling,
+}
+
 class AiCompletion {
-  /// The model to use for AI completion.
-  ///
-  /// This should be an instance of a class that extends [Models].
-  /// Documentation and available models can be found here: [AICompletion](https://github.com/heckmon/flutter_code_crafter/blob/main/docs/AICompletion.md)
   Models model;
-
-  /// Whether to enable AI completion. Defaults to true.
   bool enableCompletion;
-
-  /// The debounce time in milliseconds for AI completion requests. Defaults to 1000ms.
   int debounceTime;
-
-  /// Whether the completion is auto or manual
-  /// Use [CompletionType.auto] for automatic completion and [CompletionType.manual] to invoke the completion on a callback or [CompletionType.mixed] for both.
-  /// Defaults to [CompletionType.auto]
   CompletionType completionType;
 
   AiCompletion({
@@ -55,17 +24,13 @@ class AiCompletion {
 }
 
 sealed class Models {
-  /// API Url
   String get url;
-
-  /// API key for the AI service, if required.
   String? get apiKey;
-
-  /// The model to use for AI completion, if applicable.
   String? get model;
-
-  /// Headers to include in the HTTP request.
   Map<String, String> get headers;
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.none;
+  bool get supportsToolCalling => toolCallingMethod != ToolCallingMethod.none;
+  String get chatUrl => url;
 
   @protected
   final String instruction =
@@ -78,6 +43,625 @@ sealed class Models {
   Map<String, dynamic> buildRequest(String code);
 
   String responseParser(dynamic response);
+
+  Map<String, dynamic> buildToolCallingRequest({
+    required List<Map<String, dynamic>> messages,
+    required List<Map<String, dynamic>> tools,
+    bool stream = false,
+  }) {
+    switch (toolCallingMethod) {
+      case ToolCallingMethod.anthropicMessages:
+        final systemPrompts = messages
+            .where((message) => message['role'] == 'system')
+            .map((message) => message['content']?.toString() ?? '')
+            .where((text) => text.isNotEmpty)
+            .toList();
+
+        final nonSystemMessages = messages
+            .where((message) => message['role'] != 'system')
+            .toList();
+
+        return {
+          if (model != null) 'model': model,
+          'max_tokens': 4096,
+          if (systemPrompts.isNotEmpty) 'system': systemPrompts.join('\n\n'),
+          'messages': _toAnthropicMessages(nonSystemMessages),
+          if (tools.isNotEmpty) 'tools': _toAnthropicTools(tools),
+          if (stream) 'stream': true,
+        };
+      case ToolCallingMethod.geminiFunctionCalling:
+        final systemPrompts = messages
+            .where((message) => message['role'] == 'system')
+            .map((message) => message['content']?.toString() ?? '')
+            .where((text) => text.isNotEmpty)
+            .toList();
+
+        final nonSystemMessages = messages
+            .where((message) => message['role'] != 'system')
+            .toList();
+
+        return {
+          'contents': _toGeminiContents(nonSystemMessages),
+          if (systemPrompts.isNotEmpty)
+            'systemInstruction': {
+              'parts': [
+                {'text': systemPrompts.join('\n\n')},
+              ],
+            },
+          if (tools.isNotEmpty)
+            'tools': [
+              {
+                'functionDeclarations': _toGeminiFunctionDeclarations(tools),
+              }
+            ],
+        };
+      case ToolCallingMethod.none:
+      case ToolCallingMethod.openAiCompatible:
+        return {
+          if (model != null) 'model': model,
+          'messages': messages,
+          'stream': stream,
+          if (tools.isNotEmpty) 'tools': tools,
+        };
+    }
+  }
+
+  String parseChatMessage(dynamic response) {
+    switch (toolCallingMethod) {
+      case ToolCallingMethod.anthropicMessages:
+        try {
+          final content = response['content'];
+          if (content is! List) return '';
+          final buffer = StringBuffer();
+          for (final block in content) {
+            if (block is Map && block['type'] == 'text') {
+              final text = block['text']?.toString() ?? '';
+              if (text.isNotEmpty) {
+                if (buffer.isNotEmpty) buffer.write('\n');
+                buffer.write(text);
+              }
+            }
+          }
+          return buffer.toString();
+        } catch (_) {
+          return '';
+        }
+      case ToolCallingMethod.geminiFunctionCalling:
+        try {
+          final parts = response['candidates']?[0]?['content']?['parts'];
+          if (parts is! List) return '';
+          final buffer = StringBuffer();
+          for (final part in parts) {
+            if (part is Map && part['text'] != null) {
+              final text = part['text']?.toString() ?? '';
+              if (text.isNotEmpty) {
+                if (buffer.isNotEmpty) buffer.write('\n');
+                buffer.write(text);
+              }
+            }
+          }
+          return buffer.toString();
+        } catch (_) {
+          return '';
+        }
+      case ToolCallingMethod.none:
+      case ToolCallingMethod.openAiCompatible:
+        try {
+          return response["choices"]?[0]?["message"]?["content"]?.toString() ?? '';
+        } catch (_) {
+          return '';
+        }
+    }
+  }
+
+  List<Map<String, dynamic>> parseToolCalls(dynamic response) {
+    switch (toolCallingMethod) {
+      case ToolCallingMethod.anthropicMessages:
+        try {
+          final content = response['content'];
+          if (content is! List) return const [];
+          final calls = <Map<String, dynamic>>[];
+          for (final block in content) {
+            if (block is! Map || block['type'] != 'tool_use') continue;
+            final id = block['id']?.toString();
+            final name = block['name']?.toString();
+            final input = block['input'];
+            if (id == null || id.isEmpty || name == null || name.isEmpty) {
+              continue;
+            }
+            final args = input is Map ? jsonEncode(input) : '{}';
+            calls.add({
+              'id': id,
+              'type': 'function',
+              'function': {
+                'name': name,
+                'arguments': args,
+              },
+            });
+          }
+          return calls;
+        } catch (_) {
+          return const [];
+        }
+      case ToolCallingMethod.geminiFunctionCalling:
+        try {
+          final parts = response['candidates']?[0]?['content']?['parts'];
+          if (parts is! List) return const [];
+          final calls = <Map<String, dynamic>>[];
+          for (var i = 0; i < parts.length; i++) {
+            final part = parts[i];
+            if (part is! Map || part['functionCall'] is! Map) continue;
+            final functionCall = Map<String, dynamic>.from(part['functionCall']);
+            final name = functionCall['name']?.toString();
+            if (name == null || name.isEmpty) continue;
+            final callId = functionCall['id']?.toString();
+            final argsMap = functionCall['args'];
+            final args = argsMap is Map ? jsonEncode(argsMap) : '{}';
+            calls.add({
+              'id': (callId != null && callId.isNotEmpty)
+                  ? callId
+                  : 'gemini_call_${DateTime.now().millisecondsSinceEpoch}_$i',
+              'type': 'function',
+              'function': {
+                'name': name,
+                'arguments': args,
+              },
+            });
+          }
+          return calls;
+        } catch (_) {
+          return const [];
+        }
+      case ToolCallingMethod.none:
+      case ToolCallingMethod.openAiCompatible:
+        try {
+          final rawCalls = response["choices"]?[0]?['message']?["tool_calls"];
+          if (rawCalls is! List) return const [];
+          return rawCalls
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        } catch (_) {
+          return const [];
+        }
+    }
+  }
+
+  List<Map<String, dynamic>> _toAnthropicTools(
+    List<Map<String, dynamic>> tools,
+  ) {
+    final converted = <Map<String, dynamic>>[];
+    for (final tool in tools) {
+      final function = tool['function'];
+      if (function is! Map) continue;
+      converted.add({
+        'name': function['name'],
+        'description': function['description'] ?? '',
+        'input_schema': function['parameters'] ?? {
+          'type': 'object',
+          'properties': {},
+        },
+      });
+    }
+    return converted;
+  }
+
+  List<Map<String, dynamic>> _toAnthropicMessages(
+    List<Map<String, dynamic>> messages,
+  ) {
+    final converted = <Map<String, dynamic>>[];
+    for (final message in messages) {
+      final role = message['role']?.toString();
+      if (role == null || role.isEmpty) continue;
+
+      if (role == 'tool') {
+        final toolCallId = message['tool_call_id']?.toString();
+        if (toolCallId == null || toolCallId.isEmpty) continue;
+        converted.add({
+          'role': 'user',
+          'content': [
+            {
+              'type': 'tool_result',
+              'tool_use_id': toolCallId,
+              'content': message['content']?.toString() ?? '',
+            }
+          ],
+        });
+        continue;
+      }
+
+      final content = message['content']?.toString() ?? '';
+      final toolCalls = message['tool_calls'];
+      if (role == 'assistant' && toolCalls is List && toolCalls.isNotEmpty) {
+        final blocks = <Map<String, dynamic>>[];
+        if (content.isNotEmpty) {
+          blocks.add({'type': 'text', 'text': content});
+        }
+
+        for (final rawCall in toolCalls) {
+          if (rawCall is! Map) continue;
+          final call = Map<String, dynamic>.from(rawCall);
+          final function = call['function'];
+          if (function is! Map) continue;
+
+          final id = call['id']?.toString();
+          final name = function['name']?.toString();
+          if (id == null || id.isEmpty || name == null || name.isEmpty) {
+            continue;
+          }
+
+          Map<String, dynamic> input = {};
+          final rawArgs = function['arguments'];
+          if (rawArgs is String && rawArgs.trim().isNotEmpty) {
+            try {
+              final parsed = jsonDecode(rawArgs);
+              if (parsed is Map<String, dynamic>) {
+                input = parsed;
+              } else if (parsed is Map) {
+                input = Map<String, dynamic>.from(parsed);
+              }
+            } catch (_) {}
+          } else if (rawArgs is Map<String, dynamic>) {
+            input = rawArgs;
+          } else if (rawArgs is Map) {
+            input = Map<String, dynamic>.from(rawArgs);
+          }
+
+          blocks.add({
+            'type': 'tool_use',
+            'id': id,
+            'name': name,
+            'input': input,
+          });
+        }
+
+        converted.add({
+          'role': 'assistant',
+          'content': blocks,
+        });
+        continue;
+      }
+
+      converted.add({
+        'role': role,
+        'content': content,
+      });
+    }
+    return converted;
+  }
+
+  List<Map<String, dynamic>> _toGeminiFunctionDeclarations(
+    List<Map<String, dynamic>> tools,
+  ) {
+    final declarations = <Map<String, dynamic>>[];
+    for (final tool in tools) {
+      final function = tool['function'];
+      if (function is! Map) continue;
+      final name = function['name']?.toString();
+      if (name == null || name.isEmpty) continue;
+      declarations.add({
+        'name': name,
+        'description': function['description'] ?? '',
+        // Gemini supports a subset of OpenAPI Schema; strip unsupported keys.
+        'parameters': _toGeminiSchema(function['parameters'], isRoot: true),
+      });
+    }
+    return declarations;
+  }
+
+  Map<String, dynamic> _toGeminiSchema(
+    dynamic rawSchema, {
+    bool isRoot = false,
+    int depth = 0,
+  }) {
+    if (depth > 40) {
+      return <String, dynamic>{};
+    }
+
+    if (rawSchema == null) {
+      return <String, dynamic>{};
+    }
+
+    final source = rawSchema is Map
+        ? Map<String, dynamic>.from(rawSchema)
+        : <String, dynamic>{};
+    final schema = <String, dynamic>{};
+
+    final type = _toGeminiType(source['type']);
+    if (type != null) {
+      schema['type'] = type;
+    }
+
+    if (_typeIncludesNull(source['type']) || source['nullable'] == true) {
+      schema['nullable'] = true;
+    }
+
+    for (final key in const ['title', 'description', 'format', 'pattern']) {
+      final value = source[key];
+      if (value is String && value.trim().isNotEmpty) {
+        schema[key] = value;
+      }
+    }
+
+    for (final key in const [
+      'maxItems',
+      'minItems',
+      'minProperties',
+      'maxProperties',
+      'minLength',
+      'maxLength',
+    ]) {
+      final value = source[key];
+      if (value is int || value is String) {
+        schema[key] = value;
+      }
+    }
+
+    for (final key in const ['minimum', 'maximum']) {
+      final value = source[key];
+      if (value is num) {
+        schema[key] = value;
+      }
+    }
+
+    final enumValues = source['enum'];
+    if (enumValues is List && enumValues.isNotEmpty) {
+      final sanitizedEnum = enumValues.where((value) => value != null).toList();
+      if (sanitizedEnum.isNotEmpty) {
+        schema['enum'] = sanitizedEnum;
+      }
+    }
+
+    if (source.containsKey('default')) {
+      schema['default'] = source['default'];
+    }
+    if (source.containsKey('example')) {
+      schema['example'] = source['example'];
+    }
+
+    final properties = <String, dynamic>{};
+    final rawProperties = source['properties'];
+    if (rawProperties is Map) {
+      for (final entry in rawProperties.entries) {
+        final key = entry.key.toString();
+        if (key.isEmpty) continue;
+        final propertySchema = _toGeminiSchema(entry.value, depth: depth + 1);
+        if (propertySchema.isNotEmpty) {
+          properties[key] = propertySchema;
+        }
+      }
+    }
+    if (properties.isNotEmpty) {
+      schema['properties'] = properties;
+    }
+
+    final rawRequired = source['required'];
+    if (rawRequired is List) {
+      final allowedKeys = properties.keys.toSet();
+      final required = rawRequired
+          .map((value) => value.toString())
+          .where((value) => value.isNotEmpty && allowedKeys.contains(value))
+          .toList();
+      if (required.isNotEmpty) {
+        schema['required'] = required;
+      }
+    }
+
+    final rawAnyOf = source['anyOf'];
+    if (rawAnyOf is List) {
+      final anyOf = rawAnyOf
+          .map((value) => _toGeminiSchema(value, depth: depth + 1))
+          .where((value) => value.isNotEmpty)
+          .toList();
+      if (anyOf.isNotEmpty) {
+        schema['anyOf'] = anyOf;
+      }
+    }
+
+    final rawItems = source['items'];
+    if (rawItems != null) {
+      final items = _toGeminiSchema(rawItems, depth: depth + 1);
+      if (items.isNotEmpty) {
+        schema['items'] = items;
+      }
+    }
+
+    final rawPropertyOrdering = source['propertyOrdering'];
+    if (rawPropertyOrdering is List) {
+      final ordering = rawPropertyOrdering
+          .map((value) => value.toString())
+          .where((value) => value.isNotEmpty)
+          .toList();
+      if (ordering.isNotEmpty) {
+        schema['propertyOrdering'] = ordering;
+      }
+    }
+
+    if (!schema.containsKey('type')) {
+      if (schema.containsKey('properties')) {
+        schema['type'] = 'object';
+      } else if (schema.containsKey('items')) {
+        schema['type'] = 'array';
+      }
+    }
+
+    if (isRoot) {
+      schema['type'] = 'object';
+      schema.putIfAbsent('properties', () => <String, dynamic>{});
+    }
+
+    return schema;
+  }
+
+  String? _toGeminiType(dynamic rawType) {
+    if (rawType is List) {
+      for (final value in rawType) {
+        final normalized = _toGeminiType(value);
+        if (normalized != null && normalized != 'null') {
+          return normalized;
+        }
+      }
+      return _toGeminiType(rawType.isNotEmpty ? rawType.first : null);
+    }
+
+    if (rawType is! String) return null;
+    switch (rawType.toLowerCase()) {
+      case 'object':
+        return 'object';
+      case 'array':
+        return 'array';
+      case 'string':
+        return 'string';
+      case 'integer':
+      case 'int':
+        return 'integer';
+      case 'number':
+        return 'number';
+      case 'boolean':
+      case 'bool':
+        return 'boolean';
+      case 'null':
+        return 'null';
+      default:
+        return null;
+    }
+  }
+
+  bool _typeIncludesNull(dynamic rawType) {
+    if (rawType is List) {
+      return rawType.any((value) => value.toString().toLowerCase() == 'null');
+    }
+    return rawType is String && rawType.toLowerCase() == 'null';
+  }
+
+  List<Map<String, dynamic>> _toGeminiContents(
+    List<Map<String, dynamic>> messages,
+  ) {
+    final toolCallNameById = <String, String>{};
+    for (final message in messages) {
+      final toolCalls = message['tool_calls'];
+      if (toolCalls is! List) continue;
+      for (final rawCall in toolCalls) {
+        if (rawCall is! Map) continue;
+        final call = Map<String, dynamic>.from(rawCall);
+        final function = call['function'];
+        if (function is! Map) continue;
+        final id = call['id']?.toString();
+        final name = function['name']?.toString();
+        if (id != null && id.isNotEmpty && name != null && name.isNotEmpty) {
+          toolCallNameById[id] = name;
+        }
+      }
+    }
+
+    final converted = <Map<String, dynamic>>[];
+    for (final message in messages) {
+      final role = message['role']?.toString();
+      if (role == null || role.isEmpty) continue;
+
+      if (role == 'tool') {
+        final toolCallId = message['tool_call_id']?.toString();
+        final functionName = toolCallNameById[toolCallId ?? ''];
+        if (functionName == null || functionName.isEmpty) continue;
+
+        dynamic parsedResult = message['content']?.toString() ?? '';
+        if (parsedResult is String && parsedResult.trim().isNotEmpty) {
+          try {
+            parsedResult = jsonDecode(parsedResult);
+          } catch (_) {
+            parsedResult = {'content': parsedResult};
+          }
+        }
+
+        converted.add({
+          'role': 'user',
+          'parts': [
+            {
+              'functionResponse': {
+                'name': functionName,
+                if (toolCallId != null && toolCallId.isNotEmpty) 'id': toolCallId,
+                'response': parsedResult is Map ? parsedResult : {'result': parsedResult},
+              }
+            }
+          ],
+        });
+        continue;
+      }
+
+      final parts = <Map<String, dynamic>>[];
+      final content = message['content']?.toString() ?? '';
+      if (content.isNotEmpty) {
+        parts.add({'text': content});
+      }
+
+      final toolCalls = message['tool_calls'];
+      if (role == 'assistant' && toolCalls is List && toolCalls.isNotEmpty) {
+        for (final rawCall in toolCalls) {
+          if (rawCall is! Map) continue;
+          final call = Map<String, dynamic>.from(rawCall);
+          final function = call['function'];
+          if (function is! Map) continue;
+          final name = function['name']?.toString();
+          final id = call['id']?.toString();
+          if (name == null || name.isEmpty) continue;
+
+          Map<String, dynamic> args = {};
+          final rawArgs = function['arguments'];
+          if (rawArgs is String && rawArgs.trim().isNotEmpty) {
+            try {
+              final parsed = jsonDecode(rawArgs);
+              if (parsed is Map<String, dynamic>) {
+                args = parsed;
+              } else if (parsed is Map) {
+                args = Map<String, dynamic>.from(parsed);
+              }
+            } catch (_) {}
+          } else if (rawArgs is Map<String, dynamic>) {
+            args = rawArgs;
+          } else if (rawArgs is Map) {
+            args = Map<String, dynamic>.from(rawArgs);
+          }
+
+          parts.add({
+            'functionCall': {
+              'name': name,
+              if (id != null && id.isNotEmpty) 'id': id,
+              'args': args,
+            }
+          });
+        }
+      }
+
+      if (parts.isEmpty) continue;
+
+      converted.add({
+        'role': role == 'assistant' ? 'model' : 'user',
+        'parts': parts,
+      });
+    }
+
+    return converted;
+  }
+
+  List<Map<String, dynamic>> buildToolResultMessages(
+    List<Map<String, dynamic>> toolCalls,
+    List<String> toolResults,
+  ) {
+    final resultMessages = <Map<String, dynamic>>[];
+    for (var i = 0; i < toolCalls.length; i++) {
+      final call = toolCalls[i];
+      final toolCallId = call['id']?.toString();
+      if (toolCallId == null || toolCallId.isEmpty) {
+        continue;
+      }
+      resultMessages.add({
+        'role': 'tool',
+        'tool_call_id': toolCallId,
+        'content': i < toolResults.length ? toolResults[i] : '',
+      });
+    }
+    return resultMessages;
+  }
 
   Future<String> completionResponse(String code) async {
     final uri = Uri.parse(url);
@@ -107,6 +691,9 @@ sealed class Models {
 }
 
 sealed class OpenAiCompatible extends Models {
+  @override
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.openAiCompatible;
+
   @protected
   String get baseUrl;
   @override
@@ -141,8 +728,10 @@ sealed class OpenAiCompatible extends Models {
   }
 }
 
-/// Goole Gemini AI model implementation.
 class Gemini extends Models {
+  @override
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.geminiFunctionCalling;
+
   @override
   final String url, apiKey, model;
   @override
@@ -198,10 +787,15 @@ class Gemini extends Models {
   }
 }
 
-/// OpenAI AI model implementation.
 class OpenAI extends Models {
   @override
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.openAiCompatible;
+
+  @override
   final String url = 'https://api.openai.com/v1/responses', apiKey, model;
+
+  @override
+  String get chatUrl => 'https://api.openai.com/v1/chat/completions';
 
   OpenAI({required this.apiKey, required this.model});
 
@@ -228,8 +822,10 @@ class OpenAI extends Models {
   }
 }
 
-/// Claude AI model implementation.
 class Claude extends Models {
+  @override
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.anthropicMessages;
+
   @override
   final String url = 'https://api.anthropic.com/v1/messages', apiKey, model;
 
@@ -250,6 +846,7 @@ class Claude extends Models {
   Map<String, String> get headers => {
     'Content-Type': 'application/json; charset=utf-8',
     'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
   };
 
   @override
@@ -265,7 +862,6 @@ class Claude extends Models {
   }
 }
 
-/// Grok aka xAI AI model implementation.
 class Grok extends OpenAiCompatible {
   @override
   String get baseUrl => "https://api.x.ai/v1";
@@ -274,7 +870,6 @@ class Grok extends OpenAiCompatible {
   Grok({required this.apiKey, required this.model});
 }
 
-/// DeepSeek AI model implementation.
 class DeepSeek extends OpenAiCompatible {
   @override
   String get baseUrl => "https://api.deepseek.com";
@@ -283,16 +878,6 @@ class DeepSeek extends OpenAiCompatible {
   DeepSeek({required this.apiKey, required this.model});
 }
 
-/// Groq AI model implementation.
-class Gorq extends OpenAiCompatible {
-  @override
-  String get baseUrl => "https://api.groq.com/openai/v1";
-  @override
-  final String apiKey, model;
-  Gorq({required this.apiKey, required this.model});
-}
-
-/// Together AI model implementation.
 class TogetherAi extends OpenAiCompatible {
   @override
   String get baseUrl => "https://api.together.xyz/v1";
@@ -301,16 +886,14 @@ class TogetherAi extends OpenAiCompatible {
   TogetherAi({required this.apiKey, required this.model});
 }
 
-/// Sonar AI model implementation.
-class Sonar extends OpenAiCompatible {
+class Perplexity extends OpenAiCompatible {
   @override
   String get baseUrl => "https://api.perplexity.ai";
   @override
   final String apiKey, model;
-  Sonar({required this.apiKey, required this.model});
+  Perplexity({required this.apiKey, required this.model});
 }
 
-/// OpenRouter AI model implementation.
 class OpenRouter extends OpenAiCompatible {
   @override
   String get baseUrl => "https://openrouter.ai/api/v1";
@@ -319,7 +902,6 @@ class OpenRouter extends OpenAiCompatible {
   OpenRouter({required this.apiKey, required this.model});
 }
 
-/// FireWorks AI model implementation.
 class FireWorks extends OpenAiCompatible {
   @override
   String get baseUrl => "https://api.fireworks.ai/inference/v1";
@@ -328,63 +910,10 @@ class FireWorks extends OpenAiCompatible {
   FireWorks({required this.apiKey, required this.model});
 }
 
-/// Custom AI model implementation that allows for custom API endpoints and request/response handling.
-///
-/// Example usage:
-///
-/// ```dart
-///late final Models model;
-///
-///  @override
-///  void initState() {
-///    model = CustomModel(
-///      url: "https://api.together.xyz/v1/chat/completions",
-///      customHeaders: {
-///        "Authorization": "Bearer ${your_api_key}",
-///        "Content-Type": "application/json"
-///      },
-///      requestBuilder: (code, instruction){
-///       return {
-///          "model": "deepseek-ai/DeepSeek-V3",
-///          "messages": [
-///            {
-///              "role": "system",
-///             "content": instruction
-///            },
-///            {
-///              "role": "user",
-///              "content": code
-///           }
-///          ]
-///        };
-///      },
-///      customParser: (response) => response['choices'][0]['message']['content']
-///    );
-///    controller = CodeForgeController();
-///    controller.language = python;
-///    super.initState();
-///  }
-///```
-///Then pass the `model` instance to the `AiCompletion` class:
-
-///```dart
-/// @override
-///  Widget build(BuildContext context) {
-///    return MaterialApp(
-///      home: Scaffold(
-///        body: CodeForge(
-///          editorTheme: anOldHopeTheme,
-///          controller: controller,
-///          aiCompletion: AiCompletion(
-///            model: model // Pass the custom model here
-///          ),
-///        )
-///      ),
-///    );
-/// }
-///```
 class CustomModel extends Models {
-  /// The URL for the custom AI service endpoint.
+  @override
+  final ToolCallingMethod toolCallingMethod;
+
   @override
   final String url;
   @override
@@ -403,6 +932,7 @@ class CustomModel extends Models {
     required this.requestBuilder,
     required this.customParser,
     this.httpMethod = 'POST',
+    this.toolCallingMethod = ToolCallingMethod.openAiCompatible,
   });
 
   @override
@@ -460,21 +990,8 @@ class CustomModel extends Models {
   }
 }
 
-/// Enum that defines the type of AI completion behavior.
 enum CompletionType {
-  /// Completion is triggered automatically based on the debounce time.
-  /// This is the default behavior.
   auto,
-
-  /// Completion is triggered manually, typically through the getManualAiCompletion() callback in the [CodeForgeController].
-  /// eg:
-  /// ```dart
-  /// controller.getManualAiCompletion();
-  /// ```
-  ///
-  /// Use this when you have a very limited number of requests to the AI service, or when you want to control when the AI completion is invoked.
   manual,
-
-  /// Completion shown automatically, but it can be triggered manually using the callback as well.
   mixed,
 }
