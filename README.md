@@ -11,7 +11,7 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
 
 Join on this google groups:
 
-https://groups.google.com/u/1/g/roxum-closed-test
+https://groups.google.com/u/0/g/roxum-closed-test
 
 Then accept the testing request:
 
