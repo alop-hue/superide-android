@@ -641,8 +641,29 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     }
   }
 
+  void _syncActiveEditorWithTabIndex(int index) {
+    final currentEditors = _activeEditorBloc.state.activeEditors;
+    if (currentEditors.isEmpty || index < 0 || index >= currentEditors.length) {
+      return;
+    }
+
+    final currentActiveIndex = currentEditors.indexWhere((e) => e.isActive);
+    if (currentActiveIndex == index) return;
+
+    final updatedEditors = List<ActiveEditor>.from(currentEditors);
+    for (int i = 0; i < updatedEditors.length; i++) {
+      updatedEditors[i].isActive = i == index;
+    }
+    _activeEditorBloc.add(ActiveEditorEvent(updatedEditors));
+  }
+
   void _onTabChanged() {
-    if (tabController == null || !tabController!.indexIsChanging) return;
+    if (tabController == null) return;
+
+    final currentIndex = tabController!.index;
+    _syncActiveEditorWithTabIndex(currentIndex);
+    mruOrder.remove(currentIndex);
+    mruOrder.insert(0, currentIndex);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -2723,6 +2744,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                               isScrollable: true,
                               tabAlignment: TabAlignment.start,
                               onTap: (value) {
+                                _syncActiveEditorWithTabIndex(value);
                                 mruOrder.remove(value);
                                 mruOrder.insert(0, value);
                                 if (tabController != null &&

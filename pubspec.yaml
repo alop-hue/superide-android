@@ -1,7 +1,7 @@
 name: roxum
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.0+12
+version: 1.0.0+14
 
 environment:
   sdk: ^3.11.4
@@ -9,7 +9,7 @@ environment:
 dependencies:
   android_intent_plus: ^6.0.0
   bloc: ^9.2.0
-  code_forge: ^9.8.0
+  code_forge: ^9.9.0
   diff_match_patch: ^0.4.1
   equatable: ^2.0.8
   file_picker: ^10.3.10

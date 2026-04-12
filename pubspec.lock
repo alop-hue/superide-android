@@ -85,10 +85,10 @@ packages:
     dependency: "direct main"
     description:
       name: code_forge
-      sha256: "7e4d91b696eff738b0933722ffcfad6746ea600763e11c0eb467b42e0c01f022"
+      sha256: c96b6655836a4bf62e6d65cff054d7b5847928bac3af4f5474b143376e27fccb
       url: "https://pub.dev"
     source: hosted
-    version: "9.8.0"
+    version: "9.9.0"
   collection:
     dependency: transitive
     description:
