@@ -111,6 +111,122 @@ class ActiveEditorState{
   ActiveEditorState(this.activeEditors);
 }
 
+String _extractCustomModelText(dynamic response) {
+  if (response == null) return '';
+
+  if (response is String) return response;
+
+  if (response is List && response.isNotEmpty) {
+    return _extractCustomModelText(response.first);
+  }
+
+  if (response is Map<String, dynamic>) {
+    final candidates = <dynamic>[
+      response["choices"]?[0]?["message"]?["content"],
+      response["choices"]?[0]?["text"],
+      response["content"]?[0]?["text"],
+      response["response"],
+      response["text"],
+      response["message"],
+    ];
+
+    for (final candidate in candidates) {
+      final text = _extractCustomModelText(candidate).trim();
+      if (text.isNotEmpty) return text;
+    }
+  }
+
+  return response.toString();
+}
+
+Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
+  final provider = (modelConfig['provider'] ?? modelConfig['apiProvider'] ?? '').toString();
+  final apiKey = (modelConfig['apiKey'] ?? '').toString();
+  final modelName = (modelConfig['modelName'] ?? modelConfig['model'] ?? '').toString();
+
+  switch (provider) {
+    case 'Gemini':
+      return Gemini(apiKey: apiKey, model: modelName);
+    case 'Claude':
+      return Claude(apiKey: apiKey, model: modelName);
+    case 'OpenAI':
+      return OpenAI(apiKey: apiKey, model: modelName);
+    case 'Grok':
+      return Grok(apiKey: apiKey, model: modelName);
+    case 'DeepSeek':
+      return DeepSeek(apiKey: apiKey, model: modelName);
+    case 'TogetherAI':
+      return TogetherAi(apiKey: apiKey, model: modelName);
+    case 'Perplexity':
+      return Perplexity(apiKey: apiKey, model: modelName);
+    case 'OpenRouter':
+      return OpenRouter(apiKey: apiKey, model: modelName);
+    case 'FireWorks':
+      return FireWorks(apiKey: apiKey, model: modelName);
+    case 'Custom':
+      final url = (modelConfig['url'] ?? '').toString().trim();
+      if (url.isEmpty) return null;
+
+      ToolCallingMethod parseToolCallingMethod(dynamic value) {
+        final raw = value?.toString().trim() ?? '';
+        switch (raw) {
+          case 'none':
+          case 'disabled':
+            return ToolCallingMethod.none;
+          case 'openAiCompatible':
+          case 'openai':
+          case 'open_ai':
+            return ToolCallingMethod.openAiCompatible;
+          case 'anthropicMessages':
+          case 'anthropic':
+            return ToolCallingMethod.anthropicMessages;
+          case 'geminiFunctionCalling':
+          case 'gemini':
+            return ToolCallingMethod.geminiFunctionCalling;
+          default:
+            return ToolCallingMethod.openAiCompatible;
+        }
+      }
+
+      final parsedHeaders = <String, String>{};
+      final headers = modelConfig['headers'];
+      if (headers is Map) {
+        headers.forEach((key, value) {
+          if (key != null && value != null) {
+            parsedHeaders[key.toString()] = value.toString();
+          }
+        });
+      }
+
+      if (apiKey.isNotEmpty && !parsedHeaders.containsKey('Authorization')) {
+        parsedHeaders['Authorization'] = 'Bearer $apiKey';
+      }
+
+      return CustomModel(
+        url: url,
+        httpMethod: (modelConfig['httpMethod'] ?? 'POST').toString(),
+        toolCallingMethod: parseToolCallingMethod(
+          modelConfig['toolCallingMethod'],
+        ),
+        customHeaders: parsedHeaders,
+        requestBuilder: (code, instruction) {
+          return {
+            if (modelName.isNotEmpty) 'model': modelName,
+            'messages': [
+              {'role': 'system', 'content': instruction},
+              {'role': 'user', 'content': code},
+            ],
+          };
+        },
+        customParser: (response) {
+          return _extractCustomModelText(response);
+        },
+      );
+  }
+
+  return null;
+}
+
 class AIState {
   final Map<String, dynamic> config, modelSelected;
   final bool isEnabled, showSuggestionOntap;
@@ -121,41 +237,19 @@ class AIState {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['code'] == null || config[modelSelected['code']] == null) {
           return null;
         }
-        final String provider = config[modelSelected['code']]['provider'];
-        final String apiKey = config[modelSelected['code']]['apiKey'];
-        final String modelName = config[modelSelected['code']]['modelName'];
-        switch (provider) {
-          case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
-          case 'Claude': return Claude(apiKey: apiKey, model: modelName);
-          case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
-          case 'Grok': return Grok(apiKey: apiKey, model: modelName);
-          case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
-          case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
-          case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
-          case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
-          case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
-          case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+        if (config[modelSelected['code']] is! Map<String, dynamic>) {
+          return null;
         }
+        return _modelFromConfig(config[modelSelected['code']] as Map<String, dynamic>);
       })(),
       chatModel = (() {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['chat'] == null || config[modelSelected['chat']] == null) {
           return null;
         }
-        final String provider = config[modelSelected['chat']]['provider'];
-        final String apiKey = config[modelSelected['chat']]['apiKey'];
-        final String modelName = config[modelSelected['chat']]['modelName'];
-        switch (provider) {
-          case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
-          case 'Claude': return Claude(apiKey: apiKey, model: modelName);
-          case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
-          case 'Grok': return Grok(apiKey: apiKey, model: modelName);
-          case 'DeepSeek': return DeepSeek(apiKey: apiKey, model: modelName);
-          case 'Gorq': return Gorq(apiKey: apiKey, model: modelName);
-          case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
-          case 'Sonar': return Sonar(apiKey: apiKey, model: modelName);
-          case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
-          case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+        if (config[modelSelected['chat']] is! Map<String, dynamic>) {
+          return null;
         }
+        return _modelFromConfig(config[modelSelected['chat']] as Map<String, dynamic>);
       })();
 
   AIState copyWith({

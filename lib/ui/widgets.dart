@@ -10219,6 +10219,488 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     return history;
   }
 
+  String _toolEditMarker(String filePath, int added, int removed) {
+    final fileEncoded = base64Encode(utf8.encode(filePath));
+    return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
+  }
+
+  String _toolTerminalMarker(String command) {
+    final encoded = base64Encode(utf8.encode(command));
+    return '[[ROXUM_TERMINAL:$encoded]]\n';
+  }
+
+  String _toolStatusMarker(String status) {
+    return '[[ROXUM_STATUS:$status]]\n';
+  }
+
+  String _toolStatusForFunction(String functionName) {
+    const analyzingTools = {
+      'activeEditorFile',
+      'currentlySelectedText',
+      'getLspDiagnostics',
+      'readFile',
+      'listFiles',
+      'readFilesBatch',
+      'globSearchFiles',
+      'searchInFiles',
+      'grepInFiles',
+      'getPendingEditsForFile',
+      'getFileInfo',
+      'gitStatus',
+      'gitDiff',
+      'gitLog',
+      'searchInWeb',
+      'openLinks',
+    };
+
+    const patchTools = {
+      'writeFile',
+      'deleteFile',
+      'renamePath',
+      'rename',
+      'insertAtLine',
+      'replaceAllInFile',
+      'editFile',
+    };
+
+    if (analyzingTools.contains(functionName)) {
+      return 'Analyzing';
+    }
+    if (patchTools.contains(functionName)) {
+      return 'Generating patch';
+    }
+    return 'Processing';
+  }
+
+  String _shellCommandPreview(String command, List<String> args) {
+    final parts = [command, ...args].map(_shellEscape).toList();
+    return parts.join(' ');
+  }
+
+  String _shellEscape(String value) {
+    if (value.isEmpty) return "''";
+    final safePattern = RegExp(r'^[A-Za-z0-9_./:-]+$');
+    if (safePattern.hasMatch(value)) {
+      return value;
+    }
+    return "'${value.replaceAll("'", "'\\''")}'";
+  }
+
+  Future<String> _executeExternalToolCall({
+    required AgenticTools tools,
+    required String functionName,
+    required Map<String, dynamic> args,
+    required void Function(String) pushPartial,
+  }) async {
+    try {
+      switch (functionName) {
+        case 'activeEditorFile':
+          final res = await tools.activeEditorFile();
+          return res.success
+              ? (res.data ?? 'No active file')
+              : (res.error ?? 'Error getting active file');
+        case 'currentlySelectedText':
+          final res = await tools.currentlySelectedText();
+          return res.success
+              ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
+              : (res.error ?? 'Error getting selected text');
+        case 'getLspDiagnostics':
+          final res = await tools.getLspDiagnostics(args['filePath']);
+          return res.success
+              ? jsonEncode(res.data)
+              : (res.error ?? 'Error getting LSP diagnostics');
+        case 'readFile':
+          final res = await tools.readFile(
+            args['filePath'],
+            args['startLine'],
+            args['endLine'],
+          );
+          return res.success
+              ? (res.data ?? 'No content')
+              : (res.error ?? 'Error reading file');
+        case 'writeFile':
+          String? previousContent;
+          final previousRead = await tools.readFile(args['filePath']);
+          if (previousRead.success) {
+            previousContent = previousRead.data;
+          }
+          final res = await tools.writeFile(
+            args['filePath'],
+            args['content'],
+          );
+          if (res.success) {
+            final added = _lineCount(args['content']?.toString());
+            final removed = _lineCount(previousContent);
+            pushPartial(_toolStatusMarker('Generating patch (+$added/-$removed)'));
+            pushPartial(
+              _toolEditMarker(
+                args['filePath']?.toString() ?? 'unknown',
+                added,
+                removed,
+              ),
+            );
+          }
+          return res.success
+              ? 'File written successfully'
+              : (res.error ?? 'Error writing file');
+        case 'deleteFile':
+          final previousRead = await tools.readFile(args['filePath']);
+          final res = await tools.deleteFile(args['filePath']);
+          if (res.success) {
+            final removed = _lineCount(previousRead.data);
+            pushPartial(_toolStatusMarker('Generating patch (+0/-$removed)'));
+            pushPartial(
+              _toolEditMarker(
+                args['filePath']?.toString() ?? 'unknown',
+                0,
+                removed,
+              ),
+            );
+          }
+          return res.success
+              ? 'File deleted successfully'
+              : (res.error ?? 'Error deleting file');
+        case 'renamePath':
+          final res = await tools.renamePath(
+            args['oldPath'],
+            args['newPath'],
+          );
+          return res.success
+              ? 'Path renamed successfully'
+              : (res.error ?? 'Error renaming path');
+        case 'rename':
+          final res = await tools.rename(
+            args['oldPath'],
+            args['newPath'],
+          );
+          return res.success
+              ? 'Path renamed successfully'
+              : (res.error ?? 'Error renaming path');
+        case 'insertAtLine':
+          final res = await tools.insertAtLine(
+            args['filePath'],
+            args['line'],
+            args['text'],
+            position: args['position'] ?? 'before',
+          );
+          if (res.success) {
+            final added = _lineCount(args['text']?.toString());
+            pushPartial(_toolStatusMarker('Generating patch (+$added/-0)'));
+            pushPartial(
+              _toolEditMarker(
+                args['filePath']?.toString() ?? 'unknown',
+                added,
+                0,
+              ),
+            );
+          }
+          return res.success
+              ? 'Text inserted successfully'
+              : (res.error ?? 'Error inserting text');
+        case 'replaceAllInFile':
+          final res = await tools.replaceAllInFile(
+            args['filePath'],
+            args['oldText'],
+            args['newText'],
+            useRegex: args['useRegex'] ?? false,
+            maxReplacements: args['maxReplacements'],
+            caseSensitive: args['caseSensitive'] ?? true,
+          );
+          if (res.success) {
+            final added = _lineCount(args['newText']?.toString());
+            final removed = _lineCount(args['oldText']?.toString());
+            pushPartial(_toolStatusMarker('Generating patch (+$added/-$removed)'));
+            pushPartial(
+              _toolEditMarker(
+                args['filePath']?.toString() ?? 'unknown',
+                added,
+                removed,
+              ),
+            );
+          }
+          return res.success
+              ? jsonEncode(res.data)
+              : (res.error ?? 'Error replacing text');
+        case 'listFiles':
+          final res = await tools.listFiles(
+            args['directoryPath'],
+            pattern: args['pattern'],
+            recursive: args['recursive'] ?? false,
+          );
+          return res.success
+              ? (res.data?.join('\n') ?? 'No files')
+              : (res.error ?? 'Error listing files');
+        case 'readFilesBatch':
+          final parsedFiles = (args['files'] as List?) ?? const [];
+          final res = await tools.readFilesBatch(parsedFiles);
+          return res.success
+              ? jsonEncode(res.data)
+              : (res.error ?? 'Error reading files batch');
+        case 'globSearchFiles':
+          final parsedExcludePatterns = (args['excludePatterns'] as List?)
+              ?.map((item) => item.toString())
+              .toList();
+          final res = await tools.globSearchFiles(
+            args['pattern'],
+            directoryPath: args['directoryPath'] ?? '.',
+            excludePatterns: parsedExcludePatterns,
+            recursive: args['recursive'] ?? true,
+            maxResults: args['maxResults'],
+          );
+          return res.success
+              ? (res.data?.join('\n') ?? 'No matches')
+              : (res.error ?? 'Error searching files by glob');
+        case 'searchInFiles':
+          final res = await tools.searchInFiles(
+            args['query'],
+            filePattern: args['filePattern'],
+            caseSensitive: args['caseSensitive'] ?? false,
+            matchWholeWord: args['matchWholeWord'] ?? false,
+            useRegex: args['useRegex'] ?? false,
+          );
+          return res.success
+              ? (res.data
+                        ?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}')
+                        .join('\n') ??
+                    'No results')
+              : (res.error ?? 'Error searching files');
+        case 'grepInFiles':
+          final res = await tools.grepInFiles(
+            args['query'],
+            filePattern: args['filePattern'],
+            caseSensitive: args['caseSensitive'] ?? false,
+            matchWholeWord: args['matchWholeWord'] ?? false,
+            useRegex: args['useRegex'] ?? false,
+            before: args['before'] ?? 2,
+            after: args['after'] ?? 2,
+            maxResults: args['maxResults'],
+          );
+          return res.success
+              ? (res.data?.map((r) => r.toString()).join('\n') ?? 'No results')
+              : (res.error ?? 'Error grepping files');
+        case 'editFile':
+          final res = await tools.editFile(
+            args['filePath'],
+            args['oldText'],
+            args['newText'],
+          );
+          if (res.success) {
+            final added = _lineCount(args['newText']?.toString());
+            final removed = _lineCount(args['oldText']?.toString());
+            pushPartial(_toolStatusMarker('Generating patch (+$added/-$removed)'));
+            pushPartial(
+              _toolEditMarker(
+                args['filePath']?.toString() ?? 'unknown',
+                added,
+                removed,
+              ),
+            );
+          }
+          return res.success
+              ? 'File edited successfully'
+              : (res.error ?? 'Error editing file');
+        case 'getPendingEditsForFile':
+          final res = await tools.getPendingEditsForFile(args['filePath']);
+          return res.success
+              ? (res.data == null ? 'No pending edits' : jsonEncode(res.data!.toJson()))
+              : (res.error ?? 'Error getting pending edits');
+        case 'getFileInfo':
+          final res = await tools.getFileInfo(args['filePath']);
+          return res.success
+              ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
+              : (res.error ?? 'Error getting file info');
+        case 'openLinks':
+          final res = await tools.openLinks(args['url']);
+          return res.success
+              ? (res.data?.toString() ?? 'No content')
+              : (res.error ?? 'Error fetching web page');
+        case 'searchInWeb':
+          final res = await tools.searchInWeb(args['searchQuery']);
+          return res.success
+              ? (res.data?.map((w) => '${w.title}\n${w.url}\n${w.snippet}').join('\n---\n') ?? 'No results')
+              : (res.error ?? 'Error searching web');
+        case 'runShellCommand':
+          final parsedArgs = (args['args'] as List?)
+                  ?.map((item) => item.toString())
+                  .toList() ??
+              <String>[];
+          final parsedEnvs = (args['envs'] as Map?)?.map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              ) ??
+              <String, String>{};
+          final preview = _shellCommandPreview(
+            args['command']?.toString() ?? '',
+            parsedArgs,
+          );
+          pushPartial(_toolTerminalMarker(preview));
+          final res = await tools.runShellCommand(
+            args['command'],
+            parsedArgs,
+            parsedEnvs,
+          );
+          return res.success
+              ? jsonEncode(res.data)
+              : (res.error ?? 'Error running shell command');
+        case 'gitStatus':
+          final res = await tools.gitStatus();
+          return res.success
+              ? jsonEncode(res.data?.toJson())
+              : (res.error ?? 'Error getting git status');
+        case 'gitDiff':
+          final res = await tools.gitDiff(
+            filePath: args['filePath'],
+            staged: args['staged'] ?? false,
+            contextLines: args['contextLines'] ?? 3,
+          );
+          return res.success
+              ? (res.data ?? '')
+              : (res.error ?? 'Error getting git diff');
+        case 'gitLog':
+          final res = await tools.gitLog(
+            limit: args['limit'] ?? 20,
+            filePath: args['filePath'],
+          );
+          return res.success
+              ? jsonEncode(res.data?.map((c) => c.toJson()).toList() ?? [])
+              : (res.error ?? 'Error getting git log');
+        default:
+          return 'Unknown tool: $functionName';
+      }
+    } catch (e) {
+      return 'Error executing tool $functionName: $e';
+    }
+  }
+
+  Future<String> _sendExternalToolCallingPrompt({
+    required Models chatModel,
+    required List<AIConversation> history,
+    required String prompt,
+    required ChatMode chatMode,
+    required void Function(String) pushPartial,
+  }) async {
+    final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+    final availableTools = chatMode == ChatMode.agent
+        ? tools.getTools()
+        : tools.getTools(readAccessOnly: true);
+
+    final conversationMessages = _buildChatHistory(history);
+    if (chatMode == ChatMode.agent) {
+      conversationMessages.insert(0, {
+        'role': 'system',
+        'content':
+            'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
+      });
+    }
+    conversationMessages.add({'role': 'user', 'content': prompt});
+
+    _currentClient = http.Client();
+    final streamedOutput = StringBuffer();
+
+    void appendOutput(String text) {
+      if (text.isEmpty) return;
+      streamedOutput.write(text);
+      pushPartial(text);
+    }
+
+    try {
+      var loop = 0;
+      while (loop < 8) {
+        loop++;
+        final requestBody = chatModel.buildToolCallingRequest(
+          messages: conversationMessages,
+          tools: availableTools,
+          stream: false,
+        );
+
+        final response = await _currentClient!.post(
+          Uri.parse(chatModel.chatUrl),
+          headers: chatModel.headers,
+          body: jsonEncode(requestBody),
+        );
+
+        if (response.statusCode != 200) {
+          throw Exception(
+            'Request failed with status ${response.statusCode}: ${response.body}',
+          );
+        }
+
+        final decoded = jsonDecode(response.body);
+        final assistantText = chatModel.parseChatMessage(decoded);
+        final toolCalls = chatModel.parseToolCalls(decoded);
+
+        conversationMessages.add({
+          'role': 'assistant',
+          'content': assistantText,
+          if (toolCalls.isNotEmpty) 'tool_calls': toolCalls,
+        });
+
+        if (assistantText.isNotEmpty) {
+          appendOutput(assistantText);
+        }
+
+        if (toolCalls.isEmpty) {
+          final output = streamedOutput.toString();
+          if (output.isNotEmpty) return output;
+          return assistantText;
+        }
+
+        appendOutput(_toolStatusMarker('Processing'));
+
+        final toolResults = <String>[];
+        for (final call in toolCalls) {
+          final callFunction = call['function'];
+          if (callFunction is! Map) {
+            toolResults.add('Malformed tool call without function payload');
+            continue;
+          }
+
+          final function = Map<String, dynamic>.from(callFunction);
+          final functionName = function['name']?.toString();
+          if (functionName == null || functionName.isEmpty) {
+            toolResults.add('Malformed tool call without function name');
+            continue;
+          }
+
+          appendOutput(_toolStatusMarker(_toolStatusForFunction(functionName)));
+
+          final rawArgs = function['arguments'];
+          Map<String, dynamic> args = <String, dynamic>{};
+          if (rawArgs is String && rawArgs.trim().isNotEmpty) {
+            try {
+              final parsed = jsonDecode(rawArgs);
+              if (parsed is Map<String, dynamic>) {
+                args = parsed;
+              } else if (parsed is Map) {
+                args = Map<String, dynamic>.from(parsed);
+              }
+            } catch (_) {}
+          } else if (rawArgs is Map<String, dynamic>) {
+            args = rawArgs;
+          } else if (rawArgs is Map) {
+            args = Map<String, dynamic>.from(rawArgs);
+          }
+
+          final result = await _executeExternalToolCall(
+            tools: tools,
+            functionName: functionName,
+            args: args,
+            pushPartial: appendOutput,
+          );
+          toolResults.add(result);
+        }
+
+        conversationMessages.addAll(
+          chatModel.buildToolResultMessages(toolCalls, toolResults),
+        );
+      }
+
+      throw Exception('Tool loop exceeded maximum iterations');
+    } finally {
+      _currentClient?.close();
+      _currentClient = null;
+    }
+  }
+
   
   String? _parseStreamChunk(String chunk, Models chatModel) {
     final buffer = StringBuffer();
@@ -10273,9 +10755,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       case OpenAI():
       case Grok():
       case DeepSeek():
-      case Gorq():
       case TogetherAi():
-      case Sonar():
+      case Perplexity():
       case OpenRouter():
       case FireWorks():
       case CustomModel():
@@ -10352,9 +10833,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         };
       case Grok():
       case DeepSeek():
-      case Gorq():
       case TogetherAi():
-      case Sonar():
+      case Perplexity():
       case OpenRouter():
       case FireWorks():
         final messages = _buildChatHistory(history);
@@ -10380,6 +10860,9 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     if (prompt.isEmpty) return;
 
     final chatSessionBloc = context.read<ChatSessionBloc>();
+    final chatMode = mounted
+        ? context.read<AIChatUIBloc>().state.chatMode
+        : ChatMode.ask;
     final isFirstMessage = currentList.isEmpty;
 
     final newList = currentList.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
@@ -10401,6 +10884,57 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         );
       }
     });
+
+    if (chatMode == ChatMode.agent && chatModel.supportsToolCalling) {
+      try {
+        final response = await _sendExternalToolCallingPrompt(
+          chatModel: chatModel,
+          history: currentList,
+          prompt: prompt,
+          chatMode: chatMode,
+          pushPartial: (partial) {
+            newList[index] = newList[index].copyWith(
+              modelResponse: (newList[index].modelResponse ?? '') + partial,
+            );
+            chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+          },
+        );
+
+        final currentSession = chatSessionBloc.state.currentSession;
+        if (currentSession != null) {
+          final updated = currentSession.conversations
+              .map((c) => AIConversation(c.userRequest, c.modelResponse))
+              .toList();
+
+          if (index < updated.length) {
+            updated[index] = updated[index].copyWith(modelResponse: response);
+            chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+          }
+        }
+
+        _updateBlocState(isGenerating: false);
+
+        if (isFirstMessage && response.isNotEmpty) {
+          _generateTitle(chatModel, prompt, response);
+        }
+      } catch (e, st) {
+        _logChatError('sendPrompt.agenticExternal', e, st);
+        final currentSession = chatSessionBloc.state.currentSession;
+        if (currentSession != null) {
+          final updated = currentSession.conversations
+              .map((c) => AIConversation(c.userRequest, c.modelResponse))
+              .toList();
+          if (index < updated.length) {
+            updated[index] = updated[index].copyWith(
+              modelResponse: _userFacingChatErrorMessage(e),
+            );
+            chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+          }
+        }
+        _updateBlocState(isGenerating: false);
+      }
+      return;
+    }
 
     final url = Uri.parse(_getStreamingUrl(chatModel));
     _currentClient = http.Client();

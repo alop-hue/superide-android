@@ -54,9 +54,10 @@ int main() {
     "DeepSeek",
     "Gorq",
     "TogetherAI",
-    "Sonar",
+    "Perplexity",
     "OpenRouter",
     "FireWorks",
+    "Custom",
     ];
 
   @override
@@ -742,7 +743,6 @@ int main() {
                 ),
                 const SizedBox(height: 16),
                 
-                // Enable/Disable toggle
                 BlocBuilder<CopilotBloc, CopilotState>(
                   builder: (context, copilotState) {
                     return Container(
@@ -1557,248 +1557,396 @@ int main() {
                                 height: 45,
                                 child: ElevatedButton(
                                     onPressed: (){
+                                      String? provider;
+                                      String customHttpMethod = 'POST';
+                                      String customToolCallingMethod = 'openAiCompatible';
+                                      final customUrlController = TextEditingController();
                                       showDialog(
                                         context: context,
                                         builder: (context) {
-                                          late final String provider;
-                                          return Dialog(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                            child: Container(
-                                              width: 400,
-                                              padding: const EdgeInsets.all(20),
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(20),
-                                                gradient: LinearGradient(
-                                                  colors: appThemeState.appTheme.isDark
-                                                    ? [const Color(0xff181A26), const Color(0xff1e1f2b)]
-                                                    : [Colors.white, Colors.grey[100]!],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
+                                          return StatefulBuilder(
+                                            builder: (context, setDialogState) {
+                                              final isCustomProvider = provider == 'Custom';
+                                              return Dialog(
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(20),
                                                 ),
-                                              ),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Icon(Icons.smart_toy, color: Colors.lightBlue, size: 30),
-                                                      const SizedBox(width: 10),
-                                                      Text(
-                                                        'Create a completion model',
-                                                        style: TextStyle(
-                                                          color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                          fontSize: 18,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 20),
-                                                  Form(
-                                                    key: _formKey,
-                                                    child: Column(
-                                                      children: [
-                                                        DropdownButtonFormField(
-                                                          dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                          hint: Text(
-                                                            "Select a Provider",
-                                                            style: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                            ),
-                                                          ),
-                                                          decoration: InputDecoration(
-                                                            prefixIcon: Icon(Icons.business, color: Colors.lightBlue),
-                                                            border: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15)
-                                                            ),
-                                                            focusedBorder: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15),
-                                                              borderSide: BorderSide(
-                                                                color: Colors.lightBlue,
-                                                                width: 2,
-                                                              )
-                                                            ),
-                                                          ),
-                                                          items: List.generate(
-                                                            models.length, 
-                                                            (index) => DropdownMenuItem(
-                                                              value: models[index],
-                                                              child: Text(
-                                                                models[index],
-                                                                style: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor
-                                                                ),
-                                                              )
-                                                            )
-                                                          ),
-                                                          onChanged: (val){
-                                                            provider = val!;
-                                                          },
-                                                          validator: (value) => value == null ? "Select a valid provider" : null,
-                                                        ),
-                                                        const SizedBox(height: 15),
-                                                        TextFormField(
-                                                          style: TextStyle(
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor
-                                                          ),
-                                                          controller: modelNameController,
-                                                          cursorColor: Colors.lightBlue,
-                                                          decoration: InputDecoration(
-                                                            prefixIcon: Icon(Icons.label, color: Colors.lightBlue),
-                                                            hintText: "model name as per the provider's api",
-                                                            hintStyle: TextStyle(
-                                                              color: Colors.grey,
-                                                              fontSize: 12
-                                                            ),
-                                                            border: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15)
-                                                            ),
-                                                            focusedBorder: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15),
-                                                              borderSide: BorderSide(
-                                                                color: Colors.lightBlue,
-                                                                width: 2,
-                                                              )
-                                                            ),
-                                                            labelText: "Model Name",
-                                                            labelStyle: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                              fontSize: 15
-                                                            ),
-                                                          ),
-                                                          validator: (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
-                                                        ),
-                                                        const SizedBox(height: 15),
-                                                        TextFormField(
-                                                          style: TextStyle(
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor
-                                                          ),
-                                                          controller: apiController,
-                                                          cursorColor: Colors.lightBlue,
-                                                          obscureText: true,
-                                                          decoration: InputDecoration(
-                                                            prefixIcon: Icon(Icons.key, color: Colors.lightBlue),
-                                                            border: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15)
-                                                            ),
-                                                            focusedBorder: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15),
-                                                              borderSide: BorderSide(
-                                                                color: Colors.lightBlue,
-                                                                width: 2,
-                                                              )
-                                                            ),
-                                                            labelText: "API Key",
-                                                            hintText: "API key for the corresponding provider",
-                                                            hintStyle: TextStyle(
-                                                              color: Colors.grey,
-                                                              fontSize: 12
-                                                            ),
-                                                            labelStyle: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                              fontSize: 15
-                                                            ),
-                                                          ),
-                                                          validator: (value) => value == null || value.isEmpty ? "Enter a valid API key" : null,
-                                                        ),
-                                                        const SizedBox(height: 15),
-                                                        Divider(color: Colors.lightBlue.withAlpha(100)),
-                                                        const SizedBox(height: 15),
-                                                        TextField(
-                                                          style: TextStyle(
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor
-                                                          ),
-                                                          controller: modelIdController,
-                                                          cursorColor: Colors.lightBlue,
-                                                          decoration: InputDecoration(
-                                                            prefixIcon: Icon(Icons.tag, color: Colors.lightBlue),
-                                                            hintText: "A unique nick name, leave it empty to generate one",
-                                                            hintStyle: TextStyle(
-                                                              color: Colors.grey,
-                                                              fontSize: 12
-                                                            ),
-                                                            border: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15)
-                                                            ),
-                                                            focusedBorder: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(15),
-                                                              borderSide: BorderSide(
-                                                                color: Colors.lightBlue,
-                                                                width: 2,
-                                                              )
-                                                            ),
-                                                            labelText: "Nick Name (Optional)",
-                                                            labelStyle: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                              fontSize: 15
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
+                                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                child: Container(
+                                                  width: 400,
+                                                  padding: const EdgeInsets.all(20),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    gradient: LinearGradient(
+                                                      colors: appThemeState.appTheme.isDark
+                                                        ? [const Color(0xff181A26), const Color(0xff1e1f2b)]
+                                                        : [Colors.white, Colors.grey[100]!],
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 20),
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.end,
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      TextButton(
-                                                        onPressed: () => Navigator.of(context).pop(),
-                                                        style: TextButton.styleFrom(
-                                                          foregroundColor: Colors.grey,
-                                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                                        ),
-                                                        child: const Text('Cancel', style: TextStyle(fontSize: 16)),
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                      ElevatedButton(
-                                                        onPressed: () async {
-                                                          final prefs = await SharedPreferences.getInstance();
-                                                          if (_formKey.currentState!.validate()) {
-                                                            final modelName = modelNameController.text.trim();
-                                                            final apiKey = apiController.text.trim();
-                                                            final modelId = (() {
-                                                              final modelId = modelIdController.text.trim();
-                                                              if (modelId.isEmpty) {
-                                                                return "$modelName-${DateTime.now().millisecondsSinceEpoch}";
-                                                              }
-                                                              return modelId;
-                                                            })();
-                                                            final aiConfig = {
-                                                              modelId: {
-                                                                "provider": provider,
-                                                                "modelName": modelName,
-                                                                "apiKey": apiKey,
-                                                              }
-                                                            };
-                                                            final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
-                                                            prefs.setString('aiConfig', jsonEncode(newConfig));
-                                                            if (context.mounted) {
-                                                              context.read<AIBloc>().add(AIConfigEvent(newConfig));
-                                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                                SnackBar(content: Text("Successfully created model $modelName"))
-                                                              );
-                                                              Navigator.of(context).pop();
-                                                            }
-                                                          }
-                                                        },
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: Colors.lightBlue,
-                                                          foregroundColor: Colors.white,
-                                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(10),
+                                                      Row(
+                                                        children: [
+                                                          Icon(Icons.smart_toy, color: Colors.lightBlue, size: 30),
+                                                          const SizedBox(width: 10),
+                                                          Text(
+                                                            'Create a completion model',
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              fontSize: 18,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
                                                           ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 20),
+                                                      Form(
+                                                        key: _formKey,
+                                                        child: Column(
+                                                          children: [
+                                                            DropdownButtonFormField<String>(
+                                                              initialValue: provider,
+                                                              dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                              hint: Text(
+                                                                "Select a Provider",
+                                                                style: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                ),
+                                                              ),
+                                                              decoration: InputDecoration(
+                                                                prefixIcon: Icon(Icons.business, color: Colors.lightBlue),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15)
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15),
+                                                                  borderSide: BorderSide(
+                                                                    color: Colors.lightBlue,
+                                                                    width: 2,
+                                                                  )
+                                                                ),
+                                                              ),
+                                                              items: List.generate(
+                                                                models.length,
+                                                                (index) => DropdownMenuItem(
+                                                                  value: models[index],
+                                                                  child: Text(
+                                                                    models[index],
+                                                                    style: TextStyle(
+                                                                      color: appThemeState.appTheme.selectScreenCardTextColor
+                                                                    ),
+                                                                  )
+                                                                )
+                                                              ),
+                                                              onChanged: (val){
+                                                                setDialogState(() {
+                                                                  provider = val;
+                                                                });
+                                                              },
+                                                              validator: (value) => value == null ? "Select a valid provider" : null,
+                                                            ),
+                                                            const SizedBox(height: 15),
+                                                            TextFormField(
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor
+                                                              ),
+                                                              controller: modelNameController,
+                                                              cursorColor: Colors.lightBlue,
+                                                              decoration: InputDecoration(
+                                                                prefixIcon: Icon(Icons.label, color: Colors.lightBlue),
+                                                                hintText: "model name as per the provider's api",
+                                                                hintStyle: TextStyle(
+                                                                  color: Colors.grey,
+                                                                  fontSize: 12
+                                                                ),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15)
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15),
+                                                                  borderSide: BorderSide(
+                                                                    color: Colors.lightBlue,
+                                                                    width: 2,
+                                                                  )
+                                                                ),
+                                                                labelText: "Model Name",
+                                                                labelStyle: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  fontSize: 15
+                                                                ),
+                                                              ),
+                                                              validator: (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
+                                                            ),
+                                                            const SizedBox(height: 15),
+                                                            TextFormField(
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor
+                                                              ),
+                                                              controller: apiController,
+                                                              cursorColor: Colors.lightBlue,
+                                                              obscureText: true,
+                                                              decoration: InputDecoration(
+                                                                prefixIcon: Icon(Icons.key, color: Colors.lightBlue),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15)
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15),
+                                                                  borderSide: BorderSide(
+                                                                    color: Colors.lightBlue,
+                                                                    width: 2,
+                                                                  )
+                                                                ),
+                                                                labelText: "API Key",
+                                                                hintText: isCustomProvider
+                                                                    ? "Optional: Bearer token for the custom endpoint"
+                                                                    : "API key for the corresponding provider",
+                                                                hintStyle: TextStyle(
+                                                                  color: Colors.grey,
+                                                                  fontSize: 12
+                                                                ),
+                                                                labelStyle: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  fontSize: 15
+                                                                ),
+                                                              ),
+                                                              validator: (value) {
+                                                                if (isCustomProvider) {
+                                                                  return null;
+                                                                }
+                                                                return value == null || value.isEmpty ? "Enter a valid API key" : null;
+                                                              },
+                                                            ),
+                                                            if (isCustomProvider) ...[
+                                                              const SizedBox(height: 15),
+                                                              TextFormField(
+                                                                style: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                ),
+                                                                controller: customUrlController,
+                                                                cursorColor: Colors.lightBlue,
+                                                                decoration: InputDecoration(
+                                                                  prefixIcon: Icon(Icons.link, color: Colors.lightBlue),
+                                                                  labelText: "Custom Endpoint URL",
+                                                                  hintText: "https://api.example.com/v1/chat/completions",
+                                                                  hintStyle: TextStyle(
+                                                                    color: Colors.grey,
+                                                                    fontSize: 12,
+                                                                  ),
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                  ),
+                                                                  focusedBorder: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                    borderSide: BorderSide(
+                                                                      color: Colors.lightBlue,
+                                                                      width: 2,
+                                                                    ),
+                                                                  ),
+                                                                  labelStyle: TextStyle(
+                                                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                    fontSize: 15,
+                                                                  ),
+                                                                ),
+                                                                validator: (value) {
+                                                                  if (!isCustomProvider) return null;
+                                                                  if (value == null || value.trim().isEmpty) {
+                                                                    return "Enter a valid endpoint URL";
+                                                                  }
+                                                                  final uri = Uri.tryParse(value.trim());
+                                                                  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                                                                    return "Enter a valid absolute URL";
+                                                                  }
+                                                                  return null;
+                                                                },
+                                                              ),
+                                                              const SizedBox(height: 15),
+                                                              DropdownButtonFormField<String>(
+                                                                initialValue: customHttpMethod,
+                                                                dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                                decoration: InputDecoration(
+                                                                  prefixIcon: Icon(Icons.http, color: Colors.lightBlue),
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                  ),
+                                                                  focusedBorder: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                    borderSide: BorderSide(
+                                                                      color: Colors.lightBlue,
+                                                                      width: 2,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                items: [
+                                                                  DropdownMenuItem(value: 'POST', child: Text('POST', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
+                                                                  DropdownMenuItem(value: 'GET', child: Text('GET', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
+                                                                ],
+                                                                onChanged: (value) {
+                                                                  if (value == null) return;
+                                                                  setDialogState(() {
+                                                                    customHttpMethod = value;
+                                                                  });
+                                                                },
+                                                              ),
+                                                              const SizedBox(height: 15),
+                                                              DropdownButtonFormField<String>(
+                                                                initialValue: customToolCallingMethod,
+                                                                dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                                decoration: InputDecoration(
+                                                                  prefixIcon: Icon(Icons.hub_outlined, color: Colors.lightBlue),
+                                                                  labelText: 'Agentic Tool Protocol',
+                                                                  labelStyle: TextStyle(
+                                                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                    fontSize: 15,
+                                                                  ),
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                  ),
+                                                                  focusedBorder: OutlineInputBorder(
+                                                                    borderRadius: BorderRadius.circular(15),
+                                                                    borderSide: BorderSide(
+                                                                      color: Colors.lightBlue,
+                                                                      width: 2,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                items: [
+                                                                  DropdownMenuItem(
+                                                                    value: 'openAiCompatible',
+                                                                    child: Text('OpenAI-compatible', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                  ),
+                                                                  DropdownMenuItem(
+                                                                    value: 'anthropicMessages',
+                                                                    child: Text('Anthropic Messages', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                  ),
+                                                                  DropdownMenuItem(
+                                                                    value: 'geminiFunctionCalling',
+                                                                    child: Text('Gemini Function Calling', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                  ),
+                                                                  DropdownMenuItem(
+                                                                    value: 'none',
+                                                                    child: Text('None (disable agentic tools)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                  ),
+                                                                ],
+                                                                onChanged: (value) {
+                                                                  if (value == null) return;
+                                                                  setDialogState(() {
+                                                                    customToolCallingMethod = value;
+                                                                  });
+                                                                },
+                                                              ),
+                                                            ],
+                                                            const SizedBox(height: 15),
+                                                            Divider(color: Colors.lightBlue.withAlpha(100)),
+                                                            const SizedBox(height: 15),
+                                                            TextField(
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor
+                                                              ),
+                                                              controller: modelIdController,
+                                                              cursorColor: Colors.lightBlue,
+                                                              decoration: InputDecoration(
+                                                                prefixIcon: Icon(Icons.tag, color: Colors.lightBlue),
+                                                                hintText: "A unique nick name, leave it empty to generate one",
+                                                                hintStyle: TextStyle(
+                                                                  color: Colors.grey,
+                                                                  fontSize: 12
+                                                                ),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15)
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(15),
+                                                                  borderSide: BorderSide(
+                                                                    color: Colors.lightBlue,
+                                                                    width: 2,
+                                                                  )
+                                                                ),
+                                                                labelText: "Nick Name (Optional)",
+                                                                labelStyle: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  fontSize: 15
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
-                                                        child: const Text('Create', style: TextStyle(fontSize: 16)),
+                                                      ),
+                                                      const SizedBox(height: 20),
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.end,
+                                                        children: [
+                                                          TextButton(
+                                                            onPressed: () => Navigator.of(context).pop(),
+                                                            style: TextButton.styleFrom(
+                                                              foregroundColor: Colors.grey,
+                                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                            ),
+                                                            child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          ElevatedButton(
+                                                            onPressed: () async {
+                                                              final prefs = await SharedPreferences.getInstance();
+                                                              if (_formKey.currentState!.validate()) {
+                                                                final selectedProvider = provider;
+                                                                if (selectedProvider == null) {
+                                                                  return;
+                                                                }
+                                                                final modelName = modelNameController.text.trim();
+                                                                final apiKey = apiController.text.trim();
+                                                                final modelId = (() {
+                                                                  final modelId = modelIdController.text.trim();
+                                                                  if (modelId.isEmpty) {
+                                                                    return "$modelName-${DateTime.now().millisecondsSinceEpoch}";
+                                                                  }
+                                                                  return modelId;
+                                                                })();
+                                                                final aiConfig = {
+                                                                  modelId: {
+                                                                    "provider": selectedProvider,
+                                                                    "apiProvider": selectedProvider,
+                                                                    "modelName": modelName,
+                                                                    "model": modelName,
+                                                                    "apiKey": apiKey,
+                                                                    if (selectedProvider == 'Custom') ...{
+                                                                      "url": customUrlController.text.trim(),
+                                                                      "httpMethod": customHttpMethod,
+                                                                      "toolCallingMethod": customToolCallingMethod,
+                                                                    },
+                                                                  }
+                                                                };
+                                                                final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
+                                                                prefs.setString('aiConfig', jsonEncode(newConfig));
+                                                                if (context.mounted) {
+                                                                  context.read<AIBloc>().add(AIConfigEvent(newConfig));
+                                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                                    SnackBar(content: Text("Successfully created model $modelName"))
+                                                                  );
+                                                                  Navigator.of(context).pop();
+                                                                }
+                                                              }
+                                                            },
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: Colors.lightBlue,
+                                                              foregroundColor: Colors.white,
+                                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                              shape: RoundedRectangleBorder(
+                                                                borderRadius: BorderRadius.circular(10),
+                                                              ),
+                                                            ),
+                                                            child: const Text('Create', style: TextStyle(fontSize: 16)),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ],
                                                   ),
-                                                ],
-                                              ),
-                                            ),
+                                                ),
+                                              );
+                                            },
                                           );
                                         }
                                       );
