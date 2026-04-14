@@ -870,8 +870,6 @@ Future<ProcessResult> gitPublishBranch(
   );
 }
 
-// ===================== Stash Operations =====================
-
 Future<List<Map<String, String>>> gitListStashes(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
   final result = await Process.run(

@@ -10789,6 +10789,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         final newParams = Map<String, String>.from(uri.queryParameters);
         newParams['alt'] = 'sse';
         return uri.replace(path: newPath, queryParameters: newParams).toString();
+      case OpenAI():
+        return chatModel.chatUrl;
       case Claude():
         return chatModel.url; 
       default:
