@@ -197,6 +197,15 @@ sealed class Models {
             final callId = functionCall['id']?.toString();
             final argsMap = functionCall['args'];
             final args = argsMap is Map ? jsonEncode(argsMap) : '{}';
+            final geminiFunctionCall = <String, dynamic>{
+              ...functionCall,
+              'name': name,
+              'args': argsMap is Map ? Map<String, dynamic>.from(argsMap) : <String, dynamic>{},
+            };
+            final geminiPart = Map<String, dynamic>.from(part);
+            if (callId != null && callId.isNotEmpty) {
+              geminiFunctionCall['id'] = callId;
+            }
             calls.add({
               'id': (callId != null && callId.isNotEmpty)
                   ? callId
@@ -206,6 +215,8 @@ sealed class Models {
                 'name': name,
                 'arguments': args,
               },
+              '_geminiPart': geminiPart,
+              '_geminiFunctionCall': geminiFunctionCall,
             });
           }
           return calls;
@@ -218,9 +229,9 @@ sealed class Models {
           final rawCalls = response["choices"]?[0]?['message']?["tool_calls"];
           if (rawCalls is! List) return const [];
           return rawCalls
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         } catch (_) {
           return const [];
         }
@@ -596,7 +607,8 @@ sealed class Models {
 
       final toolCalls = message['tool_calls'];
       if (role == 'assistant' && toolCalls is List && toolCalls.isNotEmpty) {
-        for (final rawCall in toolCalls) {
+        for (var callIndex = 0; callIndex < toolCalls.length; callIndex++) {
+          final rawCall = toolCalls[callIndex];
           if (rawCall is! Map) continue;
           final call = Map<String, dynamic>.from(rawCall);
           final function = call['function'];
@@ -622,12 +634,34 @@ sealed class Models {
             args = Map<String, dynamic>.from(rawArgs);
           }
 
+          final rawGeminiFunctionCall = call['_geminiFunctionCall'];
+          final functionCallPayload = <String, dynamic>{};
+          if (rawGeminiFunctionCall is Map) {
+            functionCallPayload.addAll(Map<String, dynamic>.from(rawGeminiFunctionCall));
+          }
+
+          functionCallPayload['name'] = name;
+          if (id != null && id.isNotEmpty) {
+            functionCallPayload['id'] = id;
+          }
+          functionCallPayload['args'] = args;
+
+          final rawGeminiPart = call['_geminiPart'];
+          final partPayload = <String, dynamic>{};
+          if (rawGeminiPart is Map) {
+            partPayload.addAll(Map<String, dynamic>.from(rawGeminiPart));
+          }
+
+          if (callIndex == 0 &&
+              !partPayload.containsKey('thoughtSignature') &&
+              !partPayload.containsKey('thought_signature')) {
+            partPayload['thought_signature'] = 'skip_thought_signature_validator';
+          }
+
+          partPayload['functionCall'] = functionCallPayload;
+
           parts.add({
-            'functionCall': {
-              'name': name,
-              if (id != null && id.isNotEmpty) 'id': id,
-              'args': args,
-            }
+            ...partPayload,
           });
         }
       }

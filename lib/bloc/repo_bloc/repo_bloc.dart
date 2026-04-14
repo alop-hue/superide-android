@@ -9,7 +9,6 @@ import 'package:roxum/utils/functions.dart';
 part 'repo_event.dart';
 part 'repo_state.dart';
 
-// GitHub User Model
 class GithubUser extends Equatable {
   final String login;
   final String avatarUrl;
@@ -36,7 +35,6 @@ class GithubUser extends Equatable {
   List<Object?> get props => [login, avatarUrl, name, bio];
 }
 
-// GitHub Auth State
 class GithubAuthState extends Equatable {
   final bool isSignedIn;
   final GithubUser? user;
@@ -65,13 +63,10 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
     LoadRepoStatus event,
     Emitter<RepoStatusState> emit,
   ) async {
-    // Preserve existing state while loading - don't emit RepoStatusLoading
-    // to prevent UI rebuild/flicker
     List<CommitNode>? existingCommits;
     if (state is RepoStatusLoaded) {
       existingCommits = (state as RepoStatusLoaded).commits;
     } else {
-      // Only show loading indicator if this is the first load
       emit(const RepoStatusLoading());
     }
     try {
@@ -111,7 +106,6 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
           ? await getUnpulledCommitCount(event.workspace)
           : 0;
 
-      // Load commit graph every time so the UI stays in sync with upstream changes
       List<CommitNode>? commits;
       try {
         commits = await getGraph(event.workspace);
@@ -145,8 +139,6 @@ class RepoStatusBloc extends Bloc<RepoStatusEvent, RepoStatusState> {
     LoadCommitGraph event,
     Emitter<RepoStatusState> emit,
   ) async {
-    // Don't emit loading state - keep showing existing commits while loading new ones
-    // This prevents the flicker of "Loading commits..." text
 
     try {
       final commits = await getGraph(event.workspace);
@@ -260,7 +252,6 @@ class GithubAuthCubit extends Cubit<GithubAuthState> {
     );
 
     if (token != null && token.isNotEmpty) {
-      // Try to load cached user data first
       final prefs = await SharedPreferences.getInstance();
       final cachedUserData = prefs.getString(_userDataKey);
       
@@ -270,11 +261,9 @@ class GithubAuthCubit extends Cubit<GithubAuthState> {
           final user = GithubUser.fromJson(userJson);
           emit(GithubAuthState.signedIn(user));
         } catch (e) {
-          // Cached data is invalid, load from API
           await _loadAndCacheUserInfo(token);
         }
       } else {
-        // No cached data, load from API
         await _loadAndCacheUserInfo(token);
       }
     } else {
@@ -287,7 +276,6 @@ class GithubAuthCubit extends Cubit<GithubAuthState> {
       final user = await _loadUserInfo(token);
       emit(GithubAuthState.signedIn(user));
       
-      // Cache user data
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_userDataKey, jsonEncode({
         'login': user.login,
@@ -296,7 +284,6 @@ class GithubAuthCubit extends Cubit<GithubAuthState> {
         'bio': user.bio,
       }));
     } catch (e) {
-      // If user info fails to load, still mark as signed in but without user data
       emit(const GithubAuthState(isSignedIn: true, user: null));
     }
   }

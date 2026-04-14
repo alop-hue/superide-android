@@ -19,7 +19,6 @@ class RepoStatusLoaded extends RepoStatusState {
   final List<String> unstaged;
   final String rawOutput;
   final List<CommitNode>? commits;
-  // Extended git status
   final String? currentBranch;
   final List<String> branches;
   final List<String> remoteBranches;

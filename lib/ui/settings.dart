@@ -933,7 +933,499 @@ int main() {
     );
   }
 
+  void _clearModelDialogControllers() {
+    apiController.clear();
+    modelNameController.clear();
+    modelIdController.clear();
+  }
+
+  Future<void> _showModelDialog({
+    required BuildContext context,
+    required AIState aiState,
+    required AppThemeState appThemeState,
+    String? editingModelId,
+    Map<String, dynamic>? existingConfig,
+  }) async {
+    final isEditing = editingModelId != null && existingConfig != null;
+    String? provider = isEditing
+        ? (existingConfig['provider']?.toString() ??
+              existingConfig['apiProvider']?.toString())
+        : null;
+    String customHttpMethod = isEditing
+        ? (existingConfig['httpMethod']?.toString() ?? 'POST')
+        : 'POST';
+    String customToolCallingMethod = isEditing
+        ? (existingConfig['toolCallingMethod']?.toString() ??
+              'openAiCompatible')
+        : 'openAiCompatible';
+
+    modelNameController.text = isEditing
+        ? (existingConfig['modelName']?.toString() ??
+              existingConfig['model']?.toString() ??
+              '')
+        : '';
+    apiController.text = isEditing ? (existingConfig['apiKey']?.toString() ?? '') : '';
+    modelIdController.text = isEditing ? editingModelId : '';
+
+    final customUrlController = TextEditingController(
+      text: isEditing ? (existingConfig['url']?.toString() ?? '') : '',
+    );
+
+    try {
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              final isCustomProvider = provider == 'Custom';
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                backgroundColor: appThemeState.appTheme.isDark
+                    ? const Color(0xff181A26)
+                    : Colors.white,
+                child: Container(
+                  width: 400,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      colors: appThemeState.appTheme.isDark
+                          ? [const Color(0xff181A26), const Color(0xff1e1f2b)]
+                          : [Colors.white, Colors.grey[100]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.smart_toy, color: Colors.lightBlue, size: 30),
+                          const SizedBox(width: 10),
+                          Text(
+                            isEditing ? 'Edit AI model' : 'Create a completion model',
+                            style: TextStyle(
+                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            DropdownButtonFormField<String>(
+                              initialValue: provider,
+                              dropdownColor: appThemeState.appTheme.isDark
+                                  ? const Color(0xff181A26)
+                                  : Colors.white,
+                              hint: Text(
+                                'Select a Provider',
+                                style: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                ),
+                              ),
+                              decoration: InputDecoration(
+                                prefixIcon: Icon(Icons.business, color: Colors.lightBlue),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: Colors.lightBlue,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              items: List.generate(
+                                models.length,
+                                (index) => DropdownMenuItem(
+                                  value: models[index],
+                                  child: Text(
+                                    models[index],
+                                    style: TextStyle(
+                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  provider = val;
+                                });
+                              },
+                              validator: (value) =>
+                                  value == null ? 'Select a valid provider' : null,
+                            ),
+                            const SizedBox(height: 15),
+                            TextFormField(
+                              style: TextStyle(
+                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                              ),
+                              controller: modelNameController,
+                              cursorColor: Colors.lightBlue,
+                              decoration: InputDecoration(
+                                prefixIcon: Icon(Icons.label, color: Colors.lightBlue),
+                                hintText: "model name as per the provider's api",
+                                hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: Colors.lightBlue,
+                                    width: 2,
+                                  ),
+                                ),
+                                labelText: 'Model Name',
+                                labelStyle: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                  fontSize: 15,
+                                ),
+                              ),
+                              validator: (value) => value == null || value.isEmpty
+                                  ? 'Enter a valid model name'
+                                  : null,
+                            ),
+                            const SizedBox(height: 15),
+                            TextFormField(
+                              style: TextStyle(
+                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                              ),
+                              controller: apiController,
+                              cursorColor: Colors.lightBlue,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                prefixIcon: Icon(Icons.key, color: Colors.lightBlue),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: Colors.lightBlue,
+                                    width: 2,
+                                  ),
+                                ),
+                                labelText: 'API Key',
+                                hintText: isCustomProvider
+                                    ? 'Optional: Bearer token for the custom endpoint'
+                                    : 'API key for the corresponding provider',
+                                hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                                labelStyle: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                  fontSize: 15,
+                                ),
+                              ),
+                              validator: (value) {
+                                if (isCustomProvider) {
+                                  return null;
+                                }
+                                return value == null || value.isEmpty
+                                    ? 'Enter a valid API key'
+                                    : null;
+                              },
+                            ),
+                            if (isCustomProvider) ...[
+                              const SizedBox(height: 15),
+                              TextFormField(
+                                style: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                ),
+                                controller: customUrlController,
+                                cursorColor: Colors.lightBlue,
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.link, color: Colors.lightBlue),
+                                  labelText: 'Custom Endpoint URL',
+                                  hintText: 'https://api.example.com/v1/chat/completions',
+                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                    borderSide: BorderSide(
+                                      color: Colors.lightBlue,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (!isCustomProvider) return null;
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Enter a valid endpoint URL';
+                                  }
+                                  final uri = Uri.tryParse(value.trim());
+                                  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                                    return 'Enter a valid absolute URL';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 15),
+                              DropdownButtonFormField<String>(
+                                initialValue: customHttpMethod,
+                                dropdownColor: appThemeState.appTheme.isDark
+                                    ? const Color(0xff181A26)
+                                    : Colors.white,
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.http, color: Colors.lightBlue),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                    borderSide: BorderSide(
+                                      color: Colors.lightBlue,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: 'POST',
+                                    child: Text('POST', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'GET',
+                                    child: Text('GET', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  setDialogState(() {
+                                    customHttpMethod = value;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 15),
+                              DropdownButtonFormField<String>(
+                                initialValue: customToolCallingMethod,
+                                dropdownColor: appThemeState.appTheme.isDark
+                                    ? const Color(0xff181A26)
+                                    : Colors.white,
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.hub_outlined, color: Colors.lightBlue),
+                                  labelText: 'Agentic Tool Protocol',
+                                  labelStyle: TextStyle(
+                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                    fontSize: 15,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                    borderSide: BorderSide(
+                                      color: Colors.lightBlue,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: 'openAiCompatible',
+                                    child: Text('OpenAI-compatible', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'anthropicMessages',
+                                    child: Text('Anthropic Messages', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'geminiFunctionCalling',
+                                    child: Text('Gemini Function Calling', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('None (disable agentic tools)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  setDialogState(() {
+                                    customToolCallingMethod = value;
+                                  });
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 15),
+                            Divider(color: Colors.lightBlue.withAlpha(100)),
+                            const SizedBox(height: 15),
+                            TextField(
+                              style: TextStyle(
+                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                              ),
+                              controller: modelIdController,
+                              cursorColor: Colors.lightBlue,
+                              decoration: InputDecoration(
+                                prefixIcon: Icon(Icons.tag, color: Colors.lightBlue),
+                                hintText: isEditing
+                                    ? 'Nick name used to identify this model'
+                                    : 'A unique nick name, leave it empty to generate one',
+                                hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide(
+                                    color: Colors.lightBlue,
+                                    width: 2,
+                                  ),
+                                ),
+                                labelText: 'Nick Name (Optional)',
+                                labelStyle: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            ),
+                            child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final formState = _formKey.currentState;
+                              if (formState == null || !formState.validate()) {
+                                return;
+                              }
+
+                              final selectedProvider = provider;
+                              if (selectedProvider == null) {
+                                return;
+                              }
+
+                              final modelName = modelNameController.text.trim();
+                              final apiKey = apiController.text.trim();
+                              final enteredModelId = modelIdController.text.trim();
+                              final targetModelId = enteredModelId.isNotEmpty
+                                  ? enteredModelId
+                                    : (isEditing
+                                      ? editingModelId
+                                      : '$modelName-${DateTime.now().millisecondsSinceEpoch}');
+
+                              final newModelConfig = <String, dynamic>{
+                                'provider': selectedProvider,
+                                'apiProvider': selectedProvider,
+                                'modelName': modelName,
+                                'model': modelName,
+                                'apiKey': apiKey,
+                                if (selectedProvider == 'Custom') ...{
+                                  'url': customUrlController.text.trim(),
+                                  'httpMethod': customHttpMethod,
+                                  'toolCallingMethod': customToolCallingMethod,
+                                },
+                              };
+
+                              final updatedConfig = Map<String, dynamic>.from(aiState.config);
+                              if (isEditing) {
+                                updatedConfig.remove(editingModelId);
+                              }
+                              if (updatedConfig.containsKey(targetModelId)) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Model ID "$targetModelId" already exists')),
+                                  );
+                                }
+                                return;
+                              }
+                              updatedConfig[targetModelId] = newModelConfig;
+
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setString('aiConfig', jsonEncode(updatedConfig));
+
+                              final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+                              var modelSelectionChanged = false;
+                              if (isEditing && editingModelId != targetModelId) {
+                                if (updatedModelSelected['code'] == editingModelId) {
+                                  updatedModelSelected['code'] = targetModelId;
+                                  modelSelectionChanged = true;
+                                }
+                                if (updatedModelSelected['chat'] == editingModelId) {
+                                  updatedModelSelected['chat'] = targetModelId;
+                                  modelSelectionChanged = true;
+                                }
+                              }
+
+                              if (modelSelectionChanged) {
+                                await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
+                              }
+
+                              if (context.mounted) {
+                                context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
+                                if (modelSelectionChanged) {
+                                  context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isEditing
+                                          ? 'Successfully updated model $targetModelId'
+                                          : 'Successfully created model $targetModelId',
+                                    ),
+                                  ),
+                                );
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.lightBlue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              isEditing ? 'Update' : 'Create',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      customUrlController.dispose();
+      _clearModelDialogControllers();
+    }
+  }
+
   @override void dispose() {
+    apiController.dispose();
+    modelNameController.dispose();
+    modelIdController.dispose();
     scrollController.dispose();
     themeScroll.dispose();
     fontScroll.dispose();
@@ -2042,55 +2534,91 @@ int main() {
                                                   leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
                                                   title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
                                                   subtitle: Text(config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
-                                                  trailing: IconButton(
-                                                    icon: Icon(Icons.delete,color: Colors.red),
-                                                    onPressed: () async{
-                                                      showDialog(
-                                                        context: context,
-                                                        builder: (context) => AlertDialog(
-                                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                                          title: Text(
-                                                            'Delete model ${e.key}?',
-                                                            style: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                              fontSize: 20
-                                                            ),
-                                                          ),
-                                                          content: Text(
-                                                            "Are you sure you want to delete this model? This action cannot be undone.",
-                                                            style: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                              fontSize: 16
-                                                            )
-                                                          ),
-                                                          actions: [
-                                                            ElevatedButton(
-                                                              onPressed: ()=> Navigator.of(context).pop(),
-                                                              child: Text('Cancel')
-                                                            ),
-                                                            ElevatedButton(
-                                                              onPressed: () async{
-                                                                final currentState = aiState.config;
-                                                                currentState.remove(e.key);
-                                                                final prefs = await SharedPreferences.getInstance();
-                                                                prefs.setString('aiConfig', jsonEncode(currentState));
-                                                                if(context.mounted) {
-                                                                  context.read<AIBloc>().add(AIConfigEvent(currentState));
-                                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                                    SnackBar(content: Text("Successfully deleted model ${e.key}"))
-                                                                  );
-                                                                  Navigator.of(context).pop(true);
-                                                                }
-                                                              },
-                                                              style: ButtonStyle(
-                                                                backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                  trailing: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      IconButton(
+                                                        tooltip: 'Edit model',
+                                                        icon: Icon(Icons.edit, color: Colors.lightBlue),
+                                                        onPressed: () async {
+                                                          await _showModelDialog(
+                                                            context: context,
+                                                            aiState: aiState,
+                                                            appThemeState: appThemeState,
+                                                            editingModelId: e.key,
+                                                            existingConfig: config,
+                                                          );
+                                                        },
+                                                      ),
+                                                      IconButton(
+                                                        icon: Icon(Icons.delete, color: Colors.red),
+                                                        onPressed: () async {
+                                                          showDialog(
+                                                            context: context,
+                                                            builder: (context) => AlertDialog(
+                                                              backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                              title: Text(
+                                                                'Delete model ${e.key}?',
+                                                                style: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                  fontSize: 20,
+                                                                ),
                                                               ),
-                                                              child: Text('Delete', style: TextStyle(color: Colors.white))
-                                                            )
-                                                          ],
-                                                        )
-                                                      );
-                                                    }
+                                                              content: Text(
+                                                                'Are you sure you want to delete this model? This action cannot be undone.',
+                                                                style: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  fontSize: 16,
+                                                                ),
+                                                              ),
+                                                              actions: [
+                                                                ElevatedButton(
+                                                                  onPressed: () => Navigator.of(context).pop(),
+                                                                  child: Text('Cancel'),
+                                                                ),
+                                                                ElevatedButton(
+                                                                  onPressed: () async {
+                                                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)
+                                                                      ..remove(e.key);
+                                                                    final prefs = await SharedPreferences.getInstance();
+                                                                    await prefs.setString('aiConfig', jsonEncode(updatedConfig));
+
+                                                                    final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+                                                                    var modelSelectionChanged = false;
+                                                                    if (updatedModelSelected['code'] == e.key) {
+                                                                      updatedModelSelected['code'] = '';
+                                                                      modelSelectionChanged = true;
+                                                                    }
+                                                                    if (updatedModelSelected['chat'] == e.key) {
+                                                                      updatedModelSelected['chat'] = '';
+                                                                      modelSelectionChanged = true;
+                                                                    }
+                                                                    if (modelSelectionChanged) {
+                                                                      await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
+                                                                    }
+
+                                                                    if (context.mounted) {
+                                                                      context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
+                                                                      if (modelSelectionChanged) {
+                                                                        context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+                                                                      }
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(content: Text('Successfully deleted model ${e.key}')),
+                                                                      );
+                                                                      Navigator.of(context).pop(true);
+                                                                    }
+                                                                  },
+                                                                  style: ButtonStyle(
+                                                                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                                                                  ),
+                                                                  child: Text('Delete', style: TextStyle(color: Colors.white)),
+                                                                )
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               );
