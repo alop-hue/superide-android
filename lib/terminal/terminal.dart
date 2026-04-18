@@ -17,6 +17,7 @@ class SetupTerminal extends StatefulWidget {
   final bool useScaffold;
   final bool showKeyboardMenu;
   final bool readOnly;
+  final bool resetImeOnOpen;
 
   const SetupTerminal({
     super.key,
@@ -25,6 +26,7 @@ class SetupTerminal extends StatefulWidget {
     this.useScaffold = true,
     this.showKeyboardMenu = true,
     this.readOnly = false,
+    this.resetImeOnOpen = false,
   });
 
   @override
@@ -36,6 +38,7 @@ class EmbeddedTerminal extends StatelessWidget {
   final List<String> args;
   final bool showKeyboardMenu;
   final bool readOnly;
+  final bool resetImeOnOpen;
 
   const EmbeddedTerminal({
     super.key,
@@ -43,6 +46,7 @@ class EmbeddedTerminal extends StatelessWidget {
     this.args = const [],
     this.showKeyboardMenu = true,
     this.readOnly = false,
+    this.resetImeOnOpen = false,
   });
 
   @override
@@ -53,6 +57,7 @@ class EmbeddedTerminal extends StatelessWidget {
       useScaffold: false,
       showKeyboardMenu: showKeyboardMenu,
       readOnly: readOnly,
+      resetImeOnOpen: resetImeOnOpen,
     );
   }
 }
@@ -248,8 +253,30 @@ class _SetupTerminalState extends State<SetupTerminal> {
   void initState() {
     super.initState();
     _sessionBloc = TerminalSessionBloc();
+    _releaseStaleImeClientOnOpen();
     _bootstrapTerminalPage();
     _loadPathBinaries();
+  }
+
+  void _releaseStaleImeClientOnOpen() {
+    if (!widget.resetImeOnOpen || widget.readOnly) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+
+      // Ensure previous TextInputClient (e.g. CodeForge) stops receiving keys.
+      FocusManager.instance.primaryFocus?.unfocus();
+      try {
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.clearClient');
+      } catch (_) {}
+      try {
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      } catch (_) {}
+    });
   }
 
   Future<void> _bootstrapTerminalPage() async {
@@ -912,8 +939,6 @@ alias la='ls --color=auto -A'
         ),
         Positioned.fill(
           child: IgnorePointer(
-            // Ghostty paints a hardcoded focused border. Masking 1px edges
-            // keeps focus behavior while hiding that border.
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border.all(
@@ -932,10 +957,30 @@ alias la='ls --color=auto -A'
     if (widget.readOnly || !mounted) {
       return;
     }
-    if (!_softKeyboardFocusNode.hasFocus) {
-      _softKeyboardFocusNode.requestFocus();
-    }
-    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    _resetSoftInputField();
+
+    Future<void>(() async {
+      try {
+        await SystemChannels.textInput.invokeMethod<void>('TextInput.clearClient');
+      } catch (_) {
+      }
+
+      if (!mounted || widget.readOnly) {
+        return;
+      }
+
+      if (!_softKeyboardFocusNode.hasFocus) {
+        FocusScope.of(context).requestFocus(_softKeyboardFocusNode);
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      if (!mounted || widget.readOnly) {
+        return;
+      }
+      await SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    });
   }
 
   void _resetSoftInputField() {
@@ -948,6 +993,35 @@ alias la='ls --color=auto -A'
     _isResettingSoftInput = false;
   }
 
+  void _sendSoftInputToTerminal(_TerminalRuntime runtime, String input) {
+    if (input.isEmpty) {
+      return;
+    }
+    final sent = runtime.controller.write(input);
+    if (sent) {
+      _handleInputForAutocomplete(runtime, input);
+    }
+  }
+
+  void _handleSoftKeyboardSubmitted(String _) {
+    if (_isResettingSoftInput || widget.readOnly) {
+      return;
+    }
+    final runtime = _activeRuntime();
+    if (runtime == null || !runtime.controller.isRunning) {
+      return;
+    }
+
+    if (_lastSoftInputValue.endsWith('\n') ||
+        _lastSoftInputValue.endsWith('\r')) {
+      _resetSoftInputField();
+      return;
+    }
+
+    _sendSoftInputToTerminal(runtime, '\n');
+    _resetSoftInputField();
+  }
+
   void _handleSoftKeyboardChanged(String value) {
     if (_isResettingSoftInput || widget.readOnly) {
       return;
@@ -958,35 +1032,49 @@ alias la='ls --color=auto -A'
       return;
     }
 
-    if (value.isEmpty && _lastSoftInputValue.isNotEmpty) {
-      final sent = runtime.controller.write('\x7f');
-      if (sent) {
-        _handleInputForAutocomplete(runtime, '\x7f');
-      }
-      _lastSoftInputValue = value;
+    if (value == _lastSoftInputValue) {
       return;
     }
 
-    if (value.startsWith(_lastSoftInputValue)) {
-      final delta = value.substring(_lastSoftInputValue.length);
-      if (delta.isNotEmpty) {
-        final sent = runtime.controller.write(delta);
-        if (sent) {
-          _handleInputForAutocomplete(runtime, delta);
-        }
+    final previousValue = _lastSoftInputValue;
+
+    if (previousValue.startsWith(value)) {
+      final deletedCount = previousValue.length - value.length;
+      if (deletedCount > 0) {
+        _sendSoftInputToTerminal(
+          runtime,
+          List<String>.filled(deletedCount, '\x7f').join(),
+        );
       }
       _lastSoftInputValue = value;
+    } else if (value.startsWith(previousValue)) {
+      final delta = value.substring(_lastSoftInputValue.length);
+      _sendSoftInputToTerminal(runtime, delta);
+      _lastSoftInputValue = value;
     } else {
-      if (value.isNotEmpty) {
-        final sent = runtime.controller.write(value);
-        if (sent) {
-          _handleInputForAutocomplete(runtime, value);
-        }
+      var prefixLen = 0;
+      final maxPrefix = previousValue.length < value.length
+          ? previousValue.length
+          : value.length;
+      while (prefixLen < maxPrefix &&
+          previousValue.codeUnitAt(prefixLen) == value.codeUnitAt(prefixLen)) {
+        prefixLen++;
       }
+
+      final deletedCount = previousValue.length - prefixLen;
+      if (deletedCount > 0) {
+        _sendSoftInputToTerminal(
+          runtime,
+          List<String>.filled(deletedCount, '\x7f').join(),
+        );
+      }
+
+      final inserted = value.substring(prefixLen);
+      _sendSoftInputToTerminal(runtime, inserted);
       _lastSoftInputValue = value;
     }
 
-    if (value.length > 24 || value.contains('\n')) {
+    if (value.length > 24 || value.contains('\n') || value.contains('\r')) {
       _resetSoftInputField();
     }
   }
@@ -1009,10 +1097,13 @@ alias la='ls --color=auto -A'
             focusNode: _softKeyboardFocusNode,
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
+            minLines: 1,
+            maxLines: null,
             autofocus: false,
             enableSuggestions: false,
             autocorrect: false,
             onChanged: _handleSoftKeyboardChanged,
+            onSubmitted: _handleSoftKeyboardSubmitted,
             decoration: const InputDecoration(
               border: InputBorder.none,
               isCollapsed: true,
