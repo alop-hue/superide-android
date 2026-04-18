@@ -1592,7 +1592,11 @@ void runCode(BuildContext context, String command, String rootDir) {
   try {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(projectDir: rootDir, args: ["-c", command]),
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
+          projectDir: rootDir,
+          args: ["-c", command],
+          resetImeOnOpen: true,
+        ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SizeTransition(sizeFactor: animation, child: child);
         },

@@ -3206,6 +3206,7 @@ rustloader "$soPath"
                                     pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
                                       projectDir: widget.rootDir,
                                       args: ["-c", "$command ${filePath.path}"],
+                                      resetImeOnOpen: true,
                                     ),
                                     transitionsBuilder:(context, animation, secondaryAnimation, child,) {
                                       return SizeTransition(
@@ -3224,7 +3225,10 @@ rustloader "$soPath"
                             Navigator.of(context).push(
                               PageRouteBuilder(
                                 pageBuilder: (context, animation, scondaryAnimation) =>
-                                  SetupTerminal(projectDir: widget.rootDir),
+                                  SetupTerminal(
+                                    projectDir: widget.rootDir,
+                                    resetImeOnOpen: true,
+                                  ),
                                 transitionsBuilder:(context, animation, secondaryAnimation, child,) {
                                   return SizeTransition(
                                     sizeFactor: animation,
