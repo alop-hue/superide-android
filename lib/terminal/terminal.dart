@@ -999,9 +999,12 @@ alias la='ls --color=auto -A'
     if (input.isEmpty) {
       return;
     }
-    final sent = runtime.controller.write(input);
+    final normalized = input
+        .replaceAll('\r\n', '\r')
+        .replaceAll('\n', '\r');
+    final sent = runtime.controller.write(normalized);
     if (sent) {
-      _handleInputForAutocomplete(runtime, input);
+      _handleInputForAutocomplete(runtime, normalized);
     }
   }
 
@@ -1020,7 +1023,7 @@ alias la='ls --color=auto -A'
       return;
     }
 
-    _sendSoftInputToTerminal(runtime, '\n');
+    _sendSoftInputToTerminal(runtime, '\r');
     _resetSoftInputField();
   }
 
