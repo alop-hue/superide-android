@@ -334,7 +334,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
 
   Future<void> _initializeCopilotForEditorIfEnabled() async {
     final isCopilotEnabled = await isCopilotEnabledPref();
-    if (!isCopilotEnabled || !mounted) {
+    final isCopilotSignedIn = await isCopilotSignedPref();
+    if ((!isCopilotEnabled && !isCopilotSignedIn) || !mounted) {
       return;
     }
 
@@ -431,7 +432,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     if (codeForgeConfig['enableLSP']) {
       lspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
         languageId: _lspLanguageIdForPath(lang, file.path),
-        ext: lang.extension[0],
+        ext: lspServerExtForFilePath(file.path),
         executable: lang.lspExecutable,
         args: lang.args ?? [],
         capabilities: _getLspCapabilities(
@@ -1695,7 +1696,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                 );
                 return _activeEditorBloc.getOrStartSharedLspConfig(
                   languageId: languageId,
-                  ext: widget.languageDetails!.extension[0],
+                  ext: lspServerExtForFilePath(initialPath),
                   executable: widget.languageDetails!.lspExecutable,
                   args: widget.languageDetails!.args ?? [],
                   capabilities: _getLspCapabilities(

@@ -1,10 +1,10 @@
 name: roxum
-description: "A new Flutter project."
+description: "A powerful and mininal IDE for Android."
 publish_to: 'none'
-version: 1.0.0+15
+version: 1.0.0+16
 
 environment:
-  sdk: ^3.11.4
+  sdk: ^3.11.5
 
 dependencies:
   android_intent_plus: ^6.0.0
@@ -21,12 +21,16 @@ dependencies:
   flutter_json: ^0.0.5
   flutter_launcher_icons: ^0.14.4
   flutter_pdfview: ^1.4.4
-  flutter_pty: ^0.4.1
   flutter_secure_storage: ^10.0.0
   flutter_svg: ^2.2.4
   flutter_switch: ^0.3.2
   flutter_web_auth_2: ^5.0.1
   font_awesome_flutter: ^10.10.0
+  ghostty_vte_flutter:
+    git:
+      url: https://github.com/heckmon/dart_terminal.git
+      ref: master
+      path: pkgs/vte/ghostty_vte_flutter
   html: ^0.15.6
   http: ^1.2.2
   markdown: ^7.2.2
@@ -38,7 +42,6 @@ dependencies:
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
   vector_math: ^2.2.0
-  xterm: ^4.0.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

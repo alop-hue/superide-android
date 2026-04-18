@@ -211,7 +211,7 @@ class ActiveEditorBloc extends Bloc<EditorEvent, ActiveEditorState>{
           if (config['enableLSP'] && _lspConfigs[key] == null) {
             _lspConfigs[key] = await getOrStartSharedLspConfig(
               languageId: languageId,
-              ext: lang.extension[0],
+              ext: lspServerExtForFilePath(filePath),
               executable: lang.lspExecutable,
               args: lang.args ?? [],
             );
@@ -949,6 +949,7 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
       'isSignedIn': isSignedIn,
       'isEnabled': state.isEnabled,
     }));
+    await setCopilotSignedPref(isSignedIn);
     await setCopilotEnabledPref(isCopilotEnabled);
   }
 
@@ -966,9 +967,15 @@ class CopilotBloc extends Bloc<CopilotEvent, CopilotState> {
         ));
         
         debugPrint('Loaded Copilot config: signedIn=$wasSignedIn, enabled=$isEnabled');
+
+        final storedSignedPref = prefs.getBool(copilotSignedPrefKey);
+        if (storedSignedPref == null) {
+          await setCopilotSignedPref(wasSignedIn);
+        }
       }
 
       await ensureCopilotEnabledPrefInitialized();
+      await ensureCopilotSignedPrefInitialized();
     } catch (e) {
       debugPrint('Failed to load Copilot config: $e');
     }

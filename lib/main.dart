@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ghostty_vte_flutter/ghostty_vte_flutter.dart';
 import 'bloc/repo_bloc/repo_bloc.dart';
 import 'bloc/ui_bloc/ui_bloc.dart';
 import 'ui/start_screen.dart';
@@ -9,6 +10,7 @@ import 'utils/themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeGhosttyVteWeb();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
   final codeForgeConfig = await getCodeForgeConfig();

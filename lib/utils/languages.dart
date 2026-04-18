@@ -53,7 +53,7 @@ List<CustomCodeSnippet> _defaultSnippetsForExtensions(List<String> extensions) {
     ];
   }
 
-  if (_hasAnyExt(exts, ['js', 'mjs', 'cjs', 'ts', 'tsx'])) {
+  if (_hasAnyExt(exts, ['js', 'jsx', 'mjs', 'cjs', 'ts', 'tsx'])) {
     return [
       _snippet('if', 'if (condition) {\n  __CURSOR__\n}'),
       _snippet('if-else', 'if (condition) {\n  __CURSOR__\n} else {\n  __CURSOR__\n}'),
@@ -347,7 +347,7 @@ final langpython = Language(
 );
 final langjavascript = Language(
   name: 'Javascript',
-  extension: ['js','mjs','cjs'],
+  extension: ['js', 'mjs', 'cjs'],
   details: 'A versatile scripting language for dynamic web development.',
   language: builtinAllLanguages['javascript'],
   helloWorld: 'console.log("Hello, World!");',
@@ -357,9 +357,21 @@ final langjavascript = Language(
   lspExecutable: "/data/data/com.roxum/bin/node",
   args: ["--stdio"]
 );
+final langjsx = Language(
+  name: 'JSX',
+  extension: ['jsx'],
+  details: 'JavaScript with XML-like syntax for React components.',
+  language: builtinAllLanguages['javascript'],
+  helloWorld: 'const App = () => <h1>Hello, World!</h1>;',
+  command: 'node',
+  icon: SvgPicture.asset('assets/material_icons/react.svg',height: 35,width: 35),
+  type: 'interpreted',
+  lspExecutable: "/data/data/com.roxum/bin/node",
+  args: ["--stdio"]
+);
 final langtypescript = Language(
     name: 'Typescript',
-    extension: ['ts','tsx'],
+    extension: ['ts'],
     details: 'A statically typed superset of JavaScript.',
   language: builtinAllLanguages['typescript'],
     helloWorld: 'console.log("Hello, World!");',
@@ -368,6 +380,18 @@ final langtypescript = Language(
     type: 'interpreted',
     lspExecutable: "/data/data/com.roxum/bin/node",
     args: ["--stdio"]
+);
+final langtsx = Language(
+  name: 'TSX',
+  extension: ['tsx'],
+  details: 'TypeScript with XML-like syntax for React components.',
+  language: builtinAllLanguages['typescript'],
+  helloWorld: 'const App = (): JSX.Element => <h1>Hello, World!</h1>;',
+  command: 'tsc',
+  icon: SvgPicture.asset('assets/material_icons/react.svg',height: 35,width: 35),
+  type: 'interpreted',
+  lspExecutable: "/data/data/com.roxum/bin/node",
+  args: ["--stdio"]
 );
 final langjava = Language(
   name: 'Java',
@@ -863,7 +887,9 @@ List<Language> languages = [
   langtxt,
   langpython,
   langjavascript,
+  langjsx,
   langtypescript,
+  langtsx,
   langjava,
   langc,
   langcpp,

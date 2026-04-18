@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_pty/flutter_pty.dart';
+import 'package:ghostty_vte_flutter/ghostty_vte_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 import 'package:roxum/utils/constants.dart';
 import 'package:roxum/utils/functions.dart';
 import 'package:roxum/utils/themes.dart';
-import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -192,62 +192,57 @@ class TerminalSessionBloc
 class _TerminalRuntime {
   final String sessionId;
   final String title;
-  final Terminal terminal;
-  final TerminalController controller;
+  final GhosttyTerminalController controller;
 
-  Pty? pty;
-  StreamSubscription<String>? outputSubscription;
   String currentInput = '';
-  VoidCallback? selectionListener;
+  VoidCallback? runningListener;
+  bool lastKnownRunning = false;
 
   _TerminalRuntime({
     required this.sessionId,
     required this.title,
-    required this.terminal,
     required this.controller,
   });
 
-  bool get isRunning => pty != null;
+  bool get isRunning => controller.isRunning;
 
-  void stopProcess() {
-    final process = pty;
-    if (process != null) {
-      try {
-        process.kill(ProcessSignal.sigint);
-      } catch (_) {}
-      try {
-        process.kill(ProcessSignal.sigterm);
-      } catch (_) {}
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {}
-    }
-    pty = null;
+  Future<void> stopProcess() async {
+    try {
+      await controller.stop();
+    } catch (_) {}
   }
 
   Future<void> dispose() async {
-    stopProcess();
-    await outputSubscription?.cancel();
-    outputSubscription = null;
-    if (selectionListener != null) {
-      controller.removeListener(selectionListener!);
+    await stopProcess();
+    if (runningListener != null) {
+      controller.removeListener(runningListener!);
     }
     controller.dispose();
   }
 }
 
 class _SetupTerminalState extends State<SetupTerminal> {
+  static const Duration _selectionActivationDelay = Duration(milliseconds: 240);
+
   late final TerminalSessionBloc _sessionBloc;
   final Map<String, _TerminalRuntime> _sessionRuntimes = {};
   String _sharedPath = '';
-
-  OverlayEntry? _selectionToolbarOverlay;
-  bool _hasSelection = false;
+  final FocusNode _softKeyboardFocusNode = FocusNode();
+  final TextEditingController _softKeyboardTextController =
+      TextEditingController();
+  String _lastSoftInputValue = '';
+  bool _isResettingSoftInput = false;
 
   final ValueNotifier<List<String>?> _suggestionsNotifier = ValueNotifier(null);
   final ScrollController _suggestionScrollController = ScrollController();
   int _selectedSuggestionIndex = 0;
   List<String> _pathBinaries = [];
+  Timer? _selectionActivationTimer;
+  GhosttyTerminalSelection? _pendingTerminalSelection;
+  String _pendingTerminalSelectionText = '';
+  bool _isSelectionActive = false;
+  GhosttyTerminalSelection? _terminalSelection;
+  String _terminalSelectionText = '';
 
   @override
   void initState() {
@@ -263,6 +258,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     if (!workDir.existsSync()) {
       await workDir.create(recursive: true);
     }
+    await _ensureShellDefaults();
     if (!mounted) return;
     await _createSession(
       args: widget.args,
@@ -271,19 +267,35 @@ class _SetupTerminalState extends State<SetupTerminal> {
     );
   }
 
-  void _onSelectionChanged(String sessionId) {
-    if (_sessionBloc.state.activeSessionId != sessionId) return;
-    final runtime = _sessionRuntimes[sessionId];
-    if (runtime == null) return;
+  Future<void> _ensureShellDefaults() async {
+    const markerStart = '# >>> roxum-shell-defaults >>>';
+    const shellDefaults = '''# >>> roxum-shell-defaults >>>
+if command -v dircolors >/dev/null 2>&1; then
+  eval "\$(dircolors -b)"
+fi
+alias ls='ls --color=auto'
+alias ll='ls --color=auto -la'
+alias la='ls --color=auto -A'
+# <<< roxum-shell-defaults <<<
+''';
 
-    final hasSelection = runtime.controller.selection != null;
-    if (hasSelection != _hasSelection) {
-      _hasSelection = hasSelection;
-      if (hasSelection) {
-        _showSelectionToolbar();
-      } else {
-        _hideSelectionToolbar();
+    try {
+      final rcFile = File('$homeDir/.bashrc');
+      if (!await rcFile.exists()) {
+        await rcFile.create(recursive: true);
+        await rcFile.writeAsString(shellDefaults);
+        return;
       }
+
+      final current = await rcFile.readAsString();
+      if (current.contains(markerStart)) {
+        return;
+      }
+
+      final needsNewline = current.isNotEmpty && !current.endsWith('\n');
+      final next = '${needsNewline ? '\n' : ''}\n$shellDefaults';
+      await rcFile.writeAsString(next, mode: FileMode.append);
+    } catch (_) {
     }
   }
 
@@ -309,12 +321,26 @@ class _SetupTerminalState extends State<SetupTerminal> {
     final runtime = _TerminalRuntime(
       sessionId: id,
       title: sessionTitle,
-      terminal: Terminal(platform: TerminalTargetPlatform.android),
-      controller: TerminalController(selectionMode: SelectionMode.block),
+      controller: GhosttyTerminalController(
+        maxLines: 4000,
+        maxScrollback: 12000,
+        preferPty: true,
+      ),
     );
-
-    runtime.selectionListener = () => _onSelectionChanged(id);
-    runtime.controller.addListener(runtime.selectionListener!);
+    runtime.runningListener = () {
+      final running = runtime.controller.isRunning;
+      if (runtime.lastKnownRunning == running) {
+        return;
+      }
+      runtime.lastKnownRunning = running;
+      if (!_sessionRuntimes.containsKey(id)) {
+        return;
+      }
+      _sessionBloc.add(
+        UpdateTerminalSessionStatus(id: id, isRunning: running),
+      );
+    };
+    runtime.controller.addListener(runtime.runningListener!);
     _sessionRuntimes[id] = runtime;
 
     _sessionBloc.add(
@@ -342,7 +368,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
   Future<void> _restartSession(String sessionId) async {
     final runtime = _sessionRuntimes[sessionId];
     if (runtime == null) return;
-    runtime.stopProcess();
+    await runtime.stopProcess();
     runtime.currentInput = '';
     if (_sessionBloc.state.activeSessionId == sessionId) {
       _suggestionsNotifier.value = null;
@@ -350,10 +376,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
     await _startPty(runtime);
   }
 
-  void _terminateSession(String sessionId) {
+  Future<void> _terminateSession(String sessionId) async {
     final runtime = _sessionRuntimes[sessionId];
     if (runtime == null || !runtime.isRunning) return;
-    runtime.stopProcess();
+    await runtime.stopProcess();
     _sessionBloc.add(
       UpdateTerminalSessionStatus(id: sessionId, isRunning: false),
     );
@@ -368,9 +394,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       final runtime = _sessionRuntimes.remove(sessionId);
       await runtime?.dispose();
       _sessionBloc.add(DeleteTerminalSession(sessionId));
-      _hideSelectionToolbar();
       _suggestionsNotifier.value = null;
-      _hasSelection = false;
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -384,9 +408,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _sessionBloc.add(DeleteTerminalSession(sessionId));
 
     if (_sessionBloc.state.activeSessionId == sessionId) {
-      _hideSelectionToolbar();
       _suggestionsNotifier.value = null;
-      _hasSelection = false;
     }
   }
 
@@ -427,7 +449,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
 
     final enVars = <String, String>{
       'HOME': homeDir,
-      'PS1': ' \x1b[32m\\w \x1b[0m\$ ',
+      'PWD': widget.projectDir,
+      'PS1': r' \[\e[32m\]\w \[\e[0m\]\$ ',
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'PROMPT_DIRTRIM': '2',
       'ROXUM_SHARED_PATH': _sharedPath,
@@ -437,59 +460,59 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'CARGO_HTTP_CAINFO': '$certDir/cacert.pem',
       'RUSTFLAGS': '--sysroot $runtimesDir/rust',
       'GOROOT': '$runtimesDir/go'
     };
 
-    final process = Pty.start(
-      '$_sharedPath/libbash.so',
-      workingDirectory: widget.projectDir,
+    final launchArgs = _resolveLaunchArgs(args);
+
+    final launch = GhosttyTerminalShellLaunch(
+      label: runtime.title,
+      shell: '$_sharedPath/libbash.so',
+      arguments: launchArgs,
       environment: enVars,
-      rows: runtime.terminal.viewHeight,
-      columns: runtime.terminal.viewWidth,
-      arguments: args,
     );
-    runtime.pty = process;
+
+    await runtime.controller.startLaunch(launch);
+    runtime.lastKnownRunning = runtime.controller.isRunning;
     _sessionBloc.add(
-      UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: true),
+      UpdateTerminalSessionStatus(
+        id: runtime.sessionId,
+        isRunning: runtime.lastKnownRunning,
+      ),
     );
-
-    await runtime.outputSubscription?.cancel();
-    runtime.outputSubscription = process.output
-        .cast<List<int>>()
-        .transform(const Utf8Decoder())
-        .listen(runtime.terminal.write);
-
-    process.exitCode.then((code) {
-      if (!_sessionRuntimes.containsKey(runtime.sessionId)) return;
-      runtime.pty = null;
-      runtime.terminal.write('\r\n\n[Program finished with exit code $code]');
-      _sessionBloc.add(
-        UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: false),
-      );
-    });
-
-    runtime.terminal.onOutput = (data) {
-      if (widget.readOnly) {
-        return;
-      }
-
-      final activeSessionId = _sessionBloc.state.activeSessionId;
-      process.write(const Utf8Encoder().convert(data));
-      if (activeSessionId == runtime.sessionId) {
-        _handleInputForAutocomplete(runtime, data);
-      }
-    };
-
-    runtime.terminal.onResize = (w, h, pw, ph) {
-      process.resize(h, w);
-    };
 
     if (widget.readOnly) {
       _suggestionsNotifier.value = null;
-      _hideSelectionToolbar();
-      runtime.controller.clearSelection();
     }
+  }
+
+  String _shellSingleQuote(String input) {
+    if (input.isEmpty) {
+      return "''";
+    }
+    return "'${input.replaceAll("'", "'\\''")}'";
+  }
+
+  List<String> _resolveLaunchArgs(List<String> args) {
+    final workspace = _shellSingleQuote(widget.projectDir);
+    const startupPs1 = r"' \[\e[32m\]\w \[\e[0m\]\$ '";
+
+    if (args.isEmpty) {
+      return [
+        '-c',
+        'cd $workspace && export PS1=$startupPs1 && exec "\$0" -i',
+      ];
+    }
+
+    final first = args.first;
+    if ((first == '-c' || first == '-lc') && args.length >= 2) {
+      final command = args[1];
+      return [first, 'cd $workspace && $command'];
+    }
+
+    return args;
   }
 
   void _handleInputForAutocomplete(_TerminalRuntime runtime, String data) {
@@ -611,179 +634,22 @@ class _SetupTerminalState extends State<SetupTerminal> {
   }
 
   void _acceptSuggestion(_TerminalRuntime runtime, String suggestion) {
-    final process = runtime.pty;
-    if (process == null) return;
+    if (!runtime.controller.isRunning) return;
     final toSend = suggestion.substring(runtime.currentInput.length);
-    process.write(const Utf8Encoder().convert(toSend));
+    runtime.controller.write(toSend);
     runtime.currentInput = suggestion;
     _suggestionsNotifier.value = null;
   }
 
-  void _showSelectionToolbar() {
-    _hideSelectionToolbar();
-    if (!mounted) return;
-
-    final runtime = _activeRuntime();
-    if (runtime == null) return;
-
-    final overlay = Overlay.of(context);
-
-    _selectionToolbarOverlay = OverlayEntry(
-      builder: (context) {
-        return Positioned(
-          top: 60,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Material(
-              elevation: 8,
-              borderRadius: BorderRadius.circular(24),
-              color: const Color(0xff2d2d2d),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xff454545)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _toolbarButton(
-                      icon: Icons.copy,
-                      label: 'Copy',
-                      onTap: () {
-                        final selectedText =
-                            runtime.controller.selection != null
-                            ? runtime.terminal.buffer.getText(
-                                runtime.controller.selection!,
-                              )
-                            : '';
-                        if (selectedText.isNotEmpty) {
-                          Clipboard.setData(ClipboardData(text: selectedText));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Copied to clipboard'),
-                              duration: const Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          );
-                        }
-                        runtime.controller.clearSelection();
-                      },
-                    ),
-                    Container(
-                      width: 1,
-                      height: 24,
-                      color: const Color(0xff454545),
-                    ),
-                    _toolbarButton(
-                      icon: Icons.paste,
-                      label: 'Paste',
-                      onTap: () async {
-                        final data = await Clipboard.getData(
-                          Clipboard.kTextPlain,
-                        );
-                        if (data?.text != null) {
-                          runtime.pty?.write(
-                            const Utf8Encoder().convert(data!.text!),
-                          );
-                        }
-                        runtime.controller.clearSelection();
-                      },
-                    ),
-                    Container(
-                      width: 1,
-                      height: 24,
-                      color: const Color(0xff454545),
-                    ),
-                    _toolbarButton(
-                      icon: Icons.search,
-                      label: 'Search',
-                      onTap: () {
-                        final selectedText =
-                            runtime.controller.selection != null
-                            ? runtime.terminal.buffer.getText(
-                                runtime.controller.selection!,
-                              )
-                            : '';
-                        if (selectedText.isNotEmpty) {
-                          runtime.pty?.write(
-                            const Utf8Encoder().convert(
-                              'grep -r "${selectedText.replaceAll('"', '\\"')}" .',
-                            ),
-                          );
-                        }
-                        runtime.controller.clearSelection();
-                      },
-                    ),
-                    Container(
-                      width: 1,
-                      height: 24,
-                      color: const Color(0xff454545),
-                    ),
-                    _toolbarButton(
-                      icon: Icons.close,
-                      label: '',
-                      onTap: () {
-                        runtime.controller.clearSelection();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    overlay.insert(_selectionToolbarOverlay!);
-  }
-
-  Widget _toolbarButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: label.isEmpty ? 8 : 12,
-          vertical: 8,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.9)),
-            if (label.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _hideSelectionToolbar() {
-    _selectionToolbarOverlay?.remove();
-    _selectionToolbarOverlay = null;
-  }
-
   void sendToPty(String sequence) {
     final runtime = _activeRuntime();
-    runtime?.pty?.write(const Utf8Encoder().convert(sequence));
+    if (runtime == null || widget.readOnly) {
+      return;
+    }
+    final isSent = runtime.controller.write(sequence);
+    if (isSent) {
+      _handleInputForAutocomplete(runtime, sequence);
+    }
   }
 
   void _setTerminalOutputWithAutocomplete({
@@ -791,46 +657,381 @@ class _SetupTerminalState extends State<SetupTerminal> {
     bool alt = false,
     bool shift = false,
     VoidCallback? resetCallback,
-  }) {
+  }) {}
+
+  void _onTerminalSelectionChanged(GhosttyTerminalSelection? selection) {
+    if (!mounted) return;
+
+    _selectionActivationTimer?.cancel();
+    if (selection == null) {
+      setState(() {
+        _isSelectionActive = false;
+        _pendingTerminalSelection = null;
+        _pendingTerminalSelectionText = '';
+        _terminalSelection = null;
+        _terminalSelectionText = '';
+      });
+      return;
+    }
+
+    _pendingTerminalSelection = selection;
+    _selectionActivationTimer = Timer(_selectionActivationDelay, () {
+      if (!mounted || _pendingTerminalSelection == null) {
+        return;
+      }
+      setState(() {
+        _isSelectionActive = true;
+        _terminalSelection = _pendingTerminalSelection;
+        _terminalSelectionText = _pendingTerminalSelectionText;
+      });
+    });
+  }
+
+  void _onTerminalSelectionContentChanged(
+    GhosttyTerminalSelectionContent<GhosttyTerminalSelection>? content,
+  ) {
+    if (!mounted) return;
+    _pendingTerminalSelectionText = content?.text ?? '';
+
+    if (!_isSelectionActive) {
+      return;
+    }
+
+    setState(() {
+      _terminalSelectionText = _pendingTerminalSelectionText;
+    });
+  }
+
+  Future<void> _copyTerminalSelection() async {
+    final text = _terminalSelectionText;
+    if (text.trim().isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      const SnackBar(
+        content: Text('Copied to clipboard'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _pasteToTerminal() async {
+    if (widget.readOnly) {
+      return;
+    }
     final runtime = _activeRuntime();
-    final process = runtime?.pty;
-    if (runtime == null || process == null) return;
+    if (runtime == null) {
+      return;
+    }
 
-    runtime.terminal.onOutput = (data) {
-      String sequence = '';
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) {
+      return;
+    }
 
-      if (ctrl) {
-        if (data.length == 1) {
-          int code = data.toUpperCase().codeUnitAt(0);
-          if (code >= 65 && code <= 90) {
-            sequence = String.fromCharCode(code - 64);
-          }
+    final sent = runtime.controller.write(text);
+    if (sent) {
+      _handleInputForAutocomplete(runtime, text);
+      _focusSoftKeyboard();
+    }
+  }
+
+  Future<void> _copyAllTerminalText() async {
+    final runtime = _activeRuntime();
+    if (runtime == null) {
+      return;
+    }
+
+    final selection = runtime.controller.snapshot.selectAllSelection();
+    if (selection == null) {
+      return;
+    }
+
+    final allText = runtime.controller.snapshot.textForSelection(selection);
+    if (allText.trim().isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: allText));
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      const SnackBar(
+        content: Text('Copied full terminal output'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildTerminalSelectionToolbar(AppTheme appTheme) {
+    if (!_isSelectionActive || _terminalSelection == null) {
+      return const SizedBox.shrink();
+    }
+
+    final hasSelectionText = _terminalSelectionText.trim().isNotEmpty;
+    final chipBg = appTheme.isDark
+        ? const Color(0xFF2A3038)
+        : const Color(0xFFF6F8FB);
+    final borderColor = appTheme.isDark
+        ? const Color(0xFF4B5461)
+        : const Color(0xFFD7DEE8);
+    final iconColor = appTheme.isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+
+    return Positioned(
+      top: 10,
+      left: 8,
+      right: 8,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(22),
+          color: chipBg,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: borderColor),
+            ),
+            child: IconTheme(
+              data: IconThemeData(color: iconColor),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Copy',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSelectionText
+                        ? () => _copyTerminalSelection()
+                        : null,
+                    icon: const Icon(Icons.copy_rounded, size: 19),
+                  ),
+                  IconButton(
+                    tooltip: 'Paste',
+                    visualDensity: VisualDensity.compact,
+                    onPressed:
+                        widget.readOnly ? null : () => _pasteToTerminal(),
+                    icon: const Icon(Icons.paste_rounded, size: 19),
+                  ),
+                  IconButton(
+                    tooltip: 'Copy all',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _copyAllTerminalText(),
+                    icon: const Icon(Icons.copy_all_rounded, size: 19),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTerminalViewport(
+    _TerminalRuntime runtime,
+    TerminalThemePreset terminalTheme,
+    double terminalFontSize,
+    AppTheme appTheme,
+  ) {
+    final selectionColor = _isSelectionActive
+        ? terminalTheme.selectionColor
+        : Colors.transparent;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GhosttyTerminalView(
+            controller: runtime.controller,
+            autofocus: !widget.readOnly,
+            focusOnInteraction: !widget.readOnly,
+            mobileDragScrollEnabled: true,
+            onTapTerminal: _focusSoftKeyboard,
+            showHeader: false,
+            backgroundColor: terminalTheme.backgroundColor,
+            foregroundColor: terminalTheme.foregroundColor,
+            cursorColor: terminalTheme.cursorColor,
+            selectionColor: selectionColor,
+            hyperlinkColor: terminalTheme.hyperlinkColor,
+            palette: terminalTheme.palette,
+            padding: EdgeInsets.zero,
+            showVerticalScrollbar: true,
+            scrollbarThickness: 6,
+            scrollbarMinThumbExtent: 36,
+            scrollbarThumbColor: appTheme.isDark
+              ? const Color(0x99BFC5CE)
+              : const Color(0x99707A86),
+            scrollbarTrackColor: appTheme.isDark
+              ? const Color(0x33343E4A)
+              : const Color(0x1F5C6773),
+            fontSize: terminalFontSize,
+            lineHeight: 1.25,
+            fontFamily: 'jetBrainsMono',
+            onSelectionChanged: _onTerminalSelectionChanged,
+            onSelectionContentChanged: _onTerminalSelectionContentChanged,
+            onCopySelection: (text) async {
+              if (text.trim().isEmpty) {
+                return;
+              }
+              await Clipboard.setData(ClipboardData(text: text));
+              if (!mounted) {
+                return;
+              }
+              final messenger = ScaffoldMessenger.maybeOf(context);
+              if (messenger == null) {
+                return;
+              }
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Copied to clipboard'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            onPasteRequest: widget.readOnly
+                ? () async => null
+                : () async {
+                    final data = await Clipboard.getData(
+                      Clipboard.kTextPlain,
+                    );
+                    return data?.text;
+                  },
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            // Ghostty paints a hardcoded focused border. Masking 1px edges
+            // keeps focus behavior while hiding that border.
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: terminalTheme.backgroundColor,
+                  width: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _focusSoftKeyboard() {
+    if (widget.readOnly || !mounted) {
+      return;
+    }
+    if (!_softKeyboardFocusNode.hasFocus) {
+      _softKeyboardFocusNode.requestFocus();
+    }
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+  }
+
+  void _resetSoftInputField() {
+    _isResettingSoftInput = true;
+    _softKeyboardTextController.value = const TextEditingValue(
+      text: '',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    _lastSoftInputValue = '';
+    _isResettingSoftInput = false;
+  }
+
+  void _handleSoftKeyboardChanged(String value) {
+    if (_isResettingSoftInput || widget.readOnly) {
+      return;
+    }
+    final runtime = _activeRuntime();
+    if (runtime == null || !runtime.controller.isRunning) {
+      _lastSoftInputValue = value;
+      return;
+    }
+
+    if (value.isEmpty && _lastSoftInputValue.isNotEmpty) {
+      final sent = runtime.controller.write('\x7f');
+      if (sent) {
+        _handleInputForAutocomplete(runtime, '\x7f');
+      }
+      _lastSoftInputValue = value;
+      return;
+    }
+
+    if (value.startsWith(_lastSoftInputValue)) {
+      final delta = value.substring(_lastSoftInputValue.length);
+      if (delta.isNotEmpty) {
+        final sent = runtime.controller.write(delta);
+        if (sent) {
+          _handleInputForAutocomplete(runtime, delta);
         }
-      } else if (alt) {
-        sequence = '\x1b$data';
-      } else if (shift) {
-        sequence = data.toUpperCase();
-      } else {
-        sequence = data;
       }
+      _lastSoftInputValue = value;
+    } else {
+      if (value.isNotEmpty) {
+        final sent = runtime.controller.write(value);
+        if (sent) {
+          _handleInputForAutocomplete(runtime, value);
+        }
+      }
+      _lastSoftInputValue = value;
+    }
 
-      if (sequence.isNotEmpty) {
-        process.write(const Utf8Encoder().convert(sequence));
-        _handleInputForAutocomplete(runtime, sequence);
-      }
+    if (value.length > 24 || value.contains('\n')) {
+      _resetSoftInputField();
+    }
+  }
 
-      if ((ctrl || alt || shift) && resetCallback != null) {
-        resetCallback();
-        _setTerminalOutputWithAutocomplete();
-      }
-    };
+  Widget _buildSoftKeyboardBridge() {
+    if (widget.readOnly) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: 0,
+      bottom: 0,
+      width: 1,
+      height: 1,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0,
+          child: TextField(
+            controller: _softKeyboardTextController,
+            focusNode: _softKeyboardFocusNode,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            autofocus: false,
+            enableSuggestions: false,
+            autocorrect: false,
+            onChanged: _handleSoftKeyboardChanged,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isCollapsed: true,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _hideSelectionToolbar();
+    _selectionActivationTimer?.cancel();
     _suggestionsNotifier.dispose();
     _suggestionScrollController.dispose();
+    _softKeyboardTextController.dispose();
+    _softKeyboardFocusNode.dispose();
     for (final runtime in _sessionRuntimes.values) {
       runtime.dispose();
     }
@@ -1146,14 +1347,29 @@ class _SetupTerminalState extends State<SetupTerminal> {
         listenWhen: (previous, current) =>
             previous.activeSessionId != current.activeSessionId,
         listener: (context, state) {
-          _hideSelectionToolbar();
           _suggestionsNotifier.value = null;
-          _hasSelection = false;
+          _resetSoftInputField();
+          if (mounted) {
+            setState(() {
+              _terminalSelection = null;
+              _terminalSelectionText = '';
+            });
+          }
         },
         child: BlocBuilder<TerminalSessionBloc, TerminalSessionState>(
           builder: (context, state) {
             final activeRuntime = _activeRuntime();
             final appTheme = context.watch<AppThemeBloc>().state.appTheme;
+            final configState = context.watch<ConfigBloc>().state;
+            final terminalTheme = terminalThemePresetFromConfig(
+              configState.codeForgeConfig['terminalTheme'],
+            );
+            final terminalFontSizeRaw =
+              (configState.codeForgeConfig['terminalFontSize'] as num?)
+                ?.toDouble() ??
+              defaultTerminalFontSize;
+            final terminalFontSize =
+              terminalFontSizeRaw.clamp(10.0, 30.0).toDouble();
             final terminalContent = activeRuntime == null
                 ? const Center(child: CircularProgressIndicator())
                 : Stack(
@@ -1161,14 +1377,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
                       Column(
                         children: [
                           Expanded(
-                            child: TerminalView(
-                              activeRuntime.terminal,
-                              readOnly: widget.readOnly,
-                              padding: EdgeInsets.zero,
-                              controller: activeRuntime.controller,
-                              autofocus: true,
-                              keyboardType: TextInputType.multiline,
-                              theme: terminalTheme,
+                            child: _buildTerminalViewport(
+                              activeRuntime,
+                              terminalTheme,
+                              terminalFontSize,
+                                appTheme,
                             ),
                           ),
                           if (widget.showKeyboardMenu)
@@ -1187,6 +1400,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
                         ],
                       ),
                       _buildSuggestionBox(),
+                      _buildTerminalSelectionToolbar(appTheme),
+                      _buildSoftKeyboardBridge(),
                     ],
                   );
 
@@ -1242,6 +1457,16 @@ class _SetupTerminalState extends State<SetupTerminal> {
                 title: Text(activeRuntime?.title ?? 'Terminal'),
                 actions: [
                   IconButton(
+                    tooltip: 'Zoom out',
+                    onPressed: () => _updateTerminalZoom(0.9),
+                    icon: const Icon(Icons.zoom_out),
+                  ),
+                  IconButton(
+                    tooltip: 'Zoom in',
+                    onPressed: () => _updateTerminalZoom(1.1),
+                    icon: const Icon(Icons.zoom_in),
+                  ),
+                  IconButton(
                     tooltip: 'New session',
                     onPressed: () =>
                         _createSession(makeActive: true, showFeedback: true),
@@ -1256,6 +1481,25 @@ class _SetupTerminalState extends State<SetupTerminal> {
         ),
       ),
     );
+  }
+
+  Future<void> _updateTerminalZoom(double factor) async {
+    final configBloc = context.read<ConfigBloc>();
+    final currentState = Map<String, dynamic>.from(
+      configBloc.state.codeForgeConfig,
+    );
+    final currentSize = (currentState['terminalFontSize'] as num?)
+            ?.toDouble() ??
+        defaultTerminalFontSize;
+    final nextSize = (currentSize * factor).clamp(10.0, 30.0).toDouble();
+    currentState['terminalFontSize'] = nextSize;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+    if (!mounted) {
+      return;
+    }
+    configBloc.add(ChangeConfigEvent(currentState));
   }
 }
 
