@@ -474,8 +474,19 @@ class CopilotChat {
     return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
   }
 
-  String _toolTerminalMarker(String command) {
-    final encoded = base64Encode(utf8.encode(command));
+  String _toolTerminalMarker(
+    String command, {
+    String? stdout,
+    String? stderr,
+    String? exitCode,
+  }) {
+    final payload = jsonEncode({
+      'command': command,
+      'stdout': stdout ?? '',
+      'stderr': stderr ?? '',
+      'exitCode': exitCode,
+    });
+    final encoded = base64Encode(utf8.encode(payload));
     return '[[ROXUM_TERMINAL:$encoded]]\n';
   }
 
@@ -1131,7 +1142,6 @@ class CopilotChat {
                 args['command']?.toString() ?? '',
                 parsedArgs,
               );
-              pushPartial(_toolTerminalMarker(preview));
               final res =
                   await _agenticTools?.runShellCommand(
                     args['command'],
@@ -1139,6 +1149,25 @@ class CopilotChat {
                     parsedEnvs,
                   ) ??
                   ToolResult.error(errorMessage);
+              if (res.success) {
+                final data = res.data ?? const <String, String>{};
+                pushPartial(
+                  _toolTerminalMarker(
+                    preview,
+                    stdout: data['stdout'] ?? '',
+                    stderr: data['stderr'] ?? '',
+                    exitCode: data['exitCode'],
+                  ),
+                );
+              } else {
+                pushPartial(
+                  _toolTerminalMarker(
+                    preview,
+                    stderr: res.error ?? 'Error running shell command',
+                    exitCode: 'error',
+                  ),
+                );
+              }
               result = res.success
                   ? jsonEncode(res.data)
                   : (res.error ?? 'Error running shell command');

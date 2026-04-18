@@ -87,6 +87,7 @@ class _StartScreenState extends State<StartScreen> {
     await setupProjectDir();
     await setupTempDir();
     await ensureCopilotEnabledPrefInitialized();
+    await ensureCopilotSignedPrefInitialized();
     if(context.mounted) await context.read<PackageCatalogCubit>().syncOnStartup();
 
     final String sharedPath = await NativeChannel.getLibraryPath();

@@ -947,11 +947,31 @@ class AgenticTools {
     }
   }
 
-  Future<ProcessResult> _runGitCommand(List<String> args) {
-    final env = {
-      "HOME": workspacePath,
+  Future<Map<String, String>> _buildAgentShellEnvironment(
+    String workingDirectory,
+  ) async {
+    final sharedPath = await NativeChannel.getLibraryPath();
+    return <String, String>{
+      'HOME': homeDir,
+      'PWD': workingDirectory,
+      'PS1': r' \[\e[32m\]\w \[\e[0m\]\$ ',
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
+      'PROMPT_DIRTRIM': '2',
+      'ROXUM_SHARED_PATH': sharedPath,
+      'LD_LIBRARY_PATH': '$sharedPath:$libDir:$runtimesDir/clang',
+      'LD_PRELOAD': '$sharedPath/libc++_shared.so',
+      'PREFIX': '/data/data/com.roxum',
+      'JAVA_HOME': '$runtimesDir/java-21-openjdk',
+      'GIT_EXEC_PATH': '$binDir/git-core',
+      'GIT_SSL_CAINFO': '$certDir/cacert.pem',
+      'CARGO_HTTP_CAINFO': '$certDir/cacert.pem',
+      'RUSTFLAGS': '--sysroot $runtimesDir/rust',
+      'GOROOT': '$runtimesDir/go',
     };
+  }
+
+  Future<ProcessResult> _runGitCommand(List<String> args) async {
+    final env = await _buildAgentShellEnvironment(workspacePath);
 
     return Process.run(
       'git',
@@ -1458,10 +1478,7 @@ class AgenticTools {
     Map<String, String> envs = const {},
   ]) async {
     try {
-      final env = {
-        "HOME": workspacePath,
-        'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
-      };
+      final env = await _buildAgentShellEnvironment(workspacePath);
 
       env.addAll(envs);
       final process = await Process.run(

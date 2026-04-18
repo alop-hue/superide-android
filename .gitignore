@@ -49,5 +49,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/build
-bundletool-all-1.18.3.jar
+bundletool-all-*.jar
 app.apks
+app-debug.apks

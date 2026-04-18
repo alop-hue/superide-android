@@ -375,6 +375,20 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     final controller = widget.codeController;
+    final ext = path.extension(widget.filePath.path).toLowerCase();
+    if ((ext == '.tsx' || ext == '.jsx') && controller.lspConfig == null) {
+      // CodeForge's JSX/TSX fallback uses languageId from lspConfig, even when LSP is off.
+      // Provide only a languageId carrier so React tags still get colored.
+      try {
+        controller.lspConfig = LspSocketConfig(
+          workspacePath: widget.filePath.parent.path,
+          languageId: ext.substring(1),
+          serverUrl: 'ws://127.0.0.1:65535',
+          disableError: true,
+          disableWarning: true,
+        );
+      } catch (_) {}
+    }
     try {
       if (controller.text.isEmpty && widget.filePath.existsSync()) {
         controller.openedFile = widget.filePath.path;
@@ -568,14 +582,20 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
               },
               child: BlocBuilder<AIBloc, AIState>(
                 builder: (context, aiState) {
+                  final ext = path.extension(widget.filePath.path).toLowerCase();
+                  final primaryMode = switch (ext) {
+                    '.jsx' => langjavascript.language ?? widget.language.language,
+                    '.tsx' => langtypescript.language ?? widget.language.language,
+                    _ => widget.language.language,
+                  };
+
                   return CodeForge(
                     horizontalScrollController: null,
                     verticalScrollController: null,
                     lineWrap: (configState.codeForgeConfig['lineWrap'] ?? false) as bool,
                     enableFolding: (configState.codeForgeConfig['enableFolding'] ?? true) as bool,
-                    language: widget.language.language,
+                    language: primaryMode,
                     extraLanguages: (() {
-                      final ext = path.extension(widget.filePath.path).toLowerCase();
                       if (ext == '.tsx' || ext == '.jsx') {
                         final Mode? xmlMode = langxml.language;
                         if (xmlMode != null) {
@@ -1001,11 +1021,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   Timer? _pendingRefreshTimer;
 
   String _lspLanguageIdForPath(Language lang, String filePath) {
-    final ext = path.extension(filePath).toLowerCase().replaceFirst('.', '');
-    if (ext == 'tsx' || ext == 'jsx') {
-      return ext;
-    }
-    return lang.name;
+    return lspLanguageIdForFile(language: lang, filePath: filePath);
   }
 
   @override
@@ -1719,7 +1735,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                                       if (config['enableLSP']) {
                                         lspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
                                           languageId: _lspLanguageIdForPath(lang, targetFile.path),
-                                          ext: lang.extension[0],
+                                          ext: lspServerExtForFilePath(targetFile.path),
                                           executable: lang.lspExecutable,
                                           args: lang.args ?? [],
                                         );
@@ -9196,6 +9212,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   Timer? _pendingRefreshTimer;
   bool _isApplyingPendingAction = false;
   bool _isPendingPollingActive = false;
+  bool _copilotSignedInFromPrefs = false;
+  StreamSubscription<CopilotState>? _copilotStateSubscription;
   late final AnimationController _statusPulseController;
   List<AIConversation>? _pendingEditBaseConversations;
   List<AIConversation>? _pendingEditedConversations;
@@ -9212,7 +9230,30 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     _promptController.text = uiState.promptText;
     _promptController.addListener(_onPromptChanged);
     _scrollController.addListener(_onScrollChanged);
+    _loadCopilotSignInPref();
+    _copilotStateSubscription = context.read<CopilotBloc>().stream.listen((state) {
+      final nextValue = state.isSignedIn;
+      if (nextValue == _copilotSignedInFromPrefs || !mounted) {
+        return;
+      }
+      setState(() {
+        _copilotSignedInFromPrefs = nextValue;
+      });
+    });
     _reloadPendingEdits();
+  }
+
+  Future<void> _loadCopilotSignInPref() async {
+    final isSignedIn = await isCopilotSignedPref();
+    if (!mounted) {
+      return;
+    }
+    if (_copilotSignedInFromPrefs == isSignedIn) {
+      return;
+    }
+    setState(() {
+      _copilotSignedInFromPrefs = isSignedIn;
+    });
   }
 
   @override
@@ -9643,6 +9684,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _statusPulseController.dispose();
+    _copilotStateSubscription?.cancel();
     _promptController.removeListener(_onPromptChanged);
     _scrollController.removeListener(_onScrollChanged);
     _currentClient?.close();
@@ -9726,9 +9768,9 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     Color textColor, 
     bool isDark,
     bool githubSignedIn,
+    bool copilotSignedIn,
     String? selectedModelId,
   ) {
-    final copilotSignedIn = context.watch<CopilotBloc>().state.isSignedIn;
     final isCopilotAvailable = githubSignedIn || copilotSignedIn;
     final hasExternalModels = aiState.config.isNotEmpty;
     final List<_ModelOption> models = [];
@@ -9998,7 +10040,19 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildToolTerminal(String command, AppTheme appTheme, int markerIndex) {
+  Widget _buildToolTerminal(
+    String command,
+    AppTheme appTheme,
+    int markerIndex, {
+    String? stdout,
+    String? stderr,
+    String? exitCode,
+  }) {
+    final hasCapturedOutput =
+        (stdout != null && stdout.isNotEmpty) ||
+        (stderr != null && stderr.isNotEmpty) ||
+        (exitCode != null && exitCode.isNotEmpty);
+
     return Container(
       margin: const EdgeInsets.only(top: 6, bottom: 6),
       padding: const EdgeInsets.all(8),
@@ -10021,19 +10075,50 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 170,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: EmbeddedTerminal(
-                key: ValueKey('tool-terminal-$markerIndex-$command'),
-                projectDir: widget.workspacePath,
-                args: ['-c', command],
-                showKeyboardMenu: false,
-                readOnly: true,
+          if (hasCapturedOutput)
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 220),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: appTheme.isDark
+                    ? Colors.black.withAlpha(80)
+                    : Colors.white.withAlpha(180),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.withAlpha(70)),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  [
+                    if (stdout != null && stdout.isNotEmpty) stdout,
+                    if (stderr != null && stderr.isNotEmpty)
+                      '[stderr]\n$stderr',
+                    if (exitCode != null && exitCode.isNotEmpty)
+                      '[Process exited: $exitCode]',
+                  ].join('\n'),
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 170,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: EmbeddedTerminal(
+                  key: ValueKey('tool-terminal-$markerIndex-$command'),
+                  projectDir: widget.workspacePath,
+                  args: ['-c', command],
+                  showKeyboardMenu: false,
+                  readOnly: true,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -10158,9 +10243,33 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       final terminalMatch = _toolTerminalPattern.firstMatch(trimmed);
       if (terminalMatch != null) {
         flushMarkdown();
-        final command = _decodeBase64(terminalMatch.group(1)!, fallback: '');
+        final terminalPayload = _decodeBase64(terminalMatch.group(1)!, fallback: '');
+        var command = terminalPayload;
+        String? stdout;
+        String? stderr;
+        String? exitCode;
+
+        try {
+          final decoded = jsonDecode(terminalPayload);
+          if (decoded is Map<String, dynamic>) {
+            command = decoded['command']?.toString() ?? '';
+            stdout = decoded['stdout']?.toString();
+            stderr = decoded['stderr']?.toString();
+            exitCode = decoded['exitCode']?.toString();
+          }
+        } catch (_) {}
+
         if (command.isNotEmpty) {
-          widgets.add(_buildToolTerminal(command, appTheme, markerIndex));
+          widgets.add(
+            _buildToolTerminal(
+              command,
+              appTheme,
+              markerIndex,
+              stdout: stdout,
+              stderr: stderr,
+              exitCode: exitCode,
+            ),
+          );
           markerIndex++;
         }
         continue;
@@ -10224,8 +10333,19 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
   }
 
-  String _toolTerminalMarker(String command) {
-    final encoded = base64Encode(utf8.encode(command));
+  String _toolTerminalMarker(
+    String command, {
+    String? stdout,
+    String? stderr,
+    String? exitCode,
+  }) {
+    final payload = jsonEncode({
+      'command': command,
+      'stdout': stdout ?? '',
+      'stderr': stderr ?? '',
+      'exitCode': exitCode,
+    });
+    final encoded = base64Encode(utf8.encode(payload));
     return '[[ROXUM_TERMINAL:$encoded]]\n';
   }
 
@@ -10532,12 +10652,30 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             args['command']?.toString() ?? '',
             parsedArgs,
           );
-          pushPartial(_toolTerminalMarker(preview));
           final res = await tools.runShellCommand(
             args['command'],
             parsedArgs,
             parsedEnvs,
           );
+          if (res.success) {
+            final data = res.data ?? const <String, String>{};
+            pushPartial(
+              _toolTerminalMarker(
+                preview,
+                stdout: data['stdout'] ?? '',
+                stderr: data['stderr'] ?? '',
+                exitCode: data['exitCode'],
+              ),
+            );
+          } else {
+            pushPartial(
+              _toolTerminalMarker(
+                preview,
+                stderr: res.error ?? 'Error running shell command',
+                exitCode: 'error',
+              ),
+            );
+          }
           return res.success
               ? jsonEncode(res.data)
               : (res.error ?? 'Error running shell command');
@@ -11251,7 +11389,9 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
                 return BlocBuilder<GithubAuthCubit, GithubAuthState>(
                   builder: (context, authState) {
                     final githubSignedIn = authState.isSignedIn;
-                    final copilotSignedIn = context.watch<CopilotBloc>().state.isSignedIn;
+                    final copilotSignedIn =
+                        context.watch<CopilotBloc>().state.isSignedIn ||
+                        _copilotSignedInFromPrefs;
                     final bool copilotModelsAvailable = githubSignedIn || copilotSignedIn;
                     
                     if (!externalModelConfigured && !copilotModelsAvailable) {
@@ -11297,6 +11437,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
                                             textColor, 
                                             isDark,
                                             githubSignedIn,
+                                            copilotSignedIn,
                                             aiChatUIState.selectedModelId,
                                           ),
                                           Row(

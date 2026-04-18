@@ -4,6 +4,7 @@ import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ghostty_vte_flutter/ghostty_vte_flutter.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -30,6 +31,9 @@ class _SettingsState extends State<Settings> {
   final TextEditingController modelIdController = TextEditingController();
   final ScrollController scrollController = ScrollController();
   final themeScroll = ScrollController(), fontScroll = ScrollController();
+  final terminalThemeScroll = ScrollController();
+  final GhosttyTerminalController _terminalPreviewController =
+      GhosttyTerminalController(maxLines: 200, maxScrollback: 600);
   final _formKey = GlobalKey<FormState>();
   final String demoCode =
 '''
@@ -52,7 +56,6 @@ int main() {
     "OpenAI",
     "Grok",
     "DeepSeek",
-    "Gorq",
     "TogetherAI",
     "Perplexity",
     "OpenRouter",
@@ -64,6 +67,34 @@ int main() {
   void initState() {
     super.initState();
     _initializeCopilotForSettingsWhenDisabled();
+    _seedTerminalPreview();
+  }
+
+  void _seedTerminalPreview() {
+    _terminalPreviewController.clear();
+    _terminalPreviewController.appendDebugOutput(
+      '\x1b]2;Terminal Theme Preview\x07'
+      '\x1b[1;36mroxum@preview\x1b[0m:\x1b[32m~/demo\x1b[0m\$ ls\r\n'
+      'README.md  lib/  pubspec.yaml\r\n'
+      '\x1b[1;36mroxum@preview\x1b[0m:\x1b[32m~/demo\x1b[0m\$ flutter test\r\n'
+      '\x1b[32m00:00 +3: All tests passed!\x1b[0m\r\n'
+      '\x1b[1;36mroxum@preview\x1b[0m:\x1b[32m~/demo\x1b[0m\$ _\r\n',
+    );
+  }
+
+  Future<void> _saveCodeForgeConfig(Map<String, dynamic> config) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('codeForgeConfig', jsonEncode(config));
+    if (!mounted) return;
+    context.read<ConfigBloc>().add(ChangeConfigEvent(config));
+  }
+
+  double _terminalFontSize(Map<String, dynamic> config) {
+    final raw = config['terminalFontSize'];
+    if (raw is num) {
+      return raw.toDouble().clamp(10.0, 30.0).toDouble();
+    }
+    return defaultTerminalFontSize;
   }
 
   Future<void> _initializeCopilotForSettingsWhenDisabled() async {
@@ -624,7 +655,6 @@ int main() {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
                 Row(
                   children: [
                     Container(
@@ -692,7 +722,6 @@ int main() {
                 ),
                 const SizedBox(height: 24),
                 
-                // User info
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -866,7 +895,6 @@ int main() {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Warning icon
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -881,7 +909,6 @@ int main() {
                 ),
                 const SizedBox(height: 20),
                 
-                // Title
                 Text(
                   'Not Authorized',
                   style: TextStyle(
@@ -1429,6 +1456,8 @@ int main() {
     scrollController.dispose();
     themeScroll.dispose();
     fontScroll.dispose();
+    terminalThemeScroll.dispose();
+    _terminalPreviewController.dispose();
     super.dispose();
   }
 
@@ -1438,6 +1467,12 @@ int main() {
       builder: (context, configState) {
         final theme = configState.codeForgeConfig['theme'];
         final fontFamily = configState.codeForgeConfig['fontFamily'];
+        final terminalThemeId =
+            (configState.codeForgeConfig['terminalTheme'] ??
+              defaultTerminalThemePresetId)
+          .toString();
+        final terminalTheme = terminalThemePresetFromConfig(terminalThemeId);
+        final terminalFontSize = _terminalFontSize(configState.codeForgeConfig);
         final isIndentEnabled = configState.codeForgeConfig['indentLineStatus'];
         final lineWrap = configState.codeForgeConfig['lineWrap'];
         final enableFolding = configState.codeForgeConfig['enableFolding'];
@@ -1910,6 +1945,259 @@ int main() {
                         subTitle: (fontFamily as String).capitalize(),
                       ),
                       settingsTile(
+                        () {
+                          showDialog(
+                            context: context,
+                            builder: (dialogContext) {
+                              String selectedTerminalTheme = terminalThemeId;
+                              return StatefulBuilder(
+                                builder: (context, setDialogState) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (!terminalThemeScroll.hasClients) {
+                                      return;
+                                    }
+                                    final selectedIndex = terminalThemePresets.keys
+                                        .toList()
+                                        .indexOf(selectedTerminalTheme);
+                                    if (selectedIndex >= 0) {
+                                      terminalThemeScroll.jumpTo(selectedIndex * 72);
+                                    }
+                                  });
+
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    backgroundColor: appThemeState.appTheme.isDark
+                                        ? const Color(0xff1e1e2e)
+                                        : Colors.white,
+                                    title: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: appThemeState.appTheme.isDark
+                                              ? [
+                                                  const Color(0xff314455),
+                                                  const Color(0xff253242),
+                                                ]
+                                              : [
+                                                  Colors.teal.shade100,
+                                                  Colors.teal.shade50,
+                                                ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.terminal,
+                                            color: appThemeState.appTheme.isDark
+                                                ? Colors.white
+                                                : Colors.teal.shade700,
+                                            size: 26,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Terminal Theme',
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: appThemeState
+                                                            .appTheme.isDark
+                                                        ? Colors.white
+                                                        : Colors.teal.shade900,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${terminalThemePresets.length} palettes available',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: appThemeState
+                                                            .appTheme.isDark
+                                                        ? Colors.white70
+                                                        : Colors.teal.shade700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    content: SizedBox(
+                                      width: double.maxFinite,
+                                      height: 380,
+                                      child: Scrollbar(
+                                        controller: terminalThemeScroll,
+                                        thumbVisibility: true,
+                                        child: ListView.builder(
+                                          controller: terminalThemeScroll,
+                                          itemCount: terminalThemePresets.length,
+                                          itemBuilder: (context, index) {
+                                            final entry = terminalThemePresets
+                                                .entries
+                                                .elementAt(index);
+                                            final preset = entry.value;
+                                            final isSelected =
+                                                preset.id == selectedTerminalTheme;
+
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 4,
+                                              ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  onTap: () async {
+                                                    setDialogState(() {
+                                                      selectedTerminalTheme =
+                                                          preset.id;
+                                                    });
+                                                    final currentState =
+                                                        Map<String, dynamic>.from(
+                                                      configState.codeForgeConfig,
+                                                    );
+                                                    currentState['terminalTheme'] =
+                                                        preset.id;
+                                                    await _saveCodeForgeConfig(
+                                                      currentState,
+                                                    );
+                                                    if (context.mounted) {
+                                                      Navigator.of(dialogContext)
+                                                          .pop();
+                                                    }
+                                                  },
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      color: isSelected
+                                                          ? (appThemeState
+                                                                  .appTheme.isDark
+                                                              ? Colors.teal
+                                                                    .withAlpha(
+                                                                      35,
+                                                                    )
+                                                              : Colors.teal
+                                                                    .withAlpha(
+                                                                      22,
+                                                                    ))
+                                                          : Colors.transparent,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        12,
+                                                      ),
+                                                      border: Border.all(
+                                                        color: isSelected
+                                                            ? Colors.teal
+                                                            : Colors
+                                                                  .transparent,
+                                                        width: 2,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 48,
+                                                          height: 48,
+                                                          decoration: BoxDecoration(
+                                                            color: preset
+                                                                .backgroundColor,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(8),
+                                                            border: Border.all(
+                                                              color: appThemeState
+                                                                      .appTheme
+                                                                      .isDark
+                                                                  ? Colors.white24
+                                                                  : Colors
+                                                                        .black12,
+                                                            ),
+                                                          ),
+                                                          child: Center(
+                                                            child: Text(
+                                                              r'$>',
+                                                              style: TextStyle(
+                                                                color: preset
+                                                                    .foregroundColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                fontSize: 14,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 16),
+                                                        Expanded(
+                                                          child: Text(
+                                                            preset.name,
+                                                            style: TextStyle(
+                                                              color: appThemeState
+                                                                  .appTheme
+                                                                  .selectScreenCardTextColor,
+                                                              fontWeight:
+                                                                  isSelected
+                                                              ? FontWeight.bold
+                                                              : FontWeight
+                                                                    .normal,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (isSelected)
+                                                          const Icon(
+                                                            Icons.check_circle,
+                                                            color: Colors.teal,
+                                                            size: 24,
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dialogContext).pop(),
+                                        child: Text(
+                                          'Cancel',
+                                          style: TextStyle(
+                                            color: appThemeState.appTheme.isDark
+                                                ? Colors.white70
+                                                : Colors.grey.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        'Terminal Theme',
+                        Icon(
+                          Icons.terminal,
+                          color: appThemeState.appTheme.selectScreenCardTextColor,
+                          size: 19,
+                        ),
+                        appThemeState.appTheme.isDark,
+                        subTitle: terminalTheme.name,
+                      ),
+                      settingsTile(
                         null,
                         "Indent Guilde line",
                         Icon(
@@ -2023,6 +2311,37 @@ int main() {
                             textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
                             initialText: demoCode,
                             readOnly: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 35),
+                      Align(
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxHeight: 260,
+                            maxWidth: 365,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: GhosttyTerminalView(
+                              controller: _terminalPreviewController,
+                              autofocus: false,
+                              focusOnInteraction: false,
+                              mobileDragScrollEnabled: true,
+                              showHeader: false,
+                              backgroundColor: terminalTheme.backgroundColor,
+                              foregroundColor: terminalTheme.foregroundColor,
+                              cursorColor: terminalTheme.cursorColor,
+                              selectionColor: terminalTheme.selectionColor,
+                              hyperlinkColor: terminalTheme.hyperlinkColor,
+                              palette: terminalTheme.palette,
+                              fontFamily: 'jetBrainsMono',
+                              fontSize: terminalFontSize,
+                              lineHeight: 1.25,
+                              padding: const EdgeInsets.all(10),
+                              onPasteRequest: () async => null,
+                            ),
                           ),
                         ),
                       ),
