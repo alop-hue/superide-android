@@ -55,9 +55,9 @@ bool isSvgFilePath(String filePath) {
 
 bool isPreviewFilePath(String filePath) {
   return
-      isImageFilePath(filePath) ||
-      isSvgFilePath(filePath) ||
-      isPdfFilePath(filePath);
+    isImageFilePath(filePath) ||
+    isSvgFilePath(filePath) ||
+    isPdfFilePath(filePath);
 }
 
 Future<Directory> setupProjectDir() async {
@@ -139,14 +139,10 @@ Future<File> setTempFile(String extension) async {
   if (!target.existsSync() || target.readAsStringSync().isEmpty) {
     await target.create(recursive: true);
     await target.writeAsString(
-      languages
-          .firstWhere(
-            (lang) => lang.extension.contains(
-              path.extension(target.path).replaceFirst(".", ""),
-            ),
-            orElse: () => languages[0],
-          )
-          .helloWorld,
+      languages.firstWhere(
+        (lang) => lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
+        orElse: () => languages[0],
+      ).helloWorld,
     );
   }
 
@@ -229,9 +225,9 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
   if (await gitignoreFile.exists()) {
     final existingContent = await gitignoreFile.readAsString();
     final existingLines = existingContent
-        .split('\n')
-        .map((e) => e.trim())
-        .toSet();
+      .split('\n')
+      .map((e) => e.trim())
+      .toSet();
 
     final patternsToAdd = <String>[];
     for (final pattern in patterns) {
@@ -543,14 +539,14 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
 
   final lines = diffTextOriginal.split('\n');
   final filteredLines = lines
-      .where(
-        (line) =>
-            !line.startsWith('diff --git') &&
-            !line.startsWith('index ') &&
-            !line.startsWith('--- ') &&
-            !line.startsWith('+++ '),
-      )
-      .toList();
+    .where(
+      (line) =>
+        !line.startsWith('diff --git') &&
+        !line.startsWith('index ') &&
+        !line.startsWith('--- ') &&
+        !line.startsWith('+++ '),
+    )
+    .toList();
 
   final visibleLines = <String>[];
 
@@ -674,7 +670,6 @@ Future<ProcessResult> gitFetch(
 
 Future<ProcessResult> gitSync(String workspacePath) async {
   final sharedPath = await NativeChannel.getLibraryPath();
-  // Pull then push
   final pullResult = await Process.run(
     "$binDir/git",
     ["pull", "--rebase"],
@@ -988,9 +983,9 @@ Future<List<String>> gitListTags(String workspacePath) async {
   );
   if (result.exitCode != 0) return [];
   return (result.stdout as String)
-      .split('\n')
-      .where((t) => t.isNotEmpty)
-      .toList();
+    .split('\n')
+    .where((t) => t.isNotEmpty)
+    .toList();
 }
 
 Future<ProcessResult> gitCreateTag(
@@ -1163,17 +1158,17 @@ Future<String> gitHubSignIn() async {
     }
 
     final response = await http
-        .post(
-          Uri.parse('$backEndHandler/github/oauth'),
-          headers: {'Content-Type': 'application/json; charset=utf-8'},
-          body: jsonEncode({'code': code}),
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            return http.Response('Backend connection timeout', 408);
-          },
-        );
+      .post(
+        Uri.parse('$backEndHandler/github/oauth'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'code': code}),
+      )
+      .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          return http.Response('Backend connection timeout', 408);
+        },
+      );
 
     if (response.statusCode != 200) {
       return ('${response.statusCode}: ${response.body}');
@@ -2164,14 +2159,14 @@ class CodeForgeDemoKey {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is CodeForgeDemoKey &&
-            runtimeType == other.runtimeType &&
-            indentLineStatus == other.indentLineStatus &&
-            lineWrap == other.lineWrap &&
-            enableFolding == other.enableFolding &&
-            theme == other.theme &&
-            fontFamily == other.fontFamily &&
-            isDark == other.isDark;
+      other is CodeForgeDemoKey &&
+        runtimeType == other.runtimeType &&
+        indentLineStatus == other.indentLineStatus &&
+        lineWrap == other.lineWrap &&
+        enableFolding == other.enableFolding &&
+        theme == other.theme &&
+        fontFamily == other.fontFamily &&
+        isDark == other.isDark;
   }
 
   @override

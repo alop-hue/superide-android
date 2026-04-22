@@ -1645,12 +1645,12 @@ class _DownloadManagerState extends State<DownloadManager> {
             Padding(
               padding: const EdgeInsets.only(top: 20),
               child: extensionItems.isEmpty
-                  ? _buildCatalogStateView(
-                      title: 'No extensions installed',
-                      actionLabel: 'Refresh',
-                      onRetry: () => context.read<PackageCatalogCubit>().refreshInstalledStatusOnly(),
-                    )
-                  : ListView.builder(
+                ? _buildCatalogStateView(
+                    title: 'No extensions installed',
+                    actionLabel: 'Refresh',
+                    onRetry: () => context.read<PackageCatalogCubit>().refreshInstalledStatusOnly(),
+                  )
+                : ListView.builder(
                 itemCount: extensionItems.length,
                 itemBuilder: (_, index) {
                   final extensionIndex = index + runtimeItems.length;
@@ -1723,13 +1723,11 @@ class _DownloadManagerState extends State<DownloadManager> {
                                 isExtension: true,
                               );
                               
-                              
                               final isExtracting = downloadState.isExtracting(extensionIndex);
                               final extractionPercent = downloadState.extractionProgress[extensionIndex] ?? 0;
                               final displayExtractionPercent = extensionPfdConfig != null
                                   ? _mergeProgress(extensionPfdConfig.weight, extractionPercent)
                                   : extractionPercent;
-                              
                               
                               if (isExtracting) {
                                 if (displayExtractionPercent > 0.0 && displayExtractionPercent < 100.0) {
@@ -1759,7 +1757,6 @@ class _DownloadManagerState extends State<DownloadManager> {
                                 }
                               }
                               
-                              
                               final zipExistsButNotExtracted = archiveFile.existsSync() && !parentDir.existsSync();
                               if (zipExistsButNotExtracted && !isExtracting) {
                                 
@@ -1776,7 +1773,6 @@ class _DownloadManagerState extends State<DownloadManager> {
                                   ),
                                 );
                               }
-                              
                               
                               final isFullyInstalled = parentDir.existsSync() || downloadState.isFullyCompleted(extensionIndex);
                               final isUpdateAvailable = hasUpdate;
@@ -1942,8 +1938,8 @@ class _DownloadManagerState extends State<DownloadManager> {
           children: [
             CircularProgressIndicator(
               color: appThemeState.appTheme.isDark
-                  ? const Color(0xff5090c8)
-                  : const Color(0xff2c6fa8),
+                ? const Color(0xff5090c8)
+                : const Color(0xff2c6fa8),
             ),
             const SizedBox(height: 14),
             Text(

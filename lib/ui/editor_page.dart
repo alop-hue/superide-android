@@ -1984,16 +1984,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         ),
                                         BlocBuilder<DiagnosticsTickBloc, int>(
                                           builder: (context, _) {
-                                            final openErrorCount =
-                                                _openEditorsErrorCount(
-                                                  editorState.activeEditors,
-                                                );
+                                            final openErrorCount = _openEditorsErrorCount(editorState.activeEditors);
                                             return _buildBadgedIcon(
                                               icon: Icon(
                                                 Icons.rule_rounded,
                                                 color: state.stackIndex == 2
-                                                    ? appTheme.editorPageToolSelectedColor
-                                                    : appTheme.editorPageToolColor,
+                                                  ? appTheme.editorPageToolSelectedColor
+                                                  : appTheme.editorPageToolColor,
                                               ),
                                               count: openErrorCount,
                                               appTheme: appTheme,
@@ -2001,9 +1998,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                           },
                                         ),
                                         bgColor: state.stackIndex == 2
-                                            ? appTheme
-                                                  .editorPageToolSelectedBgColor
-                                            : Colors.transparent,
+                                          ? appTheme.editorPageToolSelectedBgColor
+                                          : Colors.transparent,
                                       ),
                                     ),
                                     drawerButtons(
@@ -2012,12 +2008,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       ),
                                       FontAwesomeIcons.codeBranch,
                                       color: state.stackIndex == 3
-                                          ? appTheme.editorPageToolSelectedColor
-                                          : appTheme.editorPageToolColor,
+                                        ? appTheme.editorPageToolSelectedColor
+                                        : appTheme.editorPageToolColor,
                                       bgColor: state.stackIndex == 3
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(
@@ -2029,16 +2024,14 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         width: 34,
                                         colorFilter: ColorFilter.mode(
                                           state.stackIndex == 4
-                                              ? appTheme
-                                                    .editorPageToolSelectedColor
-                                              : appTheme.editorPageToolColor,
+                                            ? appTheme.editorPageToolSelectedColor
+                                            : appTheme.editorPageToolColor,
                                           BlendMode.srcIn,
                                         ),
                                       ),
                                       bgColor: state.stackIndex == 4
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(
@@ -2050,9 +2043,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         width: 34,
                                       ),
                                       bgColor: state.stackIndex == 5
-                                          ? appTheme
-                                                .editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 5.5,
                                         vertical: 5,
@@ -2073,100 +2065,50 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         ),
                                         child: ListView(
                                           children: [
-                                            if (editorState
-                                                .activeEditors
-                                                .isNotEmpty)
+                                            if (editorState.activeEditors.isNotEmpty)
                                               Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 10,
-                                                ),
+                                                padding: const EdgeInsets.only(bottom: 10),
                                                 child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
                                                       'OPEN EDITORS',
                                                       style: TextStyle(
                                                         fontWeight:
-                                                            appTheme.isDark
-                                                            ? FontWeight.w300
-                                                            : FontWeight.w500,
-                                                        color: appTheme
-                                                            .selectScreenCardTextColor,
+                                                          appTheme.isDark
+                                                          ? FontWeight.w300
+                                                          : FontWeight.w500,
+                                                        color: appTheme.selectScreenCardTextColor,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 6),
                                                     ...List.generate(
-                                                      editorState
-                                                          .activeEditors
-                                                          .length,
+                                                      editorState.activeEditors.length,
                                                       (index) {
-                                                        final editor = editorState
-                                                            .activeEditors[index];
+                                                        final editor = editorState.activeEditors[index];
                                                         return InkWell(
                                                           onTap: () {
-                                                            final List<
-                                                              ActiveEditor
-                                                            >
-                                                            currentState =
-                                                                List.from(
-                                                                  editorState
-                                                                      .activeEditors,
-                                                                );
-                                                            for (
-                                                              int i = 0;
-                                                              i <
-                                                                  currentState
-                                                                      .length;
-                                                              i++
-                                                            ) {
-                                                              currentState[i]
-                                                                      .isActive =
-                                                                  i == index;
+                                                            final List<ActiveEditor>
+                                                            currentState = List.from(editorState.activeEditors);
+                                                            for (int i = 0; i <currentState.length; i++) {
+                                                              currentState[i].isActive = i == index;
                                                             }
-                                                            context
-                                                                .read<
-                                                                  ActiveEditorBloc
-                                                                >()
-                                                                .add(
-                                                                  ActiveEditorEvent(
-                                                                    currentState,
-                                                                  ),
-                                                                );
-                                                            if (tabController !=
-                                                                    null &&
-                                                                tabController!
-                                                                        .length >
-                                                                    index) {
-                                                              tabController!
-                                                                  .animateTo(
-                                                                    index,
-                                                                  );
+                                                            context.read<ActiveEditorBloc>().add(ActiveEditorEvent(currentState));
+                                                            if (tabController != null && tabController!.length > index) {
+                                                              tabController!.animateTo(index);
                                                             }
                                                           },
                                                           child: Padding(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  vertical: 2,
-                                                                ),
+                                                            padding: const EdgeInsets.symmetric(vertical: 2),
                                                             child: Text(
-                                                              _displayFileName(
-                                                                editor,
-                                                              ),
+                                                              _displayFileName(editor),
                                                               maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
+                                                              overflow: TextOverflow.ellipsis,
                                                               style: TextStyle(
-                                                                color: appTheme
-                                                                    .selectScreenCardTextColor,
-                                                                fontWeight:
-                                                                    editor
-                                                                        .isActive
-                                                                    ? FontWeight
-                                                                          .w600
-                                                                    : FontWeight
-                                                                          .w400,
+                                                                color: appTheme.selectScreenCardTextColor,
+                                                                fontWeight: editor.isActive
+                                                                  ? FontWeight.w600
+                                                                  : FontWeight.w400,
                                                               ),
                                                             ),
                                                           ),
@@ -2197,6 +2139,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                             ),
                                             DirectoryTreeViewerCustom(
                                               appTheme: appTheme,
+                                              activeEditorState: editorState,
                                               isUnfoldedFirst: false,
                                               rootPath: widget.rootDir,
                                               enableCreateFileOption: true,
@@ -2215,44 +2158,25 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                 ),
                                                 cursorColor: Colors.grey,
                                                 cursorHeight: 19,
-                                                verticalTextAlign:
-                                                    TextAlignVertical.top,
-                                                textfieldDecoration:
-                                                    const InputDecoration(
-                                                      isDense: true,
-                                                      contentPadding:
-                                                          EdgeInsets.fromLTRB(
-                                                            12.0,
-                                                            8.0,
-                                                            12.0,
-                                                            1.0,
-                                                          ),
-                                                      focusedBorder:
-                                                          OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.all(
-                                                                  Radius.circular(
-                                                                    2,
-                                                                  ),
-                                                                ),
-                                                            borderSide:
-                                                                BorderSide(
-                                                                  color: Colors
-                                                                      .grey,
-                                                                ),
-                                                          ),
-                                                      border: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.all(
-                                                              Radius.circular(
-                                                                2,
-                                                              ),
-                                                            ),
-                                                        borderSide: BorderSide(
-                                                          color: Colors.grey,
-                                                        ),
-                                                      ),
+                                                verticalTextAlign: TextAlignVertical.top,
+                                                textfieldDecoration: const InputDecoration(
+                                                  isDense: true,
+                                                  contentPadding: EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 1.0),
+                                                  focusedBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius: BorderRadius.all(Radius.circular(2)),
+                                                      borderSide: BorderSide(color: Colors.grey),
                                                     ),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                      BorderRadius.all(
+                                                        Radius.circular(2),
+                                                      ),
+                                                    borderSide: BorderSide(
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                ),
                                                 folderIcon: const Icon(
                                                   Icons.folder,
                                                   color: Colors.grey,
@@ -2275,13 +2199,10 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                 ),
                                               ),
                                               fileIconBuilder: (ext) {
-                                                final normalizedExt = ext
-                                                        .toLowerCase()
-                                                        .startsWith('.')
-                                                    ? ext.toLowerCase()
-                                                    : '.${ext.toLowerCase()}';
-                                                if (isImageFilePath('preview$normalizedExt') ||
-                                                    isSvgFilePath('preview$normalizedExt')) {
+                                                final normalizedExt = ext.toLowerCase().startsWith('.')
+                                                  ? ext.toLowerCase()
+                                                  : '.${ext.toLowerCase()}';
+                                                if (isImageFilePath('preview$normalizedExt') || isSvgFilePath('preview$normalizedExt')) {
                                                   return const Icon(
                                                     Icons.image,
                                                     color: Colors.green,
@@ -2296,8 +2217,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                   );
                                                 }
                                                 return SizedBox(
-                                                  height: 25,
-                                                  width: 25,
+                                                  height: 20,
+                                                  width: 20,
                                                   child:languages.firstWhere(
                                                     (lang) => lang.extension.contains(normalizedExt.replaceFirst('.', '')),
                                                     orElse: () => languages[0]).icon ?? langtxt.icon,
@@ -2318,27 +2239,27 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                     : const Color(0xff2b2b2b),
                                                 ),
                                                 rootFolderClosedIcon:
-                                                    const Icon(
-                                                      Icons.chevron_right_sharp,
-                                                      color: Colors.grey,
-                                                    ),
+                                                  const Icon(
+                                                    Icons.chevron_right_sharp,
+                                                    color: Colors.grey,
+                                                  ),
                                                 rootFolderOpenedIcon: const Icon(
                                                   Icons.keyboard_arrow_down_sharp,
                                                   color: Colors.grey,
                                                 ),
                                                 folderClosedicon:SvgPicture.asset(
                                                     'assets/icons/folder.svg',
-                                                    height: 30,
-                                                    width: 30,
+                                                    height: 23,
+                                                    width: 23,
                                                   ),
                                                 folderOpenedicon: SvgPicture.asset(
                                                   'assets/icons/open-file-folder.svg',
-                                                  height: 30,
-                                                  width: 30,
+                                                  height: 23,
+                                                  width: 23,
                                                 ),
                                                 folderNameStyle: TextStyle(
                                                   color: appTheme.selectScreenCardTextColor,
-                                                  fontSize: 20,
+                                                  fontSize: 19,
                                                   fontWeight: appTheme.isDark
                                                     ? FontWeight.w400
                                                     : FontWeight.w500,
@@ -2352,18 +2273,15 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                 ),
                                                 fileNameStyle: TextStyle(
                                                   color: appTheme.selectScreenCardTextColor,
-                                                  fontSize: 20,
+                                                  fontSize: 18.5,
                                                   fontWeight: appTheme.isDark
                                                     ? FontWeight.w400
-                                                    : FontWeight.w500,
+                                                    : FontWeight.w400,
                                                   height: 2,
                                                 ),
                                               ),
                                               onFileTap: (f) async {
-                                                final currentState =
-                                                    List<ActiveEditor>.from(
-                                                      editorState.activeEditors,
-                                                    );
+                                                final currentState = List<ActiveEditor>.from(editorState.activeEditors);
                                                 await _openFileInTabs(
                                                   actionContext: context,
                                                   currentState: currentState,
@@ -2379,15 +2297,11 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       appTheme: appTheme,
                                       findWordController: findWordController,
                                       editorState: editorState,
-                                      replaceWordController:
-                                          replaceWordController,
+                                      replaceWordController: replaceWordController,
                                       tabController: tabController,
                                       workspacePath: widget.rootDir,
                                       onFileOpen: (file, lineNumber, searchQuery) async {
-                                        final currentState =
-                                            List<ActiveEditor>.from(
-                                              editorState.activeEditors,
-                                            );
+                                        final currentState = List<ActiveEditor>.from(editorState.activeEditors);
                                         await _openFileInTabs(
                                           actionContext: context,
                                           currentState: currentState,
@@ -2410,214 +2324,129 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       workSpace: widget.rootDir,
                                       isRepoThere: isRepoThere,
                                       activeEditorsBloc:
-                                          BlocProvider.of<ActiveEditorBloc>(
-                                            context,
-                                            listen: false,
-                                          ),
+                                        BlocProvider.of<ActiveEditorBloc>(
+                                          context,
+                                          listen: false,
+                                        ),
                                       onOpenDiffView:(fileName, workspacePath, bloc) async {
-                                            try {
-                                              final diffResult = await getGitDiff(fileName, workspacePath);
-                                              final file = File(path.join(workspacePath,fileName),
-                                              );
-                                              if (!await file.exists()) return;
+                                        try {
+                                          final diffResult = await getGitDiff(fileName, workspacePath);
+                                          final file = File(path.join(workspacePath,fileName),
+                                          );
+                                          if (!await file.exists()) return;
 
-                                              final lang = languages.firstWhere(
-                                                (language) =>
-                                                  language.extension.contains(
-                                                    path.extension(file.path).replaceFirst(".", ""),
-                                                  ),
-                                                orElse: () => languages[0],
-                                              );
+                                          final lang = languages.firstWhere(
+                                            (language) =>
+                                              language.extension.contains(
+                                                path.extension(file.path).replaceFirst(".", ""),
+                                              ),
+                                            orElse: () => languages[0],
+                                          );
 
-                                              final tempFile = File(
-                                                "$tempDir/(Working Tree)${path.basename(fileName)}",
-                                              );
-                                              if (!(await tempFile.exists())) {
-                                                await tempFile.create(
-                                                  recursive: true,
-                                                );
-                                              }
-                                              await tempFile.writeAsString(
-                                                diffResult.diffText,
-                                              );
+                                          final tempFile = File(
+                                            "$tempDir/(Working Tree)${path.basename(fileName)}",
+                                          );
+                                          if (!(await tempFile.exists())) {
+                                            await tempFile.create(
+                                              recursive: true,
+                                            );
+                                          }
+                                          await tempFile.writeAsString(
+                                            diffResult.diffText,
+                                          );
 
-                                              final currentState =
-                                                  List<ActiveEditor>.from(
-                                                    editorState.activeEditors,
-                                                  );
-                                              final canonicalDiffPath =
-                                                  tempFile.absolute.path;
-                                              final existingIndex = currentState
-                                                  .indexWhere(
-                                                    (editor) =>
-                                                        File(editor.file.path)
-                                                            .absolute
-                                                            .path ==
-                                                        canonicalDiffPath,
-                                                  );
+                                          final currentState = List<ActiveEditor>.from(editorState.activeEditors);
+                                          final canonicalDiffPath = tempFile.absolute.path;
+                                          final existingIndex = currentState
+                                              .indexWhere((editor) => File(editor.file.path).absolute.path == canonicalDiffPath);
 
-                                              if (existingIndex >= 0) {
-                                                for (
-                                                  int i = 0;
-                                                  i < currentState.length;
-                                                  i++
-                                                ) {
-                                                  currentState[i].isActive =
-                                                      i == existingIndex;
-                                                }
-
-                                                final existingEditor =
-                                                    currentState[existingIndex];
-                                                existingEditor.controller.readOnly =
-                                                    true;
-                                                existingEditor
-                                                    .controller
-                                                    .setGitDiffDecorations(
-                                                      addedRanges:
-                                                          diffResult.addedRanges,
-                                                      removedRanges: diffResult
-                                                          .removedRanges,
-                                                      addedColor:
-                                                          const Color.fromARGB(
-                                                            255,
-                                                            0,
-                                                            255,
-                                                            8,
-                                                          ),
-                                                      removedColor:
-                                                          const Color.fromARGB(
-                                                            255,
-                                                            255,
-                                                            0,
-                                                            0,
-                                                          ),
-                                                      modifiedColor:
-                                                          const Color(0xFF2196F3),
-                                                    );
-                                                existingEditor.controller.text =
-                                                    diffResult.diffText;
-
-                                                if (context.mounted) {
-                                                  bloc.add(
-                                                    ActiveEditorEvent(
-                                                      currentState,
-                                                    ),
-                                                  );
-                                                  WidgetsBinding.instance
-                                                      .addPostFrameCallback((_) {
-                                                        if (tabController !=
-                                                                null &&
-                                                            existingIndex >=
-                                                                0 &&
-                                                            existingIndex <
-                                                                tabController!
-                                                                    .length) {
-                                                          tabController!
-                                                              .animateTo(
-                                                                existingIndex,
-                                                              );
-                                                        }
-                                                        existingEditor
-                                                            .controller
-                                                            .notifyListeners();
-                                                      });
-                                                }
-                                                return;
-                                              }
-
-                                              final newController =
-                                                  CodeForgeController();
-                                              newController.readOnly = true;
-
-                                              newController
-                                                  .setGitDiffDecorations(
-                                                    addedRanges:
-                                                        diffResult.addedRanges,
-                                                    removedRanges: diffResult
-                                                        .removedRanges,
-                                                    addedColor:
-                                                        const Color.fromARGB(
-                                                          255,
-                                                          0,
-                                                          255,
-                                                          8,
-                                                        ),
-                                                    removedColor:
-                                                        const Color.fromARGB(
-                                                          255,
-                                                          255,
-                                                          0,
-                                                          0,
-                                                        ),
-                                                    modifiedColor: const Color(
-                                                      0xFF2196F3,
-                                                    ),
-                                                  );
-
-                                              final newEditor = ActiveEditor(
-                                                controller: newController,
-                                                undoRedoController:
-                                                    UndoRedoController(),
-                                                file: tempFile,
-                                                isActive: true,
-                                                languageDetails: lang,
-                                                findController: FindController(
-                                                  newController,
-                                                ),
-                                                customTitle:
-                                                    '${path.basename(fileName)}(Working Tree)',
-                                                hscroll: ScrollController(),
-                                                vscroll: ScrollController(),
-                                              );
-
-                                              for (final editor
-                                                  in currentState) {
-                                                editor.isActive = false;
-                                              }
-                                              currentState.add(newEditor);
-
-                                              if (context.mounted) {
-                                                mruOrder.insert(
-                                                  0,
-                                                  currentState.length - 1,
-                                                );
-                                                bloc.add(
-                                                  ActiveEditorEvent(
-                                                    currentState,
-                                                  ),
-                                                );
-                                                WidgetsBinding.instance
-                                                    .addPostFrameCallback((_) {
-                                                      newEditor.controller
-                                                          .notifyListeners();
-                                                      final newIndex =
-                                                          currentState.length -
-                                                          1;
-                                                      if (tabController !=
-                                                              null &&
-                                                          newIndex >= 0) {
-                                                        tabController!
-                                                            .animateTo(
-                                                              newIndex,
-                                                            );
-                                                      }
-                                                    });
-                                              }
-                                            } catch (e) {
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'Failed to open diff view: $e',
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
+                                          if (existingIndex >= 0) {
+                                            for (int i = 0; i < currentState.length; i++) {
+                                              currentState[i].isActive = i == existingIndex;
                                             }
-                                          },
+
+                                            final existingEditor = currentState[existingIndex];
+                                            existingEditor.controller.readOnly = true;
+                                            existingEditor.controller.setGitDiffDecorations(
+                                              addedRanges:diffResult.addedRanges,
+                                              removedRanges: diffResult.removedRanges,
+                                              addedColor: const Color.fromARGB(255, 0, 255, 8),
+                                              removedColor: const Color.fromARGB(255, 255, 0, 0),
+                                              modifiedColor: const Color(0xFF2196F3),
+                                            );
+                                            existingEditor.controller.text = diffResult.diffText;
+
+                                            if (context.mounted) {
+                                              bloc.add(ActiveEditorEvent(currentState));
+                                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                if (
+                                                  tabController != null &&
+                                                  existingIndex >= 0 &&
+                                                  existingIndex < tabController!.length
+                                                ) {
+                                                  tabController!.animateTo(existingIndex);
+                                                }
+                                                existingEditor.controller.notifyListeners();
+                                              });
+                                            }
+                                            return;
+                                          }
+
+                                          final newController = CodeForgeController();
+                                          newController.readOnly = true;
+
+                                          newController.setGitDiffDecorations(
+                                            addedRanges: diffResult.addedRanges,
+                                            removedRanges: diffResult.removedRanges,
+                                            addedColor: const Color.fromARGB(255, 0, 255, 8),
+                                            removedColor:const Color.fromARGB( 255, 255, 0, 0),
+                                            modifiedColor: const Color(0xFF2196F3),
+                                          );
+
+                                          final newEditor = ActiveEditor(
+                                            controller: newController,
+                                            undoRedoController: UndoRedoController(),
+                                            file: tempFile,
+                                            isActive: true,
+                                            languageDetails: lang,
+                                            findController: FindController(newController),
+                                            customTitle: '${path.basename(fileName)}(Working Tree)',
+                                            hscroll: ScrollController(),
+                                            vscroll: ScrollController(),
+                                          );
+
+                                          for (final editor in currentState) {
+                                            editor.isActive = false;
+                                          }
+                                          currentState.add(newEditor);
+
+                                          if (context.mounted) {
+                                            mruOrder.insert(0, currentState.length - 1);
+                                            bloc.add(ActiveEditorEvent(currentState),
+                                            );
+                                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                                              newEditor.controller.notifyListeners();
+                                              final newIndex = currentState.length - 1;
+                                              if (tabController != null && newIndex >= 0) {
+                                                tabController!.animateTo(newIndex);
+                                              }
+                                            });
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Failed to open diff view: $e',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
                                     ),
                                     APITesting(
                                       params: params,
@@ -2629,20 +2458,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                     ),
                                     AIChat(
                                       filePath:
-                                          editorState.activeEditors.isNotEmpty
-                                          ? editorState
-                                                .activeEditors[(tabController !=
-                                                        null
-                                                    ? tabController!.index
-                                                    : editorState.activeEditors
-                                                          .indexWhere(
-                                                            (item) =>
-                                                                item.isActive ==
-                                                                true,
-                                                          ))]
-                                                .file
-                                                .path
-                                          : '',
+                                        editorState.activeEditors.isNotEmpty
+                                        ? editorState
+                                            .activeEditors[(tabController != null
+                                              ? tabController!.index
+                                              : editorState.activeEditors.indexWhere((item) => item.isActive == true))]
+                                            .file.path
+                                        : '',
                                       workspacePath: widget.rootDir,
                                     ),
                                   ],

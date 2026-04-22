@@ -252,10 +252,56 @@ int main() {
     );
   }
 
+  void _showNodeRuntimeRequiredDialog(
+    BuildContext context,
+    AppThemeState appThemeState,
+  ) {
+    final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: appThemeState.appTheme.isDark
+            ? const Color(0xff2b2b2b)
+            : const Color.fromARGB(255, 240, 240, 240),
+          title: Text('Node Runtime Required', style: TextStyle(color: textColor)),
+          content: Text(
+            'GitHub Copilot sign-in requires the Node.js runtime.\n\nPlease install Node.js from Downloads before continuing.',
+            style: TextStyle(color: textColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const DownloadManager(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SizeTransition(sizeFactor: animation, child: child);
+                    },
+                  ),
+                );
+              },
+              child: const Text('Open Downloads'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _startCopilotSignIn(BuildContext context, AppThemeState appThemeState) async {
     final missing = _missingCopilotPrerequisites();
     if (missing.isNotEmpty) {
-      _showCopilotPrerequisiteDialog(context, appThemeState, missing);
+      if (missing.length == 1 && missing.first == 'Node runtime') {
+        _showNodeRuntimeRequiredDialog(context, appThemeState);
+      } else {
+        _showCopilotPrerequisiteDialog(context, appThemeState, missing);
+      }
       return;
     }
 
@@ -411,7 +457,7 @@ int main() {
           const url = 'https://github.com/login/device';
           final uri = Uri.parse(url);
           try {
-            await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+            await launchUrl(uri, mode: LaunchMode.inAppWebView);
           } catch (e) {
             debugPrint('Failed to launch URL: $e');
           }
@@ -1662,8 +1708,8 @@ int main() {
                                                 decoration: BoxDecoration(
                                                   color: isSelected
                                                     ? (appThemeState.appTheme.isDark 
-                                                        ? Colors.blue.withAlpha(40) 
-                                                        : Colors.blue.withAlpha(30))
+                                                      ? Colors.blue.withAlpha(40) 
+                                                      : Colors.blue.withAlpha(30))
                                                     : Colors.transparent,
                                                   borderRadius: BorderRadius.circular(12),
                                                   border: Border.all(
@@ -1675,7 +1721,6 @@ int main() {
                                                 ),
                                                 child: Row(
                                                   children: [
-                                                    
                                                     Container(
                                                       width: 48,
                                                       height: 48,
@@ -1683,9 +1728,7 @@ int main() {
                                                         color: bgColor,
                                                         borderRadius: BorderRadius.circular(8),
                                                         border: Border.all(
-                                                          color: appThemeState.appTheme.isDark 
-                                                            ? Colors.white24 
-                                                            : Colors.black12,
+                                                          color: appThemeState.appTheme.isDark  ? Colors.white24 : Colors.black12,
                                                         ),
                                                       ),
                                                       child: Center(
@@ -1702,7 +1745,7 @@ int main() {
                                                     const SizedBox(width: 16),
                                                     Expanded(
                                                       child: Text(
-                                                        themeName.capitalize(),
+                                                        themeName.replaceFirst("base16-", "").capitalize(),
                                                         style: TextStyle(
                                                           color: appThemeState.appTheme.selectScreenCardTextColor,
                                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -2047,7 +2090,7 @@ int main() {
                                 
                               )),
                               enableGuideLines: isIndentEnabled,
-                              language: languages[5].language,
+                              language: languages[7].language,
                               editorTheme: highlightThemes[theme],
                               textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
                               initialText: demoCode,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 import 'package:roxum/utils/themes.dart';
@@ -16,20 +17,19 @@ class ContributePage extends StatelessWidget {
     }
   }
 
-  Widget _buildContributionItem(String emoji, String text, AppTheme theme) {
+  Widget _buildContributionItem(Icon icon, String text, AppTheme theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
+          icon,
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 14,
-                color: theme.selectScreenCardTextColor.withAlpha(200),
-              ),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: theme.selectScreenCardTextColor.withAlpha(200),
             ),
           ),
         ],
@@ -99,15 +99,18 @@ class ContributePage extends StatelessWidget {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildContributionItem('🐛', 'Report Bugs', theme),
-                            _buildContributionItem('💡', 'Suggest Features', theme),
-                            _buildContributionItem('📝', 'Improve Documentation', theme),
-                            _buildContributionItem('🔧', 'Submit Code Changes', theme),
-                            _buildContributionItem('🧪', 'Test and Provide Feedback', theme),
-                          ],
+                        Align(
+                          alignment: Alignment.center,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildContributionItem(Icon(Icons.star, color: Colors.yellow), 'Star the repo.', theme),
+                              _buildContributionItem(Icon(Icons.bug_report, color: Colors.red[800]), 'Report Bugs.', theme),
+                              _buildContributionItem(Icon(Icons.lightbulb, color: Colors.yellow), 'Suggest Features.', theme),
+                              _buildContributionItem(Icon(Icons.edit_document, color: Colors.grey), 'Improve Documentation.', theme),
+                              _buildContributionItem(Icon(FontAwesomeIcons.vial, color: Colors.green, size: 20), 'Test and Provide Feedback.', theme),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton.icon(

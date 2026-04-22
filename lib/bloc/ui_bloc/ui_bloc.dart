@@ -98,7 +98,15 @@ class FolderBloc extends Cubit<FolderState> {
   void toggleFolder(String dirPath) {
     final currentState = state.folderStates;
     final isUnfolded = currentState[dirPath] ?? false;
-    emit(state.copyWith(folderStates: {...currentState, dirPath: !isUnfolded}));
+    final nextUnfolded = !isUnfolded;
+    emit(
+      state.copyWith(
+        folderStates: {...currentState, dirPath: nextUnfolded},
+        lastUnfoldedFolderPath: nextUnfolded
+            ? dirPath
+            : state.lastUnfoldedFolderPath,
+      ),
+    );
   }
 
   void setAllFoldersExpanded(List<String> dirPaths, bool expanded) {
@@ -107,7 +115,12 @@ class FolderBloc extends Cubit<FolderState> {
     for (final path in dirPaths) {
       newStates[path] = expanded;
     }
-    emit(FolderState(newStates));
+    emit(
+      state.copyWith(
+        folderStates: newStates,
+        clearLastUnfoldedFolderPath: !expanded,
+      ),
+    );
   }
 }
 

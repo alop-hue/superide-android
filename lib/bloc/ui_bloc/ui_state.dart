@@ -87,11 +87,21 @@ class ApiState{
 
 class FolderState {
   final Map<String, bool> folderStates;
+  final String? lastUnfoldedFolderPath;
 
-  FolderState(this.folderStates);
+  FolderState(this.folderStates, {this.lastUnfoldedFolderPath});
 
-  FolderState copyWith({Map<String, bool>? folderStates}) {
-    return FolderState(folderStates ?? this.folderStates);
+  FolderState copyWith({
+    Map<String, bool>? folderStates,
+    String? lastUnfoldedFolderPath,
+    bool clearLastUnfoldedFolderPath = false,
+  }) {
+    return FolderState(
+      folderStates ?? this.folderStates,
+      lastUnfoldedFolderPath: clearLastUnfoldedFolderPath
+          ? null
+          : lastUnfoldedFolderPath ?? this.lastUnfoldedFolderPath,
+    );
   }
 }
 
@@ -145,24 +155,15 @@ Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
   final modelName = (modelConfig['modelName'] ?? modelConfig['model'] ?? '').toString();
 
   switch (provider) {
-    case 'Gemini':
-      return Gemini(apiKey: apiKey, model: modelName);
-    case 'Claude':
-      return Claude(apiKey: apiKey, model: modelName);
-    case 'OpenAI':
-      return OpenAI(apiKey: apiKey, model: modelName);
-    case 'Grok':
-      return Grok(apiKey: apiKey, model: modelName);
-    case 'DeepSeek':
-      return DeepSeek(apiKey: apiKey, model: modelName);
-    case 'TogetherAI':
-      return TogetherAi(apiKey: apiKey, model: modelName);
-    case 'Perplexity':
-      return Perplexity(apiKey: apiKey, model: modelName);
-    case 'OpenRouter':
-      return OpenRouter(apiKey: apiKey, model: modelName);
-    case 'FireWorks':
-      return FireWorks(apiKey: apiKey, model: modelName);
+    case 'Gemini': return Gemini(apiKey: apiKey, model: modelName);
+    case 'Claude': return Claude(apiKey: apiKey, model: modelName);
+    case 'OpenAI': return OpenAI(apiKey: apiKey, model: modelName);
+    case 'Grok': return Grok(apiKey: apiKey, model: modelName);
+    case 'DeepSeek':return DeepSeek(apiKey: apiKey, model: modelName);
+    case 'TogetherAI': return TogetherAi(apiKey: apiKey, model: modelName);
+    case 'Perplexity': return Perplexity(apiKey: apiKey, model: modelName);
+    case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
+    case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
     case 'Custom':
       final url = (modelConfig['url'] ?? '').toString().trim();
       if (url.isEmpty) return null;
@@ -171,20 +172,15 @@ Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
         final raw = value?.toString().trim() ?? '';
         switch (raw) {
           case 'none':
-          case 'disabled':
-            return ToolCallingMethod.none;
+          case 'disabled': return ToolCallingMethod.none;
           case 'openAiCompatible':
           case 'openai':
-          case 'open_ai':
-            return ToolCallingMethod.openAiCompatible;
+          case 'open_ai': return ToolCallingMethod.openAiCompatible;
           case 'anthropicMessages':
-          case 'anthropic':
-            return ToolCallingMethod.anthropicMessages;
+          case 'anthropic': return ToolCallingMethod.anthropicMessages;
           case 'geminiFunctionCalling':
-          case 'gemini':
-            return ToolCallingMethod.geminiFunctionCalling;
-          default:
-            return ToolCallingMethod.openAiCompatible;
+          case 'gemini': return ToolCallingMethod.geminiFunctionCalling;
+          default: return ToolCallingMethod.openAiCompatible;
         }
       }
 

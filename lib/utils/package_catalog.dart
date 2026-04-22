@@ -131,6 +131,19 @@ class PackageCatalogService {
 
   static final List<Extension> _pfdExtensions = [
     Extension(
+      name: 'Github Copilot',
+      details: 'Enable github copilot in the editor.\nNote: Nodejs runtime is required',
+      archiveName: 'copilot-language-server.zip',
+      parentName: 'copilot-language-server',
+      archiveSize: 12,
+      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/copilot-language-server.zip',
+      fileExtension: const [],
+      serverFile: const [
+        '\$extensionDir/copilot-language-server/language-server.js',
+      ],
+      iconUrl: 'assets/icons/github-copilot-icon.svg',
+    ),
+    Extension(
       name: 'Ty',
       details: 'Language server for Python.',
       archiveName: 'libty.so',
@@ -176,13 +189,11 @@ class PackageCatalogService {
     ),
     Extension(
       name: 'bash-language-server',
-      details:
-          'Language server for bash/shell-script.\nNote: Nodejs runtime is required',
+      details: 'Language server for bash/shell-script.\nNote: Nodejs runtime is required',
       archiveName: 'bash-language-server.zip',
       parentName: 'bash-language-server',
       archiveSize: 4,
-      url:
-          'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/bash-language-server.zip',
+      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/bash-language-server.zip',
       fileExtension: const ['sh', 'bash', 'zsh'],
       serverFile: const [
         '/data/data/com.roxum/extensions/bash-language-server/node_modules/bash-language-server/out/cli.js',
@@ -190,42 +201,23 @@ class PackageCatalogService {
       iconUrl: 'assets/icons/bash.png',
     ),
     Extension(
-      name: 'Github Copilot',
-      details:
-          'Enable github copilot in the editor.\nNote: Nodejs runtime is required',
-      archiveName: 'copilot-language-server.zip',
-      parentName: 'copilot-language-server',
-      archiveSize: 12,
-      url:
-          'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/copilot-language-server.zip',
-      fileExtension: const [],
-      serverFile: const [
-        '\$extensionDir/copilot-language-server/language-server.js',
-      ],
-      iconUrl: 'assets/icons/github-copilot-icon.svg',
-    ),
-    Extension(
       name: 'JDT-LS',
-      details:
-          'The Eclipse JDT-LS language server for java.\nNote: Open JDK installation is required.',
+      details: 'The Eclipse JDT-LS language server for java.\nNote: Open JDK installation is required.',
       archiveName: 'JDT-LS.zip',
       parentName: 'JDT-LS',
       archiveSize: 47,
-      url:
-          'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/JDT-LS.zip',
+      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/JDT-LS.zip',
       fileExtension: const ['java'],
       serverFile: const [],
       iconUrl: 'assets/icons/eclipse.svg',
     ),
     Extension(
       name: 'VScode-extracted LSP Servers',
-      details:
-          'Language servers extracted from VSCode. Contains HTML, CSS, Markdown, JSON and ESLint servers.\nNote: Node JS runtime is required.',
+      details: 'Language servers extracted from VSCode. Contains HTML, CSS, Markdown, JSON and ESLint servers.\nNote: Node JS runtime is required.',
       archiveName: 'vscode-langservers-extracted.zip',
       parentName: 'vscode-langservers-extracted',
       archiveSize: 14,
-      url:
-          'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/vscode-langservers-extracted.zip',
+      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/vscode-langservers-extracted.zip',
       fileExtension: const ['html', 'css', 'md', 'json'],
       serverFile: const [
         '/data/data/com.roxum/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/html-language-server/node/htmlServerMain.js',

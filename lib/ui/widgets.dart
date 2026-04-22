@@ -1433,7 +1433,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                                     controller.insertText(ghostText.text, ghostText.line, ghostText.column);
                                     controller.clearGhostText();
                                   } else {
-                                    controller.insertAtCurrentCursor("\t");
+                                    controller.indent();
                                   }
                                 },
                                 icon: SvgPicture.asset(
@@ -1442,8 +1442,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                                   width: 25,
                                   colorFilter: ColorFilter.mode(
                                     appTheme.isDark
-                                        ? const Color.fromARGB(255, 194, 194, 194)
-                                        : const Color.fromARGB(255, 40, 40, 40),
+                                      ? const Color.fromARGB(255, 194, 194, 194)
+                                      : const Color.fromARGB(255, 40, 40, 40),
                                     BlendMode.srcIn,
                                   ),
                                 ),
@@ -1909,8 +1909,6 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   bool get wantKeepAlive => true;
 }
 
-
-
 class DirectoryTreeViewerCustom extends StatefulWidget {
   final String rootPath;
   final bool isUnfoldedFirst;
@@ -1929,6 +1927,7 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
   final List<Widget>? fileActions;
   final Widget Function(String fileExtension)? fileIconBuilder;
   final AppTheme appTheme;
+  final ActiveEditorState? activeEditorState;
 
   const DirectoryTreeViewerCustom({
     super.key,
@@ -1949,6 +1948,7 @@ class DirectoryTreeViewerCustom extends StatefulWidget {
     this.enableRenameFileOption = false,
     this.enableGitFeatures = false,
     this.fileIconBuilder,
+    this.activeEditorState,
   });
 
   @override
@@ -1972,8 +1972,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     super.dispose();
   }
 
-  (Color, String?) _getFileColor(File file, RepoStatusState repoState) {
-    const defaultColor = Colors.white;
+  (Color, String?) _getFileColor(File file, RepoStatusState repoState, String? highlightedPath) {
+    final isHighlighted = highlightedPath != null && path.normalize(file.path) == path.normalize(highlightedPath);
+    final defaultColor = !isHighlighted
+      ? widget.appTheme.selectScreenCardTextColor
+      : widget.appTheme.isDark ? Colors.blue[200]! : Colors.blue[600]!;
     if (repoState is! RepoStatusLoaded) return (defaultColor, null);
     final relativePath = path.relative(file.path, from: widget.rootPath);
     for (final line in repoState.staged) {
@@ -1995,10 +1998,44 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     return (defaultColor, null);
   }
 
-  bool isUnfolded(String dirPath) =>
-      context.read<FolderBloc>().state.folderStates[dirPath] ?? false;
-  void toggleFolder(String dirPath) =>
-      context.read<FolderBloc>().toggleFolder(dirPath);
+  bool isUnfolded(String dirPath) => context.read<FolderBloc>().state.folderStates[dirPath] ?? false;
+  void toggleFolder(String dirPath) => context.read<FolderBloc>().toggleFolder(dirPath);
+
+  bool _isPathWithinRoot(String entityPath) {
+    final normalizedRoot = path.normalize(widget.rootPath);
+    final normalizedEntity = path.normalize(entityPath);
+    return normalizedEntity == normalizedRoot || normalizedEntity.startsWith('$normalizedRoot${path.separator}');
+  }
+
+  String? _activeFilePath() {
+    final editorState = widget.activeEditorState;
+    final editors = editorState?.activeEditors;
+    if (editors == null || editors.isEmpty) return null;
+
+    final activeIndex = editors.indexWhere((editor) => editor.isActive);
+    final activeEditor = activeIndex >= 0 ? editors[activeIndex] : editors.first;
+    return activeEditor.file.path;
+  }
+
+  bool _isPathOnHighlightPath(String candidatePath, String? highlightPath) {
+    if (highlightPath == null) return false;
+    final normalizedCandidate = path.normalize(candidatePath);
+    final normalizedHighlight = path.normalize(highlightPath);
+    if (normalizedCandidate == normalizedHighlight) return true;
+    return normalizedHighlight.startsWith('$normalizedCandidate${path.separator}');
+  }
+
+  String? _resolveHighlightPath(FolderState folderState) {
+    final activeFilePath = _activeFilePath();
+    if (activeFilePath != null && _isPathWithinRoot(activeFilePath)) {
+      return path.normalize(activeFilePath);
+    }
+
+    final lastUnfoldedFolderPath = folderState.lastUnfoldedFolderPath;
+    if (lastUnfoldedFolderPath == null) return null;
+    if (!_isPathWithinRoot(lastUnfoldedFolderPath)) return null;
+    return path.normalize(lastUnfoldedFolderPath);
+  }
 
   void startCreating(String parentPath, bool isFolder) {
     setState(() {
@@ -2088,8 +2125,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                widget.folderStyle?.iconForCreateFile ??
-                    FolderStyle().iconForCreateFile,
+                widget.folderStyle?.iconForCreateFile ?? FolderStyle().iconForCreateFile,
                 const SizedBox(width: 15),
                 Text(
                   'New File',
@@ -2285,8 +2321,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           PopupMenuItem(
             child: Row(
               children: [
-                widget.fileStyle?.iconForDeleteFile ??
-                    FileStyle().iconForDeleteFile,
+                widget.fileStyle?.iconForDeleteFile ?? FileStyle().iconForDeleteFile,
                 const SizedBox(width: 8),
                 Text(
                   'Delete File',
@@ -2303,11 +2338,18 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     );
   }
 
-  Widget _buildDirectoryTree(Directory directory, RepoStatusState repoState) {
+  Widget _buildDirectoryTree(
+    Directory directory,
+    RepoStatusState repoState,
+    FolderState folderState,
+  ) {
+    final highlightedPath = _resolveHighlightPath(folderState);
     return _buildDirectoryTreeNode(
       directory,
       repoState,
       ancestorHasNext: const [],
+      ancestorPaths: const [],
+      highlightedPath: highlightedPath,
       isRoot: true,
       isLast: true,
     );
@@ -2317,6 +2359,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     Directory directory,
     RepoStatusState repoState, {
     required List<bool> ancestorHasNext,
+    required List<String> ancestorPaths,
+    required String? highlightedPath,
     required bool isRoot,
     required bool isLast,
   }) {
@@ -2327,11 +2371,24 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return a.path.compareTo(b.path);
     });
 
-    final ownPrefix = isRoot
-        ? const SizedBox.shrink()
-        : _buildTreePrefix(ancestorHasNext: ancestorHasNext, isLast: isLast);
+    final ownPrefix = isRoot ? const SizedBox.shrink()
+    : _buildTreePrefix(
+        ancestorHasNext: ancestorHasNext,
+        ancestorPaths: ancestorPaths,
+        currentPath: directory.path,
+        highlightedPath: highlightedPath,
+        isLast: isLast,
+      );
 
-    final childAncestorHasNext = [...ancestorHasNext, !isLast];
+  final childAncestorHasNext = [...ancestorHasNext, !isLast];
+  final childAncestorPaths = [...ancestorPaths, directory.path];
+  final isHighlighted = highlightedPath != null && path.normalize(directory.path) == path.normalize(highlightedPath);
+  final folderNameBaseStyle = widget.folderStyle?.folderNameStyle ?? FolderStyle().folderNameStyle ?? const TextStyle();
+  final folderNameStyle = folderNameBaseStyle.copyWith(
+    color: isHighlighted
+      ? widget.appTheme.isDark ? Colors.white : Colors.black
+      : (folderNameBaseStyle.color ?? widget.appTheme.selectScreenCardTextColor),
+  );
 
     if (renamingPath == directory.path) {
       return _buildRenameField(directory.path, true, prefix: ownPrefix);
@@ -2347,23 +2404,23 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             directory,
             details.globalPosition,
           ),
-          child: SizedBox(
+          child: Container(
             height: _guideRowHeight,
+            decoration: BoxDecoration(
+              color: isHighlighted ? widget.appTheme.editorPageToolSelectedBgColor.withAlpha(200) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: Row(
               children: [
                 ownPrefix,
                 isUnfolded(directory.path)
-                    ? widget.folderStyle?.folderOpenedicon ??
-                          FolderStyle().folderOpenedicon
-                    : widget.folderStyle?.folderClosedicon ??
-                          FolderStyle().folderClosedicon,
+                  ? widget.folderStyle?.folderOpenedicon ?? FolderStyle().folderOpenedicon
+                  : widget.folderStyle?.folderClosedicon ?? FolderStyle().folderClosedicon,
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     path.basename(directory.path),
-                    style:
-                        widget.folderStyle?.folderNameStyle ??
-                        FolderStyle().folderNameStyle,
+                    style: folderNameStyle,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -2392,6 +2449,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                         entry,
                         repoState,
                         ancestorHasNext: childAncestorHasNext,
+                        ancestorPaths: childAncestorPaths,
+                        highlightedPath: highlightedPath,
                         isRoot: false,
                         isLast: entryIsLast,
                       ),
@@ -2402,6 +2461,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                         entry as File,
                         repoState,
                         ancestorHasNext: childAncestorHasNext,
+                        ancestorPaths: childAncestorPaths,
+                        highlightedPath: highlightedPath,
                         isLast: entryIsLast,
                       ),
                     );
@@ -2414,6 +2475,9 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                       directory,
                       prefix: _buildTreePrefix(
                         ancestorHasNext: childAncestorHasNext,
+                        ancestorPaths: childAncestorPaths,
+                        currentPath: directory.path,
+                        highlightedPath: highlightedPath,
                         isLast: true,
                       ),
                     ),
@@ -2429,26 +2493,39 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
 
   Widget _buildTreePrefix({
     required List<bool> ancestorHasNext,
+    required List<String> ancestorPaths,
+    required String currentPath,
+    required String? highlightedPath,
     required bool isLast,
   }) {
     final guideColor = widget.appTheme.selectScreenCardTextColor.withValues(
       alpha: widget.appTheme.isDark ? 0.24 : 0.32,
     );
+    final highlightedGuideColor = widget.appTheme.editorPageToolSelectedColor.withValues(
+      alpha: widget.appTheme.isDark ? 0.95 : 0.80,
+    );
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final hasNext in ancestorHasNext)
+        for (int i = 0; i < ancestorHasNext.length; i++)
           _GuideSegment(
             width: _guideIndentWidth,
             height: _guideRowHeight,
-            lineColor: guideColor,
-            showVertical: hasNext,
+            lineColor: _isPathOnHighlightPath(
+              i < ancestorPaths.length ? ancestorPaths[i] : '',
+              highlightedPath,
+            )
+                ? highlightedGuideColor
+                : guideColor,
+            showVertical: ancestorHasNext[i],
           ),
         _GuideSegment(
           width: _guideIndentWidth,
           height: _guideRowHeight,
-          lineColor: guideColor,
+          lineColor: _isPathOnHighlightPath(currentPath, highlightedPath)
+              ? highlightedGuideColor
+              : guideColor,
           showVertical: true,
           isNodeConnector: true,
           isLast: isLast,
@@ -2477,8 +2554,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
               cursorColor: widget.editingFieldStyle?.cursorColor,
               autofocus: true,
               decoration:
-                  widget.editingFieldStyle?.textfieldDecoration ??
-                  EditingFieldStyle().textfieldDecoration,
+                widget.editingFieldStyle?.textfieldDecoration ??
+                EditingFieldStyle().textfieldDecoration,
               controller: _controller,
               onSubmitted: (_) => createEntry(parent),
             ),
@@ -2486,14 +2563,14 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         ),
         IconButton(
           icon:
-              widget.editingFieldStyle?.doneIcon ??
-              EditingFieldStyle().doneIcon,
+            widget.editingFieldStyle?.doneIcon ??
+            EditingFieldStyle().doneIcon,
           onPressed: () => createEntry(parent),
         ),
         IconButton(
           icon:
-              widget.editingFieldStyle?.cancelIcon ??
-              EditingFieldStyle().cancelIcon,
+            widget.editingFieldStyle?.cancelIcon ??
+            EditingFieldStyle().cancelIcon,
           onPressed: stopCreating,
         ),
       ],
@@ -2505,10 +2582,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       children: [
         prefix ?? const SizedBox.shrink(),
         isFolder
-            ? widget.editingFieldStyle?.folderIcon ??
-                  EditingFieldStyle().folderIcon
-            : widget.editingFieldStyle?.fileIcon ??
-                  EditingFieldStyle().fileIcon,
+          ? widget.editingFieldStyle?.folderIcon ?? EditingFieldStyle().folderIcon
+          : widget.editingFieldStyle?.fileIcon ?? EditingFieldStyle().fileIcon,
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
@@ -2548,15 +2623,17 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
     File file,
     RepoStatusState repoState, {
     required List<bool> ancestorHasNext,
+    required List<String> ancestorPaths,
+    required String? highlightedPath,
     required bool isLast,
   }) {
-    final baseStyle =
-        widget.fileStyle?.fileNameStyle ??
-        FileStyle().fileNameStyle ??
-        const TextStyle();
+    final baseStyle = widget.fileStyle?.fileNameStyle ?? FileStyle().fileNameStyle ?? const TextStyle();
 
     final prefix = _buildTreePrefix(
       ancestorHasNext: ancestorHasNext,
+      ancestorPaths: ancestorPaths,
+      currentPath: file.path,
+      highlightedPath: highlightedPath,
       isLast: isLast,
     );
 
@@ -2564,7 +2641,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       return _buildRenameField(file.path, false, prefix: prefix);
     }
 
-    final (color, letter) = _getFileColor(file, repoState);
+    final (color, letter) = _getFileColor(file, repoState, highlightedPath);
+    final isHighlighted = highlightedPath != null && path.normalize(file.path) == path.normalize(highlightedPath);
     final key = GlobalKey();
     return InkWell(
       key: key,
@@ -2574,21 +2652,26 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
         final position = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
         _showFileContextMenu(context, file, position);
       },
-      child: SizedBox(
+      child: Container(
         height: _guideRowHeight,
+        decoration: BoxDecoration(
+          color: isHighlighted ? widget.appTheme.editorPageToolSelectedBgColor.withAlpha(200) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Row(
           children: [
             prefix,
-            widget.fileIconBuilder?.call(
-                  path.extension(file.path).toLowerCase(),
-                ) ??
-                widget.fileStyle?.fileIcon ??
-                FileStyle().fileIcon,
+            widget.fileIconBuilder?.call(path.extension(file.path).toLowerCase())
+            ?? widget.fileStyle?.fileIcon
+            ?? FileStyle().fileIcon,
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 path.basename(file.path),
-                style: baseStyle.copyWith(color: color, height: 1.0),
+                style: baseStyle.copyWith(
+                  color: color,
+                  height: 1.0,
+                ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -2598,7 +2681,10 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
                 padding: const EdgeInsets.only(right: 6),
                 child: Text(
                   letter,
-                  style: baseStyle.copyWith(color: color, fontSize: 15),
+                  style: baseStyle.copyWith(
+                    color: color,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             if (widget.fileActions != null) ...widget.fileActions!,
@@ -2642,8 +2728,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: widget.appTheme.isDark
-              ? const Color(0xff2b2b2b)
-              : Colors.white,
+            ? const Color(0xff2b2b2b)
+            : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -2759,8 +2845,8 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
       builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: widget.appTheme.isDark
-              ? const Color(0xff2b2b2b)
-              : Colors.white,
+            ? const Color(0xff2b2b2b)
+            : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -2882,7 +2968,11 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
           return BlocBuilder<FolderBloc, FolderState>(
             builder: (context, folderState) {
               return SingleChildScrollView(
-                child: _buildDirectoryTree(rootDirectory, repoState),
+                child: _buildDirectoryTree(
+                  rootDirectory,
+                  repoState,
+                  folderState,
+                ),
               );
             },
           );
@@ -2895,6 +2985,7 @@ class _DirectoryTreeViewerState extends State<DirectoryTreeViewerCustom> {
             child: _buildDirectoryTree(
               rootDirectory,
               const RepoStatusInitial(),
+              folderState,
             ),
           );
         },
@@ -3346,8 +3437,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                     ),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                        color: widget.appTheme.selectScreenCardTextColor
-                            .withAlpha(100),
+                        color: widget.appTheme.selectScreenCardTextColor.withAlpha(100),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
@@ -3363,9 +3453,7 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                 child: Text(
                   "Search in Workspace",
                   style: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(
-                      180,
-                    ),
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -5794,21 +5882,20 @@ $diffText
                 DropdownButtonFormField<String>(
                   initialValue: selectedBranch,
                   dropdownColor: widget.appTheme.isDark
-                      ? const Color(0xff2b2b2b)
-                      : Colors.white,
+                    ? const Color(0xff2b2b2b)
+                    : Colors.white,
                   style: TextStyle(
                     color: widget.appTheme.selectScreenCardTextColor,
                   ),
                   decoration: InputDecoration(
                     labelText: 'Remote branch to delete',
                     labelStyle: TextStyle(
-                      color: widget.appTheme.selectScreenCardTextColor
-                          .withValues(alpha: 0.6),
+                      color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
                     ),
                     filled: true,
                     fillColor: widget.appTheme.isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.black.withValues(alpha: 0.05),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
                       borderSide: BorderSide.none,
@@ -5845,8 +5932,7 @@ $diffText
                       child: Text(
                         'Cancel',
                         style: TextStyle(
-                          color: widget.appTheme.selectScreenCardTextColor
-                              .withValues(alpha: 0.7),
+                          color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -6255,8 +6341,8 @@ $diffText
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: widget.appTheme.isDark
-            ? const Color(0xff2b2b2b)
-            : Colors.white,
+          ? const Color(0xff2b2b2b)
+          : Colors.white,
         title: Text(
           'Drop All Stashes',
           style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
@@ -6309,8 +6395,8 @@ $diffText
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: widget.appTheme.isDark
-              ? const Color(0xff2b2b2b)
-              : Colors.white,
+            ? const Color(0xff2b2b2b)
+            : Colors.white,
           title: Text(
             'View Stash',
             style: TextStyle(color: widget.appTheme.selectScreenCardTextColor),
@@ -6324,8 +6410,8 @@ $diffText
                 DropdownButtonFormField<String>(
                   initialValue: selectedStash,
                   dropdownColor: widget.appTheme.isDark
-                      ? const Color(0xff2b2b2b)
-                      : Colors.white,
+                    ? const Color(0xff2b2b2b)
+                    : Colors.white,
                   decoration: InputDecoration(
                     labelText: 'Select stash',
                     labelStyle: TextStyle(
