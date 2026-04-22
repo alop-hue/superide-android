@@ -220,90 +220,7 @@ Future<void> initRepo(String workspacePath) async {
   );
 
   await createGitignoreIfNeeded(workspacePath);
-}
 
-Future<void> createGitignoreIfNeeded(String workspacePath) async {
-  final gitignoreFile = File('$workspacePath/.gitignore');
-  final patterns = _getGitignorePatterns();
-
-  if (await gitignoreFile.exists()) {
-    final existingContent = await gitignoreFile.readAsString();
-    final existingLines = existingContent
-        .split('\n')
-        .map((e) => e.trim())
-        .toSet();
-
-    final patternsToAdd = <String>[];
-    for (final pattern in patterns) {
-      final trimmedPattern = pattern.trim();
-      if (trimmedPattern.isNotEmpty &&
-          !trimmedPattern.startsWith('#') &&
-          !existingLines.contains(trimmedPattern)) {
-        patternsToAdd.add(pattern);
-      }
-    }
-
-    if (patternsToAdd.isNotEmpty) {
-      await gitignoreFile.writeAsString(
-        '$existingContent\n\n# Auto-added by Roxum\n${patternsToAdd.join('\n')}\n',
-        mode: FileMode.append,
-      );
-    }
-  } else {
-    await gitignoreFile.writeAsString('${patterns.join('\n')}\n');
-  }
-}
-
-List<String> _getGitignorePatterns() {
-  return [
-    '# Roxum and Editor files',
-    '.vscode/',
-    '.idea/',
-    '*.swp',
-    '*.swo',
-    '*~',
-    '.DS_Store',
-    '',
-    '# Language Server Protocol (LSP) cache directories',
-    '.ccls-cache/',
-    'jdt.ls-java-project',
-    '.clangd/',
-    '.cache/',
-    'compile_commands.json',
-    '__pycache__/',
-    '*.pyc',
-    '.mypy_cache/',
-    '.ruff_cache/',
-    '.pytest_cache/',
-    'pyrightconfig.json',
-    '*.jdt.ls/',
-    '.settings/',
-    '',
-    '# Dependencies',
-    'node_modules/',
-    '.pnpm-store/',
-    '.npm/',
-    '.yarn/',
-    '.venv/',
-    'venv/',
-    'env/',
-    'ENV/',
-    '',
-    '# Flutter / Dart',
-    '.dart_tool/',
-    '.packages',
-    'pubspec.lock',
-    '.flutter-plugins',
-    '.flutter-plugins-dependencies',
-    '.metadata',
-    '',
-    '# Java / Android',
-    'bin/',
-    '.classpath',
-    '.project',
-    '.factorypath',
-    '*.class',
-    '.gradle/',
     'local.properties',
     '.externalNativeBuild/',
     '.cxx/',
@@ -1684,10 +1601,11 @@ Future<LspConfig?> startLspServer({
     final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
     final String dartAotRuntimeExecutable = '$dartRuntimeDir/bin/dartaotruntime';
     final String dartAnalysisServerSnapshot =
-      '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
+        '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
     final String resolvedExecutable = normalizedExt == 'dart'
-      ? dartAotRuntimeExecutable
+        ? dartAotRuntimeExecutable
         : executable;
+
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
@@ -1733,11 +1651,11 @@ Future<LspConfig?> startLspServer({
     final resolvedArgs = (() {
       if (normalizedExt == 'ts' || normalizedExt == 'js') {
         return [
-          "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
+          '$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
           ...args,
         ];
       } else if (normalizedExt == 'py' || normalizedExt == 'pyi') {
-        return ["server"];
+        return ['server'];
       } else if (normalizedExt == 'c' ||
           normalizedExt == 'cpp' ||
           normalizedExt == 'cc' ||
@@ -1752,24 +1670,24 @@ Future<LspConfig?> startLspServer({
       } else if (normalizedExt == 'dart') {
         return [
           dartAnalysisServerSnapshot,
-          "--protocol=lsp",
-          "--dart-sdk=$dartRuntimeDir",
+          '--protocol=lsp',
+          '--dart-sdk=$dartRuntimeDir',
         ];
       } else if (normalizedExt == 'java') {
         return [
-          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
-          "-Dosgi.bundles.defaultStartLevel=4",
-          "-Declipse.product=org.eclipse.jdt.ls.core.product",
-          "-Dlog.level=ALL",
-          "-Xmx1G",
-          "--add-modules=ALL-SYSTEM",
-          "--add-opens=java.base/java.util=ALL-UNNAMED",
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "-jar",
-          "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
-          "-configuration",
-          "$extensionDir/JDT-LS/config_linux_arm",
-          "-data",
+          '-Declipse.application=org.eclipse.jdt.ls.core.id1',
+          '-Dosgi.bundles.defaultStartLevel=4',
+          '-Declipse.product=org.eclipse.jdt.ls.core.product',
+          '-Dlog.level=ALL',
+          '-Xmx1G',
+          '--add-modules=ALL-SYSTEM',
+          '--add-opens=java.base/java.util=ALL-UNNAMED',
+          '--add-opens=java.base/java.lang=ALL-UNNAMED',
+          '-jar',
+          '$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar',
+          '-configuration',
+          '$extensionDir/JDT-LS/config_linux_arm',
+          '-data',
           workspacePath,
           ...args,
         ];
@@ -1781,7 +1699,8 @@ Future<LspConfig?> startLspServer({
       ...environment ?? {},
       'PATH': '$binDir:$runtimeDir/dart/bin:/bin:/usr/bin:${Platform.environment['PATH'] ?? ''}',
       'ROXUM_SHARED_PATH': sharedPath,
-      'LD_LIBRARY_PATH': '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+      'LD_LIBRARY_PATH':
+          '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
       if (normalizedExt == 'dart') 'DART_ROOT': dartRuntimeDir,
       'JAVA_HOME': '$runtimeDir/java-21-openjdk',
     };
@@ -1796,7 +1715,9 @@ Future<LspConfig?> startLspServer({
           workspacePath: workspacePath,
           languageId: langId.toLowerCase(),
         );
-        debugPrint('Dart LSP started with AOT runtime executable: $resolvedExecutable');
+        debugPrint(
+          'Dart LSP started with AOT runtime executable: $resolvedExecutable',
+        );
         return config;
       } catch (primaryError) {
         debugPrint(
@@ -1815,46 +1736,49 @@ Future<LspConfig?> startLspServer({
           workspacePath: workspacePath,
           languageId: langId.toLowerCase(),
         );
-        debugPrint('Dart LSP started with fallback executable: $fallbackExecutable');
+        debugPrint(
+          'Dart LSP started with fallback executable: $fallbackExecutable',
+        );
         return fallbackConfig;
       }
     }
 
->>>>>>> 1d87f7b (fix(lsp): update Dart LSP server to use AOT runtime and analysis server snapshot)
     final config = await LspStdioConfig.start(
-      executable: executable,
+      executable: resolvedExecutable,
       capabilities: capabilities ?? const LspClientCapabilities(),
-      args: (() {
-        if (ext == 'ts' || ext == 'js') {
-          return [
-            "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
-            ...args,
-          ];
-        } else if (ext == 'c' || ext == 'cpp' || ext == 'cc' || ext == 'c++') {
-          return [
-            '--init={"cache":{"directory":"$tempDir/.ccls-cache"}, "clang":{"extraArgs":["-isystem","$runtimeDir/clang/sysroot/usr/include/c++/v1","-isystem","$runtimeDir/clang/sysroot/usr/include","-isystem","$runtimeDir/clang/lib/clang/21/include"],"resourceDir":"$runtimeDir/clang/lib/clang/21"}}',
-          ];
-        } else if (ext == 'java') {
-          return [
-            "-Declipse.application=org.eclipse.jdt.ls.core.id1",
-            "-Dosgi.bundles.defaultStartLevel=4",
-            "-Declipse.product=org.eclipse.jdt.ls.core.product",
-            "-Dlog.level=ALL",
-            "-Xmx1G",
-            "--add-modules=ALL-SYSTEM",
-            "--add-opens=java.base/java.util=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-            "-jar",
-            "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
-            "-configuration",
-            "$extensionDir/JDT-LS/config_linux_arm",
-            "-data",
-          ];
-        }
-          executable: resolvedExecutable,
-      })(),
-          args: resolvedArgs,
-          environment: resolvedEnvironment,
+      args: resolvedArgs,
+      environment: resolvedEnvironment,
+      workspacePath: workspacePath,
+      languageId: langId.toLowerCase(),
+    );
+    return config;
+  } catch (e) {
+    debugPrint('LSP Initialization failed: $e');
+  }
+  return null;
+}
+
+class Extractor {
+  static Future<void> extractZip(
+    BuildContext context,
+    String inputPath,
+    String outputDir, {
+    String? archiveName,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final progressNotifier = ValueNotifier<double>(0.0);
+
+    final snackbar = SnackBar(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(days: 1),
+      content: ValueListenableBuilder<double>(
+        valueListenable: progressNotifier,
+        builder: (context, value, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
               'Extracting${archiveName == null ? "" : " "}${archiveName ?? "..."}',
               style: const TextStyle(color: Colors.white),
             ),
@@ -1868,7 +1792,7 @@ Future<LspConfig?> startLspServer({
               trailing: Padding(
                 padding: const EdgeInsets.only(left: 10),
                 child: Text(
-                  "${(value * 100).toStringAsFixed(1)}%",
+                  '${(value * 100).toStringAsFixed(1)}%',
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
