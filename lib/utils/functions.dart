@@ -1404,6 +1404,7 @@ Future<String> getCodeForgeConfig() async {
     "lineWrap": false,
     "enableFolding": true,
     "theme": "vs2015",
+    "terminalTheme": "classic-green",
     "fontFamily": "jetBrainsMono",
     "terminalTheme": "xterm_classic",
     "terminalFontSize": 14.0,
