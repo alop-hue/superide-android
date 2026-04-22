@@ -794,20 +794,20 @@ class EditingFieldStyle {
   final Radius? cursorRadius;
   final TextAlignVertical? verticalTextAlign;
   final TextStyle? textStyle;
-  EditingFieldStyle(
-      {this.textFieldHeight = 30,
-      this.textFieldWidth = double.infinity,
-      this.cursorHeight = 20,
-      this.cursorWidth = 2.0,
-      this.cursorRadius,
-      this.cursorColor,
-      this.verticalTextAlign,
-      this.textStyle,
-      this.textfieldDecoration = const InputDecoration(),
-      this.folderIcon = const Icon(Icons.folder),
-      this.fileIcon = const Icon(Icons.edit_document),
-      this.doneIcon = const Icon(Icons.check),
-      this.cancelIcon = const Icon(Icons.close)});
+  EditingFieldStyle({
+    this.textFieldHeight = 30,
+    this.textFieldWidth = double.infinity,
+    this.cursorHeight = 20,
+    this.cursorWidth = 2.0,
+    this.cursorRadius,
+    this.cursorColor,
+    this.verticalTextAlign,
+    this.textStyle,
+    this.textfieldDecoration = const InputDecoration(),
+    this.folderIcon = const Icon(Icons.folder),
+    this.fileIcon = const Icon(Icons.edit_document),
+    this.doneIcon = const Icon(Icons.check),
+    this.cancelIcon = const Icon(Icons.close)});
 }
 
 abstract class AppTheme{

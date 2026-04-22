@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:roxum/utils/constants.dart';
+import 'package:roxum/utils/functions.dart';
 
 final txt = Mode();
 final unknown = Mode();
@@ -211,8 +212,10 @@ class Language {
            customCodeSnippet ?? _defaultSnippetsForExtensions(extension);
 }
 
-class RunTime{
-  final String name, details, url, archiveName, parentName;
+class RunTime with IconBuilder{
+  @override
+  final String name;
+  final String details, url, archiveName, parentName;
   final int archiveSize;
   final String? version;
   final String iconUrl;
@@ -252,11 +255,13 @@ class RunTime{
     'icon-url': iconUrl,
   };
 
-  Widget get icon => _buildPackageIcon(iconUrl, size: 35);
+  Widget get icon => buildPackageIcon(iconUrl, size: 35);
 }
 
-class Extension{
-  final String name, details, url, archiveName, parentName;
+class Extension with IconBuilder{
+  @override
+  final String name;
+  final String details, url, archiveName, parentName;
   final List<String> fileExtension, serverFile;
   final double archiveSize;
   final String iconUrl;
@@ -281,12 +286,8 @@ class Extension{
       archiveSize: (json['archiveSize'] as num?)?.toDouble() ?? 0,
       url: json['url']?.toString() ?? '',
       iconUrl: (json['icon-url'] ?? json['iconUrl'] ?? '').toString(),
-      fileExtension: (json['fileExtension'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(),
-      serverFile: (json['serverFile'] as List<dynamic>? ?? const [])
-          .map((item) => item.toString())
-          .toList(),
+      fileExtension: (json['fileExtension'] as List<dynamic>? ?? const []).map((item) => item.toString()).toList(),
+      serverFile: (json['serverFile'] as List<dynamic>? ?? const []).map((item) => item.toString()).toList(),
     );
   }
 
@@ -302,29 +303,53 @@ class Extension{
     'icon-url': iconUrl,
   };
 
-  Widget get icon => _buildPackageIcon(iconUrl, size: 35);
+  Widget get icon => buildPackageIcon(iconUrl, size: 35);
+
 }
 
-Widget _buildPackageIcon(String iconUrl, {double size = 35}) {
-  if (iconUrl.isEmpty) {
-    return Icon(Icons.extension, size: size);
-  }
+  mixin IconBuilder {
+    String get name;
 
-  final isRemote = iconUrl.startsWith('http://') || iconUrl.startsWith('https://');
-  final isSvg = iconUrl.toLowerCase().endsWith('.svg');
+    Widget buildPackageIcon(String iconUrl, {double size = 35}) {
+      
+      if (iconUrl.isEmpty) {
+        return Icon(Icons.extension, size: size);
+      }
 
-  if (isRemote) {
-    if (isSvg) {
-      return SvgPicture.network(iconUrl, height: size, width: size);
+      final isRemote = iconUrl.startsWith('http://') || iconUrl.startsWith('https://');
+      final isSvg = iconUrl.toLowerCase().endsWith('.svg');
+
+      if (isRemote) {
+        if (isSvg) {
+          return SvgPicture.network(iconUrl, height: size, width: size);
+        }
+        return Image.network(iconUrl, height: size, width: size);
+      }
+
+      if (isSvg) {
+        return SvgPicture.asset(
+          iconUrl,
+          height: size,
+          width: size,
+          colorFilter:
+            name == "Github Copilot" && (){
+              bool isDark = false;
+              getAppTheme().then((val){
+                isDark = val == "dark";
+              });
+              return isDark;
+            }()
+              ? ColorFilter.mode(
+                 Colors.grey[400]!,
+                BlendMode.srcIn
+              )
+              : null,
+        );
+      }
+      return Image.asset(iconUrl, height: size, width: size);
     }
-    return Image.network(iconUrl, height: size, width: size);
   }
 
-  if (isSvg) {
-    return SvgPicture.asset(iconUrl, height: size, width: size);
-  }
-  return Image.asset(iconUrl, height: size, width: size);
-}
 
 final langtxt = Language(
   name: 'Text File',
