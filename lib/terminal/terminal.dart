@@ -10,6 +10,7 @@ import 'package:roxum/utils/themes.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
@@ -149,7 +150,7 @@ class TerminalSessionState {
 }
 
 class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionState> {
-  TerminalSessionBloc() : super(TerminalSessionState(sessions: [], activeSessionId: null, fontSize: 13)) {
+  TerminalSessionBloc({double initialFontSize = 13}) : super(TerminalSessionState(sessions: [], activeSessionId: null, fontSize: initialFontSize)) {
     on<CreateTerminalSession>((event, emit) {
       final newSession = TerminalSessionMeta(
         id: event.id,
@@ -259,7 +260,9 @@ class _SetupTerminalState extends State<SetupTerminal> {
   @override
   void initState() {
     super.initState();
-    _sessionBloc = TerminalSessionBloc();
+    _sessionBloc = TerminalSessionBloc(
+      initialFontSize: _terminalFontSizeFromConfig(),
+    );
     _bootstrapTerminalPage();
     _loadPathBinaries();
   }
@@ -445,6 +448,35 @@ class _SetupTerminalState extends State<SetupTerminal> {
       }
     } catch (_) {
     }
+  }
+
+  double _terminalFontSizeFromConfig() {
+    try {
+      final raw = context.read<ConfigBloc>().state.codeForgeConfig['terminalFontSize'];
+      if (raw is num) return raw.toDouble();
+      if (raw is String) return double.tryParse(raw) ?? 14.0;
+    } catch (_) {
+      // ignore
+    }
+    return 14.0;
+  }
+
+  Future<void> _saveTerminalFontSize(double fontSize) async {
+    final configState = context.read<ConfigBloc>().state;
+    final currentConfig = Map<String, dynamic>.from(configState.codeForgeConfig);
+    currentConfig['terminalFontSize'] = fontSize;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
+    if (!mounted) return;
+    context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
+  }
+
+  void _onTerminalFontSizeChanged(double fontSize) {
+    if (fontSize < 8) fontSize = 8;
+    if (fontSize > 32) fontSize = 32;
+    _sessionBloc.add(UpdateTerminalFontSize(fontSize: fontSize));
+    _saveTerminalFontSize(fontSize);
   }
 
   Future<void> _startPty(
@@ -1280,11 +1312,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
                 title: Text(activeRuntime?.title ?? 'Terminal'),
                 actions: [
                   IconButton(
-                    onPressed: () =>  _sessionBloc.add(UpdateTerminalFontSize(fontSize: state.fontSize - 1)),
+                    onPressed: () => _onTerminalFontSizeChanged(state.fontSize - 1),
                     icon: Icon(Icons.zoom_out)
                   ),
                   IconButton(
-                    onPressed: () => _sessionBloc.add(UpdateTerminalFontSize(fontSize: state.fontSize + 1)),
+                    onPressed: () => _onTerminalFontSizeChanged(state.fontSize + 1),
                     icon: Icon(Icons.zoom_in)
                   ),
                   IconButton(

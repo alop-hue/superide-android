@@ -114,12 +114,32 @@ class CLITemplates extends ProjectTemplates {
     this.requirements = const [],
   }) : _command = command ;
 
-  set name(String n) => _command = "$command ${appendProjectName ? n : ''}";
+  String _shellEscape(String value) {
+    if (value.isEmpty) return "''";
+    final safeChar = RegExp(r'[A-Za-z0-9_./:-]');
+    final isSafe = value.runes.every(
+      (rune) => safeChar.hasMatch(String.fromCharCode(rune)),
+    );
+    if (isSafe) {
+      return value;
+    }
+    return "'${value.replaceAll("'", "'\\''")}'";
+  }
+
+  set name(String n) {
+    final trimmed = n.trim();
+    if (!appendProjectName || trimmed.isEmpty) {
+      _command = command;
+      return;
+    }
+    _command = '$command ${_shellEscape(trimmed)}';
+  }
 
   EmbeddedTerminal runCommand(){
+    final commandToRun = 'cd ${_shellEscape(projectDir)} && $_command';
     return EmbeddedTerminal(
       projectDir: projectDir,
-      args: ["-c", _command],
+      args: ["-c", commandToRun],
     );
   }
 }

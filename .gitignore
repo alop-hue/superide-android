@@ -51,5 +51,5 @@ app.*.map.json
 /android/build
 bundletool-all-*.jar
 app.apks
-.metadata
 app-debug.apks
+.prebuilt/

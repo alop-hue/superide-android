@@ -1423,6 +1423,7 @@ Future<String> getRecent() async {
 }
 
 const String copilotEnabledPrefKey = 'isCopilotEnabled';
+const String copilotSignedPrefKey = 'isSignedCopilot';
 
 Future<bool> ensureCopilotEnabledPrefInitialized() async {
   final prefs = await SharedPreferences.getInstance();
@@ -1432,6 +1433,31 @@ Future<bool> ensureCopilotEnabledPrefInitialized() async {
     return false;
   }
   return currentValue;
+}
+
+Future<bool> ensureCopilotSignedPrefInitialized() async {
+  final prefs = await SharedPreferences.getInstance();
+  final currentValue = prefs.getBool(copilotSignedPrefKey);
+  if (currentValue == null) {
+    await prefs.setBool(copilotSignedPrefKey, false);
+    return false;
+  }
+  return currentValue;
+}
+
+Future<bool> isCopilotSignedPref() async {
+  final prefs = await SharedPreferences.getInstance();
+  final currentValue = prefs.getBool(copilotSignedPrefKey);
+  if (currentValue == null) {
+    await prefs.setBool(copilotSignedPrefKey, false);
+    return false;
+  }
+  return currentValue;
+}
+
+Future<void> setCopilotSignedPref(bool isSignedIn) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(copilotSignedPrefKey, isSignedIn);
 }
 
 Future<bool> isCopilotEnabledPref() async {
@@ -1464,6 +1490,7 @@ Future<String> getCodeForgeConfig() async {
     "theme": "vs2015",
     "terminalTheme": "classic-green",
     "fontFamily": "jetBrainsMono",
+    "terminalFontSize": 14.0,
     "isAIEnabled": true,
     "manualCompletion": true,
     "autoSave": true,
@@ -1612,11 +1639,11 @@ String lspLanguageIdForExtension({
     case 'cjs':
       return 'javascript';
     case 'jsx':
-      return 'javascriptreact';
+      return 'jsx';
     case 'ts':
       return 'typescript';
     case 'tsx':
-      return 'typescriptreact';
+      return 'tsx';
     case 'py':
     case 'pyi':
       return 'python';
@@ -1640,6 +1667,22 @@ String lspLanguageIdForFile({
     ext: ext,
     fallbackLanguageName: language.name,
   );
+}
+
+String lspServerExtForExtension({required String ext}) {
+  final normalizedExt = ext.toLowerCase().replaceFirst('.', '');
+  switch (normalizedExt) {
+    case 'jsx':
+      return 'js';
+    case 'tsx':
+      return 'ts';
+    default:
+      return normalizedExt;
+  }
+}
+
+String lspServerExtForFilePath(String filePath) {
+  return lspServerExtForExtension(ext: path.extension(filePath));
 }
 
 bool isLspServerAvailable({
