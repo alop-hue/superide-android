@@ -23,7 +23,7 @@ https://play.google.com/store/apps/details?id=com.roxum
 
 ### Gallery
 
-<table>
+ <table>
   <tr>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/home.jpg" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/ag.jpg" width="100%"></td>
@@ -43,7 +43,39 @@ https://play.google.com/store/apps/details?id=com.roxum
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/themes.jpg" width="100%"></td>
   </tr>
   
-</table>
+</table> 
+
+## Building from source - Roxum lite
+This section is intended for users from countries like China where playstore isn't accessible. Otherwise it is recommended to download the full featured apk from the playstore as mentioned above.<br>
+
+There are two branches are there in the repo. The main one is the [playstore-version](https://github.com/heckmon/roxum-ide/tree/playstore-version), the master branch.
+Which **wont't work locally** because, it uses the [play feature delivery](https://developer.android.com/guide/playcore/feature-delivery), which only works if the app
+is downloaded from google playstore.
+
+Inorder to build the app from source, checkout the [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch, a light weight version or roxum, and run it with flutter or gradle. This version is also available in the [releases](ttps://github.com/heckmon/roxum-ide/releases/download/v1.0.0/app-release.apk) as a standalone apk.
+```bash
+git checkout main
+flutter run --release #Or flutter build apk --release
+```
+Or with gradle
+
+```bash
+cd android && ./gradlew :app: assembleRelease
+```
+
+### Important
+  Roxum lite lacks these features:
+  - Dart compiler
+  - Rust compiler
+  - Go compiler
+  - Lua interpreter
+  - rust-analyzer
+  - ty language server
+  - emmyLua language server
+  - gopls language server
+  
+
+---
 
 Special Thanks ♥️
 - [@MaximoMachado](https://github.com/MaximoMachado) — helped fund the Play store release.
