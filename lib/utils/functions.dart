@@ -1462,6 +1462,7 @@ Future<String> getCodeForgeConfig() async {
     "lineWrap": false,
     "enableFolding": true,
     "theme": "vs2015",
+    "terminalTheme": "classic-green",
     "fontFamily": "jetBrainsMono",
     "isAIEnabled": true,
     "manualCompletion": true,

@@ -115,34 +115,41 @@ class UpdateTerminalSessionStatus extends TerminalSessionEvent {
   UpdateTerminalSessionStatus({required this.id, required this.isRunning});
 }
 
-@immutable
+class UpdateTerminalFontSize extends TerminalSessionEvent {
+  final double fontSize;
+
+  UpdateTerminalFontSize({required this.fontSize});
+}
+
 class TerminalSessionState {
   final List<TerminalSessionMeta> sessions;
   final String? activeSessionId;
+  double fontSize;
 
-  const TerminalSessionState({
+  TerminalSessionState({
     required this.sessions,
     required this.activeSessionId,
+    this.fontSize = 13.0
   });
 
   TerminalSessionState copyWith({
     List<TerminalSessionMeta>? sessions,
     String? activeSessionId,
+    double? fontSize,
     bool clearActive = false,
   }) {
     return TerminalSessionState(
       sessions: sessions ?? this.sessions,
       activeSessionId: clearActive
-          ? null
-          : activeSessionId ?? this.activeSessionId,
+        ? null
+        : activeSessionId ?? this.activeSessionId,
+      fontSize: fontSize ?? this.fontSize
     );
   }
 }
 
-class TerminalSessionBloc
-    extends Bloc<TerminalSessionEvent, TerminalSessionState> {
-  TerminalSessionBloc()
-    : super(const TerminalSessionState(sessions: [], activeSessionId: null)) {
+class TerminalSessionBloc extends Bloc<TerminalSessionEvent, TerminalSessionState> {
+  TerminalSessionBloc() : super(TerminalSessionState(sessions: [], activeSessionId: null, fontSize: 13)) {
     on<CreateTerminalSession>((event, emit) {
       final newSession = TerminalSessionMeta(
         id: event.id,
@@ -164,16 +171,12 @@ class TerminalSessionBloc
     });
 
     on<DeleteTerminalSession>((event, emit) {
-      final sessions = state.sessions
-          .where((session) => session.id != event.id)
-          .toList();
+      final sessions = state.sessions.where((session) => session.id != event.id).toList();
       if (sessions.isEmpty) {
         emit(state.copyWith(sessions: sessions, clearActive: true));
         return;
       }
-      final activeId = state.activeSessionId == event.id
-          ? sessions.first.id
-          : state.activeSessionId;
+      final activeId = state.activeSessionId == event.id ? sessions.first.id : state.activeSessionId;
       emit(state.copyWith(sessions: sessions, activeSessionId: activeId));
     });
 
@@ -185,6 +188,10 @@ class TerminalSessionBloc
         return session;
       }).toList();
       emit(state.copyWith(sessions: sessions));
+    });
+
+    on<UpdateTerminalFontSize>((event, emit) {
+      emit(state.copyWith(fontSize: event.fontSize));
     });
   }
 }
@@ -417,6 +424,29 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _pathBinaries = binaries.toList()..sort();
   }
 
+  Future<void> _ensureBashRc() async {
+    try {
+      final bashrc = File('$homeDir/.bashrc');
+      final aliases = [
+        'alias ls="ls --color=auto"',
+        'alias ll="ls -ll"',
+        'alias la="ls -la"',
+      ];
+      if (!await bashrc.exists()) {
+        await bashrc.create(recursive: true);
+        await bashrc.writeAsString('${aliases.join('\n')}\n', flush: true);
+        return;
+      }
+
+      final existing = await bashrc.readAsString();
+      final missing = aliases.where((alias) => !existing.contains(alias)).toList();
+      if (missing.isNotEmpty) {
+        await bashrc.writeAsString('${existing.trimRight()}\n${missing.join('\n')}\n', flush: true);
+      }
+    } catch (_) {
+    }
+  }
+
   Future<void> _startPty(
     _TerminalRuntime runtime, {
     List<String> args = const [],
@@ -424,6 +454,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
     if (_sharedPath.isEmpty) {
       _sharedPath = await NativeChannel.getLibraryPath();
     }
+
+    await _ensureBashRc();
 
     final enVars = <String, String>{
       'HOME': homeDir,
@@ -1143,8 +1175,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     return BlocProvider.value(
       value: _sessionBloc,
       child: BlocListener<TerminalSessionBloc, TerminalSessionState>(
-        listenWhen: (previous, current) =>
-            previous.activeSessionId != current.activeSessionId,
+        listenWhen: (previous, current) => previous.activeSessionId != current.activeSessionId,
         listener: (context, state) {
           _hideSelectionToolbar();
           _suggestionsNotifier.value = null;
@@ -1154,6 +1185,10 @@ class _SetupTerminalState extends State<SetupTerminal> {
           builder: (context, state) {
             final activeRuntime = _activeRuntime();
             final appTheme = context.watch<AppThemeBloc>().state.appTheme;
+            final configState = context.watch<ConfigBloc>().state;
+            final activeTerminalTheme = terminalThemePresetById(
+              configState.codeForgeConfig['terminalTheme']?.toString(),
+            );
             final terminalContent = activeRuntime == null
                 ? const Center(child: CircularProgressIndicator())
                 : Stack(
@@ -1168,21 +1203,24 @@ class _SetupTerminalState extends State<SetupTerminal> {
                               controller: activeRuntime.controller,
                               autofocus: true,
                               keyboardType: TextInputType.multiline,
-                              theme: terminalTheme,
+                              theme: activeTerminalTheme.theme,
+                              textStyle: TerminalStyle(
+                                fontSize: state.fontSize
+                              ),
                             ),
                           ),
                           if (widget.showKeyboardMenu)
                             TerminalKeyboardMenu(
                               onSendSequence: sendToPty,
                               onModifierChanged:
-                                  (ctrl, alt, shift, resetCallback) {
-                                    _setTerminalOutputWithAutocomplete(
-                                      ctrl: ctrl,
-                                      alt: alt,
-                                      shift: shift,
-                                      resetCallback: resetCallback,
-                                    );
-                                  },
+                                (ctrl, alt, shift, resetCallback) {
+                                  _setTerminalOutputWithAutocomplete(
+                                    ctrl: ctrl,
+                                    alt: alt,
+                                    shift: shift,
+                                    resetCallback: resetCallback,
+                                  );
+                                },
                             ),
                         ],
                       ),
@@ -1242,9 +1280,16 @@ class _SetupTerminalState extends State<SetupTerminal> {
                 title: Text(activeRuntime?.title ?? 'Terminal'),
                 actions: [
                   IconButton(
+                    onPressed: () =>  _sessionBloc.add(UpdateTerminalFontSize(fontSize: state.fontSize - 1)),
+                    icon: Icon(Icons.zoom_out)
+                  ),
+                  IconButton(
+                    onPressed: () => _sessionBloc.add(UpdateTerminalFontSize(fontSize: state.fontSize + 1)),
+                    icon: Icon(Icons.zoom_in)
+                  ),
+                  IconButton(
                     tooltip: 'New session',
-                    onPressed: () =>
-                        _createSession(makeActive: true, showFeedback: true),
+                    onPressed: () => _createSession(makeActive: true, showFeedback: true),
                     icon: const Icon(Icons.add),
                   ),
                 ],
