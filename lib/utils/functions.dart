@@ -55,9 +55,9 @@ bool isSvgFilePath(String filePath) {
 
 bool isPreviewFilePath(String filePath) {
   return
-      isImageFilePath(filePath) ||
-      isSvgFilePath(filePath) ||
-      isPdfFilePath(filePath);
+    isImageFilePath(filePath) ||
+    isSvgFilePath(filePath) ||
+    isPdfFilePath(filePath);
 }
 
 Future<Directory> setupProjectDir() async {
@@ -139,14 +139,10 @@ Future<File> setTempFile(String extension) async {
   if (!target.existsSync() || target.readAsStringSync().isEmpty) {
     await target.create(recursive: true);
     await target.writeAsString(
-      languages
-          .firstWhere(
-            (lang) => lang.extension.contains(
-              path.extension(target.path).replaceFirst(".", ""),
-            ),
-            orElse: () => languages[0],
-          )
-          .helloWorld,
+      languages.firstWhere(
+        (lang) => lang.extension.contains(path.extension(target.path).replaceFirst(".", "")),
+        orElse: () => languages[0],
+      ).helloWorld,
     );
   }
 
@@ -220,7 +216,90 @@ Future<void> initRepo(String workspacePath) async {
   );
 
   await createGitignoreIfNeeded(workspacePath);
+}
 
+Future<void> createGitignoreIfNeeded(String workspacePath) async {
+  final gitignoreFile = File('$workspacePath/.gitignore');
+  final patterns = _getGitignorePatterns();
+
+  if (await gitignoreFile.exists()) {
+    final existingContent = await gitignoreFile.readAsString();
+    final existingLines = existingContent
+      .split('\n')
+      .map((e) => e.trim())
+      .toSet();
+
+    final patternsToAdd = <String>[];
+    for (final pattern in patterns) {
+      final trimmedPattern = pattern.trim();
+      if (trimmedPattern.isNotEmpty &&
+          !trimmedPattern.startsWith('#') &&
+          !existingLines.contains(trimmedPattern)) {
+        patternsToAdd.add(pattern);
+      }
+    }
+
+    if (patternsToAdd.isNotEmpty) {
+      await gitignoreFile.writeAsString(
+        '$existingContent\n\n# Auto-added by Roxum\n${patternsToAdd.join('\n')}\n',
+        mode: FileMode.append,
+      );
+    }
+  } else {
+    await gitignoreFile.writeAsString('${patterns.join('\n')}\n');
+  }
+}
+
+List<String> _getGitignorePatterns() {
+  return [
+    '# Roxum and Editor files',
+    '.vscode/',
+    '.idea/',
+    '*.swp',
+    '*.swo',
+    '*~',
+    '.DS_Store',
+    '',
+    '# Language Server Protocol (LSP) cache directories',
+    '.ccls-cache/',
+    'jdt.ls-java-project',
+    '.clangd/',
+    '.cache/',
+    'compile_commands.json',
+    '__pycache__/',
+    '*.pyc',
+    '.mypy_cache/',
+    '.ruff_cache/',
+    '.pytest_cache/',
+    'pyrightconfig.json',
+    '*.jdt.ls/',
+    '.settings/',
+    '',
+    '# Dependencies',
+    'node_modules/',
+    '.pnpm-store/',
+    '.npm/',
+    '.yarn/',
+    '.venv/',
+    'venv/',
+    'env/',
+    'ENV/',
+    '',
+    '# Flutter / Dart',
+    '.dart_tool/',
+    '.packages',
+    'pubspec.lock',
+    '.flutter-plugins',
+    '.flutter-plugins-dependencies',
+    '.metadata',
+    '',
+    '# Java / Android',
+    'bin/',
+    '.classpath',
+    '.project',
+    '.factorypath',
+    '*.class',
+    '.gradle/',
     'local.properties',
     '.externalNativeBuild/',
     '.cxx/',
@@ -460,14 +539,14 @@ Future<GitDiffResult> getGitDiff(String fileName, String workspacePath) async {
 
   final lines = diffTextOriginal.split('\n');
   final filteredLines = lines
-      .where(
-        (line) =>
-            !line.startsWith('diff --git') &&
-            !line.startsWith('index ') &&
-            !line.startsWith('--- ') &&
-            !line.startsWith('+++ '),
-      )
-      .toList();
+    .where(
+      (line) =>
+        !line.startsWith('diff --git') &&
+        !line.startsWith('index ') &&
+        !line.startsWith('--- ') &&
+        !line.startsWith('+++ '),
+    )
+    .toList();
 
   final visibleLines = <String>[];
 
@@ -904,9 +983,9 @@ Future<List<String>> gitListTags(String workspacePath) async {
   );
   if (result.exitCode != 0) return [];
   return (result.stdout as String)
-      .split('\n')
-      .where((t) => t.isNotEmpty)
-      .toList();
+    .split('\n')
+    .where((t) => t.isNotEmpty)
+    .toList();
 }
 
 Future<ProcessResult> gitCreateTag(
@@ -1079,17 +1158,17 @@ Future<String> gitHubSignIn() async {
     }
 
     final response = await http
-        .post(
-          Uri.parse('$backEndHandler/github/oauth'),
-          headers: {'Content-Type': 'application/json; charset=utf-8'},
-          body: jsonEncode({'code': code}),
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            return http.Response('Backend connection timeout', 408);
-          },
-        );
+      .post(
+        Uri.parse('$backEndHandler/github/oauth'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'code': code}),
+      )
+      .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          return http.Response('Backend connection timeout', 408);
+        },
+      );
 
     if (response.statusCode != 200) {
       return ('${response.statusCode}: ${response.body}');
@@ -1406,7 +1485,6 @@ Future<String> getCodeForgeConfig() async {
     "theme": "vs2015",
     "terminalTheme": "classic-green",
     "fontFamily": "jetBrainsMono",
-    "terminalTheme": "xterm_classic",
     "terminalFontSize": 14.0,
     "isAIEnabled": true,
     "manualCompletion": true,
@@ -1510,11 +1588,7 @@ void runCode(BuildContext context, String command, String rootDir) {
   try {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
-          projectDir: rootDir,
-          args: ["-c", command],
-          resetImeOnOpen: true,
-        ),
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(projectDir: rootDir, args: ["-c", command]),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SizeTransition(sizeFactor: animation, child: child);
         },
@@ -1622,6 +1696,7 @@ bool isLspServerAvailable({
       File('$runtimesDir/dart/bin/snapshots/analysis_server_aot.dart.snapshot')
         .existsSync();
   }
+
   if (normalizedExt == 'js' || normalizedExt == 'ts') {
     return File(
       '$runtimesDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
@@ -1678,7 +1753,6 @@ bool isLspServerAvailable({
     return File(resolved).existsSync();
   }
 
-  // For languages that don't require extension-based server scripts.
   return true;
 }
 
@@ -1700,11 +1774,10 @@ Future<LspConfig?> startLspServer({
     final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
     final String dartAotRuntimeExecutable = '$dartRuntimeDir/bin/dartaotruntime';
     final String dartAnalysisServerSnapshot =
-        '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
+      '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
     final String resolvedExecutable = normalizedExt == 'dart'
-        ? dartAotRuntimeExecutable
+      ? dartAotRuntimeExecutable
         : executable;
-
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
@@ -1750,11 +1823,11 @@ Future<LspConfig?> startLspServer({
     final resolvedArgs = (() {
       if (normalizedExt == 'ts' || normalizedExt == 'js') {
         return [
-          '$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
+          "$runtimeDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs",
           ...args,
         ];
       } else if (normalizedExt == 'py' || normalizedExt == 'pyi') {
-        return ['server'];
+        return ["server"];
       } else if (normalizedExt == 'c' ||
           normalizedExt == 'cpp' ||
           normalizedExt == 'cc' ||
@@ -1769,24 +1842,24 @@ Future<LspConfig?> startLspServer({
       } else if (normalizedExt == 'dart') {
         return [
           dartAnalysisServerSnapshot,
-          '--protocol=lsp',
-          '--dart-sdk=$dartRuntimeDir',
+          "--protocol=lsp",
+          "--dart-sdk=$dartRuntimeDir",
         ];
       } else if (normalizedExt == 'java') {
         return [
-          '-Declipse.application=org.eclipse.jdt.ls.core.id1',
-          '-Dosgi.bundles.defaultStartLevel=4',
-          '-Declipse.product=org.eclipse.jdt.ls.core.product',
-          '-Dlog.level=ALL',
-          '-Xmx1G',
-          '--add-modules=ALL-SYSTEM',
-          '--add-opens=java.base/java.util=ALL-UNNAMED',
-          '--add-opens=java.base/java.lang=ALL-UNNAMED',
-          '-jar',
-          '$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar',
-          '-configuration',
-          '$extensionDir/JDT-LS/config_linux_arm',
-          '-data',
+          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
+          "-Dosgi.bundles.defaultStartLevel=4",
+          "-Declipse.product=org.eclipse.jdt.ls.core.product",
+          "-Dlog.level=ALL",
+          "-Xmx1G",
+          "--add-modules=ALL-SYSTEM",
+          "--add-opens=java.base/java.util=ALL-UNNAMED",
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          "-jar",
+          "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
+          "-configuration",
+          "$extensionDir/JDT-LS/config_linux_arm",
+          "-data",
           workspacePath,
           ...args,
         ];
@@ -1798,8 +1871,7 @@ Future<LspConfig?> startLspServer({
       ...environment ?? {},
       'PATH': '$binDir:$runtimeDir/dart/bin:/bin:/usr/bin:${Platform.environment['PATH'] ?? ''}',
       'ROXUM_SHARED_PATH': sharedPath,
-      'LD_LIBRARY_PATH':
-          '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+      'LD_LIBRARY_PATH': '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
       if (normalizedExt == 'dart') 'DART_ROOT': dartRuntimeDir,
       'JAVA_HOME': '$runtimeDir/java-21-openjdk',
     };
@@ -1814,9 +1886,7 @@ Future<LspConfig?> startLspServer({
           workspacePath: workspacePath,
           languageId: langId.toLowerCase(),
         );
-        debugPrint(
-          'Dart LSP started with AOT runtime executable: $resolvedExecutable',
-        );
+        debugPrint('Dart LSP started with AOT runtime executable: $resolvedExecutable');
         return config;
       } catch (primaryError) {
         debugPrint(
@@ -1835,9 +1905,7 @@ Future<LspConfig?> startLspServer({
           workspacePath: workspacePath,
           languageId: langId.toLowerCase(),
         );
-        debugPrint(
-          'Dart LSP started with fallback executable: $fallbackExecutable',
-        );
+        debugPrint('Dart LSP started with fallback executable: $fallbackExecutable');
         return fallbackConfig;
       }
     }
@@ -1891,7 +1959,7 @@ class Extractor {
               trailing: Padding(
                 padding: const EdgeInsets.only(left: 10),
                 child: Text(
-                  '${(value * 100).toStringAsFixed(1)}%',
+                  "${(value * 100).toStringAsFixed(1)}%",
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
@@ -1950,6 +2018,8 @@ class Extractor {
 
 class NativeChannel {
   static const MethodChannel _channel = MethodChannel('com.roxum');
+  static const MethodChannel _pfdMethodChannel = MethodChannel('roxum/pfd');
+  static const EventChannel _pfdEventChannel = EventChannel('roxum/pfd_events');
 
   static Future<String> getLibraryPath() async {
     try {
@@ -1971,6 +2041,57 @@ class NativeChannel {
       debugPrint('Failed to read pending open files: ${e.message}');
       return const [];
     }
+  }
+
+  static Future<bool> isModuleInstalled(String moduleName) async {
+    try {
+      final bool? installed = await _pfdMethodChannel.invokeMethod<bool>(
+        'isModuleInstalled',
+        {'moduleName': moduleName},
+      );
+      return installed ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('Failed to check module install state: ${e.message}');
+      return false;
+    }
+  }
+
+  static Future<void> installModule(String moduleName) async {
+    await _pfdMethodChannel.invokeMethod(
+      'installModule',
+      {'moduleName': moduleName},
+    );
+  }
+
+  static Future<void> uninstallModule(String moduleName) async {
+    await _pfdMethodChannel.invokeMethod(
+      'uninstallModule',
+      {'moduleName': moduleName},
+    );
+  }
+
+  static Future<void> copyModuleAssetToPath({
+    required String moduleName,
+    required String assetName,
+    required String targetPath,
+  }) async {
+    await _pfdMethodChannel.invokeMethod(
+      'copyModuleAssetToPath',
+      {
+        'moduleName': moduleName,
+        'assetName': assetName,
+        'targetPath': targetPath,
+      },
+    );
+  }
+
+  static Stream<Map<String, dynamic>> moduleInstallEvents() {
+    return _pfdEventChannel.receiveBroadcastStream().map((event) {
+      if (event is Map) {
+        return Map<String, dynamic>.from(event);
+      }
+      return <String, dynamic>{};
+    }).where((event) => event.isNotEmpty);
   }
 }
 
@@ -2038,14 +2159,14 @@ class CodeForgeDemoKey {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is CodeForgeDemoKey &&
-            runtimeType == other.runtimeType &&
-            indentLineStatus == other.indentLineStatus &&
-            lineWrap == other.lineWrap &&
-            enableFolding == other.enableFolding &&
-            theme == other.theme &&
-            fontFamily == other.fontFamily &&
-            isDark == other.isDark;
+      other is CodeForgeDemoKey &&
+        runtimeType == other.runtimeType &&
+        indentLineStatus == other.indentLineStatus &&
+        lineWrap == other.lineWrap &&
+        enableFolding == other.enableFolding &&
+        theme == other.theme &&
+        fontFamily == other.fontFamily &&
+        isDark == other.isDark;
   }
 
   @override
@@ -2301,7 +2422,7 @@ Map<String, (String, Color)> gitFileStatus = {
   "D": ('D', Colors.red[300]!),
   "UU": ('C', Colors.red[300]!),
   "??": ('U', Colors.green[700]!),
-  "A": ('A', Colors.green[700]!),
+  "A": ('U', Colors.green[700]!),
 };
 
 class EditHunk {

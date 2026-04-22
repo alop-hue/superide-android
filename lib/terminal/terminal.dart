@@ -17,6 +17,7 @@ class SetupTerminal extends StatefulWidget {
   final bool useScaffold;
   final bool showKeyboardMenu;
   final bool readOnly;
+  final bool resetImeOnOpen;
 
   const SetupTerminal({
     super.key,
@@ -25,6 +26,7 @@ class SetupTerminal extends StatefulWidget {
     this.useScaffold = true,
     this.showKeyboardMenu = true,
     this.readOnly = false,
+    this.resetImeOnOpen = false,
   });
 
   @override
@@ -36,6 +38,7 @@ class EmbeddedTerminal extends StatelessWidget {
   final List<String> args;
   final bool showKeyboardMenu;
   final bool readOnly;
+  final bool resetImeOnOpen;
 
   const EmbeddedTerminal({
     super.key,
@@ -43,6 +46,7 @@ class EmbeddedTerminal extends StatelessWidget {
     this.args = const [],
     this.showKeyboardMenu = true,
     this.readOnly = false,
+    this.resetImeOnOpen = false,
   });
 
   @override
@@ -53,6 +57,7 @@ class EmbeddedTerminal extends StatelessWidget {
       useScaffold: false,
       showKeyboardMenu: showKeyboardMenu,
       readOnly: readOnly,
+      resetImeOnOpen: resetImeOnOpen,
     );
   }
 }
