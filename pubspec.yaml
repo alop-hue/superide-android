@@ -28,11 +28,6 @@ dependencies:
   flutter_switch: ^0.3.2
   flutter_web_auth_2: ^5.0.1
   font_awesome_flutter: ^10.10.0
-  ghostty_vte_flutter:
-    git:
-      url: https://github.com/heckmon/dart_terminal.git
-      ref: master
-      path: pkgs/vte/ghostty_vte_flutter
   html: ^0.15.6
   http: ^1.2.2
   markdown: ^7.2.2
