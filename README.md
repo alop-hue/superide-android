@@ -51,7 +51,7 @@ https://play.google.com/store/apps/details?id=com.roxum
 ## Building from source - Roxum lite
 
 ### Important
-  > This **is not** the full-featured Roxum IDE available via the Play Store.
+  > This **is not** the full-featured Roxum IDE. This is a lite weight version.
 
   Roxum-lite lacks these features:
   - Dart compiler
