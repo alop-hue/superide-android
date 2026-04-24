@@ -71,7 +71,7 @@ There are two branches are there in the repo. The [playstore-version](https://gi
 which **wont't work locally** because it uses the [play feature delivery](https://developer.android.com/guide/playcore/feature-delivery), which only works if the app
 is downloaded from the google playstore.
 
-Inorder to build the app from source, checkout the [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch, a light weight version or roxum, and run it with flutter or gradle. This version is also available in the [releases](https://github.com/heckmon/roxum-ide/releases) as a standalone apk.
+Inorder to build the app from source, checkout the [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch, a light weight version of roxum, and run it with flutter or gradle. This version is also available in the [releases](https://github.com/heckmon/roxum-ide/releases) as a standalone apk.
 ```bash
 git checkout main
 flutter run --release # Or flutter build apk --release
@@ -79,6 +79,7 @@ flutter run --release # Or flutter build apk --release
 Or with gradle
 
 ```bash
+git checkout main
 cd android && ./gradlew :app: assembleRelease
 ```
 
