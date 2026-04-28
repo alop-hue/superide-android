@@ -47,6 +47,7 @@ Tha app has two branches:
 Clone this repo, then:
 
 ### Building the full version
+Make sure that [git-lfs](https://git-lfs.com/) is installed in your system and accessible via the `path`. Don't skip this step, the compilers and interpreters are stored in the Github large file storage.
 #### 1) Build the app as an `aab` bundle
 
 > [!NOTE]
