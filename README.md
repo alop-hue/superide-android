@@ -5,21 +5,7 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
 
 #### Roxum uses the powerful [code_forge](https://github.com/heckmon/code_forge) package as it's editor engine.
 
-## Get early access.
-
-### The app is out for closed testing/early access. Follow the below steps to join:
-
-Join on this google groups:
-
-https://groups.google.com/u/0/g/roxum-closed-test
-
-Then accept the testing request:
-
-https://play.google.com/apps/testing/com.roxum
-
-Then install on android:
-
-https://play.google.com/store/apps/details?id=com.roxum
+[![Get it on Google Play](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png)](https://play.google.com/store/apps/details?id=com.roxum)
 
 ### Gallery
 
@@ -48,10 +34,42 @@ https://play.google.com/store/apps/details?id=com.roxum
 ---
 <br>
 
-## Building from source - Roxum lite
+## Building from source
 
+This section is intended for users from countries like China where playstore isn't accessible. Otherwise it is recommended to download the full featured apk from the playstore as mentioned above.<br>
+
+Tha app has two branches:
+- [playstore-version](https://github.com/heckmon/roxum-ide/tree/playstore-version) (Full Roxum IDE)
+- [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) (A light weight version)
+
+Clone this repo, then:
+
+### Building the full version
+#### 1) Build the app as an `aab` bundle
+> [!NOTE] To include all compilers, interpreters and extensions in the build, we build it as a standalone `aab` file, which is bigger compared to the apk downloaded from the playstore. Playstore build is smaller because these external dependencies are downloaded on demand when the user requested for the particular compiler/interpreter/extension.
+```bash
+cd android && ./gradlew :app: bundleRelease
+```
+This will generate the output file in `build/app/outputs/bundle/release/app-release.aab`
+
+#### 2) Building the apk
+To install aab in your device, download the latest bundletool from the official repo:
+https://github.com/google/bundletool/releases
+
+Then build the apk:
+```bash
+java -jar path/to/bundletool.jar build-apks --bundle=your_app/build/app/outputs/bundle/release/app-release.aab --output=output.apks
+```
+This will generate a file called output.apks in the current directory
+#### 3) Then install it:
+Make sure that you are connected to an emulator or physical device via `adb`.
+```bash
+java -jar /path/to/bundletool.jar install-apks --apks=output.apks
+```
+
+### Building the lite version
 ### Important
-  > This **is not** the full-featured Roxum IDE. This is a lite weight version.
+  > This **is not** the full-featured Roxum IDE. This is a light weight version.
 
   Roxum-lite lacks these features:
   - Dart compiler
@@ -65,13 +83,7 @@ https://play.google.com/store/apps/details?id=com.roxum
 
 > For downloading the apk, go to the [releases](https://github.com/heckmon/roxum-ide/releases)
 
-This section is intended for users from countries like China where playstore isn't accessible. Otherwise it is recommended to download the full featured apk from the playstore as mentioned above.<br>
-
-There are two branches are there in the repo. The [playstore-version](https://github.com/heckmon/roxum-ide/tree/playstore-version) is the master branch,
-which **wont't work locally** because it uses the [play feature delivery](https://developer.android.com/guide/playcore/feature-delivery), which only works if the app
-is downloaded from the google playstore.
-
-Inorder to build the app from source, checkout the [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch, a light weight version of roxum, and run it with flutter or gradle. This version is also available in the [releases](https://github.com/heckmon/roxum-ide/releases) as a standalone apk.
+ The [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch contains a light weight version of the roxum, which easy to build and run with flutter or gradle. This version is also available in the [releases](https://github.com/heckmon/roxum-ide/releases) as a standalone apk.
 ```bash
 git checkout main
 flutter run --release # Or flutter build apk --release
