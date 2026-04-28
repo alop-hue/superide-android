@@ -5,7 +5,9 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
 
 #### Roxum uses the powerful [code_forge](https://github.com/heckmon/code_forge) package as it's editor engine.
 
-[![Get it on Google Play](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png)](https://play.google.com/store/apps/details?id=com.roxum)
+<a href="https://play.google.com/store/apps/details?id=com.roxum">
+  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">
+</a>
 
 ### Gallery
 
@@ -46,7 +48,11 @@ Clone this repo, then:
 
 ### Building the full version
 #### 1) Build the app as an `aab` bundle
-> [!NOTE] To include all compilers, interpreters and extensions in the build, we build it as a standalone `aab` file, which is bigger compared to the apk downloaded from the playstore. Playstore build is smaller because these external dependencies are downloaded on demand when the user requested for the particular compiler/interpreter/extension.
+
+> [!NOTE]
+> 
+> To include all compilers, interpreters and extensions in the build, we build it as a standalone `aab` file, which is bigger compared to the apk downloaded from the playstore. Playstore build is smaller because these external dependencies are downloaded on demand when the user requested for the particular compiler/interpreter/extension.
+
 ```bash
 cd android && ./gradlew :app: bundleRelease
 ```
