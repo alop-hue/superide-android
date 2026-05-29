@@ -475,6 +475,29 @@ Future<List<CommitNode>> getGraph(String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
 
+  String? headHash;
+  String? upstreamHash;
+
+  final headResult = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "HEAD"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (headResult.exitCode == 0) {
+    headHash = (headResult.stdout as String).trim();
+  }
+
+  final upstreamResult = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "--verify", "@{u}"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (upstreamResult.exitCode == 0) {
+    upstreamHash = (upstreamResult.stdout as String).trim();
+  }
+
   final List<CommitNode> commits = [];
   final lines = result.stdout.toString().split('\n');
 
@@ -494,6 +517,8 @@ Future<List<CommitNode>> getGraph(String workspacePath) async {
           parents: parentHashes,
           author: author,
           message: message,
+          isHead: hash == headHash,
+          isRemoteHead: upstreamHash != null && hash == upstreamHash,
         ),
       );
     }
@@ -1300,7 +1325,7 @@ String extractRepoName(String url) {
 }
 
 Future<File?> pickFile() async {
-  final result = await FilePicker.platform.pickFiles(
+  final result = await FilePicker.pickFiles(
     allowMultiple: false,
     type: FileType.custom,
   );
@@ -1360,7 +1385,7 @@ Future<String?> selectDir({
   String? initialDirectory,
   Uint8List? bytes,
 }) async {
-  return await FilePicker.platform.saveFile(
+  return await FilePicker.saveFile(
     dialogTitle: dialogeTitle,
     initialDirectory: initialDirectory,
     bytes: bytes,
@@ -2247,6 +2272,8 @@ class CommitNode {
   int? childLane;
   bool isMerge;
   bool isBranchStart;
+  bool isHead;
+  bool isRemoteHead;
 
   CommitNode({
     required this.hash,
@@ -2257,6 +2284,8 @@ class CommitNode {
     this.childLane,
     this.isMerge = false,
     this.isBranchStart = false,
+    this.isHead = false,
+    this.isRemoteHead = false,
   });
 }
 
@@ -2375,11 +2404,15 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
       if (existingParentLane != null) {
         parentLane = existingParentLane;
         parentColor = existingParentColor!;
+        final hasDiagonal = parentLane != commitLane;
+        final edgeColor = hasDiagonal
+            ? (commit.isMerge && p > 0 ? parentColor : colorIndex)
+            : parentColor;
         lines.add(
           GraphLine(
             fromLane: commitLane,
             toLane: parentLane,
-            colorIndex: parentColor,
+            colorIndex: edgeColor,
           ),
         );
       } else {

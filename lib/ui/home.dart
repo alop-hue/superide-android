@@ -312,7 +312,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                       );
                     },
                     "Contribute/Source code",
-                    Icon(
+                    FaIcon(
                       FontAwesomeIcons.githubAlt,
                       color: appThemestate.appTheme.isDark
                           ? Colors.grey
@@ -531,7 +531,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                           ),
                         );
                       } else {
-                        return const Icon(FontAwesomeIcons.github);
+                        return const FaIcon(FontAwesomeIcons.github);
                       }
                     },
                   ),
@@ -601,7 +601,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                       ).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Icon(
+                                    child: const FaIcon(
                                       FontAwesomeIcons.fileCirclePlus,
                                       color: Color(0xff5090c8),
                                       size: 28,
@@ -754,7 +754,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     );
                   },
                   "New File...",
-                  const Icon(FontAwesomeIcons.fileCirclePlus),
+                  const FaIcon(FontAwesomeIcons.fileCirclePlus),
                   appThemestate.appTheme.isDark,
                 ),
                 fileTiles(
@@ -881,7 +881,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     }
                   }
                   }, "Open File...",
-                  const Icon(FontAwesomeIcons.fileImport),
+                  const FaIcon(FontAwesomeIcons.fileImport),
                   appThemestate.appTheme.isDark,
                 ),
                 fileTiles(
@@ -996,7 +996,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     }
                   }},
                   "Open Folder...",
-                  const Icon(FontAwesomeIcons.folderOpen),
+                  const FaIcon(FontAwesomeIcons.folderOpen),
                   appThemestate.appTheme.isDark,
                 ),
                 fileTiles(
@@ -1334,7 +1334,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+                                  FaIcon(
                                     FontAwesomeIcons.folderTree,
                                     color: appThemestate
                                         .appTheme
@@ -1393,7 +1393,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+                                  FaIcon(
                                     FontAwesomeIcons.fileCode,
                                     color: appThemestate
                                         .appTheme

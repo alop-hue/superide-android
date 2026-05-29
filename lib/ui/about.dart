@@ -92,12 +92,12 @@ class AboutPage extends StatelessWidget {
                           ),
                           IconButton(
                             onPressed: () async => await launchUrl(Uri.parse("https://www.linkedin.com/in/athul-a-s-43ab54272?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app")),
-                            icon: Icon(FontAwesomeIcons.linkedin, size: 25.2),
+                            icon: FaIcon(FontAwesomeIcons.linkedin, size: 25.2),
                             color: Colors.blue,
                           ),
                           IconButton(
                             onPressed: () async => await launchUrl(Uri.parse("https://github.com/heckmon")),
-                            icon: Icon(FontAwesomeIcons.github),
+                            icon: FaIcon(FontAwesomeIcons.github),
                             color: color,
                           )
                         ],

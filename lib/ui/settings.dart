@@ -1610,14 +1610,25 @@ int main() {
                       settingsTile(() {
                         showDialog(context: context, builder: (dialogContext) {
                           String selectedTheme = theme;
+                          String themeSearchQuery = '';
+                          bool hasAutoScrolled = false;
                           return StatefulBuilder(
                             builder: (context, setDialogState) {
+                              final filteredThemes = highlightThemes.entries.where((entry) {
+                                if (themeSearchQuery.isEmpty) {
+                                  return true;
+                                }
+                                final normalizedThemeName = entry.key.toLowerCase();
+                                return normalizedThemeName.contains(themeSearchQuery);
+                              }).toList();
+
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (themeScroll.hasClients) {
+                                if (!hasAutoScrolled && themeSearchQuery.isEmpty && themeScroll.hasClients) {
                                   final selectedIndex = highlightThemes.keys.toList().indexOf(selectedTheme);
                                   if (selectedIndex >= 0) {
                                     themeScroll.jumpTo(selectedIndex * 72);
                                   }
+                                  hasAutoScrolled = true;
                                 }
                               });
                               return AlertDialog(
@@ -1625,147 +1636,215 @@ int main() {
                                 backgroundColor: appThemeState.appTheme.isDark 
                                   ? const Color(0xff1e1e2e) 
                                   : Colors.white,
-                                title: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: appThemeState.appTheme.isDark
-                                        ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
-                                        : [Colors.blue.shade100, Colors.blue.shade50],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.palette_outlined,
-                                        color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade700,
-                                        size: 28,
+                                title: Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: appThemeState.appTheme.isDark
+                                            ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
+                                            : [Colors.blue.shade100, Colors.blue.shade50],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              "Editor Theme",
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade900,
-                                              ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.palette_outlined,
+                                            color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade700,
+                                            size: 28,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  "Editor Theme",
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: appThemeState.appTheme.isDark ? Colors.white : Colors.blue.shade900,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "${highlightThemes.length} themes available",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: appThemeState.appTheme.isDark 
+                                                      ? Colors.white70 
+                                                      : Colors.blue.shade700,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            Text(
-                                              "${highlightThemes.length} themes available",
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: appThemeState.appTheme.isDark 
-                                                  ? Colors.white70 
-                                                  : Colors.blue.shade700,
-                                              ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: SizedBox(
+                                        height: 40,
+                                        child: SearchBar(
+                                          onChanged: (value) {
+                                            setDialogState(() {
+                                              themeSearchQuery = value.trim().toLowerCase();
+                                              hasAutoScrolled = false;
+                                            });
+                                          },
+                                          leading: Icon(
+                                            Icons.search,
+                                            color: appThemeState.appTheme.isDark ? Colors.white70 : Colors.blueGrey.shade600,
+                                          ),
+                                          hintText: "Search theme",
+                                          backgroundColor: WidgetStatePropertyAll(
+                                            appThemeState.appTheme.isDark
+                                              ? const Color(0xff24243a)
+                                              : Colors.blueGrey.shade50,
+                                          ),
+                                          elevation: const WidgetStatePropertyAll(0),
+                                          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+                                          textStyle: WidgetStatePropertyAll(
+                                            TextStyle(
+                                              color: appThemeState.appTheme.selectScreenCardTextColor,
                                             ),
-                                          ],
+                                          ),
+                                          hintStyle: WidgetStatePropertyAll(
+                                            TextStyle(
+                                              color: appThemeState.appTheme.isDark ? Colors.white54 : Colors.blueGrey.shade400,
+                                            ),
+                                          ),
+                                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            side: BorderSide(
+                                              color: appThemeState.appTheme.isDark
+                                                ? Colors.white12
+                                                : Colors.blueGrey.shade200,
+                                            ),
+                                          )),
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    )
+                                  ],
                                 ),
                                 content: SizedBox(
                                   width: double.maxFinite,
                                   height: 400,
-                                  child: Scrollbar(
-                                    controller: themeScroll,
-                                    thumbVisibility: true,
-                                    child: ListView.builder(
-                                      controller: themeScroll,
-                                      itemCount: highlightThemes.length,
-                                      itemBuilder: (context, index) {
-                                        final themeName = highlightThemes.keys.elementAt(index);
-                                        final themeData = highlightThemes[themeName]!;
-                                        final isSelected = themeName == selectedTheme;
-                                        final bgColor = themeData['root']?.backgroundColor ?? Colors.grey;
-                                        final textColor = themeData['root']?.color ?? Colors.white;
-                                        
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(12),
-                                              onTap: () async {
-                                                setDialogState(() => selectedTheme = themeName);
-                                                final prefs = await SharedPreferences.getInstance();
-                                                final currentState = configState.codeForgeConfig;
-                                                currentState['theme'] = themeName;
-                                                await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                                if (context.mounted) {
-                                                  context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                                                  Navigator.of(dialogContext).pop();
-                                                }
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: isSelected
-                                                    ? (appThemeState.appTheme.isDark 
-                                                      ? Colors.blue.withAlpha(40) 
-                                                      : Colors.blue.withAlpha(30))
-                                                    : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: isSelected 
-                                                      ? Colors.blue 
-                                                      : Colors.transparent,
-                                                    width: 2,
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        child: Scrollbar(
+                                          controller: themeScroll,
+                                          thumbVisibility: true,
+                                          child: ListView.builder(
+                                            controller: themeScroll,
+                                            itemCount: filteredThemes.length,
+                                            itemExtent: 73,
+                                            itemBuilder: (context, index) {
+                                              final themeEntry = filteredThemes[index];
+                                              final themeName = themeEntry.key;
+                                              final themeData = themeEntry.value;
+                                              final isSelected = themeName == selectedTheme;
+                                              final bgColor = themeData['root']?.backgroundColor ?? Colors.grey;
+                                              final textColor = themeData['root']?.color ?? Colors.white;
+
+                                              return Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    onTap: () async {
+                                                      setDialogState(() => selectedTheme = themeName);
+                                                      final prefs = await SharedPreferences.getInstance();
+                                                      final currentState = configState.codeForgeConfig;
+                                                      currentState['theme'] = themeName;
+                                                      await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                                      if (context.mounted) {
+                                                        context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                                                        Navigator.of(dialogContext).pop();
+                                                      }
+                                                    },
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        color: isSelected
+                                                          ? (appThemeState.appTheme.isDark 
+                                                            ? Colors.blue.withAlpha(40) 
+                                                            : Colors.blue.withAlpha(30))
+                                                          : Colors.transparent,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: isSelected 
+                                                            ? Colors.blue 
+                                                            : Colors.transparent,
+                                                          width: 2,
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 48,
+                                                            height: 48,
+                                                            decoration: BoxDecoration(
+                                                              color: bgColor,
+                                                              borderRadius: BorderRadius.circular(8),
+                                                              border: Border.all(
+                                                                color: appThemeState.appTheme.isDark  ? Colors.white24 : Colors.black12,
+                                                              ),
+                                                            ),
+                                                            child: Center(
+                                                              child: Text(
+                                                                'Aa',
+                                                                style: TextStyle(
+                                                                  color: textColor,
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 16,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 16),
+                                                          Expanded(
+                                                            child: Text(
+                                                              themeName.replaceFirst("base16-", "").capitalize(),
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          if (isSelected)
+                                                            Icon(
+                                                              Icons.check_circle,
+                                                              color: Colors.blue,
+                                                              size: 24,
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      width: 48,
-                                                      height: 48,
-                                                      decoration: BoxDecoration(
-                                                        color: bgColor,
-                                                        borderRadius: BorderRadius.circular(8),
-                                                        border: Border.all(
-                                                          color: appThemeState.appTheme.isDark  ? Colors.white24 : Colors.black12,
-                                                        ),
-                                                      ),
-                                                      child: Center(
-                                                        child: Text(
-                                                          'Aa',
-                                                          style: TextStyle(
-                                                            color: textColor,
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 16,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 16),
-                                                    Expanded(
-                                                      child: Text(
-                                                        themeName.replaceFirst("base16-", "").capitalize(),
-                                                        style: TextStyle(
-                                                          color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    if (isSelected)
-                                                      Icon(
-                                                        Icons.check_circle,
-                                                        color: Colors.blue,
-                                                        size: 24,
-                                                      ),
-                                                  ],
-                                                ),
-                                              ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      if (filteredThemes.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 12),
+                                          child: Text(
+                                            'No themes match "$themeSearchQuery".',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: appThemeState.appTheme.isDark ? Colors.white70 : Colors.blueGrey.shade600,
+                                              fontSize: 13,
                                             ),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 actions: [
@@ -1821,7 +1900,7 @@ int main() {
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(
+                                        FaIcon(
                                           FontAwesomeIcons.font,
                                           color: appThemeState.appTheme.isDark ? Colors.white : Colors.purple.shade700,
                                           size: 24,
@@ -1975,7 +2054,7 @@ int main() {
                           });
                         },
                         "Font Style",
-                        Icon(FontAwesomeIcons.font,color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
+                        FaIcon(FontAwesomeIcons.font,color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
                         appThemeState.appTheme.isDark,
                         subTitle: (fontFamily as String).capitalize(),
                       ),
@@ -2069,32 +2148,41 @@ int main() {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(
+                            constraints: const BoxConstraints(
                               maxHeight: 320,
                               maxWidth: 365
                             ),
-                            child: CodeForge(
-                              lineWrap: lineWrap,
-                              enableFolding: enableFolding,
-                              selectionStyle: CodeSelectionStyle(
-                                selectionColor: Colors.blueAccent.withAlpha(80),
-                                cursorBubbleColor: Colors.blue,
-                              ),
-                              key: ValueKey(CodeForgeDemoKey(
-                                theme: theme,
-                                fontFamily: fontFamily,
-                                indentLineStatus: isIndentEnabled,
-                                lineWrap: lineWrap,
-                                enableFolding: enableFolding,
-                                isDark: appThemeState.appTheme.isDark,
-                                
-                              )),
-                              enableGuideLines: isIndentEnabled,
-                              language: languages[7].language,
-                              editorTheme: highlightThemes[theme],
-                              textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
-                              initialText: demoCode,
-                              readOnly: true,
+                            child: Stack(
+                              children: [
+                                CodeForge(
+                                  lineWrap: lineWrap,
+                                  enableFolding: enableFolding,
+                                  selectionStyle: CodeSelectionStyle(
+                                    selectionColor: Colors.blueAccent.withAlpha(80),
+                                    cursorBubbleColor: Colors.blue,
+                                  ),
+                                  key: ValueKey(CodeForgeDemoKey(
+                                    theme: theme,
+                                    fontFamily: fontFamily,
+                                    indentLineStatus: isIndentEnabled,
+                                    lineWrap: lineWrap,
+                                    enableFolding: enableFolding,
+                                    isDark: appThemeState.appTheme.isDark,
+                                    
+                                  )),
+                                  enableGuideLines: isIndentEnabled,
+                                  language: languages[7].language,
+                                  editorTheme: highlightThemes[theme],
+                                  textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
+                                  initialText: demoCode,
+                                  readOnly: true,
+                                ),
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                    onVerticalDragUpdate: (_) {},
+                                  )
+                                )
+                              ],
                             ),
                           ),
                         ),

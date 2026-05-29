@@ -2231,7 +2231,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                                     ? Colors.grey
                                                     : const Color(0xff2b2b2b),
                                                 ),
-                                                iconForCreateFile: Icon(
+                                                iconForCreateFile: FaIcon(
                                                   FontAwesomeIcons.fileCirclePlus,
                                                   size: 20,
                                                   color: appTheme.isDark

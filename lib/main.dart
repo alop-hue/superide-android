@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/repo_bloc/repo_bloc.dart';
@@ -7,8 +8,9 @@ import 'ui/start_screen.dart';
 import 'utils/functions.dart';
 import 'utils/themes.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await RustLib.init();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
   final codeForgeConfig = await getCodeForgeConfig();

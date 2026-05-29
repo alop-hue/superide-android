@@ -336,7 +336,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
           transitionBuilder: (child, animation) {
             return SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1.0,
+              alignment: Alignment.topCenter,
               child: child,
             );
           },

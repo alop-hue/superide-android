@@ -108,7 +108,7 @@ class ContributePage extends StatelessWidget {
                               _buildContributionItem(Icon(Icons.bug_report, color: Colors.red[800]), 'Report Bugs.', theme),
                               _buildContributionItem(Icon(Icons.lightbulb, color: Colors.yellow), 'Suggest Features.', theme),
                               _buildContributionItem(Icon(Icons.edit_document, color: Colors.grey), 'Improve Documentation.', theme),
-                              _buildContributionItem(Icon(FontAwesomeIcons.vial, color: Colors.green, size: 20), 'Test and Provide Feedback.', theme),
+                              _buildContributionItem(FaIcon(FontAwesomeIcons.vial, color: Colors.green, size: 20), 'Test and Provide Feedback.', theme),
                             ],
                           ),
                         ),

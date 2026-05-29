@@ -1271,7 +1271,7 @@ class _DownloadManagerState extends State<DownloadManager> {
             dividerColor: Colors.transparent,
             tabs: [
               Tab(
-                icon:Icon(FontAwesomeIcons.gears, size: 26),
+                icon: FaIcon(FontAwesomeIcons.gears, size: 26),
                 text: "Runtimes",
               ),
               Tab(

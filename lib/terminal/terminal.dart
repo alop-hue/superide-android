@@ -502,7 +502,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
       'RUSTFLAGS': '--sysroot $runtimesDir/rust',
-      'GOROOT': '$runtimesDir/go'
+      'GOROOT': '$runtimesDir/go',
+      'CC': 'clang'
     };
 
     final process = Pty.start(

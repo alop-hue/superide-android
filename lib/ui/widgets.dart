@@ -117,6 +117,8 @@ Widget drawerButtons(
   Color bgColor = Colors.transparent,
   EdgeInsets? padding,
 }) {
+  final isMaterialIcon = icon is IconData;
+  final isFontAwesomeIcon = icon is FaIconData;
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 15),
     child: Container(
@@ -124,27 +126,25 @@ Widget drawerButtons(
         color: bgColor,
         borderRadius: const BorderRadius.all(Radius.circular(10)),
       ),
-      padding:
-          padding ??
-          EdgeInsets.symmetric(
-            horizontal: ![IconData, IconDataSolid].contains(icon.runtimeType)
-                ? 2.5
-                : icon.runtimeType == IconDataSolid
-                ? 5
-                : 4,
-            vertical: ![IconData, IconDataSolid].contains(icon.runtimeType)
-                ? 8
-                : 5,
-          ),
+      padding: padding ?? EdgeInsets.symmetric(
+        horizontal: isMaterialIcon || isFontAwesomeIcon ? 4 : 2.5,
+        vertical: isMaterialIcon || isFontAwesomeIcon ? 5 : 8,
+      ),
       child: IconButton(
         onPressed: onPressed,
-        icon: ![IconData, IconDataSolid].contains(icon.runtimeType)
-            ? icon
-            : Icon(
+        icon: isMaterialIcon
+            ? Icon(
                 icon,
                 color: color,
-                size: icon.runtimeType == IconDataSolid ? 35 : 38,
-              ),
+                size: 35,
+              )
+            : isFontAwesomeIcon
+                ? FaIcon(
+                    icon,
+                    color: color,
+                    size: 30,
+                  )
+                : (icon is Widget ? icon : Icon(Icons.help_outline, color: color)),
       ),
     ),
   );
@@ -4395,7 +4395,7 @@ $diffText
           transitionBuilder: (child, animation) {
             return SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1.0,
+              alignment: Alignment.topCenter,
               child: child,
             );
           },
@@ -4472,7 +4472,7 @@ $diffText
           transitionBuilder: (child, animation) {
             return SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1.0,
+              alignment: Alignment.topCenter,
               child: child,
             );
           },
@@ -7053,15 +7053,13 @@ $diffText
                         value: branch,
                         child: Row(
                           children: [
-                            Icon(
-                              branch == repoState.currentBranch
-                                ? Icons.check
-                                : FontAwesomeIcons.codeBranch,
-                              size: 14,
-                              color: branch == repoState.currentBranch
-                                ? Colors.green
-                                : widget.appTheme.selectScreenCardTextColor.withAlpha(150),
-                            ),
+                            branch == repoState.currentBranch
+                              ? Icon(Icons.check, size: 14, color: Colors.green)
+                              : FaIcon(
+                                FontAwesomeIcons.codeBranch,
+                                size: 14,
+                                color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
+                              ),
                             const SizedBox(width: 8),
                             Text(
                               branch,
@@ -7119,7 +7117,7 @@ $diffText
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      FaIcon(
                         FontAwesomeIcons.codeBranch,
                         size: 15,
                         color: widget.appTheme.selectScreenCardTextColor.withAlpha(150),
@@ -7275,7 +7273,7 @@ $diffText
 
   PopupMenuEntry<String> _buildPopupMenuWithSubmenu(
     String title,
-    IconData icon,
+    dynamic icon,
     List<(String, String)> subItems,
     RepoStatusLoaded? loaded,
     bool isSignedIn,
@@ -7300,11 +7298,31 @@ $diffText
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-              ),
+              (() {
+                if (icon is IconData) {
+                  return Icon(
+                    icon,
+                    size: 18,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                  );
+                }
+                if (icon is Widget) {
+                  return icon;
+                }
+                try {
+                  return FaIcon(
+                    icon,
+                    size: 18,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                  );
+                } catch (_) {
+                  return Icon(
+                    Icons.help_outline,
+                    size: 18,
+                    color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                  );
+                }
+              }()),
               const SizedBox(width: 12),
               Text(
                 title,
@@ -7578,7 +7596,7 @@ $diffText
               ),
               child: PopupMenuButton<String>(
                 enabled: hasChanges,
-                icon: Icon(
+                icon: FaIcon(
                   FontAwesomeIcons.caretDown,
                   color: hasChanges ? Colors.white : Colors.grey,
                   size: 14,
@@ -7872,7 +7890,7 @@ $diffText
                       color: Colors.black.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: const FaIcon(
                       FontAwesomeIcons.github,
                       color: Colors.black87,
                       size: 28,
@@ -8096,7 +8114,7 @@ $diffText
           ),
           child: const Row(
             children: [
-              Icon(FontAwesomeIcons.github, color: Colors.white),
+              FaIcon(FontAwesomeIcons.github, color: Colors.white),
               SizedBox(width: 8),
               Text("Publish to Github"),
             ],
@@ -8649,7 +8667,7 @@ $diffText
                                                             },
                                                             child: Padding(
                                                               padding: const EdgeInsets.all(6),
-                                                              child: Icon(
+                                                              child: FaIcon(
                                                                 FontAwesomeIcons.arrowRotateLeft,
                                                                 size: 16,
                                                                 color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
@@ -9202,7 +9220,7 @@ class APITesting extends StatelessWidget {
                           Tab(
                             child: Text("{ }", style: TextStyle(fontSize: 22)),
                           ),
-                          Tab(icon: Icon(FontAwesomeIcons.html5)),
+                          Tab(icon: FaIcon(FontAwesomeIcons.html5)),
                           Tab(icon: Icon(Icons.raw_on_sharp, size: 35)),
                         ],
                       ),
@@ -12092,16 +12110,16 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 }
 
 const List<Color> _gitGraphColors = [
-  Color(0xFF4EC9B0),
-  Color(0xFFCE9178),
   Color(0xFF569CD6),
-  Color(0xFFB5CEA8),
+  Color(0xFFD7BA7D),
   Color(0xFFC586C0),
-  Color(0xFFDCDCAA),
-  Color(0xFF4FC1FF),
+  Color(0xFF4EC9B0),
   Color(0xFFD16969),
   Color(0xFF6A9955),
-  Color(0xFFD7BA7D),
+  Color(0xFFCE9178),
+  Color(0xFFB5CEA8),
+  Color(0xFFDCDCAA),
+  Color(0xFF4FC1FF),
 ];
 
 Color _getGraphColor(int index) {
@@ -12115,12 +12133,14 @@ class VSCodeGitGraphPainter extends CustomPainter {
   final bool isDark;
   final Color textColor;
   final Color secondaryTextColor;
+  final Color backgroundColor;
   final double maxWidth;
 
   VSCodeGitGraphPainter({
     required this.rowInfo,
     required this.textColor,
     required this.secondaryTextColor,
+    required this.backgroundColor,
     required this.maxWidth,
     this.laneWidth = 16,
     this.rowHeight = 36,
@@ -12138,6 +12158,7 @@ class VSCodeGitGraphPainter extends CustomPainter {
     final nodeStrokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
+    final nodeCapPaint = Paint()..style = PaintingStyle.fill;
 
     final commitX = rowInfo.commitLane * laneWidth + laneWidth / 2;
     final commitY = rowHeight / 2;
@@ -12161,26 +12182,49 @@ class VSCodeGitGraphPainter extends CustomPainter {
 
         if (line.toLane > line.fromLane) {
           path.moveTo(fromX, commitY + 5);
-          path.lineTo(fromX, commitY + 10);
-          path.quadraticBezierTo(fromX, rowHeight - 4, toX, rowHeight);
+          path.cubicTo(
+            fromX,
+            commitY + 10,
+            fromX + 14,
+            rowHeight - 12,
+            toX,
+            rowHeight,
+          );
         } else {
           path.moveTo(fromX, commitY + 5);
-          path.quadraticBezierTo(fromX, rowHeight - 4, toX, rowHeight);
+          path.cubicTo(
+            fromX,
+            commitY + 12,
+            toX + 15,
+            rowHeight,
+            toX,
+            rowHeight,
+          );
         }
         canvas.drawPath(path, linePaint);
       }
     }
 
-    linePaint.color = _getGraphColor(rowInfo.colorIndex);
-    canvas.drawLine(
-      Offset(commitX, 0),
-      Offset(commitX, commitY - 5),
-      linePaint,
-    );
-
     final nodeColor = _getGraphColor(rowInfo.colorIndex);
+    final isReferenceCommit = rowInfo.commit.isHead || rowInfo.commit.isRemoteHead;
 
-    if (rowInfo.commit.isMerge) {
+    if (!isReferenceCommit) {
+      linePaint.color = nodeColor;
+      canvas.drawLine(
+        Offset(commitX, 0),
+        Offset(commitX, commitY - 5),
+        linePaint,
+      );
+    }
+
+    if (isReferenceCommit) {
+      nodeCapPaint.color = backgroundColor;
+      canvas.drawCircle(Offset(commitX, commitY), 8, nodeCapPaint);
+      nodeStrokePaint.color = nodeColor.withAlpha(220);
+      canvas.drawCircle(Offset(commitX, commitY), 7, nodeStrokePaint);
+      nodePaint.color = nodeColor;
+      canvas.drawCircle(Offset(commitX, commitY), 4, nodePaint);
+    } else if (rowInfo.commit.isMerge) {
       nodePaint.color = nodeColor;
       canvas.drawCircle(Offset(commitX, commitY), 5, nodePaint);
       nodeStrokePaint.color = nodeColor.withAlpha(180);
@@ -12313,8 +12357,8 @@ class GitCommitGraph extends StatelessWidget {
                   rowInfo: rowInfo,
                   isDark: appTheme.isDark,
                   textColor: appTheme.selectScreenCardTextColor,
-                  secondaryTextColor: appTheme.selectScreenCardTextColor
-                      .withAlpha(150),
+                  secondaryTextColor: appTheme.selectScreenCardTextColor.withAlpha(150),
+                  backgroundColor: appTheme.scaffoldBg,
                   maxWidth: contentWidth,
                 ),
               ),
