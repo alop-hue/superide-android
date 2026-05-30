@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
 import 'about.dart';
 import 'donation_page.dart';
+import 'file_manager.dart';
 import 'editor_page.dart';
 import 'menu_screen.dart';
 import 'project_screen.dart';
@@ -36,7 +37,9 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
   final _createFileKey = GlobalKey<FormState>();
   final _cloneRepoKey = GlobalKey<FormState>();
   bool _didShowPackageUpdateToast = false;
+  bool _didShowStorageMigrationToast = false;
   bool _checkingPendingSharedFile = false;
+  int _pendingSharedFileRetryCount = 0;
 
   @override
   void initState() {
@@ -44,6 +47,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _openPendingSharedFile();
+      _maybeShowStorageMigrationNotice();
     });
   }
 
@@ -60,7 +64,22 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
 
     try {
       final pendingFiles = await NativeChannel.consumePendingOpenFiles();
-      if (!mounted || pendingFiles.isEmpty) return;
+      if (!mounted) return;
+      if (pendingFiles.isEmpty) {
+        if (_pendingSharedFileRetryCount < 30) {
+          _pendingSharedFileRetryCount++;
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              unawaited(_openPendingSharedFile());
+            }
+          });
+        } else {
+          _pendingSharedFileRetryCount = 0;
+        }
+        return;
+      }
+
+      _pendingSharedFileRetryCount = 0;
 
       final imported = File(pendingFiles.first);
       if (!imported.existsSync()) return;
@@ -94,6 +113,23 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
     } finally {
       _checkingPendingSharedFile = false;
     }
+  }
+
+  Future<void> _maybeShowStorageMigrationNotice() async {
+    if (_didShowStorageMigrationToast) return;
+    _didShowStorageMigrationToast = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    final shouldShow = prefs.getBool(sharedStorageMigrationNoticeKey) ?? false;
+    if (!mounted || !shouldShow) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Projects, Files and Templates now live in shared storage.'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+    await prefs.setBool(sharedStorageMigrationNoticeKey, false);
   }
 
   Map<String, dynamic>? _normalizeRecentEntry(dynamic rawEntry) {
@@ -375,6 +411,23 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             actions: [
+              IconButton(
+                tooltip: 'File manager',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) => const FileManagerPage(),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return SizeTransition(
+                          sizeFactor: animation,
+                          child: child,
+                        );
+                      },
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.folder_copy_outlined, size: 30),
+              ),
               Transform.scale(
                 scale: 0.8,
                 child: BlocBuilder<PackageCatalogCubit, PackageCatalogState>(

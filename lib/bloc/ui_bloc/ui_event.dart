@@ -152,6 +152,7 @@ class AIChatUIEvent extends UiEvent {
   final String? selectedModelId;
   final double scrollOffset;
   final bool isGenerating;
+  final Map<String, bool>? agenticToolSelections;
 
   AIChatUIEvent({
     required this.chatMode,
@@ -159,6 +160,7 @@ class AIChatUIEvent extends UiEvent {
     this.selectedModelId,
     required this.scrollOffset,
     required this.isGenerating,
+    this.agenticToolSelections,
   });
 }
 

@@ -11,6 +11,7 @@ import 'utils/themes.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
+  await migrateSharedStorageRoots();
   final recent = await getRecent();
   final appTheme = await getAppTheme();
   final codeForgeConfig = await getCodeForgeConfig();
@@ -79,9 +80,15 @@ class MainApp extends StatelessWidget {
               scaffoldBackgroundColor: appThemeState.appTheme.scaffoldBg,
               appBarTheme: appThemeState.appTheme.appBarTheme,
               listTileTheme: appThemeState.appTheme.tileTheme,
-              cardTheme: appThemeState.appTheme.cardTheme.data
+              cardTheme: appThemeState.appTheme.cardTheme.data,
+              textSelectionTheme: const TextSelectionThemeData(
+                selectionHandleColor: Colors.blue,
+              ),
             ),
-            home: const StartScreen()
+            home: SafeArea(
+              top: false,
+              child: const StartScreen()
+            ),
           );
         },
       ),

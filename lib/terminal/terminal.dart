@@ -1310,7 +1310,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
                     );
                   },
                 ),
-                title: Text(activeRuntime?.title ?? 'Terminal'),
+                title: Text(
+                  activeRuntime?.title ?? 'Terminal',
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor
+                  ),
+                ),
                 actions: [
                   IconButton(
                     onPressed: () => _onTerminalFontSizeChanged(state.fontSize - 1),

@@ -581,13 +581,10 @@ class _CodeEditorState extends State<CodeEditor> with AutomaticKeepAliveClientMi
               child: BlocBuilder<AIBloc, AIState>(
                 builder: (context, aiState) {
                   final ext = path.extension(widget.filePath.path).toLowerCase();
-                  final primaryMode = switch (ext) {
-                    '.jsx' => langjavascript.language ?? widget.language.language,
-                    '.tsx' => langtypescript.language ?? widget.language.language,
-                    _ => widget.language.language,
-                  };
+                  final primaryMode = widget.language.language;
 
                   return CodeForge(
+                    key: ValueKey('${widget.filePath.path}:${widget.language.name}'),
                     horizontalScrollController: null,
                     verticalScrollController: null,
                     lineWrap: (configState.codeForgeConfig['lineWrap'] ?? false) as bool,
@@ -1010,16 +1007,94 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   late final AppTheme appTheme;
   late final CodeForgeController controller;
   late final UndoRedoController undoRedoController;
-  late final Language language;
+  late Language language;
   late final File file;
   late final String ext;
   final GlobalKey<_CodeEditorState> _editorKey = GlobalKey();
+  final cursor = ValueNotifier<({int line, int col})>((line: 0, col: 0));
   PendingEditFile? _pendingEdits;
   bool _isApplyingPendingAction = false;
   Timer? _pendingRefreshTimer;
 
   String _lspLanguageIdForPath(Language lang, String filePath) {
     return lspLanguageIdForFile(language: lang, filePath: filePath);
+  }
+
+  ({int line, int col}) _lineAndColumnAtCursor(CodeForgeController targetController) {
+    final offset = targetController.selection.extentOffset.clamp(0, targetController.length);
+    final line = targetController.getLineAtOffset(offset);
+    final lineStartOffset = targetController.findLineStart(offset);
+    final col = offset - lineStartOffset;
+    return (line: line, col: col);
+  }
+
+  double _languageDropdownWidth(BuildContext context) {
+    const fontSize = 11.0;
+    final style = TextStyle(
+      color: appTheme.selectScreenCardTextColor,
+      fontSize: fontSize,
+    );
+    final painter = TextPainter(
+      text: TextSpan(text: language.name, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    const chromeWidth = 28.0;
+    const horizontalPadding = 10.0;
+    return painter.width + chromeWidth + horizontalPadding;
+  }
+
+  Future<void> _overrideLanguage(Language selectedLanguage) async {
+    if (selectedLanguage.name == language.name) return;
+
+    final activeEditorBloc = context.read<ActiveEditorBloc>();
+    final codeForgeConfig = context.read<ConfigBloc>().state.codeForgeConfig;
+
+    LspConfig? nextLspConfig;
+    if (codeForgeConfig['enableLSP'] == true) {
+      nextLspConfig = await activeEditorBloc.getOrStartSharedLspConfig(
+        languageId: _lspLanguageIdForPath(selectedLanguage, file.path),
+        ext: lspServerExtForFilePath(file.path),
+        executable: selectedLanguage.lspExecutable,
+        args: selectedLanguage.args ?? const [],
+      );
+    }
+
+    if (!mounted) return;
+
+    final currentEditors = List<ActiveEditor>.from(activeEditorBloc.state.activeEditors);
+    final currentPath = File(file.path).absolute.path;
+    final index = currentEditors.indexWhere(
+      (item) => File(item.file.path).absolute.path == currentPath,
+    );
+
+    if (index >= 0) {
+      final existing = currentEditors[index];
+      currentEditors[index] = ActiveEditor(
+        file: existing.file,
+        controller: existing.controller,
+        languageDetails: selectedLanguage,
+        undoRedoController: existing.undoRedoController,
+        hscroll: existing.hscroll,
+        vscroll: existing.vscroll,
+        isActive: existing.isActive,
+        findController: existing.findController,
+        customTitle: existing.customTitle,
+      );
+      activeEditorBloc.add(ActiveEditorEvent(currentEditors));
+    }
+
+    setState(() {
+      language = selectedLanguage;
+      controller.lspConfig = nextLspConfig;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      controller.focusNode?.requestFocus();
+    });
   }
 
   @override
@@ -1036,6 +1111,11 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
       const Duration(seconds: 2),
       (_) => _reloadPendingEdits(silent: true),
     );
+
+    controller.addListener((){
+      if(!mounted || !context.mounted || !controller.selection.isValid) return;
+      cursor.value = _lineAndColumnAtCursor(controller);
+    });
     super.initState();
   }
 
@@ -1276,8 +1356,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     final text = controller.text;
     final cursorOffset = controller.selection.start.clamp(0, text.length);
     final cursorLine = controller.getLineAtOffset(cursorOffset);
+    final lineStartOffset = controller.findLineStart(cursorOffset);
     final beforeCursor = text.substring(0, cursorOffset);
-    final lineStartOffset = beforeCursor.lastIndexOf('\n') + 1;
     final cursorColumn = cursorOffset - lineStartOffset;
 
     final prompt = '''Language: ${language.name}\nFile: ${file.path}\nCode:\n$beforeCursor<|CURSOR|>${text.substring(cursorOffset)}''';
@@ -1388,6 +1468,82 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                 ],
               );
             },
+          ),
+        ),
+        Container(
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: appTheme.isDark
+                ? const Color.fromARGB(255, 25, 25, 25)
+                : const Color.fromARGB(255, 236, 236, 236),
+            border: Border(
+              top: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: .end,
+            children: [
+              ValueListenableBuilder(
+                valueListenable: cursor,
+                builder: (_, lineColValue, _) {
+                  return Text(
+                    'Ln ${lineColValue.line + 1}, Col ${lineColValue.col + 1}',
+                    style: TextStyle(
+                      color: appTheme.selectScreenCardTextColor,
+                      fontSize: 11,
+                    ),
+                  );
+                }
+              ),
+              const SizedBox(width: 20),
+              Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: SizedBox(
+                  width: _languageDropdownWidth(context),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<Language>(
+                      dropdownColor: appTheme.editorPageDrawerBg,
+                      isDense: true,
+                      isExpanded: true,
+                      value: language,
+                      iconSize: 16,
+                      style: TextStyle(
+                        color: appTheme.selectScreenCardTextColor,
+                        fontSize: 11,
+                      ),
+                      items: languages.map((lang) {
+                        return DropdownMenuItem<Language>(
+                          value: lang,
+                          child: Row(
+                            spacing: 3,
+                            children: [
+                              SizedBox(
+                                height:14,
+                                width: 14,
+                                child: lang.icon
+                              ),
+                              Text(
+                                lang.name,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        _overrideLanguage(value);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         RawScrollbar(
@@ -1660,11 +1816,10 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                               Icons.devices_fold_outlined,
                               () async{
                                 if(controller.lspConfig == null || controller.openedFile == null) return;
-                                final cursorOffset = controller.selection.extentOffset.clamp(0, controller.text.length);
+                                final cursorOffset = controller.selection.extentOffset.clamp(0, controller.length);
                                 final line = controller.getLineAtOffset(cursorOffset);
                                 final lineText = controller.getLineText(line);
-                                final beforeCursor = controller.text.substring(0, cursorOffset);
-                                final lineStartOffset = beforeCursor.lastIndexOf('\n') + 1;
+                                final lineStartOffset = controller.findLineStart(cursorOffset);
                                 final character = (cursorOffset - lineStartOffset).clamp(0, lineText.length);
 
                                 Map<String, dynamic> def = {};

@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/utils/constants.dart';
 import '../../utils/ai.dart';
+import '../../utils/agentic_tool_catalog.dart';
 import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
@@ -347,6 +348,7 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
 
 class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
   static const String _chatModePrefsKey = 'ai_chat_mode';
+  static const String _agenticToolSelectionsPrefsKey = 'ai_agentic_tool_selections';
 
   AIChatUIBloc() : super(const AIChatUIState()) {
     on<AIChatUIEvent>((event, emit) async {
@@ -356,6 +358,9 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         selectedModelId: event.selectedModelId,
         scrollOffset: event.scrollOffset,
         isGenerating: event.isGenerating,
+        agenticToolSelections: event.agenticToolSelections != null
+            ? normalizeAgenticToolSelections(event.agenticToolSelections)
+            : state.agenticToolSelections,
       );
 
       if (state.chatMode != nextState.chatMode) {
@@ -363,10 +368,19 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         await prefs.setString(_chatModePrefsKey, nextState.chatMode.name);
       }
 
+      if (state.agenticToolSelections != nextState.agenticToolSelections) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _agenticToolSelectionsPrefsKey,
+          jsonEncode(nextState.agenticToolSelections),
+        );
+      }
+
       emit(nextState);
     });
 
     _restoreChatModeFromPrefs();
+    _restoreAgenticToolSelectionsFromPrefs();
   }
 
   Future<void> _restoreChatModeFromPrefs() async {
@@ -392,6 +406,45 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
       }
     } catch (_) {
       // Ignore preference read errors and keep default mode.
+    }
+  }
+
+  Future<void> _restoreAgenticToolSelectionsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSelections = prefs.getString(_agenticToolSelectionsPrefsKey);
+      if (savedSelections == null || savedSelections.isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(savedSelections);
+      if (decoded is! Map) {
+        return;
+      }
+
+      final restoredSelections = <String, bool>{};
+      decoded.forEach((key, value) {
+        if (key != null) {
+          restoredSelections[key.toString()] = value == true;
+        }
+      });
+
+      final normalizedSelections =
+          normalizeAgenticToolSelections(restoredSelections);
+      if (normalizedSelections != state.agenticToolSelections) {
+        add(
+          AIChatUIEvent(
+            chatMode: state.chatMode,
+            promptText: state.promptText,
+            selectedModelId: state.selectedModelId,
+            scrollOffset: state.scrollOffset,
+            isGenerating: state.isGenerating,
+            agenticToolSelections: normalizedSelections,
+          ),
+        );
+      }
+    } catch (_) {
+      // Ignore preference read errors and keep default tool selections.
     }
   }
 }

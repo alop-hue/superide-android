@@ -281,6 +281,7 @@ class AIChatUIState {
   final String? selectedModelId;
   final double scrollOffset;
   final bool isGenerating;
+  final Map<String, bool> agenticToolSelections;
 
   const AIChatUIState({
     this.chatMode = ChatMode.ask,
@@ -288,6 +289,7 @@ class AIChatUIState {
     this.selectedModelId,
     this.scrollOffset = -1,
     this.isGenerating = false,
+    this.agenticToolSelections = const {},
   });
 
   AIChatUIState copyWith({
@@ -296,6 +298,7 @@ class AIChatUIState {
     String? selectedModelId,
     double? scrollOffset,
     bool? isGenerating,
+    Map<String, bool>? agenticToolSelections,
   }) {
     return AIChatUIState(
       chatMode: chatMode ?? this.chatMode,
@@ -303,6 +306,8 @@ class AIChatUIState {
       selectedModelId: selectedModelId ?? this.selectedModelId,
       scrollOffset: scrollOffset ?? this.scrollOffset,
       isGenerating: isGenerating ?? this.isGenerating,
+      agenticToolSelections:
+          agenticToolSelections ?? this.agenticToolSelections,
     );
   }
 }
