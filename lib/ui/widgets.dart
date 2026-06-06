@@ -1464,7 +1464,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                     hscrollController: editor.hscroll,
                     vscrollController: editor.vscroll,
                   ),
-                  if (pendingPanel != null) pendingPanel,
+                  ?pendingPanel,
                 ],
               );
             },
@@ -12523,4 +12523,47 @@ class GitCommitGraph extends StatelessWidget {
       ),
     );
   }
+}
+
+
+Widget settingsTextField(
+  TextEditingController controller,
+  IconData icon,
+  String labelText,
+  Color labelColor,
+  String? hintText,
+  String? Function(String?) validator,
+  [bool obscure = false]
+){
+  return TextFormField(
+    controller: controller,
+    style: TextStyle(
+      color: labelColor
+    ),
+    obscureText: obscure,
+    cursorColor: Colors.lightBlue,
+    decoration: InputDecoration(
+      prefixIcon: Icon(icon, color: Colors.lightBlue),
+      hintStyle: TextStyle(
+        color: Colors.grey,
+        fontSize: 12
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15)
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(
+          color: Colors.lightBlue,
+          width: 2,
+        )
+      ),
+      labelText: labelText,
+      labelStyle: TextStyle(
+        color: labelColor,
+        fontSize: 15
+      ),
+    ),
+    validator: validator,
+  );
 }

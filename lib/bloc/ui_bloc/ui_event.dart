@@ -2,8 +2,13 @@ part of 'ui_bloc.dart';
 
 @immutable
 sealed class UiEvent {}
+@immutable
 sealed class RestEvent extends UiEvent {}
+@immutable
 sealed class AIEvent extends UiEvent{}
+@immutable
+//TODO
+sealed class SSHEvent extends UiEvent{}
 
 class StackIndexChange extends UiEvent {
   final int stackValue;

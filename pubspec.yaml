@@ -4,12 +4,12 @@ publish_to: 'none'
 version: 2.0.0
 
 environment:
-  sdk: ^3.12.0
+  sdk: ^3.12.1
 
 dependencies:
   android_intent_plus: ^6.0.0
   bloc: ^9.2.1
-  code_forge: ^10.2.0
+  code_forge: ^10.5.0
   diff_match_patch: ^0.4.1
   equatable: ^2.0.8
   file_picker: ^11.0.2
@@ -22,10 +22,10 @@ dependencies:
   flutter_launcher_icons: ^0.14.4
   flutter_pdfview: ^1.4.4
   flutter_pty: ^0.4.1
-  flutter_secure_storage: ^10.3.0
+  flutter_secure_storage: ^10.3.1
   flutter_svg: ^2.3.0
   flutter_switch: ^0.3.2
-  flutter_web_auth_2: ^5.0.2
+  flutter_web_auth_2: ^5.0.3
   font_awesome_flutter: ^11.0.0
   html: ^0.15.6
   http: ^1.2.2

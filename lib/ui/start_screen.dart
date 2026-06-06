@@ -105,7 +105,7 @@ class _StartScreenState extends State<StartScreen> {
     Map<String, dynamic> loader(String name, {String? loader, Map<String, String>? env}) => {
       'src': '$sharedPath/${loader ?? "libloader.so"}',
       'dst': '$binDir/$name',
-      if (env != null) 'env': env,
+      'env': ?env,
     };
 
     final loaderTools = [

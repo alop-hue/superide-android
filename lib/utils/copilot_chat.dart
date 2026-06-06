@@ -222,7 +222,7 @@ class CopilotChat {
       'User-Agent': 'Roxum/1.0.0',
       'Editor-Version': 'Roxum/1.0.0',
       'X-GitHub-Api-Version': '2025-10-01',
-      if (initiator != null) 'X-Initiator': initiator,
+      'X-Initiator': ?initiator,
       if (initiator != null) 'X-Interaction-Type': 'conversation-panel',
       if (initiator != null) 'OpenAI-Intent': 'conversation-panel',
       if (isJsonBody) 'Content-Type': 'application/json; charset=utf-8',

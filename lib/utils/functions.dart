@@ -2321,6 +2321,9 @@ class ActiveEditor {
     return json;
   }
 
+  @override
+  String toString() => toJsonMap().toString();
+
   Future<void> dispose() async {
     try {
       final lspConfig = controller.lspConfig;
@@ -3029,4 +3032,33 @@ class PendingEditFile {
     final prefs = await SharedPreferences.getInstance();
     return _decodePrefs(prefs.getString(_prefsKey));
   }
+}
+
+sealed class SSHInfo {
+  final String url;
+
+  const SSHInfo({
+    required this.url
+  });
+}
+
+class SSHLogin extends SSHInfo{
+  final String username, password;
+
+  SSHLogin({
+    required super.url,
+    required this.username,
+    required this.password
+  });
+
+}
+
+class SSHPrivateKey extends SSHInfo{
+  final String privateKey;
+
+  SSHPrivateKey({
+    required super.url,
+    required this.privateKey
+  });
+
 }

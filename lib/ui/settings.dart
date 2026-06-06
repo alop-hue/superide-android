@@ -26,14 +26,15 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
-  final TextEditingController apiController = TextEditingController();
-  final TextEditingController modelNameController = TextEditingController();
-  final TextEditingController modelIdController = TextEditingController();
-  final ScrollController scrollController = ScrollController();
-  final ScrollController terminalThemeScroll = ScrollController();
+  final apiController = TextEditingController();
+  final modelNameController = TextEditingController(), modelIdController = TextEditingController();
+  final scrollController = ScrollController(), terminalThemeScroll = ScrollController();
+  final sshUrlController = TextEditingController();
+  final sshUsernameController = TextEditingController(), sshPasswordController = TextEditingController();
+  final sshPrivateKeyController = TextEditingController();
   final themeScroll = ScrollController(), fontScroll = ScrollController();
   late final Terminal terminal;
-  final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>();
   final String demoCode =
 '''
 #include <stdio.h>
@@ -2152,37 +2153,28 @@ int main() {
                               maxHeight: 320,
                               maxWidth: 365
                             ),
-                            child: Stack(
-                              children: [
-                                CodeForge(
-                                  lineWrap: lineWrap,
-                                  enableFolding: enableFolding,
-                                  selectionStyle: CodeSelectionStyle(
-                                    selectionColor: Colors.blueAccent.withAlpha(80),
-                                    cursorBubbleColor: Colors.blue,
-                                  ),
-                                  key: ValueKey(CodeForgeDemoKey(
-                                    theme: theme,
-                                    fontFamily: fontFamily,
-                                    indentLineStatus: isIndentEnabled,
-                                    lineWrap: lineWrap,
-                                    enableFolding: enableFolding,
-                                    isDark: appThemeState.appTheme.isDark,
-                                    
-                                  )),
-                                  enableGuideLines: isIndentEnabled,
-                                  language: languages[7].language,
-                                  editorTheme: highlightThemes[theme],
-                                  textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
-                                  initialText: demoCode,
-                                  readOnly: true,
-                                ),
-                                Positioned.fill(
-                                  child: GestureDetector(
-                                    onVerticalDragUpdate: (_) {},
-                                  )
-                                )
-                              ],
+                            child: CodeForge(
+                              lineWrap: lineWrap,
+                              enableFolding: enableFolding,
+                              selectionStyle: CodeSelectionStyle(
+                                selectionColor: Colors.blueAccent.withAlpha(80),
+                                cursorBubbleColor: Colors.blue,
+                              ),
+                              key: ValueKey(CodeForgeDemoKey(
+                                theme: theme,
+                                fontFamily: fontFamily,
+                                indentLineStatus: isIndentEnabled,
+                                lineWrap: lineWrap,
+                                enableFolding: enableFolding,
+                                isDark: appThemeState.appTheme.isDark,
+                                
+                              )),
+                              enableGuideLines: isIndentEnabled,
+                              language: languages[7].language,
+                              editorTheme: highlightThemes[theme],
+                              textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
+                              initialText: demoCode,
+                              readOnly: true,
                             ),
                           ),
                         ),
@@ -2363,14 +2355,13 @@ int main() {
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(dialogContext).pop(),
+                                        onPressed: () => Navigator.of(dialogContext).pop(),
                                         child: Text(
                                           'Cancel',
                                           style: TextStyle(
                                             color: appThemeState.appTheme.isDark
-                                                ? Colors.white70
-                                                : Colors.grey.shade700,
+                                              ? Colors.white70
+                                              : Colors.grey.shade700,
                                           ),
                                         ),
                                       ),
@@ -2413,6 +2404,333 @@ int main() {
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 35),
+                      settingsDivider,
+                      const SizedBox(height: 20),
+                      //TODO
+                      settingsType("Remote host and Termux", appThemeState.appTheme.isDark),
+                      Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: SizedBox(
+                              width: 295,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.lightBlue,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadiusGeometry.circular(8)
+                                  )
+                                ),
+                                onPressed: (){
+                                  int stackIndex = 0;
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx){
+                                      return StatefulBuilder(
+                                        builder: (context, setDstate) {
+                                          return Dialog(
+                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                            constraints: BoxConstraints(maxHeight: 530),
+                                            child: Container(
+                                              padding: EdgeInsets.all(20),
+                                              alignment: .centerLeft,
+                                              width: double.infinity,
+                                              child: DefaultTextStyle.merge(
+                                                style: TextStyle(
+                                                  color: appThemeState.appTheme.selectScreenCardTextColor
+                                                ),
+                                                child: Form(
+                                                  key: _sshFormKey,
+                                                  child: Column(
+                                                    crossAxisAlignment: .end,
+                                                    children: [
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(left: 12),
+                                                        child: Row(
+                                                          spacing: 18,
+                                                          children: [
+                                                            FaIcon(
+                                                              FontAwesomeIcons.server,
+                                                              color: Colors.lightBlue
+                                                            ),
+                                                            Text(
+                                                              "Add a remote host",
+                                                              style: TextStyle(
+                                                                fontSize: 20,
+                                                                fontWeight: .w500
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(top: 50, bottom: 30),
+                                                        child: SizedBox(
+                                                          height: 37,
+                                                          width: 245,
+                                                          child: Row(
+                                                            children: [
+                                                              InkWell(
+                                                                borderRadius: BorderRadius.only(
+                                                                  topLeft: Radius.circular(20),
+                                                                  bottomLeft: Radius.circular(20)
+                                                                ),
+                                                                onTap: (){
+                                                                  if(stackIndex == 0) return;
+                                                                  setDstate(() => stackIndex = 0);
+                                                                }, child: Container(
+                                                                  alignment: .center,
+                                                                  decoration: BoxDecoration(
+                                                                    color: stackIndex == 0 ? Colors.blue : null,
+                                                                    borderRadius: BorderRadius.only(
+                                                                      topLeft: Radius.circular(20),
+                                                                      bottomLeft: Radius.circular(20)
+                                                                    ),
+                                                                    border: Border.all(
+                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                      width: 0.5
+                                                                    )
+                                                                  ),
+                                                                  height: 50,
+                                                                  width: 100,
+                                                                  child: Text(
+                                                                    "Login",
+                                                                    style: TextStyle(
+                                                                      color: stackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                                                    ),
+                                                                  )
+                                                                )
+                                                              ),
+                                                              InkWell(
+                                                                borderRadius: BorderRadius.only(
+                                                                  topRight: Radius.circular(20),
+                                                                  bottomRight: Radius.circular(20)
+                                                                ),
+                                                                onTap: (){
+                                                                  if(stackIndex == 1) return;
+                                                                  setDstate(() => stackIndex = 1);
+                                                                }, child: Container(
+                                                                  alignment: .center,
+                                                                  decoration: BoxDecoration(
+                                                                    color: stackIndex == 1 ? Colors.blue : null,
+                                                                    borderRadius: BorderRadius.only(
+                                                                      topRight: Radius.circular(20),
+                                                                      bottomRight: Radius.circular(20)
+                                                                    ),
+                                                                    border: Border.all(
+                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                      width: 0.5
+                                                                    )
+                                                                  ),
+                                                                  height: 50,
+                                                                  width: 100,
+                                                                  child: Text(
+                                                                    "Private key",
+                                                                    style: TextStyle(
+                                                                      color: stackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
+                                                                    ),
+                                                                  )
+                                                                )
+                                                              )
+                                                            ]
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(bottom: 20),
+                                                        child: settingsTextField(
+                                                          sshUrlController,
+                                                          Icons.link,
+                                                          "Server url",
+                                                          appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                          null,
+                                                          (val) =>  val == null || val.isEmpty ? "Please enter a valid Url": null,
+                                                        ),
+                                                      ),
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(bottom: 20),
+                                                        child: IndexedStack(
+                                                          index: stackIndex,
+                                                          children: [
+                                                            Column(
+                                                              spacing: 20,
+                                                              children: [
+                                                                settingsTextField(
+                                                                  sshUsernameController,
+                                                                  Icons.person,
+                                                                  "User name",
+                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  null,
+                                                                  (val) =>  val == null || val.isEmpty ? "Please enter a valid username": null,
+                                                                ),
+                                                                settingsTextField(
+                                                                  sshPasswordController,
+                                                                  Icons.key,
+                                                                  "Password",
+                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  null,
+                                                                  (val) =>  val == null || val.isEmpty ? "Password field cannot be empty": null,
+                                                                  true
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            Column(
+                                                              children: [
+                                                                settingsTextField(
+                                                                  sshPrivateKeyController,
+                                                                  Icons.lock_open,
+                                                                  "Private key",
+                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  null,
+                                                                  (val) =>  val == null || val.isEmpty ? "Private key is required to establish a connection": null,
+                                                                ),
+                                                              ],
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Column(
+                                                        spacing: 18,
+                                                        children: [
+                                                          TextButton(
+                                                            style: TextButton.styleFrom(
+                                                              padding: EdgeInsets.zero,
+                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                              minimumSize: Size.zero
+                                                            ),
+                                                            onPressed: () => Navigator.pop(context),
+                                                            child: Text(
+                                                              "Cancel",
+                                                              style: TextStyle(
+                                                                color: Colors.red
+                                                              )
+                                                            )
+                                                          ),
+                                                          TextButton(
+                                                            style: TextButton.styleFrom(
+                                                              padding: EdgeInsets.zero,
+                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                              minimumSize: Size.zero
+                                                            ),
+                                                            onPressed: (){},
+                                                            child: Text(
+                                                              "Save",
+                                                              style: TextStyle(
+                                                                color: Colors.lightBlue
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          TextButton(
+                                                            style: TextButton.styleFrom(
+                                                              padding: EdgeInsets.zero,
+                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                              minimumSize: Size.zero
+                                                            ),
+                                                            onPressed: (){},
+                                                            child: Text(
+                                                              "Save & Connect",
+                                                              style: TextStyle(
+                                                                color: Colors.greenAccent
+                                                              ),
+                                                            )
+                                                          ),
+                                                        ],
+                                                      )
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      );
+                                    }
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    spacing: 18,
+                                    children: [
+                                      FaIcon(
+                                        FontAwesomeIcons.server,
+                                        color: Colors.white,
+                                        size: 22,
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: .start,
+                                        children: [
+                                          Text(
+                                            "Add a remote host",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 17
+                                            ),
+                                          ),
+                                          Text(
+                                            "Connect to a remote server via SSH",
+                                            style: TextStyle(
+                                              color: Colors.white.withAlpha(195),
+                                              fontSize: 12
+                                            )
+                                          )
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                )
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(10))
+                                  ),
+                                  child: Text(
+                                    "Saved remotes",
+                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
+                                  )
+                                ),
+                                Container(
+                                  alignment: .center,
+                                  padding: EdgeInsets.all(15),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+                                    color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
+                                  ),
+                                  width: double.infinity,
+                                  child: Text(
+                                    "No remotes have been configured yet.",
+                                    style: TextStyle(
+                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                      fontSize: 16
+                                    )
+                                  )
+                                )
+                              ]
+                            ),
+                          ),
+                          settingsTile(
+                            (){},
+                            "Termux",
+                            SvgPicture.asset(
+                              "assets/icons/Termux.svg",
+                              height: 30,
+                              width: 30
+                            ),
+                            appThemeState.appTheme.isDark,
+                            subTitle: "Connect to Termux."
+                          )
+                        ],
                       ),
 
                       const SizedBox(height: 35),
@@ -2530,109 +2848,39 @@ int main() {
                                                               validator: (value) => value == null ? "Select a valid provider" : null,
                                                             ),
                                                             const SizedBox(height: 15),
-                                                            TextFormField(
-                                                              style: TextStyle(
-                                                                color: appThemeState.appTheme.selectScreenCardTextColor
-                                                              ),
-                                                              controller: modelNameController,
-                                                              cursorColor: Colors.lightBlue,
-                                                              decoration: InputDecoration(
-                                                                prefixIcon: Icon(Icons.label, color: Colors.lightBlue),
-                                                                hintText: "model name as per the provider's api",
-                                                                hintStyle: TextStyle(
-                                                                  color: Colors.grey,
-                                                                  fontSize: 12
-                                                                ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15)
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.lightBlue,
-                                                                    width: 2,
-                                                                  )
-                                                                ),
-                                                                labelText: "Model Name",
-                                                                labelStyle: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  fontSize: 15
-                                                                ),
-                                                              ),
-                                                              validator: (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
+                                                            settingsTextField(
+                                                              modelNameController,
+                                                              Icons.label,
+                                                              "Model name",
+                                                              appThemeState.appTheme.selectScreenCardTextColor,
+                                                              "model name as per the provider's api",
+                                                              (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
                                                             ),
                                                             const SizedBox(height: 15),
-                                                            TextFormField(
-                                                              style: TextStyle(
-                                                                color: appThemeState.appTheme.selectScreenCardTextColor
-                                                              ),
-                                                              controller: apiController,
-                                                              cursorColor: Colors.lightBlue,
-                                                              obscureText: true,
-                                                              decoration: InputDecoration(
-                                                                prefixIcon: Icon(Icons.key, color: Colors.lightBlue),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15)
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.lightBlue,
-                                                                    width: 2,
-                                                                  )
-                                                                ),
-                                                                labelText: "API Key",
-                                                                hintText: isCustomProvider
-                                                                    ? "Optional: Bearer token for the custom endpoint"
-                                                                    : "API key for the corresponding provider",
-                                                                hintStyle: TextStyle(
-                                                                  color: Colors.grey,
-                                                                  fontSize: 12
-                                                                ),
-                                                                labelStyle: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  fontSize: 15
-                                                                ),
-                                                              ),
-                                                              validator: (value) {
+                                                            settingsTextField(
+                                                              apiController,
+                                                              Icons.key,
+                                                              "API Key",
+                                                              appThemeState.appTheme.selectScreenCardTextColor,
+                                                              isCustomProvider
+                                                                ? "Optional: Bearer token for the custom endpoint"
+                                                                : "API key for the corresponding provider",
+                                                              (value) {
                                                                 if (isCustomProvider) {
                                                                   return null;
                                                                 }
                                                                 return value == null || value.isEmpty ? "Enter a valid API key" : null;
-                                                              },
+                                                              }
                                                             ),
                                                             if (isCustomProvider) ...[
                                                               const SizedBox(height: 15),
-                                                              TextFormField(
-                                                                style: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                ),
-                                                                controller: customUrlController,
-                                                                cursorColor: Colors.lightBlue,
-                                                                decoration: InputDecoration(
-                                                                  prefixIcon: Icon(Icons.link, color: Colors.lightBlue),
-                                                                  labelText: "Custom Endpoint URL",
-                                                                  hintText: "https://api.example.com/v1/chat/completions",
-                                                                  hintStyle: TextStyle(
-                                                                    color: Colors.grey,
-                                                                    fontSize: 12,
-                                                                  ),
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                  ),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.lightBlue,
-                                                                      width: 2,
-                                                                    ),
-                                                                  ),
-                                                                  labelStyle: TextStyle(
-                                                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                    fontSize: 15,
-                                                                  ),
-                                                                ),
-                                                                validator: (value) {
+                                                              settingsTextField(
+                                                                customUrlController,
+                                                                Icons.link,
+                                                                "Custom Endpoint URL",
+                                                                appThemeState.appTheme.selectScreenCardTextColor,
+                                                                "https://api.example.com/v1/chat/completions",
+                                                                (value) {
                                                                   if (!isCustomProvider) return null;
                                                                   if (value == null || value.trim().isEmpty) {
                                                                     return "Enter a valid endpoint URL";
@@ -2642,7 +2890,7 @@ int main() {
                                                                     return "Enter a valid absolute URL";
                                                                   }
                                                                   return null;
-                                                                },
+                                                                }
                                                               ),
                                                               const SizedBox(height: 15),
                                                               DropdownButtonFormField<String>(
