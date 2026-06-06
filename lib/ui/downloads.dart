@@ -1568,7 +1568,7 @@ class _DownloadManagerState extends State<DownloadManager> {
                                               setState(() {
                                                 loadingIndexes.remove(index);
                                               });
-                                              Navigator.of(context).pop(true);
+                                              Navigator.of(context).pop();
                                             },
                                             style: ButtonStyle(
                                               backgroundColor: WidgetStateProperty.all<Color>(Colors.red)

@@ -3035,30 +3035,93 @@ class PendingEditFile {
 }
 
 sealed class SSHInfo {
-  final String url;
+  final String url, name;
+  final int id;
 
   const SSHInfo({
-    required this.url
+    required this.id,
+    required this.url,
+    required this.name
   });
+
+  factory SSHInfo.fromJsonMap(Map<String, dynamic> jsonMap){
+    switch (jsonMap["login"]) {
+      case true: return SSHLogin.fromJsonMap(jsonMap);
+      case false: return SSHPrivateKey.fromJsonMap(jsonMap);
+      default: throw Exception('Invalid SSH type');
+    }
+  }
+
+  Map<String, dynamic> toJsonMap();
+
+  static Future<List<SSHInfo>> getSavedSSHServers() async{
+    final prefs = await SharedPreferences.getInstance();
+    final serverList = (jsonDecode(prefs.getString('sshServerList') ?? '[]') as List).cast<Map<String, dynamic>>();
+    return serverList.map(SSHInfo.fromJsonMap).toList();
+  }
 }
 
 class SSHLogin extends SSHInfo{
   final String username, password;
 
   SSHLogin({
+    required super.name,
+    required super.id,
     required super.url,
     required this.username,
-    required this.password
+    required this.password,
   });
+  
+  @override
+  Map<String, dynamic> toJsonMap() => {
+    "name": name,
+    "id": id,
+    "url": url,
+    "username": username,
+    "password": password,
+    "login": true
+  };
 
+  @override
+  String toString() => toJsonMap().toString();
+  
+  
+  static SSHLogin fromJsonMap(Map<String, dynamic> jsonMap) => SSHLogin(
+    name: jsonMap["name"],
+    id: jsonMap["id"],
+    url: jsonMap["url"],
+    username: jsonMap["username"],
+    password: jsonMap["password"],
+  );
+  
 }
 
 class SSHPrivateKey extends SSHInfo{
   final String privateKey;
 
   SSHPrivateKey({
+    required super.name,
+    required super.id,
     required super.url,
     required this.privateKey
   });
+  
+  @override
+  Map<String, dynamic> toJsonMap() => {
+    "name": name,
+    "id": id,
+    "url": url,
+    "key": privateKey,
+    "login": false
+  };
 
+  static SSHPrivateKey fromJsonMap(Map<String, dynamic> jsonMap) => SSHPrivateKey(
+    name: jsonMap["name"],
+    id: jsonMap["id"],
+    url: jsonMap["url"],
+    privateKey: jsonMap["key"]
+  );
+
+  @override
+  String toString() => toJsonMap().toString();
 }

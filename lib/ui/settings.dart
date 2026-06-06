@@ -29,7 +29,7 @@ class _SettingsState extends State<Settings> {
   final apiController = TextEditingController();
   final modelNameController = TextEditingController(), modelIdController = TextEditingController();
   final scrollController = ScrollController(), terminalThemeScroll = ScrollController();
-  final sshUrlController = TextEditingController();
+  final sshUrlController = TextEditingController(), sshServerNameController = TextEditingController();
   final sshUsernameController = TextEditingController(), sshPasswordController = TextEditingController();
   final sshPrivateKeyController = TextEditingController();
   final themeScroll = ScrollController(), fontScroll = ScrollController();
@@ -2410,327 +2410,716 @@ int main() {
                       const SizedBox(height: 20),
                       //TODO
                       settingsType("Remote host and Termux", appThemeState.appTheme.isDark),
-                      Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: SizedBox(
-                              width: 295,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.lightBlue,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadiusGeometry.circular(8)
-                                  )
-                                ),
-                                onPressed: (){
-                                  int stackIndex = 0;
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx){
-                                      return StatefulBuilder(
-                                        builder: (context, setDstate) {
-                                          return Dialog(
-                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                            constraints: BoxConstraints(maxHeight: 530),
-                                            child: Container(
-                                              padding: EdgeInsets.all(20),
-                                              alignment: .centerLeft,
-                                              width: double.infinity,
-                                              child: DefaultTextStyle.merge(
-                                                style: TextStyle(
-                                                  color: appThemeState.appTheme.selectScreenCardTextColor
-                                                ),
-                                                child: Form(
-                                                  key: _sshFormKey,
-                                                  child: Column(
-                                                    crossAxisAlignment: .end,
-                                                    children: [
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(left: 12),
-                                                        child: Row(
-                                                          spacing: 18,
-                                                          children: [
-                                                            FaIcon(
-                                                              FontAwesomeIcons.server,
-                                                              color: Colors.lightBlue
-                                                            ),
-                                                            Text(
-                                                              "Add a remote host",
-                                                              style: TextStyle(
-                                                                fontSize: 20,
-                                                                fontWeight: .w500
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(top: 50, bottom: 30),
-                                                        child: SizedBox(
-                                                          height: 37,
-                                                          width: 245,
-                                                          child: Row(
+                      BlocBuilder<SSHServersCubit, SSHServersState>(
+                        builder: (context, sshState) {
+                          final serverList = sshState.serverList;
+                          return Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: SizedBox(
+                                  width: 295,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.lightBlue,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadiusGeometry.circular(8)
+                                      )
+                                    ),
+                                    onPressed: (){
+                                      int stackIndex = 0;
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx){
+                                          return StatefulBuilder(
+                                            builder: (context, setDstate) {
+                                              return Dialog(
+                                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                constraints: BoxConstraints(maxHeight: 600),
+                                                child: Container(
+                                                  padding: EdgeInsets.all(20),
+                                                  width: double.infinity,
+                                                  child: DefaultTextStyle.merge(
+                                                    style: TextStyle(
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor
+                                                    ),
+                                                    child: Form(
+                                                      key: _sshFormKey,
+                                                      child: Scrollbar(
+                                                        child: SingleChildScrollView(
+                                                          child: Column(
+                                                            crossAxisAlignment: .end,
                                                             children: [
-                                                              InkWell(
-                                                                borderRadius: BorderRadius.only(
-                                                                  topLeft: Radius.circular(20),
-                                                                  bottomLeft: Radius.circular(20)
-                                                                ),
-                                                                onTap: (){
-                                                                  if(stackIndex == 0) return;
-                                                                  setDstate(() => stackIndex = 0);
-                                                                }, child: Container(
-                                                                  alignment: .center,
-                                                                  decoration: BoxDecoration(
-                                                                    color: stackIndex == 0 ? Colors.blue : null,
-                                                                    borderRadius: BorderRadius.only(
-                                                                      topLeft: Radius.circular(20),
-                                                                      bottomLeft: Radius.circular(20)
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(left: 12),
+                                                                child: Row(
+                                                                  spacing: 18,
+                                                                  children: [
+                                                                    FaIcon(
+                                                                      FontAwesomeIcons.server,
+                                                                      color: Colors.lightBlue
                                                                     ),
-                                                                    border: Border.all(
-                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                      width: 0.5
+                                                                    Text(
+                                                                      "Add a remote host",
+                                                                      style: TextStyle(
+                                                                        fontSize: 20,
+                                                                        fontWeight: .w500
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(top: 50, bottom: 30),
+                                                                child: SizedBox(
+                                                                  height: 37,
+                                                                  width: 245,
+                                                                  child: Row(
+                                                                    children: [
+                                                                      InkWell(
+                                                                        borderRadius: BorderRadius.only(
+                                                                          topLeft: Radius.circular(20),
+                                                                          bottomLeft: Radius.circular(20)
+                                                                        ),
+                                                                        onTap: (){
+                                                                          if(stackIndex == 0) return;
+                                                                          setDstate(() => stackIndex = 0);
+                                                                        }, child: Container(
+                                                                          alignment: .center,
+                                                                          decoration: BoxDecoration(
+                                                                            color: stackIndex == 0 ? Colors.blue : null,
+                                                                            borderRadius: BorderRadius.only(
+                                                                              topLeft: Radius.circular(20),
+                                                                              bottomLeft: Radius.circular(20)
+                                                                            ),
+                                                                            border: Border.all(
+                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                              width: 0.5
+                                                                            )
+                                                                          ),
+                                                                          height: 50,
+                                                                          width: 100,
+                                                                          child: Text(
+                                                                            "Login",
+                                                                            style: TextStyle(
+                                                                              color: stackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                                                            ),
+                                                                          )
+                                                                        )
+                                                                      ),
+                                                                      InkWell(
+                                                                        borderRadius: BorderRadius.only(
+                                                                          topRight: Radius.circular(20),
+                                                                          bottomRight: Radius.circular(20)
+                                                                        ),
+                                                                        onTap: (){
+                                                                          if(stackIndex == 1) return;
+                                                                          setDstate(() => stackIndex = 1);
+                                                                        }, child: Container(
+                                                                          alignment: .center,
+                                                                          decoration: BoxDecoration(
+                                                                            color: stackIndex == 1 ? Colors.blue : null,
+                                                                            borderRadius: BorderRadius.only(
+                                                                              topRight: Radius.circular(20),
+                                                                              bottomRight: Radius.circular(20)
+                                                                            ),
+                                                                            border: Border.all(
+                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                              width: 0.5
+                                                                            )
+                                                                          ),
+                                                                          height: 50,
+                                                                          width: 100,
+                                                                          child: Text(
+                                                                            "Private key",
+                                                                            style: TextStyle(
+                                                                              color: stackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
+                                                                            ),
+                                                                          )
+                                                                        )
+                                                                      )
+                                                                    ]
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(bottom: 20),
+                                                                child: Column(
+                                                                  spacing: 20,
+                                                                  children: [
+                                                                    settingsTextField(
+                                                                      sshServerNameController,
+                                                                      Icons.abc,
+                                                                      "Server name",
+                                                                      appThemeState.appTheme.selectScreenCardTextColor,
+                                                                      "Eg: My server",
+                                                                      (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
+                                                                    ),
+                                                          
+                                                                    settingsTextField(
+                                                                      sshUrlController,
+                                                                      Icons.link,
+                                                                      "Server url",
+                                                                      appThemeState.appTheme.selectScreenCardTextColor,
+                                                                      null,
+                                                                      (val) =>  val == null || val.isEmpty ? "Please enter a valid Url": null,
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(bottom: 20),
+                                                                child: IndexedStack(
+                                                                  index: stackIndex,
+                                                                  children: [
+                                                                    Column(
+                                                                      spacing: 20,
+                                                                      children: [
+                                                                        settingsTextField(
+                                                                          sshUsernameController,
+                                                                          Icons.person,
+                                                                          "User name",
+                                                                          appThemeState.appTheme.selectScreenCardTextColor,
+                                                                          null,
+                                                                          (val) {
+                                                                            if(stackIndex == 1) return null;
+                                                                            return val == null || val.isEmpty ? "Please enter a valid username": null;
+                                                                          },
+                                                                        ),
+                                                                        settingsTextField(
+                                                                          sshPasswordController,
+                                                                          Icons.key,
+                                                                          "Password",
+                                                                          appThemeState.appTheme.selectScreenCardTextColor,
+                                                                          null,
+                                                                          (val) {
+                                                                            if(stackIndex == 1) return null;
+                                                                            return val == null || val.isEmpty ? "Password field cannot be empty": null;
+                                                                          },
+                                                                          true
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                    Column(
+                                                                      children: [
+                                                                        settingsTextField(
+                                                                          sshPrivateKeyController,
+                                                                          Icons.lock_open,
+                                                                          "Private key",
+                                                                          appThemeState.appTheme.selectScreenCardTextColor,
+                                                                          null,
+                                                                          (val) {
+                                                                            if(stackIndex == 0) return null;
+                                                                            return val == null || val.isEmpty ? "Private key is required to establish a connection": null;
+                                                                          },
+                                                                        ),
+                                                                      ],
+                                                                    )
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Column(
+                                                                spacing: 18,
+                                                                children: [
+                                                                  TextButton(
+                                                                    style: TextButton.styleFrom(
+                                                                      padding: EdgeInsets.zero,
+                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                      minimumSize: Size.zero
+                                                                    ),
+                                                                    onPressed: () => Navigator.pop(context),
+                                                                    child: Text(
+                                                                      "Cancel",
+                                                                      style: TextStyle(
+                                                                        color: Colors.red
+                                                                      )
                                                                     )
                                                                   ),
-                                                                  height: 50,
-                                                                  width: 100,
-                                                                  child: Text(
-                                                                    "Login",
-                                                                    style: TextStyle(
-                                                                      color: stackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                                                  TextButton(
+                                                                    style: TextButton.styleFrom(
+                                                                      padding: EdgeInsets.zero,
+                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                      minimumSize: Size.zero
                                                                     ),
-                                                                  )
-                                                                )
-                                                              ),
-                                                              InkWell(
-                                                                borderRadius: BorderRadius.only(
-                                                                  topRight: Radius.circular(20),
-                                                                  bottomRight: Radius.circular(20)
-                                                                ),
-                                                                onTap: (){
-                                                                  if(stackIndex == 1) return;
-                                                                  setDstate(() => stackIndex = 1);
-                                                                }, child: Container(
-                                                                  alignment: .center,
-                                                                  decoration: BoxDecoration(
-                                                                    color: stackIndex == 1 ? Colors.blue : null,
-                                                                    borderRadius: BorderRadius.only(
-                                                                      topRight: Radius.circular(20),
-                                                                      bottomRight: Radius.circular(20)
+                                                                    onPressed: () async{
+                                                                      if (_sshFormKey.currentState!.validate()) {
+                                                                        await context.read<SSHServersCubit>().addServer(
+                                                                          stackIndex == 0
+                                                                          ? SSHLogin(
+                                                                            name: sshServerNameController.text,
+                                                                            id: DateTime.now().millisecondsSinceEpoch,
+                                                                            url: sshUrlController.text,
+                                                                            username: sshUsernameController.text,
+                                                                            password: sshPasswordController.text
+                                                                          )
+                                                                          : SSHPrivateKey(
+                                                                            name: sshServerNameController.text,
+                                                                            id: DateTime.now().millisecondsSinceEpoch,
+                                                                            url: sshUrlController.text,
+                                                                            privateKey: sshPrivateKeyController.text
+                                                                          )
+                                                                        );
+                                                                      }
+                                                                      if(context.mounted) Navigator.pop(context);
+                                                                    },
+                                                                    child: Text(
+                                                                      "Save",
+                                                                      style: TextStyle(
+                                                                        color: Colors.lightBlue
+                                                                      ),
                                                                     ),
-                                                                    border: Border.all(
-                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                      width: 0.5
+                                                                  ),
+                                                                  TextButton(
+                                                                    style: TextButton.styleFrom(
+                                                                      padding: EdgeInsets.zero,
+                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                      minimumSize: Size.zero
+                                                                    ),
+                                                                    onPressed: (){},
+                                                                    child: Text(
+                                                                      "Save & Connect",
+                                                                      style: TextStyle(
+                                                                        color: Colors.greenAccent
+                                                                      ),
                                                                     )
                                                                   ),
-                                                                  height: 50,
-                                                                  width: 100,
-                                                                  child: Text(
-                                                                    "Private key",
-                                                                    style: TextStyle(
-                                                                      color: stackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
-                                                                    ),
-                                                                  )
-                                                                )
+                                                                ],
                                                               )
-                                                            ]
+                                                            ],
                                                           ),
                                                         ),
                                                       ),
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(bottom: 20),
-                                                        child: settingsTextField(
-                                                          sshUrlController,
-                                                          Icons.link,
-                                                          "Server url",
-                                                          appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                          null,
-                                                          (val) =>  val == null || val.isEmpty ? "Please enter a valid Url": null,
-                                                        ),
-                                                      ),
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(bottom: 20),
-                                                        child: IndexedStack(
-                                                          index: stackIndex,
-                                                          children: [
-                                                            Column(
-                                                              spacing: 20,
-                                                              children: [
-                                                                settingsTextField(
-                                                                  sshUsernameController,
-                                                                  Icons.person,
-                                                                  "User name",
-                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  null,
-                                                                  (val) =>  val == null || val.isEmpty ? "Please enter a valid username": null,
-                                                                ),
-                                                                settingsTextField(
-                                                                  sshPasswordController,
-                                                                  Icons.key,
-                                                                  "Password",
-                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  null,
-                                                                  (val) =>  val == null || val.isEmpty ? "Password field cannot be empty": null,
-                                                                  true
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            Column(
-                                                              children: [
-                                                                settingsTextField(
-                                                                  sshPrivateKeyController,
-                                                                  Icons.lock_open,
-                                                                  "Private key",
-                                                                  appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  null,
-                                                                  (val) =>  val == null || val.isEmpty ? "Private key is required to establish a connection": null,
-                                                                ),
-                                                              ],
-                                                            )
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      Column(
-                                                        spacing: 18,
-                                                        children: [
-                                                          TextButton(
-                                                            style: TextButton.styleFrom(
-                                                              padding: EdgeInsets.zero,
-                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                              minimumSize: Size.zero
-                                                            ),
-                                                            onPressed: () => Navigator.pop(context),
-                                                            child: Text(
-                                                              "Cancel",
-                                                              style: TextStyle(
-                                                                color: Colors.red
-                                                              )
-                                                            )
-                                                          ),
-                                                          TextButton(
-                                                            style: TextButton.styleFrom(
-                                                              padding: EdgeInsets.zero,
-                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                              minimumSize: Size.zero
-                                                            ),
-                                                            onPressed: (){},
-                                                            child: Text(
-                                                              "Save",
-                                                              style: TextStyle(
-                                                                color: Colors.lightBlue
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          TextButton(
-                                                            style: TextButton.styleFrom(
-                                                              padding: EdgeInsets.zero,
-                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                              minimumSize: Size.zero
-                                                            ),
-                                                            onPressed: (){},
-                                                            child: Text(
-                                                              "Save & Connect",
-                                                              style: TextStyle(
-                                                                color: Colors.greenAccent
-                                                              ),
-                                                            )
-                                                          ),
-                                                        ],
-                                                      )
-                                                    ],
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
+                                              );
+                                            }
                                           );
                                         }
                                       );
-                                    }
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  child: Row(
-                                    spacing: 18,
-                                    children: [
-                                      FaIcon(
-                                        FontAwesomeIcons.server,
-                                        color: Colors.white,
-                                        size: 22,
-                                      ),
-                                      Column(
-                                        crossAxisAlignment: .start,
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Row(
+                                        spacing: 18,
                                         children: [
-                                          Text(
-                                            "Add a remote host",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 17
-                                            ),
+                                          FaIcon(
+                                            FontAwesomeIcons.server,
+                                            color: Colors.white,
+                                            size: 22,
                                           ),
-                                          Text(
-                                            "Connect to a remote server via SSH",
-                                            style: TextStyle(
-                                              color: Colors.white.withAlpha(195),
-                                              fontSize: 12
-                                            )
+                                          Column(
+                                            crossAxisAlignment: .start,
+                                            children: [
+                                              Text(
+                                                "Add a remote host",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 17
+                                                ),
+                                              ),
+                                              Text(
+                                                "Connect to a remote server via SSH",
+                                                style: TextStyle(
+                                                  color: Colors.white.withAlpha(195),
+                                                  fontSize: 12
+                                                )
+                                              )
+                                            ],
                                           )
                                         ],
-                                      )
-                                    ],
-                                  ),
-                                )
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                                  ),
-                                  child: Text(
-                                    "Saved remotes",
-                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
-                                  )
-                                ),
-                                Container(
-                                  alignment: .center,
-                                  padding: EdgeInsets.all(15),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
-                                    color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
-                                  ),
-                                  width: double.infinity,
-                                  child: Text(
-                                    "No remotes have been configured yet.",
-                                    style: TextStyle(
-                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                      fontSize: 16
+                                      ),
                                     )
-                                  )
-                                )
-                              ]
-                            ),
-                          ),
-                          settingsTile(
-                            (){},
-                            "Termux",
-                            SvgPicture.asset(
-                              "assets/icons/Termux.svg",
-                              height: 30,
-                              width: 30
-                            ),
-                            appThemeState.appTheme.isDark,
-                            subTitle: "Connect to Termux."
-                          )
-                        ],
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
+                                        borderRadius: BorderRadius.vertical(top: Radius.circular(10))
+                                      ),
+                                      child: Text(
+                                        "Saved remotes",
+                                        style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
+                                      )
+                                    ),
+                                    Container(
+                                      alignment: .center,
+                                      padding: EdgeInsets.all(15),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+                                        color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
+                                      ),
+                                      width: double.infinity,
+                                      child: serverList.isEmpty ? Text(
+                                        "No remotes have been configured yet.",
+                                        style: TextStyle(
+                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                          fontSize: 16
+                                        )
+                                      ) : ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxHeight: 450
+                                        ),
+                                        child: Scrollbar(
+                                          child: ListView.builder(
+                                            shrinkWrap: true,
+                                            itemCount: serverList.length,
+                                            itemBuilder: (context, index) {
+                                              final server = serverList[index];
+                                              final isLogin = server is SSHLogin;
+                                              return Card(
+                                                child: ListTile(
+                                                  onTap: () {
+                                                    bool isObscure = true;
+                                                    showDialog(
+                                                      context: context,
+                                                      builder:(context) => StatefulBuilder(
+                                                        builder: (context, setTempState) => Dialog(
+                                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                          constraints: BoxConstraints(maxHeight: 550),
+                                                          child: DefaultTextStyle.merge(
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              fontSize: 15
+                                                            ),
+                                                            child: Container(
+                                                              width: double.infinity,
+                                                              padding: EdgeInsets.all(20),
+                                                              child: Column(
+                                                                spacing: 10,
+                                                                crossAxisAlignment: .start,
+                                                                children: [
+                                                                  Text(
+                                                                    "Host Info",
+                                                                    style: TextStyle(
+                                                                      fontSize: 30
+                                                                    ),
+                                                                  ),
+                                                                  SizedBox(height: 20),
+                                                                  Table(
+                                                                    border: TableBorder.all(
+                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                      width: 0.5,
+                                                                      borderRadius: .circular(15)
+                                                                    ),
+                                                                    columnWidths: const <int, TableColumnWidth>{
+                                                                      0: IntrinsicColumnWidth(),
+                                                                      1: FlexColumnWidth(),
+                                                                    },
+                                                                    children: [
+                                                                      TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text("name"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(server.name),
+                                                                          ),
+                                                                        ]
+                                                                      ),
+                                                                      TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text("id"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(server.id.toString()),
+                                                                          ),
+                                                                        ]
+                                                                      ),
+                                                                      TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text("url"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(server.url),
+                                                                          ),
+                                                                        ]
+                                                                      ),
+                                                                      TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text("type"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(isLogin ? "login" : "private key"),
+                                                                          ),
+                                                                        ]
+                                                                      ),
+
+                                                                      if(isLogin) TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text("username"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(server.username),
+                                                                          )
+                                                                        ]
+                                                                      ),
+                                                                      
+                                                                      TableRow(
+                                                                        children: [
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Text(isLogin ? "password" : "private key"),
+                                                                          ),
+                                                                          Padding(
+                                                                            padding: const EdgeInsets.all(8.0),
+                                                                            child: Wrap(
+                                                                              children: [
+                                                                                Text(
+                                                                                  isLogin
+                                                                                    ? isObscure
+                                                                                      ? "*" * server.password.length
+                                                                                      : server.password
+                                                                                    : isObscure
+                                                                                      ? "${"*" * 8}\u00B7\u00B7\u00B7"
+                                                                                      : (server as SSHPrivateKey).privateKey
+                                                                                ),
+                                                                                Padding(
+                                                                                  padding: const EdgeInsets.only(left: 17),
+                                                                                  child: InkWell(
+                                                                                    onTap: () => setTempState(() => isObscure = !isObscure),
+                                                                                    child: Icon(
+                                                                                      isObscure ? Icons.visibility : Icons.visibility_off,
+                                                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                      size: 20
+                                                                                    ),
+                                                                                  ),
+                                                                                )
+                                                                              ],
+                                                                            ),
+                                                                          )
+                                                                        ]
+                                                                      )
+                                                                    ],
+                                                                  ),
+                                                                  Center(
+                                                                    child: Padding(
+                                                                      padding: const EdgeInsets.only(top: 20),
+                                                                      child: SizedBox(
+                                                                        width: 200,
+                                                                        child: Column(
+                                                                          spacing: 5,
+                                                                          children: [
+                                                                            ElevatedButton(
+                                                                              style: ElevatedButton.styleFrom(
+                                                                                backgroundColor: Colors.green,
+                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
+                                                                              ),
+                                                                              onPressed: (){},
+                                                                              child: Row(
+                                                                                spacing: 7,
+                                                                                mainAxisAlignment: .center,
+                                                                                children: [
+                                                                                  Icon(
+                                                                                    Icons.power,
+                                                                                    color: Colors.white,
+                                                                                    size: 21
+                                                                                  ),
+                                                                                  Text(
+                                                                                    "Connect",
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white,
+                                                                                      fontSize: 16.5
+                                                                                    ),
+                                                                                  )
+                                                                                ],
+                                                                              )
+                                                                            ),
+                                                                            ElevatedButton(
+                                                                              style: ElevatedButton.styleFrom(
+                                                                                backgroundColor: Colors.blue,
+                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
+                                                                              ),
+                                                                              onPressed: (){},
+                                                                              child: Row(
+                                                                                spacing: 7,
+                                                                                mainAxisAlignment: .center,
+                                                                                children: [
+                                                                                  Icon(
+                                                                                    Icons.edit,
+                                                                                    color: Colors.white,
+                                                                                    size: 21
+                                                                                  ),
+                                                                                  Text(
+                                                                                    "Edit",
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white,
+                                                                                      fontSize: 16.5
+                                                                                    ),
+                                                                                )
+                                                                                ],
+                                                                              )
+                                                                            ),
+                                                                            ElevatedButton(
+                                                                              style: ElevatedButton.styleFrom(
+                                                                                backgroundColor: Colors.red,
+                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
+                                                                              ),
+                                                                              onPressed: (){
+                                                                                showDialog(
+                                                                                  context: context,
+                                                                                  builder: (context) => StatefulBuilder(
+                                                                                    builder: (context, _) {
+                                                                                      return AlertDialog(
+                                                                                        backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
+                                                                                        title: Text(
+                                                                                          'Delete ${server.name}?',
+                                                                                          style: TextStyle(
+                                                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                            fontSize: 20
+                                                                                          ),
+                                                                                        ),
+                                                                                        content: Text(
+                                                                                          "Are you sure you want to delete this remote host?",
+                                                                                          style: TextStyle(
+                                                                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                                            fontSize: 16
+                                                                                          )
+                                                                                        ),
+                                                                                        actions: [
+                                                                                          ElevatedButton(
+                                                                                            onPressed: ()=> Navigator.of(context).pop(),
+                                                                                            child: Text('Cancel')
+                                                                                          ),
+                                                                                          ElevatedButton(
+                                                                                            onPressed: () {
+                                                                                              context.read<SSHServersCubit>().removeServer(server.id);
+                                                                                              Navigator.of(context).pop();
+                                                                                              Navigator.of(context).pop();
+                                                                                            },
+                                                                                            style: ButtonStyle(
+                                                                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                                                            ),
+                                                                                            child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                                                          )
+                                                                                        ],
+                                                                                      );
+                                                                                    }
+                                                                                  )
+                                                                                );
+                                                                              },
+                                                                              child: Row(
+                                                                                spacing: 10,
+                                                                                mainAxisAlignment: .center,
+                                                                                children: [
+                                                                                  Icon(
+                                                                                    Icons.delete,
+                                                                                    color: Colors.white,
+                                                                                    size: 21
+                                                                                  ),
+                                                                                  Text(
+                                                                                    "Delete",
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white,
+                                                                                      fontSize: 16.5
+                                                                                    ),
+                                                                                  )
+                                                                                ],
+                                                                              )
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadiusGeometry.circular(10)
+                                                  ),
+                                                  title: Text(server.name, overflow: .ellipsis),
+                                                  subtitleTextStyle: TextStyle(
+                                                    color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                    fontSize: 13
+                                                  ),
+                                                  leading: FaIcon(
+                                                    FontAwesomeIcons.server,
+                                                    color: Colors.lightBlue
+                                                  ),
+                                                  
+                                                  subtitle: Row(
+                                                    spacing: 5,
+                                                    children: [
+                                                      Text("Type: "),
+                                                      Container(
+                                                        padding: EdgeInsets.symmetric(vertical: 3.5, horizontal: 5),
+                                                        decoration: BoxDecoration(
+                                                          border: Border.all(
+                                                            width: 0.5,
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                          ),
+                                                          borderRadius: BorderRadius.circular(10)
+                                                        ),
+                                                        child: Row(
+                                                          spacing: 4,
+                                                          children: [
+                                                            Icon(
+                                                              server is SSHLogin ? Icons.person : Icons.key,
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              size: 12.5,
+                                                            ),
+                                                            Text(
+                                                              server is SSHLogin ? "Login" : "Private key",
+                                                              style: TextStyle(
+                                                                fontSize: 10
+                                                              )
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          ),
+                                        ),
+                                      )
+                                    )
+                                  ]
+                                ),
+                              ),
+                              settingsTile(
+                                (){},
+                                "Termux",
+                                SvgPicture.asset(
+                                  "assets/icons/Termux.svg",
+                                  height: 30,
+                                  width: 30
+                                ),
+                                appThemeState.appTheme.isDark,
+                                subTitle: "Connect to Termux."
+                              )
+                            ],
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 35),

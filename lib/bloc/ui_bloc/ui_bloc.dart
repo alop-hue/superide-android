@@ -1211,3 +1211,31 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
     return super.close();
   }
 }
+
+class SSHServersCubit extends Cubit<SSHServersState> {
+  SSHServersCubit(List<SSHInfo> serverList) : super(SSHServersState(serverList));
+
+  Future<void> addServer(SSHInfo server) async{
+    final updatedList = [...state.serverList, server];
+    emit(SSHServersState(updatedList));
+    await _save(updatedList);
+  }
+
+  Future<void> removeServer(int id) async{
+    final List<SSHInfo> serverList = List.from(state.serverList);
+    serverList.removeWhere((server) => server.id == id);
+    emit(SSHServersState(serverList));
+    await _save(serverList);
+  }
+
+  Future<void> _save(List<SSHInfo> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'sshServerList',
+      jsonEncode(
+        servers.map((e) => e.toJsonMap()).toList(),
+      ),
+    );
+  }
+}

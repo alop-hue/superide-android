@@ -649,3 +649,9 @@ class CopilotChatState {
     );
   }
 }
+
+class SSHServersState {
+  final List<SSHInfo> serverList;
+
+  const SSHServersState(this.serverList);
+}

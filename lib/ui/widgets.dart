@@ -12545,7 +12545,8 @@ Widget settingsTextField(
     decoration: InputDecoration(
       prefixIcon: Icon(icon, color: Colors.lightBlue),
       hintStyle: TextStyle(
-        color: Colors.grey,
+        color: labelColor.withAlpha(150),
+        fontStyle: FontStyle.italic,
         fontSize: 12
       ),
       border: OutlineInputBorder(
@@ -12558,9 +12559,10 @@ Widget settingsTextField(
           width: 2,
         )
       ),
+      hintText: hintText,
       labelText: labelText,
       labelStyle: TextStyle(
-        color: labelColor,
+        color: labelColor.withAlpha(150),
         fontSize: 15
       ),
     ),

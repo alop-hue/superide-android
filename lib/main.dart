@@ -17,6 +17,8 @@ Future<void> main() async {
   final codeForgeConfig = await getCodeForgeConfig();
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
+  final sshServerList = await SSHInfo.getSavedSSHServers();
+
   runApp(
     MainApp(
       recent: recent,
@@ -24,19 +26,22 @@ Future<void> main() async {
       codeForgeConfig: codeForgeConfig,
       aiConfig: aiConfig,
       modelSelected: modelSelected,
+      sshSServerList: sshServerList,
     )
   );
 }
 
 class MainApp extends StatelessWidget {
   final String recent, appTheme, codeForgeConfig, aiConfig, modelSelected;
+  final List<SSHInfo> sshSServerList;
   const MainApp({
       super.key,
       required this.recent,
       required this.appTheme,
       required this.codeForgeConfig,
       required this.aiConfig,
-      required this.modelSelected
+      required this.modelSelected,
+      required this.sshSServerList,
     });
 
   @override
@@ -56,13 +61,10 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => PackageCatalogCubit()),
         BlocProvider(create: (_) => GithubAuthCubit()),
         BlocProvider(create: (_) => ChatSessionBloc()..add(LoadChatSessions())),
-        BlocProvider(create: (_) => GeneralBloc(
-          {
-            "autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool,
-          }
-        )),
+        BlocProvider(create: (_) => GeneralBloc({"autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool})),
         BlocProvider(create: (_) => CopilotBloc()),
         BlocProvider(create: (_) => CopilotChatBloc()),
+        BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
         BlocProvider(create: (context) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,
