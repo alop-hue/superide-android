@@ -9,3 +9,4 @@ const filesDir = "/storage/emulated/0/Android/media/com.roxum/Files";
 const tempDir = "/data/data/com.roxum/temps";
 const extensionDir = "/data/data/com.roxum/extensions";
 const homeDir = "/storage/emulated/0/Android/media/com.roxum/Home";
+const appDir = "/data/data/com.roxum";

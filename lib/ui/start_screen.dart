@@ -178,11 +178,17 @@ class _StartScreenState extends State<StartScreen> {
       File('$certDir/cacert.pem').writeAsBytesSync(certBytes.buffer.asUint8List());
     }
 
+    await Process.run(
+      "$binDir/git",
+      ["config", "--global", "--add", "safe.directory", "*"],
+      environment: gitEnvs(sharedPath),
+    );
+
     setState(() {
       isDone = true;
     });
 
-    Future.delayed(Duration(milliseconds: 0), () {
+    Future.delayed(Duration(milliseconds: 10), () {
       if (context.mounted) {
         Navigator.of(context).pushReplacement(PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => const SelectType(),

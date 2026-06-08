@@ -1228,6 +1228,15 @@ class SSHServersCubit extends Cubit<SSHServersState> {
     await _save(serverList);
   }
 
+  Future<void> updateServer(SSHInfo serverInfo) async {
+    final serverList = List<SSHInfo>.from(state.serverList);
+    final index = serverList.indexWhere((s) => s.id == serverInfo.id);
+    if (index == -1) return;
+    serverList[index] = serverInfo;
+    emit(SSHServersState(serverList));
+    await _save(serverList);
+  }
+
   Future<void> _save(List<SSHInfo> servers) async {
     final prefs = await SharedPreferences.getInstance();
 

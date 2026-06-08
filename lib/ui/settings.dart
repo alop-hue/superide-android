@@ -26,15 +26,17 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
+  late final Terminal terminal;
+  late final SshKeygen sshKeygen;
   final apiController = TextEditingController();
   final modelNameController = TextEditingController(), modelIdController = TextEditingController();
   final scrollController = ScrollController(), terminalThemeScroll = ScrollController();
   final sshUrlController = TextEditingController(), sshServerNameController = TextEditingController();
-  final sshUsernameController = TextEditingController(), sshPasswordController = TextEditingController();
-  final sshPrivateKeyController = TextEditingController();
+  final sshPasswordController = TextEditingController();
   final themeScroll = ScrollController(), fontScroll = ScrollController();
-  late final Terminal terminal;
-  final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>(), _sshUpdationKey = GlobalKey<FormState>();
+  bool? _isGeneratedKey;
+  int sshStackIndex = 0;
   final String demoCode =
 '''
 #include <stdio.h>
@@ -67,6 +69,14 @@ int main() {
   @override
   void initState() {
     super.initState();
+
+    sshKeygen = SshKeygen(
+      comment: "user@roxum-IDE",
+    );
+
+    if(SshKeygen.publicKeyFilelocation.existsSync() && SshKeygen.privateKeyFilelocation.existsSync()){
+      _isGeneratedKey = true;
+    }
     terminal = Terminal(platform: TerminalTargetPlatform.android);
     _seedTerminalPreview();
     _initializeCopilotForSettingsWhenDisabled();
@@ -108,14 +118,14 @@ int main() {
 
     copilotBloc.add(CopilotInitialize(configPath: filesDir));
   }
-  
+
   Widget _buildCopilotButton(BuildContext context, CopilotState copilotState, AppThemeState appThemeState) {
     final status = copilotState.status;
     String buttonText;
     Color buttonColor;
     VoidCallback? onPressed;
     bool showLoading = false;
-    
+
     switch (status) {
       case CopilotStatus.notInitialized:
       case CopilotStatus.notSignedIn:
@@ -131,7 +141,7 @@ int main() {
         onPressed = null;
         break;
       case CopilotStatus.signedIn:
-        buttonText = copilotState.user != null 
+        buttonText = copilotState.user != null
             ? "Signed in as ${copilotState.user}"
             : "GitHub Copilot Connected";
         buttonColor = Colors.green;
@@ -148,7 +158,7 @@ int main() {
         onPressed = () => _startCopilotSignIn(context, appThemeState);
         break;
     }
-    
+
     return Padding(
       padding: const EdgeInsets.only(top: 15),
       child: SizedBox(
@@ -307,15 +317,15 @@ int main() {
     }
 
     final copilotBloc = context.read<CopilotBloc>();
-    
+
     if (copilotBloc.state.status == CopilotStatus.notInitialized) {
       copilotBloc.add(CopilotInitialize(configPath: filesDir));
-      
+
       await Future.delayed(const Duration(seconds: 2));
     }
-    
+
     copilotBloc.add(CopilotSignInInitiate());
-    
+
     if (context.mounted) {
       _showSignInDialog(context, appThemeState);
     }
@@ -324,7 +334,7 @@ int main() {
   void _showSignInDialog(BuildContext context, AppThemeState appThemeState) {
     final isDark = appThemeState.appTheme.isDark;
     final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -352,7 +362,7 @@ int main() {
                 }
               });
             }
-            
+
             return Dialog(
               backgroundColor: Colors.transparent,
               child: Container(
@@ -454,7 +464,7 @@ int main() {
           if (code != null) {
             await Clipboard.setData(ClipboardData(text: code));
           }
-          
+
           const url = 'https://github.com/login/device';
           final uri = Uri.parse(url);
           try {
@@ -492,7 +502,7 @@ int main() {
   Widget _buildSignInDialogContent(CopilotState state, BuildContext context, AppThemeState appThemeState) {
     final isDark = appThemeState.appTheme.isDark;
     final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-    
+
     if (state.status == CopilotStatus.signingIn && state.signInPayload == null) {
       return SizedBox(
         height: 120,
@@ -521,7 +531,7 @@ int main() {
         ),
       );
     }
-    
+
     if (state.signInPayload != null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -530,12 +540,12 @@ int main() {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
-              color: isDark 
+              color: isDark
                   ? Colors.white.withValues(alpha: 0.05)
                   : Colors.black.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark 
+                color: isDark
                     ? Colors.white.withValues(alpha: 0.1)
                     : Colors.black.withValues(alpha: 0.1),
               ),
@@ -630,7 +640,7 @@ int main() {
         ],
       );
     }
-    
+
     if (state.status == CopilotStatus.error) {
       return Container(
         padding: const EdgeInsets.all(20),
@@ -659,14 +669,14 @@ int main() {
         ),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
   void _showCopilotSettings(BuildContext context, CopilotState state, AppThemeState appThemeState) {
     final isDark = appThemeState.appTheme.isDark;
     final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -762,13 +772,13 @@ int main() {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // User info
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark 
+                    color: isDark
                         ? Colors.white.withValues(alpha: 0.05)
                         : Colors.black.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(12),
@@ -813,14 +823,14 @@ int main() {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 BlocBuilder<CopilotBloc, CopilotState>(
                   builder: (context, copilotState) {
                     return Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isDark 
+                        color: isDark
                             ? Colors.white.withValues(alpha: 0.05)
                             : Colors.black.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(12),
@@ -831,10 +841,10 @@ int main() {
                           Row(
                             children: [
                               Icon(
-                                copilotState.isEnabled 
-                                    ? Icons.auto_awesome 
+                                copilotState.isEnabled
+                                    ? Icons.auto_awesome
                                     : Icons.auto_awesome_outlined,
-                                color: copilotState.isEnabled 
+                                color: copilotState.isEnabled
                                     ? const Color(0xff238636)
                                     : textColor.withValues(alpha: 0.5),
                                 size: 20,
@@ -863,7 +873,7 @@ int main() {
                   },
                 ),
                 const SizedBox(height: 24),
-                
+
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -908,7 +918,7 @@ int main() {
   void _showNotAuthorizedDialog(BuildContext context, AppThemeState appThemeState) {
     final isDark = appThemeState.appTheme.isDark;
     final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -951,7 +961,7 @@ int main() {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Title
                 Text(
                   'Not Authorized',
@@ -962,7 +972,7 @@ int main() {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 Text(
                   'Your GitHub account does not have access to GitHub Copilot. Please ensure you have an active Copilot subscription.',
                   textAlign: TextAlign.center,
@@ -973,7 +983,7 @@ int main() {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -1493,6 +1503,240 @@ int main() {
     }
   }
 
+  void _showSSHDialog(
+    AppTheme appTheme,
+    (int, bool) updateInfo
+  ){
+    showDialog(
+      context: context,
+      builder: (ctx){
+        return StatefulBuilder(
+          builder: (context, setDstate) {
+            return Dialog(
+              backgroundColor: appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+              constraints: BoxConstraints(maxHeight: 600),
+              child: Container(
+                padding: EdgeInsets.all(20),
+                width: double.infinity,
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor
+                  ),
+                  child: Form(
+                    key: _sshUpdationKey,
+                    child: Scrollbar(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: .end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12, bottom: 12),
+                              child: Row(
+                                spacing: 18,
+                                children: [
+                                  FaIcon(
+                                    FontAwesomeIcons.server,
+                                    color: Colors.lightBlue
+                                  ),
+                                  Text(
+                                    "Edit remote host",
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: .w500
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 20),
+                              child: Column(
+                                spacing: 20,
+                                children: [
+                                  settingsTextField(
+                                    sshServerNameController,
+                                    Icons.abc,
+                                    "Server name",
+                                    appTheme.selectScreenCardTextColor,
+                                    "Eg: My server",
+                                    (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
+                                  ),
+
+                                  settingsTextField(
+                                    sshUrlController,
+                                    Icons.link,
+                                    "Host url",
+                                    appTheme.selectScreenCardTextColor,
+                                    "Eg: ssh://jhon@192.168.1.100",
+                                    (val) {
+                                      if(val == null || val.isEmpty){
+                                        return "Please enter a valid host/ip address";
+                                      }
+
+                                      final valUri = Uri.parse(val);
+                                      if(valUri.scheme != "ssh") {
+                                        return "Invalid ssh url";
+                                      } else if(valUri.host.isEmpty){
+                                        return "Invalid Or empty host name";
+                                      } else if(valUri.userInfo.isEmpty) {
+                                        return "Invalid or empty username";
+                                      } else {
+                                        return null;
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if(updateInfo.$2) Padding(
+                              padding: const EdgeInsets.only(bottom: 20),
+                              child: Column(
+                                spacing: 20,
+                                children: [
+                                  settingsTextField(
+                                    sshPasswordController,
+                                    Icons.password,
+                                    "Password",
+                                    appTheme.selectScreenCardTextColor,
+                                    null,
+                                    (val) {
+                                      return val == null || val.isEmpty ? "Password field cannot be empty": null;
+                                    },
+                                    true
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              spacing: 18,
+                              children: [
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    minimumSize: Size.zero
+                                  ),
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text(
+                                    "Cancel",
+                                    style: TextStyle(
+                                      color: Colors.red
+                                    )
+                                  )
+                                ),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    minimumSize: Size.zero
+                                  ),
+                                  onPressed: () async{
+                                    if (_sshUpdationKey.currentState!.validate()) {
+                                      await context.read<SSHServersCubit>().updateServer(
+                                        updateInfo.$2
+                                        ? SSHLogin(
+                                            name: sshServerNameController.text,
+                                            id: updateInfo.$1,
+                                            url: sshUrlController.text,
+                                            password: sshPasswordController.text
+                                          )
+                                        : SSHPrivateKey(
+                                          name: sshServerNameController.text,
+                                          id: updateInfo.$1,
+                                          url: sshUrlController.text,
+                                        )
+                                      );
+                                      sshServerNameController.text = "";
+                                      sshUrlController.text = "";
+                                      sshPasswordController.text = "";
+                                      if(context.mounted) Navigator.pop(context);
+                                      if(context.mounted) Navigator.pop(context);
+                                    }
+                                  },
+                                  child: Text(
+                                    "Save",
+                                    style: TextStyle(
+                                      color: Colors.lightBlue
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    minimumSize: Size.zero
+                                  ),
+                                  onPressed: () async{
+                                    if(_sshUpdationKey.currentState!.validate()){
+                                      final server = updateInfo.$2
+                                        ? SSHLogin(
+                                          name: sshServerNameController.text,
+                                          id: updateInfo.$1,
+                                          url: sshUrlController.text,
+                                          password: sshPasswordController.text
+                                        )
+
+                                        : SSHPrivateKey(
+                                            name: sshServerNameController.text,
+                                            id: updateInfo.$1,
+                                            url: sshUrlController.text,
+                                          );
+                                      final result = await server.connect();
+                                      if(context.mounted){
+                                        if(server.isConnected) context.read<SSHServersCubit>().updateServer(server);
+                                        if(result.$1) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: Colors.green,
+                                              content: Text(
+                                                result.$2,
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                )
+                                              )
+                                            )
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: Colors.red[600],
+                                              content: Text(
+                                                result.$2,
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                )
+                                              )
+                                            )
+                                          );
+                                        }
+                                      }
+                                      if(context.mounted) Navigator.pop(context);
+                                      if(context.mounted) Navigator.pop(context);
+                                    }
+                                  },
+                                  child: Text(
+                                    "Save & Connect",
+                                    style: TextStyle(
+                                      color: Colors.greenAccent
+                                    ),
+                                  )
+                                ),
+                              ],
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
   @override void dispose() {
     apiController.dispose();
     modelNameController.dispose();
@@ -1522,7 +1766,7 @@ int main() {
               appBar: AppBar(
                 backgroundColor: Colors.transparent,
                 title: Text(
-                  "Settings", 
+                  "Settings",
                   style: TextStyle(
                     fontSize: 28,
                     color: appThemeState.appTheme.selectScreenCardTextColor
@@ -1634,8 +1878,8 @@ int main() {
                               });
                               return AlertDialog(
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                backgroundColor: appThemeState.appTheme.isDark 
-                                  ? const Color(0xff1e1e2e) 
+                                backgroundColor: appThemeState.appTheme.isDark
+                                  ? const Color(0xff1e1e2e)
                                   : Colors.white,
                                 title: Column(
                                   children: [
@@ -1673,8 +1917,8 @@ int main() {
                                                   "${highlightThemes.length} themes available",
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: appThemeState.appTheme.isDark 
-                                                      ? Colors.white70 
+                                                    color: appThemeState.appTheme.isDark
+                                                      ? Colors.white70
                                                       : Colors.blue.shade700,
                                                   ),
                                                 ),
@@ -1772,14 +2016,14 @@ int main() {
                                                       padding: const EdgeInsets.all(12),
                                                       decoration: BoxDecoration(
                                                         color: isSelected
-                                                          ? (appThemeState.appTheme.isDark 
-                                                            ? Colors.blue.withAlpha(40) 
+                                                          ? (appThemeState.appTheme.isDark
+                                                            ? Colors.blue.withAlpha(40)
                                                             : Colors.blue.withAlpha(30))
                                                           : Colors.transparent,
                                                         borderRadius: BorderRadius.circular(12),
                                                         border: Border.all(
-                                                          color: isSelected 
-                                                            ? Colors.blue 
+                                                          color: isSelected
+                                                            ? Colors.blue
                                                             : Colors.transparent,
                                                           width: 2,
                                                         ),
@@ -1854,8 +2098,8 @@ int main() {
                                     child: Text(
                                       'Cancel',
                                       style: TextStyle(
-                                        color: appThemeState.appTheme.isDark 
-                                          ? Colors.white70 
+                                        color: appThemeState.appTheme.isDark
+                                          ? Colors.white70
                                           : Colors.grey.shade700,
                                       ),
                                     ),
@@ -1886,8 +2130,8 @@ int main() {
                                 });
                                 return AlertDialog(
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  backgroundColor: appThemeState.appTheme.isDark 
-                                    ? const Color(0xff1e1e2e) 
+                                  backgroundColor: appThemeState.appTheme.isDark
+                                    ? const Color(0xff1e1e2e)
                                     : Colors.white,
                                   title: Container(
                                     padding: const EdgeInsets.all(16),
@@ -1923,8 +2167,8 @@ int main() {
                                                 "${fonts.length} fonts available",
                                                 style: TextStyle(
                                                   fontSize: 12,
-                                                  color: appThemeState.appTheme.isDark 
-                                                    ? Colors.white70 
+                                                  color: appThemeState.appTheme.isDark
+                                                    ? Colors.white70
                                                     : Colors.purple.shade700,
                                                 ),
                                               ),
@@ -1946,7 +2190,7 @@ int main() {
                                         itemBuilder: (context, index) {
                                           final fontName = fonts[index];
                                           final isSelected = fontName == selectedFont;
-                                          
+
                                           return Padding(
                                             padding: const EdgeInsets.symmetric(vertical: 4),
                                             child: Material(
@@ -1968,32 +2212,32 @@ int main() {
                                                   padding: const EdgeInsets.all(12),
                                                   decoration: BoxDecoration(
                                                     color: isSelected
-                                                      ? (appThemeState.appTheme.isDark 
-                                                        ? Colors.purple.withAlpha(40) 
+                                                      ? (appThemeState.appTheme.isDark
+                                                        ? Colors.purple.withAlpha(40)
                                                         : Colors.purple.withAlpha(30))
                                                       : Colors.transparent,
                                                     borderRadius: BorderRadius.circular(12),
                                                     border: Border.all(
-                                                      color: isSelected 
-                                                        ? Colors.purple 
+                                                      color: isSelected
+                                                        ? Colors.purple
                                                         : Colors.transparent,
                                                       width: 2,
                                                     ),
                                                   ),
                                                   child: Row(
                                                     children: [
-                                                      
+
                                                       Container(
                                                         width: 48,
                                                         height: 48,
                                                         decoration: BoxDecoration(
-                                                          color: appThemeState.appTheme.isDark 
-                                                            ? const Color(0xff2a2a3e) 
+                                                          color: appThemeState.appTheme.isDark
+                                                            ? const Color(0xff2a2a3e)
                                                             : Colors.grey.shade100,
                                                           borderRadius: BorderRadius.circular(8),
                                                           border: Border.all(
-                                                            color: appThemeState.appTheme.isDark 
-                                                              ? Colors.white24 
+                                                            color: appThemeState.appTheme.isDark
+                                                              ? Colors.white24
                                                               : Colors.black12,
                                                           ),
                                                         ),
@@ -2042,8 +2286,8 @@ int main() {
                                       child: Text(
                                         'Cancel',
                                         style: TextStyle(
-                                          color: appThemeState.appTheme.isDark 
-                                            ? Colors.white70 
+                                          color: appThemeState.appTheme.isDark
+                                            ? Colors.white70
                                             : Colors.grey.shade700,
                                         ),
                                       ),
@@ -2075,13 +2319,13 @@ int main() {
                             toggleColor: Color(0xff002b6e),
                             inactiveToggleColor: Colors.white,
                             activeColor: Color(0xffb0c6fe),
-                            value: isIndentEnabled, 
+                            value: isIndentEnabled,
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
                               final currentState = configState.codeForgeConfig;
                               currentState['indentLineStatus'] = value;
                               if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
                             }
                           ),
                         ),
@@ -2103,13 +2347,13 @@ int main() {
                             toggleColor: Color(0xff002b6e),
                             inactiveToggleColor: Colors.white,
                             activeColor: Color(0xffb0c6fe),
-                            value: lineWrap, 
+                            value: lineWrap,
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
                               final currentState = configState.codeForgeConfig;
                               currentState['lineWrap'] = value;
                               if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
                             }
                           ),
                         ),
@@ -2131,13 +2375,13 @@ int main() {
                             toggleColor: Color(0xff002b6e),
                             inactiveToggleColor: Colors.white,
                             activeColor: Color(0xffb0c6fe),
-                            value: enableFolding, 
+                            value: enableFolding,
                             onToggle: (value) async{
                               final prefs = await SharedPreferences.getInstance();
                               final currentState = configState.codeForgeConfig;
                               currentState['enableFolding'] = value;
                               if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));                        
+                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
                             }
                           ),
                         ),
@@ -2167,7 +2411,7 @@ int main() {
                                 lineWrap: lineWrap,
                                 enableFolding: enableFolding,
                                 isDark: appThemeState.appTheme.isDark,
-                                
+
                               )),
                               enableGuideLines: isIndentEnabled,
                               language: languages[7].language,
@@ -2408,716 +2652,1147 @@ int main() {
                       const SizedBox(height: 35),
                       settingsDivider,
                       const SizedBox(height: 20),
-                      //TODO
                       settingsType("Remote host and Termux", appThemeState.appTheme.isDark),
                       BlocBuilder<SSHServersCubit, SSHServersState>(
                         builder: (context, sshState) {
                           final serverList = sshState.serverList;
-                          return Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: SizedBox(
-                                  width: 295,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.lightBlue,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadiusGeometry.circular(8)
-                                      )
-                                    ),
-                                    onPressed: (){
-                                      int stackIndex = 0;
-                                      showDialog(
-                                        context: context,
-                                        builder: (ctx){
-                                          return StatefulBuilder(
-                                            builder: (context, setDstate) {
-                                              return Dialog(
-                                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                constraints: BoxConstraints(maxHeight: 600),
-                                                child: Container(
-                                                  padding: EdgeInsets.all(20),
-                                                  width: double.infinity,
-                                                  child: DefaultTextStyle.merge(
-                                                    style: TextStyle(
-                                                      color: appThemeState.appTheme.selectScreenCardTextColor
-                                                    ),
-                                                    child: Form(
-                                                      key: _sshFormKey,
-                                                      child: Scrollbar(
-                                                        child: SingleChildScrollView(
-                                                          child: Column(
-                                                            crossAxisAlignment: .end,
-                                                            children: [
-                                                              Padding(
-                                                                padding: const EdgeInsets.only(left: 12),
-                                                                child: Row(
-                                                                  spacing: 18,
-                                                                  children: [
-                                                                    FaIcon(
-                                                                      FontAwesomeIcons.server,
-                                                                      color: Colors.lightBlue
-                                                                    ),
-                                                                    Text(
-                                                                      "Add a remote host",
-                                                                      style: TextStyle(
-                                                                        fontSize: 20,
-                                                                        fontWeight: .w500
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                              Padding(
-                                                                padding: const EdgeInsets.only(top: 50, bottom: 30),
-                                                                child: SizedBox(
-                                                                  height: 37,
-                                                                  width: 245,
-                                                                  child: Row(
-                                                                    children: [
-                                                                      InkWell(
-                                                                        borderRadius: BorderRadius.only(
-                                                                          topLeft: Radius.circular(20),
-                                                                          bottomLeft: Radius.circular(20)
-                                                                        ),
-                                                                        onTap: (){
-                                                                          if(stackIndex == 0) return;
-                                                                          setDstate(() => stackIndex = 0);
-                                                                        }, child: Container(
-                                                                          alignment: .center,
-                                                                          decoration: BoxDecoration(
-                                                                            color: stackIndex == 0 ? Colors.blue : null,
-                                                                            borderRadius: BorderRadius.only(
-                                                                              topLeft: Radius.circular(20),
-                                                                              bottomLeft: Radius.circular(20)
-                                                                            ),
-                                                                            border: Border.all(
-                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                              width: 0.5
-                                                                            )
-                                                                          ),
-                                                                          height: 50,
-                                                                          width: 100,
-                                                                          child: Text(
-                                                                            "Login",
-                                                                            style: TextStyle(
-                                                                              color: stackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
-                                                                            ),
-                                                                          )
-                                                                        )
-                                                                      ),
-                                                                      InkWell(
-                                                                        borderRadius: BorderRadius.only(
-                                                                          topRight: Radius.circular(20),
-                                                                          bottomRight: Radius.circular(20)
-                                                                        ),
-                                                                        onTap: (){
-                                                                          if(stackIndex == 1) return;
-                                                                          setDstate(() => stackIndex = 1);
-                                                                        }, child: Container(
-                                                                          alignment: .center,
-                                                                          decoration: BoxDecoration(
-                                                                            color: stackIndex == 1 ? Colors.blue : null,
-                                                                            borderRadius: BorderRadius.only(
-                                                                              topRight: Radius.circular(20),
-                                                                              bottomRight: Radius.circular(20)
-                                                                            ),
-                                                                            border: Border.all(
-                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                              width: 0.5
-                                                                            )
-                                                                          ),
-                                                                          height: 50,
-                                                                          width: 100,
-                                                                          child: Text(
-                                                                            "Private key",
-                                                                            style: TextStyle(
-                                                                              color: stackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
-                                                                            ),
-                                                                          )
-                                                                        )
-                                                                      )
-                                                                    ]
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Padding(
-                                                                padding: const EdgeInsets.only(bottom: 20),
-                                                                child: Column(
-                                                                  spacing: 20,
-                                                                  children: [
-                                                                    settingsTextField(
-                                                                      sshServerNameController,
-                                                                      Icons.abc,
-                                                                      "Server name",
-                                                                      appThemeState.appTheme.selectScreenCardTextColor,
-                                                                      "Eg: My server",
-                                                                      (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
-                                                                    ),
-                                                          
-                                                                    settingsTextField(
-                                                                      sshUrlController,
-                                                                      Icons.link,
-                                                                      "Server url",
-                                                                      appThemeState.appTheme.selectScreenCardTextColor,
-                                                                      null,
-                                                                      (val) =>  val == null || val.isEmpty ? "Please enter a valid Url": null,
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                              Padding(
-                                                                padding: const EdgeInsets.only(bottom: 20),
-                                                                child: IndexedStack(
-                                                                  index: stackIndex,
-                                                                  children: [
-                                                                    Column(
-                                                                      spacing: 20,
-                                                                      children: [
-                                                                        settingsTextField(
-                                                                          sshUsernameController,
-                                                                          Icons.person,
-                                                                          "User name",
-                                                                          appThemeState.appTheme.selectScreenCardTextColor,
-                                                                          null,
-                                                                          (val) {
-                                                                            if(stackIndex == 1) return null;
-                                                                            return val == null || val.isEmpty ? "Please enter a valid username": null;
-                                                                          },
-                                                                        ),
-                                                                        settingsTextField(
-                                                                          sshPasswordController,
-                                                                          Icons.key,
-                                                                          "Password",
-                                                                          appThemeState.appTheme.selectScreenCardTextColor,
-                                                                          null,
-                                                                          (val) {
-                                                                            if(stackIndex == 1) return null;
-                                                                            return val == null || val.isEmpty ? "Password field cannot be empty": null;
-                                                                          },
-                                                                          true
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                    Column(
-                                                                      children: [
-                                                                        settingsTextField(
-                                                                          sshPrivateKeyController,
-                                                                          Icons.lock_open,
-                                                                          "Private key",
-                                                                          appThemeState.appTheme.selectScreenCardTextColor,
-                                                                          null,
-                                                                          (val) {
-                                                                            if(stackIndex == 0) return null;
-                                                                            return val == null || val.isEmpty ? "Private key is required to establish a connection": null;
-                                                                          },
-                                                                        ),
-                                                                      ],
-                                                                    )
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                              Column(
-                                                                spacing: 18,
-                                                                children: [
-                                                                  TextButton(
-                                                                    style: TextButton.styleFrom(
-                                                                      padding: EdgeInsets.zero,
-                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                                      minimumSize: Size.zero
-                                                                    ),
-                                                                    onPressed: () => Navigator.pop(context),
-                                                                    child: Text(
-                                                                      "Cancel",
-                                                                      style: TextStyle(
-                                                                        color: Colors.red
-                                                                      )
-                                                                    )
-                                                                  ),
-                                                                  TextButton(
-                                                                    style: TextButton.styleFrom(
-                                                                      padding: EdgeInsets.zero,
-                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                                      minimumSize: Size.zero
-                                                                    ),
-                                                                    onPressed: () async{
-                                                                      if (_sshFormKey.currentState!.validate()) {
-                                                                        await context.read<SSHServersCubit>().addServer(
-                                                                          stackIndex == 0
-                                                                          ? SSHLogin(
-                                                                            name: sshServerNameController.text,
-                                                                            id: DateTime.now().millisecondsSinceEpoch,
-                                                                            url: sshUrlController.text,
-                                                                            username: sshUsernameController.text,
-                                                                            password: sshPasswordController.text
-                                                                          )
-                                                                          : SSHPrivateKey(
-                                                                            name: sshServerNameController.text,
-                                                                            id: DateTime.now().millisecondsSinceEpoch,
-                                                                            url: sshUrlController.text,
-                                                                            privateKey: sshPrivateKeyController.text
-                                                                          )
-                                                                        );
-                                                                      }
-                                                                      if(context.mounted) Navigator.pop(context);
-                                                                    },
-                                                                    child: Text(
-                                                                      "Save",
-                                                                      style: TextStyle(
-                                                                        color: Colors.lightBlue
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  TextButton(
-                                                                    style: TextButton.styleFrom(
-                                                                      padding: EdgeInsets.zero,
-                                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                                      minimumSize: Size.zero
-                                                                    ),
-                                                                    onPressed: (){},
-                                                                    child: Text(
-                                                                      "Save & Connect",
-                                                                      style: TextStyle(
-                                                                        color: Colors.greenAccent
-                                                                      ),
-                                                                    )
-                                                                  ),
-                                                                ],
-                                                              )
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          );
-                                        }
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      child: Row(
-                                        spacing: 18,
-                                        children: [
-                                          FaIcon(
-                                            FontAwesomeIcons.server,
-                                            color: Colors.white,
-                                            size: 22,
+                          final appTheme = appThemeState.appTheme;
+                          return Form(
+                            key: _sshFormKey,
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 20),
+                                  child: SizedBox(
+                                    height: 35,
+                                    child: Row(
+                                      mainAxisAlignment: .center,
+                                      children: [
+                                        InkWell(
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(20),
+                                            bottomLeft: Radius.circular(20)
                                           ),
-                                          Column(
-                                            crossAxisAlignment: .start,
-                                            children: [
-                                              Text(
-                                                "Add a remote host",
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 17
-                                                ),
+                                          onTap: (){
+                                            if(sshStackIndex == 0) return;
+                                            setState(() => sshStackIndex = 0);
+                                          }, child: Container(
+                                            alignment: .center,
+                                            decoration: BoxDecoration(
+                                              color: sshStackIndex == 0 ? Colors.blue : null,
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: Radius.circular(20),
+                                                bottomLeft: Radius.circular(20)
                                               ),
-                                              Text(
-                                                "Connect to a remote server via SSH",
-                                                style: TextStyle(
-                                                  color: Colors.white.withAlpha(195),
-                                                  fontSize: 12
-                                                )
+                                              border: Border.all(
+                                                color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                width: 1
                                               )
-                                            ],
+                                            ),
+                                            width: 100,
+                                            child: Text(
+                                              "Login",
+                                              style: TextStyle(
+                                                color: sshStackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                              ),
+                                            )
                                           )
-                                        ],
-                                      ),
-                                    )
+                                        ),
+                                        InkWell(
+                                          borderRadius: BorderRadius.only(
+                                            topRight: Radius.circular(20),
+                                            bottomRight: Radius.circular(20)
+                                          ),
+                                          onTap: (){
+                                            if(sshStackIndex == 1) return;
+                                            setState(() => sshStackIndex = 1);
+                                          }, child: Container(
+                                            alignment: .center,
+                                            decoration: BoxDecoration(
+                                              color: sshStackIndex == 1 ? Colors.blue : null,
+                                              borderRadius: BorderRadius.only(
+                                                topRight: Radius.circular(20),
+                                                bottomRight: Radius.circular(20)
+                                              ),
+                                              border: Border.all(
+                                                color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                width: 1
+                                              )
+                                            ),
+                                            width: 100,
+                                            child: Text(
+                                              "Private key",
+                                              style: TextStyle(
+                                                color: sshStackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
+                                              ),
+                                            )
+                                          )
+                                        ),
+                                      ]
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
-                                        borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                                      ),
-                                      child: Text(
-                                        "Saved remotes",
-                                        style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
-                                      )
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  child: DefaultTextStyle(
+                                    style: TextStyle(
+                                      color: appTheme.selectScreenCardTextColor
                                     ),
-                                    Container(
-                                      alignment: .center,
-                                      padding: EdgeInsets.all(15),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
-                                        color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
-                                      ),
-                                      width: double.infinity,
-                                      child: serverList.isEmpty ? Text(
-                                        "No remotes have been configured yet.",
-                                        style: TextStyle(
-                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                          fontSize: 16
-                                        )
-                                      ) : ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          maxHeight: 450
+                                    child: Wrap(
+                                      children: [
+                                        Text(
+                                          "Make sure to install and start",  
                                         ),
-                                        child: Scrollbar(
-                                          child: ListView.builder(
-                                            shrinkWrap: true,
-                                            itemCount: serverList.length,
-                                            itemBuilder: (context, index) {
-                                              final server = serverList[index];
-                                              final isLogin = server is SSHLogin;
-                                              return Card(
-                                                child: ListTile(
-                                                  onTap: () {
-                                                    bool isObscure = true;
-                                                    showDialog(
-                                                      context: context,
-                                                      builder:(context) => StatefulBuilder(
-                                                        builder: (context, setTempState) => Dialog(
-                                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                          constraints: BoxConstraints(maxHeight: 550),
-                                                          child: DefaultTextStyle.merge(
-                                                            style: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                              fontSize: 15
-                                                            ),
-                                                            child: Container(
-                                                              width: double.infinity,
-                                                              padding: EdgeInsets.all(20),
-                                                              child: Column(
-                                                                spacing: 10,
-                                                                crossAxisAlignment: .start,
-                                                                children: [
-                                                                  Text(
-                                                                    "Host Info",
-                                                                    style: TextStyle(
-                                                                      fontSize: 30
-                                                                    ),
-                                                                  ),
-                                                                  SizedBox(height: 20),
-                                                                  Table(
-                                                                    border: TableBorder.all(
-                                                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                      width: 0.5,
-                                                                      borderRadius: .circular(15)
-                                                                    ),
-                                                                    columnWidths: const <int, TableColumnWidth>{
-                                                                      0: IntrinsicColumnWidth(),
-                                                                      1: FlexColumnWidth(),
-                                                                    },
-                                                                    children: [
-                                                                      TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text("name"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(server.name),
-                                                                          ),
-                                                                        ]
-                                                                      ),
-                                                                      TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text("id"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(server.id.toString()),
-                                                                          ),
-                                                                        ]
-                                                                      ),
-                                                                      TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text("url"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(server.url),
-                                                                          ),
-                                                                        ]
-                                                                      ),
-                                                                      TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text("type"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(isLogin ? "login" : "private key"),
-                                                                          ),
-                                                                        ]
-                                                                      ),
-
-                                                                      if(isLogin) TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text("username"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(server.username),
-                                                                          )
-                                                                        ]
-                                                                      ),
-                                                                      
-                                                                      TableRow(
-                                                                        children: [
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Text(isLogin ? "password" : "private key"),
-                                                                          ),
-                                                                          Padding(
-                                                                            padding: const EdgeInsets.all(8.0),
-                                                                            child: Wrap(
-                                                                              children: [
-                                                                                Text(
-                                                                                  isLogin
-                                                                                    ? isObscure
-                                                                                      ? "*" * server.password.length
-                                                                                      : server.password
-                                                                                    : isObscure
-                                                                                      ? "${"*" * 8}\u00B7\u00B7\u00B7"
-                                                                                      : (server as SSHPrivateKey).privateKey
-                                                                                ),
-                                                                                Padding(
-                                                                                  padding: const EdgeInsets.only(left: 17),
-                                                                                  child: InkWell(
-                                                                                    onTap: () => setTempState(() => isObscure = !isObscure),
-                                                                                    child: Icon(
-                                                                                      isObscure ? Icons.visibility : Icons.visibility_off,
-                                                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                                      size: 20
-                                                                                    ),
-                                                                                  ),
-                                                                                )
-                                                                              ],
-                                                                            ),
-                                                                          )
-                                                                        ]
+                                        InkWell(
+                                          onTap: () async{
+                                            await launchUrl(Uri.parse("https://www.geeksforgeeks.org/linux-unix/ssh-command-in-linux-with-examples/"));
+                                          },
+                                          child: Text(
+                                            " ssh ",
+                                            style: TextStyle(
+                                              color: Colors.blue,
+                                              decoration: .underline
+                                            )
+                                          )
+                                        ),
+                                        Text("server in your host system."),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 32, bottom: 25, top: 40),
+                                  child: Row(
+                                    spacing: 18,
+                                    children: [
+                                      FaIcon(
+                                        FontAwesomeIcons.server,
+                                        color: Colors.lightBlue
+                                      ),
+                                      Text(
+                                        "Add a remote host",
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: .w500,
+                                          color: appTheme.selectScreenCardTextColor
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 340,
+                                  child: Column(
+                                    spacing: 15,
+                                    children: [
+                                      settingsTextField(
+                                        sshServerNameController,
+                                        Icons.abc,
+                                        "Server name",
+                                        appTheme.selectScreenCardTextColor,
+                                        "Eg: My server",
+                                        (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
+                                      ),
+                                            
+                                      settingsTextField(
+                                        sshUrlController,
+                                        Icons.link,
+                                        "Host url",
+                                        appTheme.selectScreenCardTextColor,
+                                        "Eg: ssh://jhon@192.168.1.100",
+                                        (val) {
+                                          if(val == null || val.isEmpty){
+                                            return "Please enter a valid host/ip address";
+                                          }
+                                            
+                                          final valUri = Uri.parse(val);
+                                          if(valUri.scheme != "ssh") {
+                                            return "Invalid ssh url";
+                                          } else if(valUri.host.isEmpty){
+                                            return "Invalid Or empty host name";
+                                          } else if(valUri.userInfo.isEmpty) {
+                                            return "Invalid or empty username";
+                                          } else {
+                                            return null;
+                                          }
+                                        },
+                                      ),
+                                            
+                                    ],
+                                  ),
+                                ),
+                            
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: sshStackIndex == 0
+                                    ? SizedBox(
+                                      width: 380,
+                                      child: Column(
+                                        children:[
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 20),
+                                            child: SizedBox(
+                                              child: Container(
+                                              padding: EdgeInsets.all(20),
+                                              width: double.infinity,
+                                              child: DefaultTextStyle.merge(
+                                                style: TextStyle(
+                                                  color: appTheme.selectScreenCardTextColor
+                                                ),
+                                                child: Column(
+                                                  children: [
+                                                    settingsTextField(
+                                                      sshPasswordController,
+                                                      Icons.password,
+                                                      "Password",
+                                                      appTheme.selectScreenCardTextColor,
+                                                      null,
+                                                      (val) {
+                                                        if(sshStackIndex == 1) return null;
+                                                        return val == null || val.isEmpty ? "Password field cannot be empty": null;
+                                                      },
+                                                      true
+                                                    ),
+                                                
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 35),
+                                                      child: SizedBox(
+                                                        child: Column(
+                                                          spacing: 18,
+                                                          children: [
+                                                            SizedBox(
+                                                              width: 200,
+                                                              child: ElevatedButton(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: Colors.lightBlue,
+                                                                  foregroundColor: Colors.white,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius: .circular(10),
+                                                                  )
+                                                                  
+                                                                ),
+                                                                onPressed: () async{
+                                                                  if (_sshFormKey.currentState!.validate()) {
+                                                                    await context.read<SSHServersCubit>().addServer(
+                                                                      SSHLogin(
+                                                                        name: sshServerNameController.text,
+                                                                        id: DateTime.now().millisecondsSinceEpoch,
+                                                                        url: sshUrlController.text,
+                                                                        password: sshPasswordController.text
                                                                       )
-                                                                    ],
-                                                                  ),
-                                                                  Center(
-                                                                    child: Padding(
-                                                                      padding: const EdgeInsets.only(top: 20),
-                                                                      child: SizedBox(
-                                                                        width: 200,
-                                                                        child: Column(
-                                                                          spacing: 5,
-                                                                          children: [
-                                                                            ElevatedButton(
-                                                                              style: ElevatedButton.styleFrom(
-                                                                                backgroundColor: Colors.green,
-                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
-                                                                              ),
-                                                                              onPressed: (){},
-                                                                              child: Row(
-                                                                                spacing: 7,
-                                                                                mainAxisAlignment: .center,
-                                                                                children: [
-                                                                                  Icon(
-                                                                                    Icons.power,
-                                                                                    color: Colors.white,
-                                                                                    size: 21
-                                                                                  ),
-                                                                                  Text(
-                                                                                    "Connect",
-                                                                                    style: TextStyle(
-                                                                                      color: Colors.white,
-                                                                                      fontSize: 16.5
-                                                                                    ),
-                                                                                  )
-                                                                                ],
-                                                                              )
-                                                                            ),
-                                                                            ElevatedButton(
-                                                                              style: ElevatedButton.styleFrom(
-                                                                                backgroundColor: Colors.blue,
-                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
-                                                                              ),
-                                                                              onPressed: (){},
-                                                                              child: Row(
-                                                                                spacing: 7,
-                                                                                mainAxisAlignment: .center,
-                                                                                children: [
-                                                                                  Icon(
-                                                                                    Icons.edit,
-                                                                                    color: Colors.white,
-                                                                                    size: 21
-                                                                                  ),
-                                                                                  Text(
-                                                                                    "Edit",
-                                                                                    style: TextStyle(
-                                                                                      color: Colors.white,
-                                                                                      fontSize: 16.5
-                                                                                    ),
-                                                                                )
-                                                                                ],
-                                                                              )
-                                                                            ),
-                                                                            ElevatedButton(
-                                                                              style: ElevatedButton.styleFrom(
-                                                                                backgroundColor: Colors.red,
-                                                                                shape: RoundedRectangleBorder(borderRadius: .circular(12))
-                                                                              ),
-                                                                              onPressed: (){
-                                                                                showDialog(
-                                                                                  context: context,
-                                                                                  builder: (context) => StatefulBuilder(
-                                                                                    builder: (context, _) {
-                                                                                      return AlertDialog(
-                                                                                        backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
-                                                                                        title: Text(
-                                                                                          'Delete ${server.name}?',
-                                                                                          style: TextStyle(
-                                                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                                            fontSize: 20
-                                                                                          ),
-                                                                                        ),
-                                                                                        content: Text(
-                                                                                          "Are you sure you want to delete this remote host?",
-                                                                                          style: TextStyle(
-                                                                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                                            fontSize: 16
-                                                                                          )
-                                                                                        ),
-                                                                                        actions: [
-                                                                                          ElevatedButton(
-                                                                                            onPressed: ()=> Navigator.of(context).pop(),
-                                                                                            child: Text('Cancel')
-                                                                                          ),
-                                                                                          ElevatedButton(
-                                                                                            onPressed: () {
-                                                                                              context.read<SSHServersCubit>().removeServer(server.id);
-                                                                                              Navigator.of(context).pop();
-                                                                                              Navigator.of(context).pop();
-                                                                                            },
-                                                                                            style: ButtonStyle(
-                                                                                              backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
-                                                                                            ),
-                                                                                            child: Text('Delete', style: TextStyle(color: Colors.white))
-                                                                                          )
-                                                                                        ],
-                                                                                      );
-                                                                                    }
-                                                                                  )
-                                                                                );
-                                                                              },
-                                                                              child: Row(
-                                                                                spacing: 10,
-                                                                                mainAxisAlignment: .center,
-                                                                                children: [
-                                                                                  Icon(
-                                                                                    Icons.delete,
-                                                                                    color: Colors.white,
-                                                                                    size: 21
-                                                                                  ),
-                                                                                  Text(
-                                                                                    "Delete",
-                                                                                    style: TextStyle(
-                                                                                      color: Colors.white,
-                                                                                      fontSize: 16.5
-                                                                                    ),
-                                                                                  )
-                                                                                ],
-                                                                              )
-                                                                            ),
-                                                                          ],
-                                                                        ),
+                                                                    );
+                                                                  }
+                                                                },
+                                                                child: Row(
+                                                                  spacing: 5,
+                                                                  mainAxisAlignment: .center,
+                                                                  children: [
+                                                                    const Icon(Icons.save),
+                                                                    const Text(
+                                                                      "Save",
+                                                                      style: TextStyle(
+                                                                        fontWeight: .bold
                                                                       ),
                                                                     ),
-                                                                  ),
-                                                                ],
+                                                                  ],
+                                                                ),
                                                               ),
                                                             ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadiusGeometry.circular(10)
-                                                  ),
-                                                  title: Text(server.name, overflow: .ellipsis),
-                                                  subtitleTextStyle: TextStyle(
-                                                    color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                    fontSize: 13
-                                                  ),
-                                                  leading: FaIcon(
-                                                    FontAwesomeIcons.server,
-                                                    color: Colors.lightBlue
-                                                  ),
-                                                  
-                                                  subtitle: Row(
-                                                    spacing: 5,
-                                                    children: [
-                                                      Text("Type: "),
-                                                      Container(
-                                                        padding: EdgeInsets.symmetric(vertical: 3.5, horizontal: 5),
-                                                        decoration: BoxDecoration(
-                                                          border: Border.all(
-                                                            width: 0.5,
-                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                          ),
-                                                          borderRadius: BorderRadius.circular(10)
-                                                        ),
-                                                        child: Row(
-                                                          spacing: 4,
-                                                          children: [
-                                                            Icon(
-                                                              server is SSHLogin ? Icons.person : Icons.key,
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                              size: 12.5,
+                                                            
+                                                            SizedBox(
+                                                              width: 200,
+                                                              child: ElevatedButton(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: Colors.green,
+                                                                  foregroundColor: Colors.white,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius: .circular(10),
+                                                                  )
+                                                                ),
+                                                                onPressed: () async{
+                                                                  final server = SSHLogin(
+                                                                    name: sshServerNameController.text,
+                                                                    id: DateTime.now().millisecondsSinceEpoch,
+                                                                    url: sshUrlController.text,
+                                                                    password: sshPasswordController.text
+                                                                  );
+
+                                                                  final result = await server.connect();
+                                                                  if(!context.mounted) return;
+                                                                  await context.read<SSHServersCubit>().addServer(server);
+                                                                  if(context.mounted){
+                                                                    Navigator.pop(context);
+                                                                    if(result.$1) {
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(
+                                                                          backgroundColor: Colors.green,
+                                                                          content: Text(
+                                                                            result.$2,
+                                                                            style: TextStyle(
+                                                                              color: Colors.white
+                                                                            )
+                                                                          )
+                                                                        )
+                                                                      );
+                                                                    } else {
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(
+                                                                          backgroundColor: Colors.red[600],
+                                                                          content: Text(
+                                                                            result.$2,
+                                                                            style: TextStyle(
+                                                                              color: Colors.white
+                                                                            )
+                                                                          )
+                                                                        )
+                                                                      );
+                                                                    }
+                                                                  }
+                                                                },
+                                                                child: Row(
+                                                                  mainAxisAlignment: .center,
+                                                                  spacing: 5,
+                                                                  children: [
+                                                                    const Icon(Icons.power),
+                                                                    const Text(
+                                                                      "Save & Connect",
+                                                                      style: TextStyle(
+                                                                        fontWeight: .bold
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                )
+                                                              ),
                                                             ),
-                                                            Text(
-                                                              server is SSHLogin ? "Login" : "Private key",
-                                                              style: TextStyle(
-                                                                fontSize: 10
-                                                              )
-                                                            )
                                                           ],
                                                         ),
                                                       ),
+                                                    )
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            ),
+                                          ),
+                                        ]
+                                      ),
+                                    )
+                            
+                                    : Column(
+                                      children:[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 30),
+                                          child: SizedBox(
+                                            width: 295,
+                                            child: ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                shape: RoundedRectangleBorder(borderRadius: .circular(10)),
+                                                backgroundColor: Colors.lightBlue,
+                                                foregroundColor: Colors.white
+                                              ),
+                            
+                                              onPressed: () async {
+                                                setState(() => _isGeneratedKey = false);
+                                                await sshKeygen.generate();
+                                                setState(() => _isGeneratedKey = true);
+                                              },
+                            
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(right: 10, top: 5, bottom: 8),
+                                                child: Row(
+                                                  mainAxisAlignment: .center,
+                                                  spacing: 8,
+                                                  children: [
+                                                    ((){
+                                                      if(_isGeneratedKey == null) {
+                                                        return const Icon(
+                                                          Icons.key,
+                                                          size: 25
+                                                        );
+                                                      } else if(!_isGeneratedKey!) {
+                                                        return const CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                        );
+                                                      } else {
+                                                        return const Icon(
+                                                          Icons.autorenew,
+                                                          size: 25
+                                                        );
+                                                      }
+                                                    })(),
+                                                    Column(
+                                                      crossAxisAlignment: .start,
+                                                      children: [
+                                                        ((){
+                                                          if(_isGeneratedKey == null) {
+                                                            return const Text(
+                                                              "Genrate keys",
+                                                              style: TextStyle(
+                                                                fontSize: 16
+                                                              )
+                                                            );
+                                                          } else if(!_isGeneratedKey!) {
+                                                            return const Text("Generating...");
+                                                          } else {
+                                                            return const Text(
+                                                              "Regenerate keys",
+                                                              style: TextStyle(
+                                                                fontSize: 17
+                                                              )
+                                                            );
+                                                          }
+                                                        })(),
+                                                        Text(
+                                                          _isGeneratedKey ?? false
+                                                            ? "Caution: Regenerating ssh keys will revoke\nyour access from all hosts."
+                                                            : "Generate a public-private key pair for ssh connection.",
+                            
+                                                          style: TextStyle(
+                                                            fontSize: 9.5,
+                                                            color: Colors.white.withAlpha(200)
+                                                          )
+                                                        )
+                                                      ]
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            ),
+                                          ),
+                                        ),
+                            
+                                        if(_isGeneratedKey ?? false) DefaultTextStyle(
+                                          style: TextStyle(
+                                            color: appThemeState.appTheme.selectScreenCardTextColor
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 25),
+                                            child: Column(
+                                              crossAxisAlignment: .start,
+                                              children: [
+                                                Padding(
+                                                  padding: const EdgeInsets.only(left: 5, right: 10, bottom: 20),
+                                                  child: Text("After installing and starting ssh in your host system, paste this command:"),
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    FaIcon(
+                                                      FontAwesomeIcons.linux,
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                      size: 17
+                                                    ),
+                                                    Text(" Linux / "),
+                                                    FaIcon(
+                                                      FontAwesomeIcons.apple,
+                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                      size: 17
+                                                    ),
+                                                    Text(" Mac")
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  height: 200,
+                                                    width: 350,
+                                                    decoration: BoxDecoration(
+                                                      color: appTheme.scaffoldBg,
+                                                      border: .all(
+                                                        color: appTheme.selectScreenCardTextColor.withAlpha(120),
+                                                        width: 1
+                                                      ),
+                                                      borderRadius: .circular(6)
+                                                    ),
+                                                  child: Stack(
+                                                    children: [
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(right: 35, top: 15, left: 10),
+                                                        child: Text(
+                                                          "mkdir -p ~/.ssh\n\n"
+                                                          "chmod 700 ~/.ssh\n\n"
+                                                          "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                          "chmod 600 ~/.ssh/authorized_keys",
+                                                          style: TextStyle(
+                                                            fontFamily: "monospace"
+                                                          )
+                                                        ),
+                                                      ),
+                                                      Positioned(
+                                                        right: 0,
+                                                        top: 0,
+                                                        child: IconButton(
+                                                          onPressed: () async{
+                                                            await Clipboard.setData(
+                                                              ClipboardData(
+                                                                text:
+                                                                "mkdir -p ~/.ssh\n\n"
+                                                                "chmod 700 ~/.ssh\n\n"
+                                                                "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                                "chmod 600 ~/.ssh/authorized_keys"
+                                                              )
+                                                            );
+                                                            if(context.mounted){
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                const SnackBar(
+                                                                  content: Text('Copied to clipboard'),
+                                                                  duration: Duration(seconds: 2),
+                                                                ),
+                                                              );
+                                                            }
+                                                          },
+                                                          icon: Icon(
+                                                            Icons.copy,
+                                                            color: appTheme.selectScreenCardTextColor.withAlpha(200)
+                                                          )
+                                                        ),
+                                                      )
+                                                    ]
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                                  child: Row(
+                                                    children: [
+                                                      FaIcon(
+                                                        FontAwesomeIcons.windows,
+                                                        color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                        size: 17
+                                                      ),
+                                                      Text(" Windows powershell"),
                                                     ],
                                                   ),
                                                 ),
-                                              );
-                                            }
+                                                Padding(
+                                                  padding: const EdgeInsets.only(bottom: 25),
+                                                  child: Container(
+                                                    height: 135,
+                                                      width: 350,
+                                                      decoration: BoxDecoration(
+                                                        color: appThemeState.appTheme.scaffoldBg,
+                                                        border: .all(
+                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(120),
+                                                          width: 1
+                                                        ),
+                                                        borderRadius: .circular(6)
+                                                      ),
+                                                    child: Stack(
+                                                      children: [
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(right: 35, top: 15, left: 10),
+                                                          child: Text(
+                                                            'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"',
+                                                            style: TextStyle(
+                                                              fontFamily: "monospace"
+                                                            )
+                                                          ),
+                                                        ),
+                                                        Positioned(
+                                                          right: 0,
+                                                          top: 0,
+                                                          child: IconButton(
+                                                            onPressed: () async{
+                                                              await Clipboard.setData(
+                                                                ClipboardData(text: 'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"')
+                                                              );
+                                                              if(context.mounted){
+                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                  const SnackBar(
+                                                                    content: Text('Copied to clipboard'),
+                                                                    duration: Duration(seconds: 2),
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
+                                                            icon: Icon(
+                                                              Icons.copy,
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200)
+                                                            )
+                                                          ),
+                                                        )
+                                                      ]
+                                                    ),
+                                                  ),
+                                                ),
+                                              ]
+                                            ),
                                           ),
                                         ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 20),
+                                          child: SizedBox(
+                                            width: 200,
+                                            child: ElevatedButton(
+                                              onPressed: () async{
+                                                if(_sshFormKey.currentState!.validate()){
+                                                  final server = SSHPrivateKey(
+                                                    name: sshServerNameController.text,
+                                                    id: DateTime.now().millisecondsSinceEpoch,
+                                                    url: sshUrlController.text,
+                                                  );
+                                                  final result = await server.connect();
+                                                  if(context.mounted){
+                                                    if(server.isConnected) context.read<SSHServersCubit>().addServer(server);
+                                                    if(result.$1) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          backgroundColor: Colors.green,
+                                                          content: Text(
+                                                            result.$2,
+                                                            style: TextStyle(
+                                                              color: Colors.white
+                                                            )
+                                                          )
+                                                        )
+                                                      );
+                                                    } else {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          backgroundColor: Colors.red[600],
+                                                          content: Text(
+                                                            result.$2,
+                                                            style: TextStyle(
+                                                              color: Colors.white
+                                                            )
+                                                          )
+                                                        )
+                                                      );
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green,
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: .circular(10)
+                                                )
+                                              ),
+                                              child: const Row(
+                                                mainAxisAlignment: .center,
+                                                children: [
+                                                  Icon(Icons.power),
+                                                  Text("Save & Connect")
+                                                ]
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      ]
+                                    ),
+                                ),
+                            
+                            
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
+                                          borderRadius: BorderRadius.vertical(top: Radius.circular(10))
+                                        ),
+                                        child: Text(
+                                          "Saved remotes",
+                                          style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
+                                        )
+                                      ),
+                                      Container(
+                                        alignment: .center,
+                                        padding: EdgeInsets.all(15),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+                                          color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
+                                        ),
+                                        width: double.infinity,
+                                        child: serverList.isEmpty ? Text(
+                                          "No remotes have been configured yet.",
+                                          style: TextStyle(
+                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                            fontSize: 16
+                                          )
+                                        ) : ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxHeight: 450
+                                          ),
+                                          child: Scrollbar(
+                                            child: ListView.builder(
+                                              shrinkWrap: true,
+                                              itemCount: serverList.length,
+                                              itemBuilder: (context, index) {
+                                                final server = serverList[index];
+                                                final isLogin = server is SSHLogin;
+                                                return Card(
+                                                  color: appTheme.scaffoldBg,
+                                                  child: ListTile(
+                                                    onTap: () {
+                                                      bool isObscure = true;
+                                                      showDialog(
+                                                        context: context,
+                                                        builder:(context) => StatefulBuilder(
+                                                          builder: (context, setTempState) => Dialog(
+                                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                            constraints: BoxConstraints(maxHeight: 580),
+                                                            child: DefaultTextStyle.merge(
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                fontSize: 15
+                                                              ),
+                                                              child: Container(
+                                                                width: double.infinity,
+                                                                padding: EdgeInsets.all(20),
+                                                                child: SingleChildScrollView(
+                                                                  child: Column(
+                                                                    spacing: 10,
+                                                                    crossAxisAlignment: .start,
+                                                                    children: [
+                                                                      Text(
+                                                                        "Host Info",
+                                                                        style: TextStyle(
+                                                                          fontSize: 30
+                                                                        ),
+                                                                      ),
+                                                                      SizedBox(height: 20),
+                                                                      Table(
+                                                                        border: TableBorder.all(
+                                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                          width: 0.5,
+                                                                          borderRadius: .circular(15)
+                                                                        ),
+                                                                        columnWidths: const <int, TableColumnWidth>{
+                                                                          0: IntrinsicColumnWidth(),
+                                                                          1: FlexColumnWidth(),
+                                                                        },
+                                                                        children: [
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("name"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(server.name),
+                                                                              ),
+                                                                            ]
+                                                                          ),
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("id"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(server.id.toString()),
+                                                                              ),
+                                                                            ]
+                                                                          ),
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("server url"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(server.url),
+                                                                              ),
+                                                                            ]
+                                                                          ),
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("type"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(isLogin ? "login" : "private key"),
+                                                                              ),
+                                                                            ]
+                                                                          ),
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("host"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(server.host),
+                                                                              )
+                                                                            ]
+                                                                          ),
+                                                                          if(isLogin) TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: const Text("username"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(server.username),
+                                                                              )
+                                                                            ]
+                                                                          ),
+                                                                                              
+                                                                          TableRow(
+                                                                            children: [
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Text(isLogin ? "password" : "private key"),
+                                                                              ),
+                                                                              Padding(
+                                                                                padding: const EdgeInsets.all(8.0),
+                                                                                child: Wrap(
+                                                                                  children: [
+                                                                                    Text(
+                                                                                      isLogin
+                                                                                        ? isObscure
+                                                                                          ? "*" * server.password.length
+                                                                                          : server.password
+                                                                                        : isObscure
+                                                                                          ? "${"*" * 8}\u00B7\u00B7\u00B7"
+                                                                                          : SshKeygen.privateKeyFilelocation.path
+                                                                                    ),
+                                                                                    Padding(
+                                                                                      padding: const EdgeInsets.only(left: 17),
+                                                                                      child: InkWell(
+                                                                                        onTap: () => setTempState(() => isObscure = !isObscure),
+                                                                                        child: Icon(
+                                                                                          isObscure ? Icons.visibility : Icons.visibility_off,
+                                                                                          color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                          size: 20
+                                                                                        ),
+                                                                                      ),
+                                                                                    )
+                                                                                  ],
+                                                                                ),
+                                                                              )
+                                                                            ]
+                                                                          )
+                                                                        ],
+                                                                      ),
+                                                                      Center(
+                                                                        child: Padding(
+                                                                          padding: const EdgeInsets.only(top: 20),
+                                                                          child: SizedBox(
+                                                                            width: 200,
+                                                                            child: Column(
+                                                                              spacing: 5,
+                                                                              children: [
+                                                                                ElevatedButton(
+                                                                                  style: ElevatedButton.styleFrom(
+                                                                                    backgroundColor: server.isConnected ? Colors.green : appThemeState.appTheme.scaffoldBg,
+                                                                                    shape: RoundedRectangleBorder(
+                                                                                      borderRadius: .circular(12),
+                                                                                      side: BorderSide(
+                                                                                        color: Colors.green
+                                                                                      )
+                                                                                    )
+                                                                                  ),
+                                                                                  onPressed: ()async {
+                                                                                    if(server.isConnected){
+                                                                                      showDialog(
+                                                                                        context: context,
+                                                                                        builder: (context) => StatefulBuilder(
+                                                                                          builder: (context, _) {
+                                                                                            return AlertDialog(
+                                                                                              backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
+                                                                                              title: Text(
+                                                                                                'Disconnect ${server.host}?',
+                                                                                                style: TextStyle(
+                                                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                                  fontSize: 20
+                                                                                                ),
+                                                                                              ),
+                                                                                              content: Text(
+                                                                                                "Are you sure you want to disconnect from this host?",
+                                                                                                style: TextStyle(
+                                                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                                                  fontSize: 16
+                                                                                                )
+                                                                                              ),
+                                                                                              actions: [
+                                                                                                ElevatedButton(
+                                                                                                  onPressed: ()=> Navigator.of(context).pop(),
+                                                                                                  child: Text('Cancel')
+                                                                                                ),
+                                                                                                ElevatedButton(
+                                                                                                  onPressed: () {
+                                                                                                    server.disconnect();
+                                                                                                    context.read<SSHServersCubit>().updateServer(server);
+                                                                                                    Navigator.of(context).pop();
+                                                                                                    Navigator.of(context).pop();
+                                                                                                  },
+                                                                                                  style: ButtonStyle(
+                                                                                                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                                                                  ),
+                                                                                                  child: Text('Disconnect', style: TextStyle(color: Colors.white))
+                                                                                                )
+                                                                                              ],
+                                                                                            );
+                                                                                          }
+                                                                                        )
+                                                                                      );
+                                                                                      return;
+                                                                                    }
+                                                                  
+                                                                                    final result = await server.connect();
+                                                                                    if(context.mounted){
+                                                                                      context.read<SSHServersCubit>().updateServer(server);
+                                                                                      Navigator.pop(context);
+                                                                                      if(result.$1) {
+                                                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                                                          SnackBar(
+                                                                                            backgroundColor: Colors.green,
+                                                                                            content: Text(
+                                                                                              result.$2,
+                                                                                              style: TextStyle(
+                                                                                                color: Colors.white
+                                                                                              )
+                                                                                            )
+                                                                                          )
+                                                                                        );
+                                                                                      } else {
+                                                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                                                          SnackBar(
+                                                                                            backgroundColor: Colors.red[600],
+                                                                                            content: Text(
+                                                                                              result.$2,
+                                                                                              style: TextStyle(
+                                                                                                color: Colors.white
+                                                                                              )
+                                                                                            )
+                                                                                          )
+                                                                                        );
+                                                                                      }
+                                                                                    }
+                                                                                  },
+                                                                                  child: Row(
+                                                                                    spacing: 7,
+                                                                                    mainAxisAlignment: .center,
+                                                                                    children: [
+                                                                                      Icon(
+                                                                                        Icons.power,
+                                                                                        color: server.isConnected ? Colors.white : Colors.green,
+                                                                                        size: 21
+                                                                                      ),
+                                                                                      Text(
+                                                                                        server.isConnected ? "Connected" : "Connect",
+                                                                                        style: TextStyle(
+                                                                                          color: Colors.white,
+                                                                                          fontSize: 16.5
+                                                                                        ),
+                                                                                      )
+                                                                                    ],
+                                                                                  )
+                                                                                ),
+                                                                                ElevatedButton(
+                                                                                  style: ElevatedButton.styleFrom(
+                                                                                    backgroundColor: appThemeState.appTheme.scaffoldBg,
+                                                                                    shape: RoundedRectangleBorder(
+                                                                                      borderRadius: .circular(12),
+                                                                                      side: BorderSide(
+                                                                                        color: Colors.blue
+                                                                                      )
+                                                                                    )
+                                                                                  ),
+                                                                                  onPressed: (){
+                                                                                    sshServerNameController.text = server.name;
+                                                                                    sshUrlController.text = server.url;
+                                                                                    final isLogin = server is SSHLogin;
+                                                                                    if(isLogin){
+                                                                                      sshPasswordController.text= server.password;
+                                                                                    }
+                                                                                              
+                                                                                    _showSSHDialog(
+                                                                                      appThemeState.appTheme,
+                                                                                      (server.id, isLogin)
+                                                                                    );
+                                                                                              
+                                                                                  },
+                                                                                  child: Row(
+                                                                                    spacing: 12,
+                                                                                    mainAxisAlignment: .center,
+                                                                                    children: [
+                                                                                      Icon(
+                                                                                        Icons.edit,
+                                                                                        color: Colors.blue,
+                                                                                        size: 21
+                                                                                      ),
+                                                                                      Text(
+                                                                                        "Edit",
+                                                                                        style: TextStyle(
+                                                                                          color: Colors.white,
+                                                                                          fontSize: 16.5
+                                                                                        ),
+                                                                                    )
+                                                                                    ],
+                                                                                  )
+                                                                                ),
+                                                                                ElevatedButton(
+                                                                                  style: ElevatedButton.styleFrom(
+                                                                                    backgroundColor: appThemeState.appTheme.scaffoldBg,
+                                                                                    shape: RoundedRectangleBorder(
+                                                                                      borderRadius: .circular(12),
+                                                                                      side: BorderSide(
+                                                                                        color: Colors.red
+                                                                                      )
+                                                                                    )
+                                                                                  ),
+                                                                                  onPressed: (){
+                                                                                    showDialog(
+                                                                                      context: context,
+                                                                                      builder: (context) => StatefulBuilder(
+                                                                                        builder: (context, _) {
+                                                                                          return AlertDialog(
+                                                                                            backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
+                                                                                            title: Text(
+                                                                                              'Delete ${server.name}?',
+                                                                                              style: TextStyle(
+                                                                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                                fontSize: 20
+                                                                                              ),
+                                                                                            ),
+                                                                                            content: Text(
+                                                                                              "Are you sure you want to delete this remote host?",
+                                                                                              style: TextStyle(
+                                                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                                                fontSize: 16
+                                                                                              )
+                                                                                            ),
+                                                                                            actions: [
+                                                                                              ElevatedButton(
+                                                                                                onPressed: ()=> Navigator.of(context).pop(),
+                                                                                                child: Text('Cancel')
+                                                                                              ),
+                                                                                              ElevatedButton(
+                                                                                                onPressed: () {
+                                                                                                  context.read<SSHServersCubit>().removeServer(server.id);
+                                                                                                  Navigator.of(context).pop();
+                                                                                                  Navigator.of(context).pop();
+                                                                                                },
+                                                                                                style: ButtonStyle(
+                                                                                                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                                                                ),
+                                                                                                child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                                                              )
+                                                                                            ],
+                                                                                          );
+                                                                                        }
+                                                                                      )
+                                                                                    );
+                                                                                  },
+                                                                                  child: Row(
+                                                                                    spacing: 10,
+                                                                                    mainAxisAlignment: .center,
+                                                                                    children: [
+                                                                                      Icon(
+                                                                                        Icons.delete,
+                                                                                        color: Colors.red,
+                                                                                        size: 21
+                                                                                      ),
+                                                                                      Text(
+                                                                                        "Delete",
+                                                                                        style: TextStyle(
+                                                                                          color: Colors.white,
+                                                                                          fontSize: 16.5
+                                                                                        ),
+                                                                                      )
+                                                                                    ],
+                                                                                  )
+                                                                                ),
+                                                                              ],
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadiusGeometry.circular(10),
+                                                    ),
+                                                    title: Text(server.name, overflow: .ellipsis),
+                                                    titleTextStyle: TextStyle(
+                                                      fontSize: 16,
+                                                      fontFamily: "monospace"
+                                                    ),
+                                                    subtitleTextStyle: TextStyle(
+                                                      color: appTheme.selectScreenCardTextColor,
+                                                      fontSize: 13
+                                                    ),
+                                                    leading: FaIcon(
+                                                      FontAwesomeIcons.server,
+                                                      color: Colors.lightBlue
+                                                    ),
+                                                    subtitle: Row(
+                                                      spacing: 5,
+                                                      children: [
+                                                        const Text("status: "),
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(top: 2.5),
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(vertical: 0.5, horizontal: 3.5),
+                                                            decoration: BoxDecoration(
+                                                              border: Border.all(
+                                                                width: server.isConnected ? 1 : 0.5,
+                                                                color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                              ),
+                                                              borderRadius: BorderRadius.circular(3)
+                                                            ),
+                                                            child: Row(
+                                                              spacing: 4,
+                                                              children: [
+                                                                Icon(
+                                                                  server.isConnected ? Icons.circle : Icons.power_off,
+                                                                  color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                                  size: server.isConnected ? 8 : 12.5,
+                                                                ),
+                                                                Text(
+                                                                  server.isConnected ? "connected" : "not connected",
+                                                                  style: TextStyle(
+                                                                    fontSize: 10,
+                                                                    color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                                  )
+                                                                )
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            ),
+                                          ),
+                                        )
                                       )
-                                    )
-                                  ]
+                                    ]
+                                  ),
                                 ),
-                              ),
-                              settingsTile(
-                                (){},
-                                "Termux",
-                                SvgPicture.asset(
-                                  "assets/icons/Termux.svg",
-                                  height: 30,
-                                  width: 30
-                                ),
-                                appThemeState.appTheme.isDark,
-                                subTitle: "Connect to Termux."
-                              )
-                            ],
+                                settingsTile(
+                                  (){},
+                                  "Termux",
+                                  SvgPicture.asset(
+                                    "assets/icons/Termux.svg",
+                                    height: 30,
+                                    width: 30
+                                  ),
+                                  appThemeState.appTheme.isDark,
+                                  subTitle: "Connect to Termux."
+                                )
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -3514,7 +4189,7 @@ int main() {
                                             child: Padding(
                                               padding: const EdgeInsets.all(5),
                                               child: Text(
-                                                "AI Models", 
+                                                "AI Models",
                                                 style: TextStyle(
                                                   color: appThemeState.appTheme.selectScreenCardTextColor,
                                                   fontSize: 13
@@ -3675,7 +4350,7 @@ int main() {
                                     toggleColor: Color(0xff002b6e),
                                     inactiveToggleColor: Colors.white,
                                     activeColor: Color(0xffb0c6fe),
-                                    value: hasAI && aiState.isEnabled, 
+                                    value: hasAI && aiState.isEnabled,
                                     onToggle: (value) async{
                                       if(hasAI){
                                         final prefs = await SharedPreferences.getInstance();
@@ -3729,7 +4404,7 @@ int main() {
                                     }
                                   ),
                                 ),
-                                subTitle: aiState.showSuggestionOntap ? "Tap AI icon for suggestions\nLower API usage" 
+                                subTitle: aiState.showSuggestionOntap ? "Tap AI icon for suggestions\nLower API usage"
                                 : "Auto-suggest after 1.5s pause\nHigher API usage",
                               ),
                               settingsTile(
