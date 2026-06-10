@@ -18,6 +18,7 @@ Future<void> main() async {
   final aiConfig = await getAiConfig();
   final modelSelected = await getModelSelected();
   final sshServerList = await SSHInfo.getSavedSSHServers();
+  final termuxInfo = await TermuxCubit.getSavedTermuxInfo();
 
   runApp(
     MainApp(
@@ -27,6 +28,7 @@ Future<void> main() async {
       aiConfig: aiConfig,
       modelSelected: modelSelected,
       sshSServerList: sshServerList,
+      termuxInfo: termuxInfo,
     )
   );
 }
@@ -34,6 +36,7 @@ Future<void> main() async {
 class MainApp extends StatelessWidget {
   final String recent, appTheme, codeForgeConfig, aiConfig, modelSelected;
   final List<SSHInfo> sshSServerList;
+  final SSHPrivateKey? termuxInfo;
   const MainApp({
       super.key,
       required this.recent,
@@ -42,6 +45,7 @@ class MainApp extends StatelessWidget {
       required this.aiConfig,
       required this.modelSelected,
       required this.sshSServerList,
+      required this.termuxInfo
     });
 
   @override
@@ -65,6 +69,7 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => CopilotBloc()),
         BlocProvider(create: (_) => CopilotChatBloc()),
         BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
+        BlocProvider(create: (_) => TermuxCubit(termuxInfo)),
         BlocProvider(create: (context) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,

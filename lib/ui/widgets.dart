@@ -12569,3 +12569,58 @@ Widget settingsTextField(
     validator: validator,
   );
 }
+
+Widget copyArea(
+  BuildContext context,
+  AppTheme appTheme,
+  String text,
+  double height
+) => Container(
+  height: height,
+    width: 350,
+    decoration: BoxDecoration(
+      color: appTheme.scaffoldBg,
+      border: .all(
+        color: appTheme.selectScreenCardTextColor.withAlpha(120),
+        width: 1
+      ),
+      borderRadius: .circular(6)
+    ),
+  child: Stack(
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(right: 35, top: 15, left: 10),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: "monospace",
+            fontSize: 14
+          )
+        ),
+      ),
+      Positioned(
+        right: 0,
+        top: 0,
+        child: IconButton(
+          onPressed: () async{
+            await Clipboard.setData(
+              ClipboardData(text: text)
+            );
+            if(context.mounted){
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Copied to clipboard'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          icon: Icon(
+            Icons.copy,
+            color: appTheme.selectScreenCardTextColor.withAlpha(200)
+          )
+        ),
+      )
+    ]
+  ),
+);

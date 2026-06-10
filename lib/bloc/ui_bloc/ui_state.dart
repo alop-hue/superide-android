@@ -655,3 +655,9 @@ class SSHServersState {
 
   const SSHServersState(this.serverList);
 }
+
+class TermuxState {
+  final SSHPrivateKey? termInfo;
+
+  const TermuxState(this.termInfo);
+}

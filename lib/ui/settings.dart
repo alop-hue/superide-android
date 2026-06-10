@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -2662,7 +2663,7 @@ int main() {
                             child: Column(
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 20),
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
                                   child: SizedBox(
                                     height: 35,
                                     child: Row(
@@ -2732,32 +2733,63 @@ int main() {
                                     ),
                                   ),
                                 ),
+
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  child: DefaultTextStyle(
-                                    style: TextStyle(
-                                      color: appTheme.selectScreenCardTextColor
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: .circular(10),
+                                      border: .all(
+                                        color: Colors.blue
+                                      )
                                     ),
-                                    child: Wrap(
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          "Make sure to install and start",  
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Icon(
+                                            Icons.info_outlined,
+                                            color: Colors.blue,
+                                            size: 18
+                                          ),
                                         ),
-                                        InkWell(
-                                          onTap: () async{
-                                            await launchUrl(Uri.parse("https://www.geeksforgeeks.org/linux-unix/ssh-command-in-linux-with-examples/"));
-                                          },
-                                          child: Text(
-                                            " ssh ",
-                                            style: TextStyle(
-                                              color: Colors.blue,
-                                              decoration: .underline
-                                            )
-                                          )
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style: TextStyle(
+                                                  color: appTheme.selectScreenCardTextColor,
+                                                ),
+                                                children: [
+                                                  const TextSpan(
+                                                    text: 'Make sure to install and start ',
+                                                  ),
+                                                  TextSpan(
+                                                    text: 'ssh',
+                                                    style: const TextStyle(
+                                                      color: Colors.blue,
+                                                      decoration: TextDecoration.underline,
+                                                    ),
+                                                    recognizer: TapGestureRecognizer()
+                                                      ..onTap = () async {
+                                                        await launchUrl(
+                                                          Uri.parse(
+                                                            "https://www.geeksforgeeks.org/linux-unix/ssh-command-in-linux-with-examples/",
+                                                          ),
+                                                        );
+                                                      },
+                                                  ),
+                                                  const TextSpan(
+                                                    text: ' server in your host system.',
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                        Text("server in your host system."),
                                       ],
-                                    ),
+                                    )
                                   ),
                                 ),
                                 Padding(
@@ -3091,62 +3123,14 @@ int main() {
                                                   ],
                                                 ),
                                                 const SizedBox(height: 10),
-                                                Container(
-                                                  height: 200,
-                                                    width: 350,
-                                                    decoration: BoxDecoration(
-                                                      color: appTheme.scaffoldBg,
-                                                      border: .all(
-                                                        color: appTheme.selectScreenCardTextColor.withAlpha(120),
-                                                        width: 1
-                                                      ),
-                                                      borderRadius: .circular(6)
-                                                    ),
-                                                  child: Stack(
-                                                    children: [
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(right: 35, top: 15, left: 10),
-                                                        child: Text(
-                                                          "mkdir -p ~/.ssh\n\n"
-                                                          "chmod 700 ~/.ssh\n\n"
-                                                          "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
-                                                          "chmod 600 ~/.ssh/authorized_keys",
-                                                          style: TextStyle(
-                                                            fontFamily: "monospace"
-                                                          )
-                                                        ),
-                                                      ),
-                                                      Positioned(
-                                                        right: 0,
-                                                        top: 0,
-                                                        child: IconButton(
-                                                          onPressed: () async{
-                                                            await Clipboard.setData(
-                                                              ClipboardData(
-                                                                text:
-                                                                "mkdir -p ~/.ssh\n\n"
-                                                                "chmod 700 ~/.ssh\n\n"
-                                                                "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
-                                                                "chmod 600 ~/.ssh/authorized_keys"
-                                                              )
-                                                            );
-                                                            if(context.mounted){
-                                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                                const SnackBar(
-                                                                  content: Text('Copied to clipboard'),
-                                                                  duration: Duration(seconds: 2),
-                                                                ),
-                                                              );
-                                                            }
-                                                          },
-                                                          icon: Icon(
-                                                            Icons.copy,
-                                                            color: appTheme.selectScreenCardTextColor.withAlpha(200)
-                                                          )
-                                                        ),
-                                                      )
-                                                    ]
-                                                  ),
+                                                copyArea(
+                                                  context,
+                                                  appTheme,
+                                                  "mkdir -p ~/.ssh\n\n"
+                                                  "chmod 700 ~/.ssh\n\n"
+                                                  "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                  "chmod 600 ~/.ssh/authorized_keys",
+                                                  200
                                                 ),
                                                 Padding(
                                                   padding: const EdgeInsets.symmetric(vertical: 15),
@@ -3163,53 +3147,11 @@ int main() {
                                                 ),
                                                 Padding(
                                                   padding: const EdgeInsets.only(bottom: 25),
-                                                  child: Container(
-                                                    height: 135,
-                                                      width: 350,
-                                                      decoration: BoxDecoration(
-                                                        color: appThemeState.appTheme.scaffoldBg,
-                                                        border: .all(
-                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(120),
-                                                          width: 1
-                                                        ),
-                                                        borderRadius: .circular(6)
-                                                      ),
-                                                    child: Stack(
-                                                      children: [
-                                                        Padding(
-                                                          padding: const EdgeInsets.only(right: 35, top: 15, left: 10),
-                                                          child: Text(
-                                                            'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"',
-                                                            style: TextStyle(
-                                                              fontFamily: "monospace"
-                                                            )
-                                                          ),
-                                                        ),
-                                                        Positioned(
-                                                          right: 0,
-                                                          top: 0,
-                                                          child: IconButton(
-                                                            onPressed: () async{
-                                                              await Clipboard.setData(
-                                                                ClipboardData(text: 'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"')
-                                                              );
-                                                              if(context.mounted){
-                                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                                  const SnackBar(
-                                                                    content: Text('Copied to clipboard'),
-                                                                    duration: Duration(seconds: 2),
-                                                                  ),
-                                                                );
-                                                              }
-                                                            },
-                                                            icon: Icon(
-                                                              Icons.copy,
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200)
-                                                            )
-                                                          ),
-                                                        )
-                                                      ]
-                                                    ),
+                                                  child: copyArea(
+                                                    context,
+                                                    appTheme,
+                                                    'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"',
+                                                    135
                                                   ),
                                                 ),
                                               ]
@@ -3780,17 +3722,532 @@ int main() {
                                     ]
                                   ),
                                 ),
-                                settingsTile(
-                                  (){},
-                                  "Termux",
-                                  SvgPicture.asset(
-                                    "assets/icons/Termux.svg",
-                                    height: 30,
-                                    width: 30
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  child: Divider(
+                                    color: appTheme.selectScreenCardTextColor,
+                                    thickness: 0.2,
+                                    indent: 65,
+                                    endIndent: 65,
                                   ),
-                                  appThemeState.appTheme.isDark,
-                                  subTitle: "Connect to Termux."
-                                )
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 15),
+                                  child: ListTile(
+                                    title: Text("Connect to Termux"),
+                                    titleTextStyle: TextStyle(
+                                      fontSize: 20,
+                                      color: appTheme.selectScreenCardTextColor
+                                    ),
+                                    leading: SvgPicture.asset(
+                                      "assets/icons/Termux.svg",
+                                      height: 30,
+                                      width: 30
+                                    ),
+                                  ),
+                                ),
+
+                                BlocBuilder<TermuxCubit, TermuxState>(
+                                  builder: (context, termuxState) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(left: 00),
+                                      child: Column(
+                                        children: [
+                                          ListTile(
+                                            title: Text("Initial setup"),
+                                            leading: Icon(
+                                              Icons.settings_input_hdmi_outlined,
+                                              color: Colors.lightBlue
+                                            ),
+                                            titleTextStyle: TextStyle(
+                                              color: appTheme.selectScreenCardTextColor,
+                                              fontSize: 17
+                                            ),
+                                            subtitle: Text("The one time setup to connect with Termux"),
+                                            onTap: (){
+                                              final termFolder = "$appDir/.termux/.ssh";
+                                              final termPubKey = File("$termFolder/id_ed25519.pub");
+                                              final termPrivKey = File("$termFolder/id_ed25519");
+                                              final termxUrlCtrl = TextEditingController()..text = termuxState.termInfo?.username ?? "";
+                                              final termxFormKey = GlobalKey<FormState>();
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => FutureBuilder<int>(
+                                                  future: (() async{
+                                                    if(!termPubKey.existsSync() || !termPrivKey.existsSync()){
+                                                        await SshKeygen(
+                                                        comment: "roxum@termux",
+                                                        termPubKey: termPubKey,
+                                                        termPrivKey: termPrivKey
+                                                      ).generate();
+                                                      return 0;
+                                                    }
+                                                    return 1;
+                                                  })(),
+                                                  
+                                                  builder: (context, asyncSnapshot) {
+                                                    if(asyncSnapshot.connectionState == .waiting){
+                                                      return Center(child: CircularProgressIndicator());
+                                                    } else if (asyncSnapshot.hasError) {
+                                                      return Text(
+                                                        "Failed to generate keys for termux",
+                                                        style: TextStyle(
+                                                          color: appTheme.selectScreenCardTextColor,
+                                                          fontSize: 20
+                                                        )
+                                                      );
+                                                    }
+                                          
+                                                    return StatefulBuilder(
+                                                      builder:(context, setTState) => Dialog(
+                                                        constraints: BoxConstraints(
+                                                          maxHeight: 700
+                                                        ),
+                                                        backgroundColor: appTheme.selectScreenCardsBg,
+                                                        child: DefaultTextStyle(
+                                                          style: TextStyle(
+                                                            color: appTheme.selectScreenCardTextColor,
+                                                            fontSize: 18
+                                                          ),
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(18),
+                                                            child: Scrollbar(
+                                                              child: ListView(
+                                                                children: [
+                                                                  const Padding(
+                                                                    padding: EdgeInsets.only(bottom: 20),
+                                                                    child: Center(child: Text("First time setup")),
+                                                                  ),
+                                                                  const Text("1. Install OpenSSH"),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                    child: copyArea(
+                                                                      context,
+                                                                      appTheme,
+                                                                      "pkg install openssh",
+                                                                      50
+                                                                    ),
+                                                                  ),
+                                                                                                        
+                                                                  const Text("2. Paste the below command"),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                    child: copyArea(
+                                                                      context,
+                                                                      appTheme,
+                                                                      "mkdir -p ~/.ssh\n\n"
+                                                                      "chmod 700 ~/.ssh\n\n"
+                                                                      "echo \"${termPubKey.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                                      "chmod 600 ~/.ssh/authorized_keys",
+                                                                      250
+                                                                    ),
+                                                                  ),
+                                                                                                        
+                                                                  const Text("3. Get the username"),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.only(top: 20),
+                                                                    child: copyArea(
+                                                                      context,
+                                                                      appTheme,
+                                                                      "whoami",
+                                                                      50
+                                                                    ),
+                                                                  ),
+                                          
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.only(left: 10, top: 3.5, bottom: 20),
+                                                                    child: Text(
+                                                                      "eg output: u0_a399",
+                                                                      style: TextStyle(
+                                                                        fontSize: 14
+                                                                      )
+                                                                    ),
+                                                                  ),
+                                          
+                                                                  const Text("4. Paste the username here"),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                    child: Form(
+                                                                      key: termxFormKey,
+                                                                      child: settingsTextField(
+                                                                        termxUrlCtrl,
+                                                                        Icons.person,
+                                                                        "Termux username",
+                                                                        appTheme.selectScreenCardTextColor,
+                                                                        "eg: u0_a399",
+                                                                        (val) => val == null || val.isEmpty || !val.startsWith("u") ? "Enter a valid username" : null
+                                                                      ),
+                                                                    ),
+                                                                  ),
+
+                                                                  ElevatedButton(
+                                                                    style: ElevatedButton.styleFrom(
+                                                                      backgroundColor: appTheme.scaffoldBg,
+                                                                      foregroundColor: Colors.white,
+                                                                      shape: RoundedRectangleBorder(
+                                                                        borderRadius: .circular(10),
+                                                                        side: BorderSide(
+                                                                          color: Colors.blue
+                                                                        )
+                                                                      )
+                                                                    ),
+                                                                    onPressed: () async{
+                                                                      if(termxFormKey.currentState!.validate()){
+                                                                        final server = SSHPrivateKey(
+                                                                          name: "Termux",
+                                                                          id: DateTime.now().millisecondsSinceEpoch,
+                                                                          url: "ssh://${termxUrlCtrl.text}@localhost:8022"
+                                                                        );
+                                          
+                                                                        context.read<TermuxCubit>().setTermuxInfo(server);
+                                                                        Navigator.pop(context);
+                                                                        if(termuxState.termInfo != null){
+                                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                                            SnackBar(
+                                                                              backgroundColor: Colors.green,
+                                                                              content: Text(
+                                                                                "Successfully saved.\nGo to the next step to connect with Termux.",
+                                                                                style: TextStyle(
+                                                                                  color: Colors.white
+                                                                                )
+                                                                              )
+                                                                            )
+                                                                          );
+                                                                        }
+                                                                      }
+                                                                      
+                                                                    },
+                                                                    child: Row(
+                                                                      mainAxisAlignment: .center,
+                                                                      children: [
+                                                                        Icon(Icons.save),
+                                                                        Text("Save"),
+                                                                      ],
+                                                                    )
+                                                                  )
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                ),
+                                              );
+                                            },
+                                          ),
+
+                                          ListTile(
+                                            title: Row(
+                                              spacing: 3.5,
+                                              children: [
+                                                if(termuxState.termInfo?.isConnected ?? false) Icon(
+                                                  Icons.circle,
+                                                  color: Colors.green,
+                                                  size: 10
+                                                ),
+                                                Text(termuxState.termInfo?.isConnected ?? false ? "Connected" : "Connect"),
+                                              ],
+                                            ),
+                                            titleTextStyle: TextStyle(
+                                              color: termuxState.termInfo?.isConnected ?? false ? Colors.green : appTheme.selectScreenCardTextColor,
+                                              fontSize: 17
+                                            ),
+                                            subtitle: Text("Establish connection after completing the initial setup."),
+                                            leading: Icon(
+                                              Icons.power,
+                                              color: termuxState.termInfo?.isConnected ?? false ? Colors.green : Colors.lightBlue
+                                            ),
+                                            onTap: () {
+                                              showDialog(
+                                                context: context,
+                                                builder:(context) => StatefulBuilder(
+                                                  builder: (context, setTState) => Dialog(
+                                                    constraints: BoxConstraints(maxHeight: 330),
+                                                    backgroundColor: appTheme.selectScreenCardsBg,
+                                                    child: DefaultTextStyle(
+                                                      style: TextStyle(
+                                                        color: appTheme.selectScreenCardTextColor,
+                                                        fontSize: 18
+                                                      ),
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.all(20),
+                                                        child: Column(
+                                                          spacing: 20,
+                                                          crossAxisAlignment: .start,
+                                                          children: [
+                                                            Container(
+                                                              padding: EdgeInsets.all(8),
+                                                              decoration: BoxDecoration(
+                                                                borderRadius: .circular(10),
+                                                                border: .all(
+                                                                  color: Colors.blue
+                                                                )
+                                                              ),
+                                                              child: Row(
+                                                                spacing: 5,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons.info_outline,
+                                                                    color: Colors.blue,
+                                                                    size: 15
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      "Make sure to complete the one time setup.",
+                                                                      style: TextStyle(
+                                                                        fontSize: 14
+                                                                      )
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              )
+                                                            ),
+                                                        
+                                                            Text("1. Start the ssh server in Termux."),
+                                                            copyArea(
+                                                              context,
+                                                              appTheme,
+                                                              "sshd",
+                                                              50
+                                                            ),
+
+                                                            Text("2. Connect"),
+                                                            ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: termuxState.termInfo?.isConnected ?? false ? Colors.green : appTheme.scaffoldBg,
+                                                                foregroundColor: Colors.white,
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius: .circular(10),
+                                                                  side: BorderSide(
+                                                                    color: Colors.green
+                                                                  )
+                                                                )
+                                                              ),
+                                                              onPressed: () async{
+                                                                SSHPrivateKey? server = termuxState.termInfo;
+                                                                final SSHPrivateKey? newServer;
+                                                                if(server == null){
+                                                                  newServer = await TermuxCubit.getSavedTermuxInfo();
+                                                                  if(newServer == null){
+                                                                    if(!context.mounted) return;
+                                                                    showDialog(
+                                                                      context: context,
+                                                                      builder:(context) => AlertDialog(
+                                                                        backgroundColor: appTheme.selectScreenCardsBg,
+                                                                        title: Text("Failed to connect !"),
+                                                                        titleTextStyle: TextStyle(
+                                                                          color: appTheme.selectScreenCardTextColor,
+                                                                          fontSize: 18
+                                                                        ),
+                                                                        contentTextStyle: TextStyle(
+                                                                          color: appTheme.selectScreenCardTextColor,
+                                                                          fontSize: 15
+                                                                        ),
+                                                                        content: Text("Please complete the initial setup."),
+                                                                        icon: Icon(
+                                                                          Icons.error,
+                                                                          size: 35
+                                                                        ),
+                                                                        iconColor: Colors.red,
+                                                                        actionsAlignment: .center,
+                                                                        actions: [
+                                                                          ElevatedButton(
+                                                                            style: ElevatedButton.styleFrom(
+                                                                              shape: RoundedRectangleBorder(
+                                                                                borderRadius: .circular(10)
+                                                                              )
+                                                                            ),
+                                                                            onPressed: () => Navigator.pop(context),
+                                                                            child: Text("Ok")
+                                                                          )
+                                                                        ],
+                                                                      ),
+                                                                    );
+                                                                    return;
+                                                                  } else if(!context.mounted){
+                                                                    return;
+                                                                  } else{
+                                                                    context.read<TermuxCubit>().setTermuxInfo(newServer);
+                                                                    server = newServer;
+                                                                  }
+                                                                }
+
+                                                                if(server.isConnected) {
+                                                                  showDialog(
+                                                                    context: context,
+                                                                    builder: (context) => StatefulBuilder(
+                                                                      builder: (context, _) {
+                                                                        return AlertDialog(
+                                                                          backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
+                                                                          title: Text(
+                                                                            'Disconnect Termux?',
+                                                                            style: TextStyle(
+                                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                              fontSize: 20
+                                                                            ),
+                                                                          ),
+                                                                          content: Text(
+                                                                            "Are you sure you want to disconnect from termux?",
+                                                                            style: TextStyle(
+                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                              fontSize: 16
+                                                                            )
+                                                                          ),
+                                                                          actions: [
+                                                                            ElevatedButton(
+                                                                              style: ElevatedButton.styleFrom(
+                                                                                shape: RoundedRectangleBorder(
+                                                                                  borderRadius: .circular(10)
+                                                                                ),
+                                                                              ),
+                                                                              onPressed: () => Navigator.of(context).pop(),
+                                                                              child: Text('Cancel')
+                                                                            ),
+                                                                            ElevatedButton(
+                                                                              onPressed: () {
+                                                                                server!.disconnect();
+                                                                                context.read<TermuxCubit>().unSetTermuxInfo();
+                                                                                Navigator.of(context).pop();
+                                                                                Navigator.of(context).pop();
+                                                                              },
+                                                                              style: ElevatedButton.styleFrom(
+                                                                                shape: RoundedRectangleBorder(
+                                                                                  borderRadius: .circular(10)
+                                                                                ),
+                                                                                backgroundColor: Colors.red
+                                                                              ),
+                                                                              child: Text('Disconnect', style: TextStyle(color: Colors.white))
+                                                                            )
+                                                                          ],
+                                                                        );
+                                                                      }
+                                                                    )
+                                                                  );
+                                                                  return;
+                                                                }
+
+                                                                final result = await server.connect();
+
+                                                                if(context.mounted){
+                                                                  Navigator.pop(context);
+                                                                  context.read<TermuxCubit>().setTermuxInfo(server);
+                                                                  if(result.$1) {
+                                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                                      SnackBar(
+                                                                        backgroundColor: Colors.green,
+                                                                        content: Text(
+                                                                          result.$2,
+                                                                          style: TextStyle(
+                                                                            color: Colors.white
+                                                                          )
+                                                                        )
+                                                                      )
+                                                                    );
+                                                                  } else if(result.$2.startsWith("Server unreachable")){
+                                                                    showDialog(
+                                                                      context: context,
+                                                                      builder:(context) => AlertDialog(
+                                                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                                        icon: Icon(Icons.error, size: 30),
+                                                                        iconColor: Colors.red,
+                                                                        title: Text("Failed to connect !"),
+                                                                        titleTextStyle: TextStyle(
+                                                                          color: appTheme.selectScreenCardTextColor,
+                                                                          fontSize: 22
+                                                                        ),
+                                                                        content: Padding(
+                                                                          padding: const EdgeInsets.only(left: 15),
+                                                                          child: RichText(
+                                                                            text: TextSpan(
+                                                                              style: TextStyle(
+                                                                                color: appTheme.selectScreenCardTextColor
+                                                                              ),
+                                                                              children: [
+                                                                                TextSpan(
+                                                                                  text: "Please run "
+                                                                                ),
+                                                                                WidgetSpan(
+                                                                                  child: Container(
+                                                                                    padding: EdgeInsets.symmetric(horizontal: 3.5),
+                                                                                    decoration: BoxDecoration(
+                                                                                      color: Colors.white.withAlpha(50),
+                                                                                      borderRadius: .circular(5)
+                                                                                    ),
+                                                                                    child: Text(
+                                                                                      "sshd",
+                                                                                      style: TextStyle(
+                                                                                        color: appTheme.selectScreenCardTextColor
+                                                                                      )
+                                                                                    )
+                                                                                  ),
+                                                                                ),
+                                                                                TextSpan(text: " in termux")
+                                                                              ]
+                                                                            )
+                                                                          ),
+                                                                        ),
+                                                                        actionsAlignment: .center,
+                                                                        actions: [
+                                                                          ElevatedButton(
+                                                                            onPressed: () {
+                                                                              server!.disconnect();
+                                                                              context.read<TermuxCubit>().unSetTermuxInfo();
+                                                                              Navigator.of(context).pop();
+                                                                            },
+                                                                            style: ElevatedButton.styleFrom(
+                                                                              backgroundColor: Colors.white,
+                                                                              shape: RoundedRectangleBorder(
+                                                                                borderRadius: .circular(10)
+                                                                              )
+                                                                            ),
+                                                                            child: Text('OK')
+                                                                          )
+                                                                        ]
+                                                                      ),
+                                                                    );
+                                                                  } else {
+                                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                                      SnackBar(
+                                                                        backgroundColor: Colors.red,
+                                                                        content: Text(
+                                                                          result.$2,
+                                                                          style: TextStyle(
+                                                                            color: Colors.white
+                                                                          )
+                                                                        )
+                                                                      )
+                                                                    );
+                                                                  }
+                                                                }
+                                                              },
+                                                              child: Row(
+                                                                spacing: 5,
+                                                                mainAxisAlignment: .center,
+                                                                children: [
+                                                                  Icon(Icons.power),
+                                                                  Text(
+                                                                    termuxState.termInfo?.isConnected ?? false ? "Connected" : "Connect"
+                                                                  )
+                                                                ],
+                                                              )
+                                                            )
+                                                          ]
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+
                               ],
                             ),
                           );

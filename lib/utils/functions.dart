@@ -3153,11 +3153,13 @@ class SSHLogin extends SSHInfo{
 }
 
 class SSHPrivateKey extends SSHInfo{
+  final File? termuxKeyLoc;
 
   SSHPrivateKey({
     required super.name,
     required super.id,
     required super.url,
+    this.termuxKeyLoc
   });
   
   @override
@@ -3193,7 +3195,7 @@ class SSHPrivateKey extends SSHInfo{
         await SSHSocket.connect(host, port),
         username: username,
         identities: [
-          ...SSHKeyPair.fromPem(await SshKeygen.privateKeyFilelocation.readAsString())
+          ...SSHKeyPair.fromPem(await (termuxKeyLoc ?? SshKeygen.privateKeyFilelocation).readAsString())
         ]
       );
       await _client!.authenticated;
@@ -3217,12 +3219,16 @@ class SSHPrivateKey extends SSHInfo{
 
 class SshKeygen {
   final String? comment;
+  final File? termPubKey;
+  final File? termPrivKey;
 
   static final publicKeyFilelocation = File("$appDir/.ssh/id_ed25519.pub");
   static final privateKeyFilelocation = File("$appDir/.ssh/id_ed25519");
 
   SshKeygen({
     this.comment,
+    this.termPubKey,
+    this.termPrivKey,
   });
 
   Future<void> generate() async{
@@ -3234,16 +3240,16 @@ class SshKeygen {
     final seedBytes = Uint8List.fromList(privSeed);
     final publicKeyFile = buildPublicKeyFile(pubBytes, comment: comment ?? 'user@host');
     final privateKeyFile = buildPrivateKeyFile(pubBytes, seedBytes, comment: comment ?? 'user@host');
-    if(!(await privateKeyFilelocation.exists())){
-      await privateKeyFilelocation.create(recursive: true);
+    if(!(await (termPrivKey ?? privateKeyFilelocation).exists())){
+      await (termPrivKey ?? privateKeyFilelocation).create(recursive: true);
     }
 
-    if(!(await publicKeyFilelocation.exists())){
-      await publicKeyFilelocation.create(recursive: true);
+    if(!(await (termPubKey ?? publicKeyFilelocation).exists())){
+      await (termPubKey ?? publicKeyFilelocation).create(recursive: true);
     }
     
-    await privateKeyFilelocation.writeAsString(privateKeyFile);
-    await publicKeyFilelocation.writeAsString(publicKeyFile);
+    await (termPrivKey ?? privateKeyFilelocation).writeAsString(privateKeyFile);
+    await (termPubKey ?? publicKeyFilelocation).writeAsString(publicKeyFile);
   }
 
   String buildPublicKeyFile(Uint8List pubBytes, {String comment = ''}) {

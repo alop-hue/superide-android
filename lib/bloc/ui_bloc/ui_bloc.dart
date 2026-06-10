@@ -1248,3 +1248,43 @@ class SSHServersCubit extends Cubit<SSHServersState> {
     );
   }
 }
+
+class TermuxCubit extends Cubit<TermuxState> {
+  TermuxCubit(SSHPrivateKey? termuxInfo) : super(TermuxState(termuxInfo));
+
+  Future<void> setTermuxInfo(SSHPrivateKey info) async{
+    emit(TermuxState(info));
+    await _save(info);
+  }
+
+  void unSetTermuxInfo() {
+    emit(const TermuxState(null));
+  }
+
+  Future<void> clear() async {
+    unSetTermuxInfo();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('termuxInfo');
+  }
+
+  Future<void> _save(SSHPrivateKey info) async{
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('termuxInfo', jsonEncode(info.toJsonMap()));
+  }
+
+  static Future<SSHPrivateKey?> getSavedTermuxInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final json = prefs.getString('termuxInfo');
+      if (json == null) return null;
+
+      return SSHPrivateKey.fromJsonMap(
+        jsonDecode(json) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
