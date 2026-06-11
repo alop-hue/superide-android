@@ -109,10 +109,10 @@ packages:
     dependency: "direct main"
     description:
       name: code_forge
-      sha256: ec8626645ea4c4975a9057fdac18e51b3599b7e9d934a4cde0a2f1e9af5190c0
+      sha256: "062f03c3bf3128b0408ea8e8c3028b90374b808bdf34896cdf2ccfd1cdf3a62a"
       url: "https://pub.dev"
     source: hosted
-    version: "10.5.0"
+    version: "10.6.0"
   collection:
     dependency: transitive
     description:

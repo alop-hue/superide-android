@@ -58,16 +58,17 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   late final TabController apiTabController, paramTabController;
   late final ActiveEditorBloc _activeEditorBloc;
   late final DiagnosticsTickBloc _diagnosticsTickBloc;
+  late final List<SSHInfo> sshServerList;
+  late final SSHPrivateKey? termuxInfo;
   late List<int> mruOrder;
-  bool _allowImmediatePop = false;
-  bool _didInitializeEditors = false;
+  bool _allowImmediatePop = false, _didInitializeEditors = false, isTermux = false;
+  bool _viteUseHttps = false, _isOpeningVitePreview = false, _hasViteProject = false;
   Map<String, String> params = {}, headers = {};
   TabController? tabController;
-  bool _hasViteProject = false;
   int _vitePort = 5173;
-  bool _viteUseHttps = false;
-  bool _isOpeningVitePreview = false;
+  int? _currentlySelectedTerminalID;
   Process? _vitePreviewProcess;
+  AnimationStatus _terminalSelectionStatus = .dismissed;
 
   @override
   void initState() {
@@ -87,6 +88,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     trasnformationController.value = Matrix4.identity()..scaleByVector3(Vector3(1.45, 1.45, 1.45));
     apiTabController = TabController(length: 3, vsync: this);
     paramTabController = TabController(length: 3, vsync: this);
+    sshServerList = context.read<SSHServersCubit>().state.serverList.where((server)=> server.isConnected == true).toList();
+    termuxInfo = context.read<TermuxCubit>().state.termInfo;
     assert(
       !(widget.isProject && widget.languageDetails != null),
       "Cannot have both isProject and language details",
@@ -3041,25 +3044,130 @@ rustloader "$soPath"
                           },
                           icon: const Icon(Icons.play_arrow),
                         ),
-                        IconButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation, scondaryAnimation) =>
-                                  SetupTerminal(
-                                    projectDir: widget.rootDir,
-                                  ),
-                                transitionsBuilder:(context, animation, secondaryAnimation, child,) {
-                                  return SizeTransition(
-                                    sizeFactor: animation,
-                                    child: child,
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Row(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, scondaryAnimation) =>
+                                        SetupTerminal(
+                                          projectDir: widget.rootDir,
+                                          sshId: !isTermux ? _currentlySelectedTerminalID : null,
+                                          termuxId: isTermux ? _currentlySelectedTerminalID : null,
+                                        ),
+                                      transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                        return SizeTransition(
+                                          sizeFactor: animation,
+                                          child: child,
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
+                                child: _currentlySelectedTerminalID == null
+                                  ? Icon(Icons.terminal)
+                                  : isTermux
+                                    ? SvgPicture.asset(
+                                      "assets/icons/Termux.svg",
+                                      height: 30,
+                                      width: 30
+                                    )
+                                    : Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.cloud,
+                                          size: 32,
+                                        ),
+                                        Positioned(
+                                          bottom: 2,
+                                          child: Icon(
+                                            Icons.terminal,
+                                            size: 22,
+                                            color: appTheme.appBarTheme.backgroundColor
+                                          ),
+                                        ),
+                                      ],
+                                    )
                               ),
-                            );
-                          },
-                          icon: const Icon(Icons.terminal),
-                        ),
+                              if(sshServerList.isNotEmpty || (termuxInfo != null && termuxInfo!.isConnected)) MenuAnchor(
+                                animated: true,
+                                onAnimationStatusChanged: (status) {
+                                  _terminalSelectionStatus = status;
+                                },
+                                menuChildren: [
+                                  MenuItemButton(
+                                    onPressed: () {
+                                        setState(() {
+                                          isTermux = false;
+                                          _currentlySelectedTerminalID = null;
+                                        });
+                                      },
+                                    leadingIcon: Icon(Icons.terminal),
+                                    trailingIcon: _currentlySelectedTerminalID == null ? Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green
+                                      )
+                                      : null,
+                                    child: Text("Built-in terminal"),
+                                  ),
+                                  ...sshServerList.map((server) {
+                                    return MenuItemButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          isTermux = false;
+                                          _currentlySelectedTerminalID = server.id;
+                                        });
+                                      },
+                                      leadingIcon: FaIcon(FontAwesomeIcons.server),
+                                      trailingIcon: _currentlySelectedTerminalID == server.id
+                                        ? Icon(
+                                          Icons.check_circle,
+                                          color: Colors.green
+                                        )
+                                        : null,
+                                      child: Text(server.name),
+                                    );
+                                  }),
+                          
+                                  if(termuxInfo != null && termuxInfo!.isConnected)
+                                  MenuItemButton(
+                                    onPressed: () {
+                                        setState(() {
+                                          isTermux = true;
+                                          _currentlySelectedTerminalID = termuxInfo!.id;
+                                        });
+                                      },
+                                    leadingIcon: SvgPicture.asset(
+                                      "assets/icons/Termux.svg",
+                                      height: 20,
+                                      width: 20
+                                    ),
+                                    trailingIcon: _currentlySelectedTerminalID == termuxInfo!.id ? Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green
+                                      )
+                                      : null,
+                                    child: Text(termuxInfo!.name),
+                                  )
+                                ],
+                                builder: (context, controller, child) => InkWell(
+                                  onTap: () {
+                                    if(_terminalSelectionStatus.isForwardOrCompleted){
+                                      controller.close();
+                                    } else {
+                                      controller.open();
+                                    }
+                                  },
+                                  child: Icon(Icons.arrow_drop_down_rounded)
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       ],
                     ),
                     body: editorState.activeEditors.isNotEmpty

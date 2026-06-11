@@ -2420,6 +2420,7 @@ int main() {
                               textStyle: TextStyle(fontFamily: fontFamily, fontSize: 16),
                               initialText: demoCode,
                               readOnly: true,
+                              verticalScrollPhysics: NeverScrollableScrollPhysics(),
                             ),
                           ),
                         ),
