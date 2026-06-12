@@ -3843,8 +3843,19 @@ int main() {
                                                                       250
                                                                     ),
                                                                   ),
+
+                                                                  const Text("3. Setup storage access"),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                    child: copyArea(
+                                                                      context,
+                                                                      appTheme,
+                                                                      "termux-setup-storage",
+                                                                      50
+                                                                    ),
+                                                                  ),
                                                                                                         
-                                                                  const Text("3. Get the username"),
+                                                                  const Text("4. Get the username"),
                                                                   Padding(
                                                                     padding: const EdgeInsets.only(top: 20),
                                                                     child: copyArea(
@@ -3865,7 +3876,7 @@ int main() {
                                                                     ),
                                                                   ),
                                           
-                                                                  const Text("4. Paste the username here"),
+                                                                  const Text("5. Paste the username here"),
                                                                   Padding(
                                                                     padding: const EdgeInsets.symmetric(vertical: 20),
                                                                     child: Form(

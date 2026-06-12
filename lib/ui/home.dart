@@ -36,6 +36,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
   final createFileController = TextEditingController();
   final _createFileKey = GlobalKey<FormState>();
   final _cloneRepoKey = GlobalKey<FormState>();
+  AnimationStatus _terminalSelectionStatus = .dismissed;
   bool _didShowPackageUpdateToast = false;
   bool _didShowStorageMigrationToast = false;
   bool _checkingPendingSharedFile = false;
@@ -232,8 +233,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
           context: context,
           builder: (_) => Dialog(
             backgroundColor: context.read<AppThemeBloc>().state.appTheme.isDark
-                ? const Color(0xff2b2b2b)
-                : const Color.fromARGB(255, 240, 240, 240),
+              ? const Color(0xff2b2b2b)
+              : const Color.fromARGB(255, 240, 240, 240),
             child: Container(
               width: 300,
               padding: const EdgeInsets.all(20),
@@ -246,10 +247,10 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     "Failed to clone the repo.",
                     style: TextStyle(
                       color: context
-                          .read<AppThemeBloc>()
-                          .state
-                          .appTheme
-                          .selectScreenCardTextColor,
+                        .read<AppThemeBloc>()
+                        .state
+                        .appTheme
+                        .selectScreenCardTextColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -259,10 +260,10 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     e.toString(),
                     style: TextStyle(
                       color: context
-                          .read<AppThemeBloc>()
-                          .state
-                          .appTheme
-                          .selectScreenCardTextColor,
+                        .read<AppThemeBloc>()
+                        .state
+                        .appTheme
+                        .selectScreenCardTextColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -316,10 +317,9 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                   () {
                     Navigator.of(context).push(
                       PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            const Settings(),
+                        pageBuilder: (context, animation, secondaryAnimation) => const Settings(),
                         transitionsBuilder: (context, animation, _, child) =>
-                            SizeTransition(sizeFactor: animation, child: child),
+                          SizeTransition(sizeFactor: animation, child: child),
                       ),
                     );
                   },
@@ -336,14 +336,12 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     () {
                       Navigator.of(context).push(
                         PageRouteBuilder(
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const ContributePage(),
+                          pageBuilder: (context, animation, secondaryAnimation) => const ContributePage(),
                           transitionsBuilder: (context, animation, _, child) =>
-                              SizeTransition(
-                                sizeFactor: animation,
-                                child: child,
-                              ),
+                            SizeTransition(
+                              sizeFactor: animation,
+                              child: child,
+                            ),
                         ),
                       );
                     },
@@ -363,14 +361,12 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     () {
                       Navigator.of(context).push(
                         PageRouteBuilder(
-                          pageBuilder:
-                              (context, animation, secondaryAnimation) =>
-                                  const AboutPage(),
+                          pageBuilder: (context, animation, secondaryAnimation) => const AboutPage(),
                           transitionsBuilder: (context, animation, _, child) =>
-                              SizeTransition(
-                                sizeFactor: animation,
-                                child: child,
-                              ),
+                            SizeTransition(
+                              sizeFactor: animation,
+                              child: child,
+                            ),
                         ),
                       );
                     },
@@ -387,10 +383,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                   child: drawerTile(
                     () => Navigator.of(context).push(
                       PageRouteBuilder(
-                        pageBuilder: (context, animation, secondAnimation) =>
-                            const BuyMeCoffee(),
-                        transitionsBuilder: (context, animation, _, child) =>
-                            SizeTransition(sizeFactor: animation, child: child),
+                        pageBuilder: (context, animation, secondAnimation) => const BuyMeCoffee(),
+                        transitionsBuilder: (context, animation, _, child) => SizeTransition(sizeFactor: animation, child: child),
                       ),
                     ),
                     "Buy me a coffee",
@@ -437,15 +431,13 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                       onPressed: () {
                         Navigator.of(context).push(
                           PageRouteBuilder(
-                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                DownloadManager(),
-                            transitionsBuilder:
-                                (context, animation, secondaryAnimation, child) {
-                                  return SizeTransition(
-                                    sizeFactor: animation,
-                                    child: child,
-                                  );
-                                },
+                            pageBuilder: (context, animation, secondaryAnimation) => DownloadManager(),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SizeTransition(
+                                sizeFactor: animation,
+                                child: child,
+                              );
+                            },
                           ),
                         );
                       },
@@ -484,27 +476,165 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                   },
                 ),
               ),
-              IconButton(
-                onPressed: () {
-                  final home = Directory(homeDir);
-                  if (!home.existsSync()) {
-                    home.createSync(recursive: true);
-                  }
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          SetupTerminal(projectDir: home.path),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            return SizeTransition(
-                              sizeFactor: animation,
-                              child: child,
-                            );
-                          },
-                    ),
+              BlocBuilder<SSHServersCubit, SSHServersState>(
+                builder: (context, sshState) {
+                  final sshServerList = sshState.serverList.where((server) => server.isConnected).toList();
+                  return BlocBuilder<TermuxCubit, TermuxState>(
+                    builder: (context, termuxState) {
+                      final termuxInfo = termuxState.termInfo;
+                      return BlocBuilder<CurrentlySelectedTerminalCubit, SelectedTerminalState>(
+                        builder: (context, selectedTerminalState) {
+                          int? currentlySelectedTerminalID = selectedTerminalState.currentlySelectedID;
+                          bool isTermux = selectedTerminalState.isTermux;
+                          final home = Directory(homeDir);
+                          final appTheme = appThemestate.appTheme;
+                          final cubitState = context.read<CurrentlySelectedTerminalCubit>();
+                          return Row(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, scondaryAnimation) =>
+                                        SetupTerminal(
+                                          projectDir: home.path,
+                                          sshId: !isTermux ? currentlySelectedTerminalID : null,
+                                          termuxId: isTermux ? currentlySelectedTerminalID : null,
+                                        ),
+                                      transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                        return SizeTransition(
+                                          sizeFactor: animation,
+                                          child: child,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                                child: currentlySelectedTerminalID == null
+                                  ? Icon(Icons.terminal, size: 34)
+                                  : isTermux
+                                    ? SvgPicture.asset(
+                                      "assets/icons/Termux.svg",
+                                      height: 30,
+                                      width: 30
+                                    )
+                                    : Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.cloud,
+                                          size: 34,
+                                        ),
+                                        Positioned(
+                                          bottom: 2,
+                                          child: Icon(
+                                            Icons.terminal,
+                                            size: 23,
+                                            color: appTheme.appBarTheme.backgroundColor
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                              ),
+                              if(sshServerList.isNotEmpty || (termuxInfo != null && termuxInfo.isConnected)) MenuAnchor(
+                                style: MenuStyle(
+                                  backgroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardsBg),
+                                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: .circular(6)))
+                                ),
+                                animated: true,
+                                onAnimationStatusChanged: (status) {
+                                  _terminalSelectionStatus = status;
+                                },
+                                menuChildren: [
+                                  MenuItemButton(
+                                    onPressed: () => cubitState.updateId(null, false),
+                                    leadingIcon: Icon(
+                                      Icons.terminal,
+                                      color: appTheme.selectScreenCardTextColor
+                                    ),
+                                    trailingIcon: currentlySelectedTerminalID == null ? Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green,
+                                        size: 16,
+                                      )
+                                      : null,
+                                    child: Text(
+                                      "Built-in terminal",
+                                      style: TextStyle(
+                                        color: appTheme.selectScreenCardTextColor
+                                      )
+                                    ),
+                                  ),
+                                  ...sshServerList.map((server) {
+                                    return MenuItemButton(
+                                      onPressed: () => cubitState.updateId(server.id, false),
+                                      leadingIcon: Padding(
+                                        padding: const EdgeInsets.only(left: 3),
+                                        child: FaIcon(
+                                          FontAwesomeIcons.server,
+                                          color: appTheme.selectScreenCardTextColor,
+                                          size: 20
+                                        ),
+                                      ),
+                                      trailingIcon: currentlySelectedTerminalID == server.id
+                                        ? Icon(
+                                          Icons.check_circle,
+                                          color: Colors.green,
+                                          size: 16
+                                        )
+                                        : null,
+                                      child: Text(
+                                        server.name,
+                                        style: TextStyle(
+                                          color: appTheme.selectScreenCardTextColor
+                                        )
+                                      ),
+                                    );
+                                  }),
+                          
+                                  if(termuxInfo != null && termuxInfo.isConnected)
+                                  MenuItemButton(
+                                    onPressed: () => cubitState.updateId(termuxInfo.id, true),
+                                    leadingIcon: SvgPicture.asset(
+                                      "assets/icons/Termux.svg",
+                                      height: 20,
+                                      width: 20
+                                    ),
+                                    trailingIcon: currentlySelectedTerminalID == termuxInfo.id ? Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green,
+                                        size: 16
+                                      )
+                                      : null,
+                                    child: Text(
+                                      termuxInfo.name,
+                                      style: TextStyle(
+                                        color: appTheme.selectScreenCardTextColor
+                                      )
+                                    ),
+                                  )
+                                ],
+                                builder: (context, controller, child) => InkWell(
+                                  onTap: () {
+                                    if(_terminalSelectionStatus.isForwardOrCompleted){
+                                      controller.close();
+                                    } else {
+                                      controller.open();
+                                    }
+                                  },
+                                  child: Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    color: appTheme.selectScreenCardTextColor
+                                  )
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   );
                 },
-                icon: Icon(Icons.terminal, size: 34),
               ),
               IconButton(
                 tooltip: "App theme",
@@ -621,14 +751,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: appThemestate.appTheme.isDark
-                                  ? [
-                                      const Color(0xff2b2b2b),
-                                      const Color(0xff1a1a1a),
-                                    ]
-                                  : [
-                                      const Color.fromARGB(255, 250, 250, 250),
-                                      const Color.fromARGB(255, 240, 240, 240),
-                                    ],
+                                ? [const Color(0xff2b2b2b), const Color(0xff1a1a1a)]
+                                : [const Color.fromARGB(255, 250, 250, 250), const Color.fromARGB(255, 240, 240, 240)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -665,9 +789,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                     child: Text(
                                       "Create a new file",
                                       style: TextStyle(
-                                        color: appThemestate
-                                            .appTheme
-                                            .selectScreenCardTextColor,
+                                        color: appThemestate.appTheme.selectScreenCardTextColor,
                                         fontSize: 20,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -680,9 +802,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                 key: _createFileKey,
                                 child: TextFormField(
                                   style: TextStyle(
-                                    color: appThemestate
-                                        .appTheme
-                                        .selectScreenCardTextColor,
+                                    color: appThemestate.appTheme.selectScreenCardTextColor,
                                   ),
                                   cursorColor: const Color(0xff5090c8),
                                   validator: (value) {
@@ -699,8 +819,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                     hintText: " filename.ext",
                                     filled: true,
                                     fillColor: appThemestate.appTheme.isDark
-                                        ? Colors.white.withValues(alpha: 0.05)
-                                        : Colors.black.withValues(alpha: 0.05),
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : Colors.black.withValues(alpha: 0.05),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(15),
                                       borderSide: const BorderSide(
@@ -824,26 +944,19 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                         if (context.mounted) {
                           Navigator.of(context).push(
                             PageRouteBuilder(
-                              pageBuilder:
-                                  (context, animation, secondaryAnimation) =>
-                                      EditorPage(
-                                        languageDetails: language,
-                                        rootDir: file.parent.path,
-                                        file: file,
-                                        isProject: false,
-                                      ),
-                              transitionsBuilder:
-                                  (
-                                    context,
-                                    animation,
-                                    secondaryAnimation,
-                                    child,
-                                  ) {
-                                    return SizeTransition(
-                                      sizeFactor: animation,
-                                      child: child,
-                                    );
-                                  },
+                              pageBuilder: (context, animation, secondaryAnimation) =>
+                                EditorPage(
+                                  languageDetails: language,
+                                  rootDir: file.parent.path,
+                                  file: file,
+                                  isProject: false,
+                                ),
+                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                return SizeTransition(
+                                  sizeFactor: animation,
+                                  child: child,
+                                );
+                              },
                             ),
                           );
                         }
@@ -1123,9 +1236,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                   key: _cloneRepoKey,
                                   child: TextFormField(
                                     style: TextStyle(
-                                      color: appThemestate
-                                          .appTheme
-                                          .selectScreenCardTextColor,
+                                      color: appThemestate.appTheme.selectScreenCardTextColor,
                                     ),
                                     cursorColor: const Color(0xff5090c8),
                                     validator: (value) {
@@ -1170,8 +1281,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
+                                      onPressed: () => Navigator.of(context).pop(),
                                       style: TextButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,
@@ -1215,12 +1325,10 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
                                                 ),
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
+                                                borderRadius: BorderRadius.circular(20),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black
-                                                        .withValues(alpha: 0.3),
+                                                    color: Colors.black.withValues(alpha: 0.3),
                                                     blurRadius: 20,
                                                     offset: const Offset(0, 10),
                                                   ),
@@ -1390,8 +1498,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                   FaIcon(
                                     FontAwesomeIcons.folderTree,
                                     color: appThemestate
-                                        .appTheme
-                                        .selectScreenCardTextColor,
+                                      .appTheme
+                                      .selectScreenCardTextColor,
                                   ),
                                   const SizedBox(width: 12.5),
                                   Text(
@@ -1399,8 +1507,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                     style: TextStyle(
                                       fontSize: 16.5,
                                       color: appThemestate
-                                          .appTheme
-                                          .selectScreenCardTextColor,
+                                        .appTheme
+                                        .selectScreenCardTextColor,
                                     ),
                                   ),
                                 ],
@@ -1418,21 +1526,13 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                         onTap: () {
                           Navigator.of(context).push(
                             PageRouteBuilder(
-                              pageBuilder:
-                                  (context, animation, secondaryAnimation) =>
-                                      const MenuScreen(),
-                              transitionsBuilder:
-                                  (
-                                    context,
-                                    animation,
-                                    secondaryAnimation,
-                                    child,
-                                  ) {
-                                    return SizeTransition(
-                                      sizeFactor: animation,
-                                      child: child,
-                                    );
-                                  },
+                              pageBuilder: (context, animation, secondaryAnimation) => const MenuScreen(),
+                              transitionsBuilder:(context, animation, secondaryAnimation, child) {
+                                return SizeTransition(
+                                  sizeFactor: animation,
+                                  child: child,
+                                );
+                              },
                             ),
                           );
                         },
@@ -1448,17 +1548,13 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                 children: [
                                   FaIcon(
                                     FontAwesomeIcons.fileCode,
-                                    color: appThemestate
-                                        .appTheme
-                                        .selectScreenCardTextColor,
+                                    color: appThemestate.appTheme.selectScreenCardTextColor,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
                                     "Open Template",
                                     style: TextStyle(
-                                      color: appThemestate
-                                          .appTheme
-                                          .selectScreenCardTextColor,
+                                      color: appThemestate.appTheme.selectScreenCardTextColor,
                                       fontSize: 16.5,
                                     ),
                                   ),
@@ -1480,11 +1576,10 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                       Text(
                         "Recent",
                         style: TextStyle(
-                          color:
-                              appThemestate.appTheme.selectScreenCardTextColor,
+                          color: appThemestate.appTheme.selectScreenCardTextColor,
                           fontWeight: appThemestate.appTheme.isDark
-                              ? FontWeight.w300
-                              : FontWeight.w400,
+                            ? FontWeight.w300
+                            : FontWeight.w400,
                           fontSize: 35,
                         ),
                       ),
@@ -1492,172 +1587,152 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                       BlocBuilder<RecentBloc, RecentState>(
                         builder: (context, recentState) {
                           final List<Map<String, dynamic>> recentData =
-                              recentState.recent
-                                  .map(_normalizeRecentEntry)
-                                  .whereType<Map<String, dynamic>>()
-                                  .toList();
+                            recentState.recent
+                              .map(_normalizeRecentEntry)
+                              .whereType<Map<String, dynamic>>()
+                              .toList();
                           return recentData.isEmpty
-                              ? Text(
-                                  "You don't have any recent activity",
-                                  style: TextStyle(
-                                    color: appThemestate
-                                        .appTheme
-                                        .selectScreenCardTextColor,
-                                    fontWeight: appThemestate.appTheme.isDark
-                                        ? FontWeight.w300
-                                        : FontWeight.w500,
-                                    fontSize: 18,
-                                  ),
-                                )
-                              : SizedBox(
-                                  width: 350,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: recentData.length,
-                                      itemBuilder: (context, index) {
-                                        final currentEntry = recentData[index];
-                                        final String entryType =
-                                            currentEntry['type'] as String? ??
-                                            'file';
-                                        final String entryPath =
-                                            currentEntry['path'] as String? ??
-                                            '';
-                                        final String rootDir =
-                                            currentEntry['rootDir']
-                                                as String? ??
-                                            (entryType == 'project'
-                                                ? entryPath
-                                                : path.dirname(entryPath));
-                                        final bool isProject =
-                                            entryType == 'project';
-                                        final bool exists = isProject
-                                            ? Directory(entryPath).existsSync()
-                                            : File(entryPath).existsSync();
-                                        return Card(
-                                          child: ListTile(
-                                            textColor: appThemestate
-                                                .appTheme
-                                                .selectScreenCardTextColor,
-                                            shape: const RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.all(
-                                                Radius.circular(15),
-                                              ),
+                            ? Text(
+                                "You don't have any recent activity",
+                                style: TextStyle(
+                                  color: appThemestate
+                                      .appTheme
+                                      .selectScreenCardTextColor,
+                                  fontWeight: appThemestate.appTheme.isDark
+                                      ? FontWeight.w300
+                                      : FontWeight.w500,
+                                  fontSize: 18,
+                                ),
+                              )
+                            : SizedBox(
+                                width: 350,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: recentData.length,
+                                    itemBuilder: (context, index) {
+                                      final currentEntry = recentData[index];
+                                      final String entryType = currentEntry['type'] as String? ?? 'file';
+                                      final String entryPath = currentEntry['path'] as String? ?? '';
+                                      final String rootDir = currentEntry['rootDir'] as String?
+                                        ?? (entryType == 'project' ? entryPath : path.dirname(entryPath));
+                                      final bool isProject = entryType == 'project';
+                                      final bool exists = isProject
+                                        ? Directory(entryPath).existsSync()
+                                        : File(entryPath).existsSync();
+                                      return Card(
+                                        child: ListTile(
+                                          textColor: appThemestate.appTheme.selectScreenCardTextColor,
+                                          shape: const RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.all(
+                                              Radius.circular(15),
                                             ),
-                                            onTap: () {
-                                              if (!exists) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      isProject
-                                                          ? "Project not found !"
-                                                          : "File not found !",
-                                                    ),
+                                          ),
+                                          onTap: () {
+                                            if (!exists) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    isProject
+                                                      ? "Project not found !"
+                                                      : "File not found !",
                                                   ),
-                                                );
-                                                return;
-                                              }
-
-                                              if (isProject) {
-                                                Navigator.of(context).push(
-                                                  PageRouteBuilder(
-                                                    pageBuilder:(context, animation, secondaryAnimation) => EditorPage(
-                                                      rootDir: entryPath,
-                                                      isCloned: true,
-                                                      isProject: true,
-                                                      languageDetails: null,
-                                                    ),
-                                                    transitionsBuilder:(context, animation, secondaryAnimation, child,) {
-                                                      return SizeTransition(
-                                                        sizeFactor:
-                                                            animation,
-                                                        child: child,
-                                                      );
-                                                    },
-                                                  ),
-                                                );
-                                                return;
-                                              }
-
-                                              Navigator.of(context).push(
-                                                PageRouteBuilder(
-                                                  pageBuilder:
-                                                      ( context, animation, secondaryAnimation) => EditorPage(
-                                                        file: File(entryPath),
-                                                        rootDir: rootDir,
-                                                        languageDetails: (() {
-                                                          final matchingLang = languages.where(
-                                                            (lang) => lang.extension.contains(
-                                                              path.extension(entryPath).toLowerCase().replaceFirst(".",""))).toList();
-                                                          if (matchingLang.isNotEmpty) return matchingLang[0];
-                                                          return Language(
-                                                            name: "Unknown",
-                                                            extension: ["null"],
-                                                            details: "Unknown language",
-                                                            language: unknown,
-                                                            helloWorld: "Unknown type of file",
-                                                            icon: null
-                                                          );
-                                                        })(),
-                                                        isProject: false,
-                                                      ),
-                                                  transitionsBuilder:
-                                                      (
-                                                        context,
-                                                        animation,
-                                                        secondaryAnimation,
-                                                        child,
-                                                      ) {
-                                                        return SizeTransition(
-                                                          sizeFactor: animation,
-                                                          child: child,
-                                                        );
-                                                      },
                                                 ),
                                               );
-                                            },
-                                            title: Text(
-                                              exists
-                                                  ? path.basename(entryPath)
-                                                  : "${path.basename(entryPath)} - ${isProject ? 'Project' : 'File'} not found",
-                                              style: const TextStyle(
-                                                fontSize: 17,
+                                              return;
+                                            }
+
+                                            if (isProject) {
+                                              Navigator.of(context).push(
+                                                PageRouteBuilder(
+                                                  pageBuilder:(context, animation, secondaryAnimation) => EditorPage(
+                                                    rootDir: entryPath,
+                                                    isCloned: true,
+                                                    isProject: true,
+                                                    languageDetails: null,
+                                                  ),
+                                                  transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                                    return SizeTransition(
+                                                      sizeFactor:
+                                                          animation,
+                                                      child: child,
+                                                    );
+                                                  },
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            Navigator.of(context).push(
+                                              PageRouteBuilder(
+                                                pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
+                                                  file: File(entryPath),
+                                                  rootDir: rootDir,
+                                                  languageDetails: (() {
+                                                    final matchingLang = languages.where(
+                                                      (lang) => lang.extension.contains(
+                                                        path.extension(entryPath).toLowerCase().replaceFirst(".",""))).toList();
+                                                    if (matchingLang.isNotEmpty) return matchingLang[0];
+                                                    return Language(
+                                                      name: "Unknown",
+                                                      extension: ["null"],
+                                                      details: "Unknown language",
+                                                      language: unknown,
+                                                      helloWorld: "Unknown type of file",
+                                                      icon: null
+                                                    );
+                                                  })(),
+                                                  isProject: false,
+                                                ),
+                                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                  return SizeTransition(
+                                                    sizeFactor: animation,
+                                                    child: child,
+                                                  );
+                                                },
                                               ),
+                                            );
+                                          },
+                                          title: Text(
+                                            exists
+                                              ? path.basename(entryPath)
+                                              : "${path.basename(entryPath)} - ${isProject ? 'Project' : 'File'} not found",
+                                            style: const TextStyle(
+                                              fontSize: 17,
                                             ),
-                                            subtitle: Text(
-                                              rootDir,
-                                              style: TextStyle(
-                                                color:
-                                                    appThemestate
-                                                        .appTheme
-                                                        .isDark
-                                                    ? Colors.grey
-                                                    : Colors.grey[600],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            leading: (() {
-                                              if (isProject) {
-                                                return const Icon(
-                                                  Icons.folder_open_rounded,
-                                                  color: Color(0xff5090c8),
-                                                );
-                                              }
-                                              final matchingLang = languages.where(
-                                                (lang) =>lang.extension.contains(
-                                                  path.extension(entryPath,).toLowerCase().replaceFirst(".",""))).toList();
-                                              if (matchingLang.isNotEmpty) return matchingLang[0].icon;
-                                              return langtxt.icon;
-                                            })(),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                          subtitle: Text(
+                                            rootDir,
+                                            style: TextStyle(
+                                              color:
+                                                appThemestate.appTheme.isDark
+                                                ? Colors.grey
+                                                : Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          leading: (() {
+                                            if (isProject) {
+                                              return const Icon(
+                                                Icons.folder_open_rounded,
+                                                color: Color(0xff5090c8),
+                                              );
+                                            }
+                                            final matchingLang = languages.where(
+                                              (lang) =>lang.extension.contains(
+                                                path.extension(entryPath,).toLowerCase().replaceFirst(".",""))).toList();
+                                            if (matchingLang.isNotEmpty) return matchingLang[0].icon;
+                                            return langtxt.icon;
+                                          })(),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
+                                ),
+                              );
                         },
                       ),
                     ],

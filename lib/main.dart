@@ -70,6 +70,8 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => CopilotChatBloc()),
         BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
         BlocProvider(create: (_) => TermuxCubit(termuxInfo)),
+        BlocProvider(create: (_) => CurrentlySelectedTerminalCubit()),
+        BlocProvider(create: (_) => SelectedRuntimeEnvironmentCubit()),
         BlocProvider(create: (context) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,

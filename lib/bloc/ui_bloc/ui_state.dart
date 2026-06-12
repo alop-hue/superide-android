@@ -661,3 +661,19 @@ class TermuxState {
 
   const TermuxState(this.termInfo);
 }
+
+class SelectedTerminalState {
+  final int? currentlySelectedID;
+  final bool isTermux;
+
+  const SelectedTerminalState(
+    this.currentlySelectedID,
+    {this.isTermux = false}
+  );
+}
+
+class SelectedRunEnvironmentState {
+  final int? currentlyRuntimeID;
+
+  const SelectedRunEnvironmentState(this.currentlyRuntimeID);
+}

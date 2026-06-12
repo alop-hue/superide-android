@@ -61,14 +61,13 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   late final List<SSHInfo> sshServerList;
   late final SSHPrivateKey? termuxInfo;
   late List<int> mruOrder;
-  bool _allowImmediatePop = false, _didInitializeEditors = false, isTermux = false;
+  bool _allowImmediatePop = false, _didInitializeEditors = false;
   bool _viteUseHttps = false, _isOpeningVitePreview = false, _hasViteProject = false;
   Map<String, String> params = {}, headers = {};
   TabController? tabController;
   int _vitePort = 5173;
-  int? _currentlySelectedTerminalID;
   Process? _vitePreviewProcess;
-  AnimationStatus _terminalSelectionStatus = .dismissed;
+  AnimationStatus _terminalSelectionStatus = .dismissed, _runtimeSelectionStatus = .dismissed;
 
   @override
   void initState() {
@@ -2728,445 +2727,715 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                 )
                               : const Icon(Icons.slideshow),
                           ),
-                        IconButton(
-                          onPressed: () async {
-                            if (editorState.activeEditors.isEmpty) return;
-                            final temp = Directory(tempDir);
-                            if (!temp.existsSync()) {
-                              temp.createSync(recursive: true);
-                            }
-                            final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
-                              ? editorState.activeEditors[tabController!.index]
-                              : editorState.activeEditors.firstWhere(
-                                  (item) => item.isActive == true,
-                                  orElse: () => editorState.activeEditors.first,
-                                );
-                            final File filePath = activeEditorForRun.file;
-                            final viteTs = File(
-                              path.join(widget.rootDir, 'vite.config.ts'),
-                            );
-                            final viteJs = File(
-                              path.join(widget.rootDir, 'vite.config.js'),
-                            );
-                            final nextTs = File(
-                              path.join(widget.rootDir, 'next.config.ts'),
-                            );
-                            final nextJs = File(
-                              path.join(widget.rootDir, 'next.config.js'),
-                            );
-
-                            final packageJson = File(
-                              path.join(widget.rootDir, 'package.json'),
-                            );
-
-                            final hasVite = await viteTs.exists() || await viteJs.exists();
-                            final hasNext = await nextTs.exists() || await nextJs.exists();
-                            final hasPkg = await packageJson.exists();
-
-                            if (hasVite && hasPkg && context.mounted) {
-                              runCode(
-                                context,
-                                "node node_modules/vite/bin/vite.js",
-                                widget.rootDir,
-                              );
-                              return;
-                            }
-
-                            if (hasNext && hasPkg && context.mounted) {
-                              runCode(
-                                context,
-                                "npm install --ignore-scripts && npm uninstall lightningcss && node node_modules/next/dist/bin/next dev --webpack",
-                                widget.rootDir,
-                              );
-                              return;
-                            }
-
-                            if (isPreviewFilePath(filePath.path) && context.mounted) {
-                              final message = isPdfFilePath(filePath.path)
-                                ? 'PDF files can be previewed but are not executable.'
-                                : 'Image/SVG files can be previewed but are not executable.';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(message)),
-                              );
-                              return;
-                            }
-
-                            final String extention = path.extension(
-                              filePath.path,
-                            );
-                            if (!context.mounted) return;
-                            switch (extention) {
-                              case '.html':
-                                if (context.mounted) {
-                                  Navigator.of(context).push(
-                                    PageRouteBuilder(
-                                      pageBuilder: (context, animation, scondaryAnimation) => WebViewScreen(htmlFile: filePath),
-                                      transitionsBuilder:(context, animation, secondaryAnimation, child,) {
-                                        return SizeTransition(
-                                          sizeFactor: animation,
-                                          child: child,
+                        BlocBuilder<SelectedRuntimeEnvironmentCubit, SelectedRunEnvironmentState>(
+                          builder: (context, runtimeState) {
+                            final cubitState = context.read<SelectedRuntimeEnvironmentCubit>();
+                            final currentlyRuntimeID = runtimeState.currentlyRuntimeID;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: Row(
+                              children: [
+                                InkWell(
+                                  onTap: () async {
+                                    if (editorState.activeEditors.isEmpty) return;
+                                    if (currentlyRuntimeID != null) {
+                                      final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
+                                      ? editorState.activeEditors[tabController!.index]
+                                      : editorState.activeEditors.firstWhere(
+                                          (item) => item.isActive == true,
+                                          orElse: () => editorState.activeEditors.first,
                                         );
-                                      },
-                                    ),
-                                  );
-                                }
-                                break;
-                              case '.c':
-                                final String compileCommand = "clang -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
-                                final String runCommand = 'clangloader ${temp.path}/libtemp.so';
-                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
-                                break;
-                              case '.cpp':
-                              case '.c++':
-                              case '.cc':
-                                final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
-                                final String runCommand = 'clangloader ${temp.path}/libtemp.so';
-                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
-                                break;
-                              case '.java':
-                                final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
-                                final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
-                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
-                                break;
-                              case '.kt':
-                              case '.kts':
-                                final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
-                                final String runCommand = 'java -jar ${temp.path}/temp.jar';
-                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
-                                break;
-                              case '.ts':
-                                final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
-                                final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
-                                runCode(context, "$compileCommand && $runCommand", widget.rootDir);
-                                break;
-                              case '.go':
-                                try {
-                                  final soPath = path.join(widget.rootDir, '.roxum-go-run.so');
+                                      final filePath = activeEditorForRun.file;
+                                      final lang = languages.firstWhere(
+                                          (language) => language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
+                                          orElse: () => languages[0],
+                                        );
+                                      final String command = lang.command ?? '';
 
-                                  final command =
-                                      'export GOROOT="$runtimesDir/go" '
-                                      '&& export PATH="\$GOROOT/bin:\$PATH" '
-                                      '&& export CC="clang" '
-                                      '&& export GOOS="android" '
-                                      '&& export GOARCH="arm64" '
-                                      '&& echo "Compiling..." '
-                                      '&& go_bak="\$(mktemp)" '
-                                      '&& cp "${filePath.path}" "\$go_bak" '
-                                      '&& cleanup(){ '
-                                      'cp "\$go_bak" "${filePath.path}"; '
-                                        'rm -f "\$go_bak" "$soPath" "${filePath.path}.roxum.tmp"; '
-                                      '}; '
-                                      'trap cleanup EXIT '
-
-                                      '&& if ! grep -q \'import "C"\' "${filePath.path}"; then '
-                                          'tmp_go="${filePath.path}.roxum.tmp"; '
-                                          'if grep -q "^import (" "${filePath.path}"; then '
-                                            "awk 'BEGIN{done=0} {print} !done && /^import \\(\$/ {print \"    \\\"C\\\"\"; done=1}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
-                                          'elif grep -q "^import " "${filePath.path}"; then '
-                                            "awk 'BEGIN{done=0} !done && /^import / {print \"import \\\"C\\\"\"; done=1} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
-                                          'else '
-                                            "awk 'BEGIN{done=0} !done && /^package / {print; print \"\"; print \"import \\\"C\\\"\"; done=1; next} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
-                                          'fi; '
-                                      'fi '
-
-                                      '&& if ! grep -q "__entry" "${filePath.path}"; then '
-                                          "printf '\\n//export __entry\\nfunc __entry() {\\n    main()\\n}\\n' >> \"${filePath.path}\"; "
-                                      'fi '
-
-                                        '&& rm -f "$soPath" '
-                                      '&& GOOS=android GOARCH=arm64 CGO_ENABLED=1 '
-                                      'go build -buildmode=c-shared -o "$soPath" "${filePath.path}" '
-                                      '&& rustloader "$soPath"';
-
-                                  runCode(context, command, widget.rootDir);
-
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Go run failed: ${e.toString()}")),
-                                  );
-                                }
-                                break;
-                              case '.rs':
-                                try {
-                                  final cargoFile = File("${widget.rootDir}/Cargo.toml");
-                                  String command = "";
-
-                                  if (cargoFile.existsSync()) {
-                                    final mainRs = File("${widget.rootDir}/src/main.rs");
-                                    final libRs = File("${widget.rootDir}/src/lib.rs");
-
-                                    final hasLibTarget = libRs.existsSync();
-
-                                    if (!hasLibTarget && !mainRs.existsSync()) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("No src/main.rs or src/lib.rs found in this Cargo project."),
-                                        ),
+                                      final String extension = path.extension(
+                                        filePath.path,
                                       );
+
+                                      switch (extension) {
+                                        case ".c":
+                                        case ".c++":
+                                        case ".cpp":
+                                        case ".cc":
+                                          runCodeInTermux(
+                                            context,
+                                            "$command ${filePath.path} -o \$HOME/rox-bin.out && \$HOME/rox-bin.out",
+                                            widget.rootDir,
+                                            termuxInfo?.id
+                                          );
+                                          break;
+                                        case '.java':
+                                          final String compileCommand = "javac ${filePath.path} -d .";
+                                          final String runCommand = "java ${path.basenameWithoutExtension(filePath.path)}";
+                                          runCodeInTermux(context, "$compileCommand && $runCommand", widget.rootDir, termuxInfo?.id);
+                                          break;
+                                        case '.kts':
+                                          final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ./temp.jar';
+                                          final String runCommand = 'java -jar ./temp.jar';
+                                          runCodeInTermux(context, "$compileCommand && $runCommand", widget.rootDir, termuxInfo?.id);
+                                          break;
+                                        case '.ts':
+                                          final String compileCommand = "tsc ${filePath.path} --outDir .";
+                                          final String runCommand = "node ./${path.basenameWithoutExtension(filePath.path)}.js";
+                                          runCodeInTermux(context, "$compileCommand && $runCommand", widget.rootDir, termuxInfo?.id);
+                                          break;
+                                        case ".rs":
+                                          final cargoFile = File("${widget.rootDir}/Cargo.toml");
+                                
+                                          if (cargoFile.existsSync()) {
+                                            final mainRs = File("${widget.rootDir}/src/main.rs");
+                                            final libRs = File("${widget.rootDir}/src/lib.rs");
+                                
+                                            final hasLibTarget = libRs.existsSync();
+                                
+                                            if (!hasLibTarget && !mainRs.existsSync()) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text("No src/main.rs or src/lib.rs found in this Cargo project."),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            runCodeInTermux(context, "cargo run", widget.rootDir, termuxInfo?.id);
+                                            break;
+                                          }
+
+                                          runCodeInTermux(
+                                            context,
+                                            "rustc ${filePath.path} -o \$HOME/rox-bin.out && \$HOME/rox-bin.out",
+                                            widget.rootDir,
+                                            termuxInfo?.id
+                                          );
+                                          break;
+                                        default: 
+                                          Navigator.of(context).push(
+                                            PageRouteBuilder(
+                                              pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
+                                                projectDir: widget.rootDir,
+                                                termuxId: termuxInfo?.id,
+                                                commandToExecuteInSSH: "$command ${filePath.path}",
+                                              ),
+                                              transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                                return SizeTransition(
+                                                  sizeFactor: animation,
+                                                  child: child,
+                                                );
+                                              },
+                                            ),
+                                          );
+                                      }
                                       return;
                                     }
 
-                                    final targetPath = hasLibTarget ? libRs.path : mainRs.path;
-
-                                    command = '''
-set -e
-cargo_bak="\$(mktemp)"
-target_bak="\$(mktemp)"
-cargo_cfg_bak="\$(mktemp)"
-generated_lib=""
-cp "${cargoFile.path}" "\$cargo_bak"
-cp "$targetPath" "\$target_bak"
-if [ -f .cargo/config.toml ]; then cp .cargo/config.toml "\$cargo_cfg_bak"; else : > "\$cargo_cfg_bak"; fi
-cleanup(){
-  cp "\$target_bak" "$targetPath";
-  cp "\$cargo_bak" "${cargoFile.path}";
-  if [ -s "\$cargo_cfg_bak" ]; then
-    mkdir -p .cargo;
-    cp "\$cargo_cfg_bak" .cargo/config.toml;
-  else
-    rm -f .cargo/config.toml;
-    rmdir .cargo 2>/dev/null || true;
-  fi;
-  if [ -n "\$generated_lib" ]; then
-    rm -f "\$generated_lib";
-  fi;
-  rm -f "\$target_bak" "\$cargo_bak" "\$cargo_cfg_bak";
-};
-trap cleanup EXIT
-mkdir -p .cargo
-printf '[target.aarch64-linux-android]\nlinker = "clang"\n' > .cargo/config.toml
-if [ ${hasLibTarget ? 1 : 0} -eq 1 ]; then
-  if ! grep -q "fn __entry" "$targetPath"; then
-    if grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
-      printf '\n#[unsafe(no_mangle)]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "$targetPath";
-    else
-      echo "Error: src/lib.rs needs either __entry() or main() for Roxum run.";
-      exit 1;
-    fi
-  fi
-else
-  if ! grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
-    echo "Error: main() not found in src/main.rs.";
-    exit 1;
-  fi
-  generated_lib="${widget.rootDir}/src/.roxum_entry_lib.rs"
-  cat > "\$generated_lib" <<'EOF'
-include!("main.rs");
-
-#[unsafe(no_mangle)]
-pub extern "C" fn __entry() {
-    let _ = std::panic::catch_unwind(|| {
-        let _ = main();
-    });
-}
-EOF
-  if ! grep -Eq '^[[:space:]]*[lib][[:space:]]*\$' "${cargoFile.path}"; then
-    printf '\n[lib]\npath = "src/.roxum_entry_lib.rs"\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
-  fi
-fi
-cargo rustc --release --lib -- --crate-type=cdylib
-so_file="\$(find target -type f -name 'lib*.so' | head -n 1)"
-[ -n "\$so_file" ]
-rustloader "\$so_file"
-''';
-
-                                  } else {
-                                    final soPath = path.join(widget.rootDir, '.roxum-rust-run.so');
-
-                                    command = '''
-set -e
-rust_bak="\$(mktemp)"
-cp "${filePath.path}" "\$rust_bak"
-cleanup(){
-  cp "\$rust_bak" "${filePath.path}";
-  rm -f "\$rust_bak" "$soPath";
-};
-trap cleanup EXIT
-if ! grep -Eq 'fn[[:space:]]+main' "${filePath.path}"; then
-  echo "Error: main() not found. This runner requires a main function.";
-  exit 1;
-fi
-if ! grep -q "fn __entry" "${filePath.path}"; then
-  printf '\n#[unsafe(no_mangle)]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "${filePath.path}";
-fi
-rustc --crate-type=cdylib "${filePath.path}" -o "$soPath" -C linker=clang --sysroot "$runtimesDir/rust"
-rustloader "$soPath"
-''';
-                                  }
-
-                                  runCode(context, command, widget.rootDir);
-
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Rust run failed: ${e.toString()}")),
-                                  );
-                                }
-
-                                break;
-                              case '.md':
-                                Navigator.of(context).push(
-                                  PageRouteBuilder(
-                                    pageBuilder:(context, animation, scondaryAnimation) => MdView(
-                                      data: filePath.readAsStringSync(),
-                                      appTheme: appTheme,
-                                      theme: context.read<ConfigBloc>().state,
-                                    ),
-                                    transitionsBuilder:(context, animation, secondaryAnimation, child) {
-                                      return SizeTransition(
-                                        sizeFactor: animation,
-                                        child: child,
-                                      );
-                                    },
-                                  ),
-                                );
-                                break;
-                              default:
-                                final lang = languages.firstWhere(
-                                  (language) => language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
-                                  orElse: () => languages[0],
-                                );
-                                final String command = lang.command ?? '';
-                                Navigator.of(context).push(
-                                  PageRouteBuilder(
-                                    pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
-                                      projectDir: widget.rootDir,
-                                      args: ["-c", "$command ${filePath.path}"],
-                                    ),
-                                    transitionsBuilder:(context, animation, secondaryAnimation, child,) {
-                                      return SizeTransition(
-                                        sizeFactor: animation,
-                                        child: child,
-                                      );
-                                    },
-                                  ),
-                                );
-                            }
-                          },
-                          icon: const Icon(Icons.play_arrow),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: Row(
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    PageRouteBuilder(
-                                      pageBuilder: (context, animation, scondaryAnimation) =>
-                                        SetupTerminal(
-                                          projectDir: widget.rootDir,
-                                          sshId: !isTermux ? _currentlySelectedTerminalID : null,
-                                          termuxId: isTermux ? _currentlySelectedTerminalID : null,
-                                        ),
-                                      transitionsBuilder:(context, animation, secondaryAnimation, child,) {
-                                        return SizeTransition(
-                                          sizeFactor: animation,
-                                          child: child,
+                                    final temp = Directory(tempDir);
+                                    if (!temp.existsSync()) {
+                                      temp.createSync(recursive: true);
+                                    }
+                                    final activeEditorForRun = tabController != null && tabController!.index < editorState.activeEditors.length
+                                      ? editorState.activeEditors[tabController!.index]
+                                      : editorState.activeEditors.firstWhere(
+                                          (item) => item.isActive == true,
+                                          orElse: () => editorState.activeEditors.first,
                                         );
-                                      },
-                                    ),
-                                  );
-                                },
-                                child: _currentlySelectedTerminalID == null
-                                  ? Icon(Icons.terminal)
-                                  : isTermux
-                                    ? SvgPicture.asset(
-                                      "assets/icons/Termux.svg",
-                                      height: 30,
-                                      width: 30
-                                    )
+                                    final filePath = activeEditorForRun.file;
+                                    final viteTs = File(
+                                      path.join(widget.rootDir, 'vite.config.ts'),
+                                    );
+                                    final viteJs = File(
+                                      path.join(widget.rootDir, 'vite.config.js'),
+                                    );
+                                    final nextTs = File(
+                                      path.join(widget.rootDir, 'next.config.ts'),
+                                    );
+                                    final nextJs = File(
+                                      path.join(widget.rootDir, 'next.config.js'),
+                                    );
+                                
+                                    final packageJson = File(
+                                      path.join(widget.rootDir, 'package.json'),
+                                    );
+                                
+                                    final hasVite = await viteTs.exists() || await viteJs.exists();
+                                    final hasNext = await nextTs.exists() || await nextJs.exists();
+                                    final hasPkg = await packageJson.exists();
+                                
+                                    if (hasVite && hasPkg && context.mounted) {
+                                      runCode(
+                                        context,
+                                        "node node_modules/vite/bin/vite.js",
+                                        widget.rootDir,
+                                      );
+                                      return;
+                                    }
+                                
+                                    if (hasNext && hasPkg && context.mounted) {
+                                      runCode(
+                                        context,
+                                        "npm install --ignore-scripts && npm uninstall lightningcss && node node_modules/next/dist/bin/next dev --webpack",
+                                        widget.rootDir,
+                                      );
+                                      return;
+                                    }
+                                
+                                    if (isPreviewFilePath(filePath.path) && context.mounted) {
+                                      final message = isPdfFilePath(filePath.path)
+                                        ? 'PDF files can be previewed but are not executable.'
+                                        : 'Image/SVG files can be previewed but are not executable.';
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(message)),
+                                      );
+                                      return;
+                                    }
+                                
+                                    final String extension = path.extension(
+                                      filePath.path,
+                                    );
+
+                                    if (!context.mounted) return;
+                                    switch (extension) {
+                                      case '.html':
+                                        if (context.mounted) {
+                                          Navigator.of(context).push(
+                                            PageRouteBuilder(
+                                              pageBuilder: (context, animation, scondaryAnimation) => WebViewScreen(htmlFile: filePath),
+                                              transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                                return SizeTransition(
+                                                  sizeFactor: animation,
+                                                  child: child,
+                                                );
+                                              },
+                                            ),
+                                          );
+                                        }
+                                        break;
+                                      case '.c':
+                                        final String compileCommand = "clang -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
+                                        final String runCommand = 'clangloader ${temp.path}/libtemp.so';
+                                        runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                        break;
+                                      case '.cpp':
+                                      case '.c++':
+                                      case '.cc':
+                                        final String compileCommand = "clang++ -fPIC -shared ${filePath.path} -o ${temp.path}/libtemp.so";
+                                        final String runCommand = 'clangloader ${temp.path}/libtemp.so';
+                                        runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                        break;
+                                      case '.java':
+                                        final String compileCommand = "javac ${filePath.path} -d ${temp.path}";
+                                        final String runCommand = "cd ${temp.path} && java ${path.basenameWithoutExtension(filePath.path)}";
+                                        runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                        break;
+                                      case '.kt':
+                                      case '.kts':
+                                        final String compileCommand = 'echo Compiling... && kotlinc ${filePath.path} -include-runtime -d ${temp.path}/temp.jar';
+                                        final String runCommand = 'java -jar ${temp.path}/temp.jar';
+                                        runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                        break;
+                                      case '.ts':
+                                        final String compileCommand = "tsc ${filePath.path} --outDir ${temp.path}";
+                                        final String runCommand = "node ${temp.path}/${path.basenameWithoutExtension(filePath.path)}.js";
+                                        runCode(context, "$compileCommand && $runCommand", widget.rootDir);
+                                        break;
+                                      case '.go':
+                                        try {
+                                          final soPath = path.join(widget.rootDir, '.roxum-go-run.so');
+                                
+                                          final command =
+                                              'export GOROOT="$runtimesDir/go" '
+                                              '&& export PATH="\$GOROOT/bin:\$PATH" '
+                                              '&& export CC="clang" '
+                                              '&& export GOOS="android" '
+                                              '&& export GOARCH="arm64" '
+                                              '&& echo "Compiling..." '
+                                              '&& go_bak="\$(mktemp)" '
+                                              '&& cp "${filePath.path}" "\$go_bak" '
+                                              '&& cleanup(){ '
+                                              'cp "\$go_bak" "${filePath.path}"; '
+                                                'rm -f "\$go_bak" "$soPath" "${filePath.path}.roxum.tmp"; '
+                                              '}; '
+                                              'trap cleanup EXIT '
+                                
+                                              '&& if ! grep -q \'import "C"\' "${filePath.path}"; then '
+                                                  'tmp_go="${filePath.path}.roxum.tmp"; '
+                                                  'if grep -q "^import (" "${filePath.path}"; then '
+                                                    "awk 'BEGIN{done=0} {print} !done && /^import \\(\$/ {print \"    \\\"C\\\"\"; done=1}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                                  'elif grep -q "^import " "${filePath.path}"; then '
+                                                    "awk 'BEGIN{done=0} !done && /^import / {print \"import \\\"C\\\"\"; done=1} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                                  'else '
+                                                    "awk 'BEGIN{done=0} !done && /^package / {print; print \"\"; print \"import \\\"C\\\"\"; done=1; next} {print}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
+                                                  'fi; '
+                                              'fi '
+                                
+                                              '&& if ! grep -q "__entry" "${filePath.path}"; then '
+                                                  "printf '\\n//export __entry\\nfunc __entry() {\\n    main()\\n}\\n' >> \"${filePath.path}\"; "
+                                              'fi '
+                                
+                                                '&& rm -f "$soPath" '
+                                              '&& GOOS=android GOARCH=arm64 CGO_ENABLED=1 '
+                                              'go build -buildmode=c-shared -o "$soPath" "${filePath.path}" '
+                                              '&& rustloader "$soPath"';
+                                
+                                          runCode(context, command, widget.rootDir);
+                                
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text("Go run failed: ${e.toString()}")),
+                                          );
+                                        }
+                                        break;
+                                      case '.rs':
+                                        try {
+                                          final cargoFile = File("${widget.rootDir}/Cargo.toml");
+                                          String command = "";
+                                
+                                          if (cargoFile.existsSync()) {
+                                            final mainRs = File("${widget.rootDir}/src/main.rs");
+                                            final libRs = File("${widget.rootDir}/src/lib.rs");
+                                
+                                            final hasLibTarget = libRs.existsSync();
+                                
+                                            if (!hasLibTarget && !mainRs.existsSync()) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text("No src/main.rs or src/lib.rs found in this Cargo project."),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                
+                                            final targetPath = hasLibTarget ? libRs.path : mainRs.path;
+                                
+                                            command = '''
+                          set -e
+                          cargo_bak="\$(mktemp)"
+                          target_bak="\$(mktemp)"
+                          cargo_cfg_bak="\$(mktemp)"
+                          generated_lib=""
+                          cp "${cargoFile.path}" "\$cargo_bak"
+                          cp "$targetPath" "\$target_bak"
+                          if [ -f .cargo/config.toml ]; then cp .cargo/config.toml "\$cargo_cfg_bak"; else : > "\$cargo_cfg_bak"; fi
+                          cleanup(){
+                          cp "\$target_bak" "$targetPath";
+                          cp "\$cargo_bak" "${cargoFile.path}";
+                          if [ -s "\$cargo_cfg_bak" ]; then
+                            mkdir -p .cargo;
+                            cp "\$cargo_cfg_bak" .cargo/config.toml;
+                          else
+                            rm -f .cargo/config.toml;
+                            rmdir .cargo 2>/dev/null || true;
+                          fi;
+                          if [ -n "\$generated_lib" ]; then
+                            rm -f "\$generated_lib";
+                          fi;
+                          rm -f "\$target_bak" "\$cargo_bak" "\$cargo_cfg_bak";
+                          };
+                          trap cleanup EXIT
+                          mkdir -p .cargo
+                          printf '[target.aarch64-linux-android]\nlinker = "clang"\n' > .cargo/config.toml
+                          if [ ${hasLibTarget ? 1 : 0} -eq 1 ]; then
+                          if ! grep -q "fn __entry" "$targetPath"; then
+                            if grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
+                              printf '\n#[unsafe(no_mangle)]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "$targetPath";
+                            else
+                              echo "Error: src/lib.rs needs either __entry() or main() for Roxum run.";
+                              exit 1;
+                            fi
+                          fi
+                          else
+                          if ! grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
+                            echo "Error: main() not found in src/main.rs.";
+                            exit 1;
+                          fi
+                          generated_lib="${widget.rootDir}/src/.roxum_entry_lib.rs"
+                          cat > "\$generated_lib" <<'EOF'
+                          include!("main.rs");
+                          
+                          #[unsafe(no_mangle)]
+                          pub extern "C" fn __entry() {
+                            let _ = std::panic::catch_unwind(|| {
+                                let _ = main();
+                            });
+                          }
+                          EOF
+                          if ! grep -Eq '^[[:space:]]*[lib][[:space:]]*\$' "${cargoFile.path}"; then
+                            printf '\n[lib]\npath = "src/.roxum_entry_lib.rs"\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
+                          fi
+                          fi
+                          cargo rustc --release --lib -- --crate-type=cdylib
+                          so_file="\$(find target -type f -name 'lib*.so' | head -n 1)"
+                          [ -n "\$so_file" ]
+                          rustloader "\$so_file"
+                          ''';
+                                
+                                          } else {
+                                            final soPath = path.join(widget.rootDir, '.roxum-rust-run.so');
+                                
+                                            command = '''
+                          set -e
+                          rust_bak="\$(mktemp)"
+                          cp "${filePath.path}" "\$rust_bak"
+                          cleanup(){
+                          cp "\$rust_bak" "${filePath.path}";
+                          rm -f "\$rust_bak" "$soPath";
+                          };
+                          trap cleanup EXIT
+                          if ! grep -Eq 'fn[[:space:]]+main' "${filePath.path}"; then
+                          echo "Error: main() not found. This runner requires a main function.";
+                          exit 1;
+                          fi
+                          if ! grep -q "fn __entry" "${filePath.path}"; then
+                          printf '\n#[unsafe(no_mangle)]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "${filePath.path}";
+                          fi
+                          rustc --crate-type=cdylib "${filePath.path}" -o "$soPath" -C linker=clang --sysroot "$runtimesDir/rust"
+                          rustloader "$soPath"
+                          ''';
+                                          }
+                                
+                                          runCode(context, command, widget.rootDir);
+                                
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text("Rust run failed: ${e.toString()}")),
+                                          );
+                                        }
+                                
+                                        break;
+                                      case '.md':
+                                        Navigator.of(context).push(
+                                          PageRouteBuilder(
+                                            pageBuilder:(context, animation, scondaryAnimation) => MdView(
+                                              data: filePath.readAsStringSync(),
+                                              appTheme: appTheme,
+                                              theme: context.read<ConfigBloc>().state,
+                                            ),
+                                            transitionsBuilder:(context, animation, secondaryAnimation, child) {
+                                              return SizeTransition(
+                                                sizeFactor: animation,
+                                                child: child,
+                                              );
+                                            },
+                                          ),
+                                        );
+                                        break;
+                                      default:
+                                        final lang = languages.firstWhere(
+                                          (language) => language.extension.contains(path.extension(filePath.path).replaceFirst(".", "")),
+                                          orElse: () => languages[0],
+                                        );
+                                        final String command = lang.command ?? '';
+                                        Navigator.of(context).push(
+                                          PageRouteBuilder(
+                                            pageBuilder:(context, animation, scondaryAnimation) => SetupTerminal(
+                                              projectDir: widget.rootDir,
+                                              args: ["-c", "$command ${filePath.path}"],
+                                            ),
+                                            transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                              return SizeTransition(
+                                                sizeFactor: animation,
+                                                child: child,
+                                              );
+                                            },
+                                          ),
+                                        );
+                                    }
+                                  },
+                                  child: runtimeState.currentlyRuntimeID == null
+                                    ? Icon(Icons.play_arrow)
                                     : Stack(
-                                      alignment: Alignment.center,
                                       children: [
-                                        Icon(
-                                          Icons.cloud,
-                                          size: 32,
-                                        ),
+                                        Icon(Icons.play_arrow),
                                         Positioned(
                                           bottom: 2,
-                                          child: Icon(
-                                            Icons.terminal,
-                                            size: 22,
-                                            color: appTheme.appBarTheme.backgroundColor
+                                          right: 0,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              border: BoxBorder.all(
+                                                color: appTheme.selectScreenCardTextColor,
+                                              )
+                                            ),
+                                            child: SvgPicture.asset(
+                                              "assets/icons/Termux.svg",
+                                              height: 11,
+                                              width: 11
+                                            ),
                                           ),
                                         ),
                                       ],
-                                    )
-                              ),
-                              if(sshServerList.isNotEmpty || (termuxInfo != null && termuxInfo!.isConnected)) MenuAnchor(
-                                animated: true,
-                                onAnimationStatusChanged: (status) {
-                                  _terminalSelectionStatus = status;
-                                },
-                                menuChildren: [
-                                  MenuItemButton(
-                                    onPressed: () {
-                                        setState(() {
-                                          isTermux = false;
-                                          _currentlySelectedTerminalID = null;
-                                        });
-                                      },
-                                    leadingIcon: Icon(Icons.terminal),
-                                    trailingIcon: _currentlySelectedTerminalID == null ? Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green
-                                      )
-                                      : null,
-                                    child: Text("Built-in terminal"),
-                                  ),
-                                  ...sshServerList.map((server) {
-                                    return MenuItemButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          isTermux = false;
-                                          _currentlySelectedTerminalID = server.id;
-                                        });
-                                      },
-                                      leadingIcon: FaIcon(FontAwesomeIcons.server),
-                                      trailingIcon: _currentlySelectedTerminalID == server.id
-                                        ? Icon(
-                                          Icons.check_circle,
-                                          color: Colors.green
-                                        )
-                                        : null,
-                                      child: Text(server.name),
-                                    );
-                                  }),
-                          
-                                  if(termuxInfo != null && termuxInfo!.isConnected)
-                                  MenuItemButton(
-                                    onPressed: () {
-                                        setState(() {
-                                          isTermux = true;
-                                          _currentlySelectedTerminalID = termuxInfo!.id;
-                                        });
-                                      },
-                                    leadingIcon: SvgPicture.asset(
-                                      "assets/icons/Termux.svg",
-                                      height: 20,
-                                      width: 20
                                     ),
-                                    trailingIcon: _currentlySelectedTerminalID == termuxInfo!.id ? Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green
+                                ),
+                                if (termuxInfo != null && termuxInfo!.isConnected) 
+                                  MenuAnchor(
+                                    style: MenuStyle(
+                                      backgroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardsBg),
+                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: .circular(6)))
+                                    ),
+                                    animated: true,
+                                    onAnimationStatusChanged: (status) {
+                                      _runtimeSelectionStatus = status;
+                                    },
+                                    menuChildren: [
+                                      MenuItemButton(
+                                        onPressed: () => cubitState.updateId(null),
+                                        leadingIcon: Icon(
+                                          Icons.phone_android_outlined,
+                                          color: appTheme.selectScreenCardTextColor,
+                                        ),
+                                        trailingIcon: currentlyRuntimeID == null ? Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green,
+                                            size: 16
+                                          )
+                                          : null,
+                                        child: Text(
+                                          "Roxum",
+                                          style: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor
+                                          )
+                                        ),
+                                      ),
+                                      
+                                      MenuItemButton(
+                                        onPressed: () => cubitState.updateId(termuxInfo!.id),
+                                        leadingIcon: SvgPicture.asset(
+                                          "assets/icons/Termux.svg",
+                                          height: 20,
+                                          width: 20
+                                        ),
+                                        trailingIcon: currentlyRuntimeID == termuxInfo!.id ? Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green,
+                                            size: 16
+                                          )
+                                          : null,
+                                        child: Text(
+                                          termuxInfo!.name,
+                                          style: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor
+                                          )
+                                        ),
+                                      ),
+
+                                      //TODO
+                                      Opacity(
+                                        opacity: 0.45,
+                                        child: MenuItemButton(
+                                          onPressed: null,
+
+                                          leadingIcon: Padding(
+                                            padding: const EdgeInsets.only(left: 3),
+                                            child: FaIcon(
+                                              FontAwesomeIcons.server,
+                                              color: appTheme.selectScreenCardTextColor,
+                                              size: 20,
+                                            ),
+                                          ),
+
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                "Remote server",
+                                                style: TextStyle(
+                                                  color: appTheme.selectScreenCardTextColor,
+                                                ),
+                                              ),
+
+                                              const SizedBox(width: 8),
+
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.withAlpha(40),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Text(
+                                                  "Coming Soon",
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              )
+                                            ],
+                                          ),
+                                        ),
                                       )
-                                      : null,
-                                    child: Text(termuxInfo!.name),
+                                    ],
+                                    builder: (context, controller, child) => InkWell(
+                                      onTap: () {
+                                        if(_runtimeSelectionStatus.isForwardOrCompleted){
+                                          controller.close();
+                                        } else {
+                                          controller.open();
+                                        }
+                                      },
+                                      child: Icon(
+                                        Icons.arrow_drop_down_rounded,
+                                        color: appTheme.selectScreenCardTextColor
+                                      )
+                                    ),
                                   )
                                 ],
-                                builder: (context, controller, child) => InkWell(
-                                  onTap: () {
-                                    if(_terminalSelectionStatus.isForwardOrCompleted){
-                                      controller.close();
-                                    } else {
-                                      controller.open();
-                                    }
-                                  },
-                                  child: Icon(Icons.arrow_drop_down_rounded)
-                                ),
                               ),
-                            ],
-                          ),
+                          );
+                          }
+                        ),
+                        BlocBuilder<CurrentlySelectedTerminalCubit, SelectedTerminalState>(
+                          builder: (context, selectedTerminalState) {
+                            int? currentlySelectedTerminalID = selectedTerminalState.currentlySelectedID;
+                            bool isTermux = selectedTerminalState.isTermux;
+                            final cubitState = context.read<CurrentlySelectedTerminalCubit>();
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Row(
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        PageRouteBuilder(
+                                          pageBuilder: (context, animation, scondaryAnimation) =>
+                                            SetupTerminal(
+                                              projectDir: widget.rootDir,
+                                              sshId: !isTermux ? currentlySelectedTerminalID : null,
+                                              termuxId: isTermux ? currentlySelectedTerminalID : null,
+                                            ),
+                                          transitionsBuilder:(context, animation, secondaryAnimation, child,) {
+                                            return SizeTransition(
+                                              sizeFactor: animation,
+                                              child: child,
+                                            );
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    child: currentlySelectedTerminalID == null
+                                      ? Icon(Icons.terminal)
+                                      : isTermux
+                                        ? SvgPicture.asset(
+                                          "assets/icons/Termux.svg",
+                                          height: 30,
+                                          width: 30
+                                        )
+                                        : Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.cloud,
+                                              size: 32,
+                                            ),
+                                            Positioned(
+                                              bottom: 2,
+                                              child: Icon(
+                                                Icons.terminal,
+                                                size: 22,
+                                                color: appTheme.appBarTheme.backgroundColor
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                  ),
+                                  if(sshServerList.isNotEmpty || (termuxInfo != null && termuxInfo!.isConnected)) MenuAnchor(
+                                    style: MenuStyle(
+                                      backgroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardsBg),
+                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: .circular(6)))
+                                    ),
+                                    animated: true,
+                                    onAnimationStatusChanged: (status) {
+                                      _terminalSelectionStatus = status;
+                                    },
+                                    menuChildren: [
+                                      MenuItemButton(
+                                        onPressed: () => cubitState.updateId(null, false),
+                                        leadingIcon: Icon(
+                                          Icons.terminal,
+                                          color: appTheme.selectScreenCardTextColor
+                                        ),
+                                        trailingIcon: currentlySelectedTerminalID == null ? Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green,
+                                            size: 16
+                                          )
+                                          : null,
+                                        child: Text(
+                                          "Built-in terminal",
+                                          style: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor
+                                          )
+                                        ),
+                                      ),
+                                      ...sshServerList.map((server) {
+                                        return MenuItemButton(
+                                          onPressed: () => cubitState.updateId(server.id, false),
+                                          leadingIcon: Padding(
+                                            padding: const EdgeInsets.only(left: 3),
+                                            child: FaIcon(
+                                              FontAwesomeIcons.server,
+                                              color: appTheme.selectScreenCardTextColor,
+                                              size: 20
+                                            ),
+                                          ),
+                                          trailingIcon: currentlySelectedTerminalID == server.id
+                                            ? Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green,
+                                              size: 16
+                                            )
+                                            : null,
+                                          child: Text(
+                                            server.name,
+                                            style: TextStyle(
+                                              color: appTheme.selectScreenCardTextColor
+                                            )
+                                          ),
+                                        );
+                                      }),
+                              
+                                      if(termuxInfo != null && termuxInfo!.isConnected)
+                                      MenuItemButton(
+                                        onPressed: () => cubitState.updateId(termuxInfo!.id, true),
+                                        leadingIcon: SvgPicture.asset(
+                                          "assets/icons/Termux.svg",
+                                          height: 20,
+                                          width: 20
+                                        ),
+                                        trailingIcon: currentlySelectedTerminalID == termuxInfo!.id ? Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green,
+                                            size: 16
+                                          )
+                                          : null,
+                                        child: Text(
+                                          termuxInfo!.name,
+                                          style: TextStyle(
+                                            color: appTheme.selectScreenCardTextColor
+                                          )
+                                        ),
+                                      )
+                                    ],
+                                    builder: (context, controller, child) => InkWell(
+                                      onTap: () {
+                                        if(_terminalSelectionStatus.isForwardOrCompleted){
+                                          controller.close();
+                                        } else {
+                                          controller.open();
+                                        }
+                                      },
+                                      child: Icon(
+                                        Icons.arrow_drop_down_rounded,
+                                        color: appTheme.selectScreenCardTextColor
+                                      )
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         )
                       ],
                     ),

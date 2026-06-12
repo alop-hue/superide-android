@@ -20,6 +20,7 @@ class SetupTerminal extends StatefulWidget {
   final List<String> args;
   final bool useScaffold, showKeyboardMenu, readOnly;
   final int? sshId, termuxId;
+  final String? commandToExecuteInSSH;
 
   const SetupTerminal({
     super.key,
@@ -29,7 +30,8 @@ class SetupTerminal extends StatefulWidget {
     this.showKeyboardMenu = true,
     this.readOnly = false,
     this.sshId,
-    this.termuxId
+    this.termuxId,
+    this.commandToExecuteInSSH
   });
 
   @override
@@ -273,7 +275,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _sessionBloc = TerminalSessionBloc(
       initialFontSize: _terminalFontSizeFromConfig(),
     );
-    sshServerList = context.read<SSHServersCubit>().state.serverList;
+    sshServerList = context.read<SSHServersCubit>().state.serverList.where((server) => server.isConnected).toList();
     termuxInfo = context.read<TermuxCubit>().state.termInfo;
     _bootstrapTerminalPage();
     _loadPathBinaries();
@@ -502,14 +504,14 @@ class _SetupTerminalState extends State<SetupTerminal> {
   Future<void> _startPty(
     _TerminalRuntime runtime, {
     List<String> args = const [],
-    SSHInfo? externalServer
+    SSHInfo? externalServer,
   }) async {
     if(externalServer != null && externalServer.client != null){
       final terminal = runtime.terminal;
       final session = await externalServer.client!.shell(
         pty: SSHPtyConfig(
           width: terminal.viewWidth,
-          height: terminal.viewHeight
+          height: terminal.viewHeight,
         ),
       );
 
@@ -520,6 +522,15 @@ class _SetupTerminalState extends State<SetupTerminal> {
       terminal.onResize = (w, h, pw, ph) {
         session.resizeTerminal(w, h, pw, ph);
       };
+      
+      if(widget.termuxId != null) {
+        session.write(utf8.encode("cd ${widget.projectDir}\n"));
+      }
+      
+      if(widget.commandToExecuteInSSH != null){
+        session.write(utf8.encode("${widget.commandToExecuteInSSH}\n"));
+      }
+
       terminal.onOutput = (data) {
         session.write(utf8.encode(data));
       };
@@ -1389,37 +1400,69 @@ class _SetupTerminalState extends State<SetupTerminal> {
                   ),
                   IconButton(
                     tooltip: 'New session',
-                    onPressed: () => _createSession(makeActive: true, showFeedback: true),
+                    onPressed: () => _createSession(
+                      makeActive: true,
+                      showFeedback: true,
+                    ),
                     icon: Row(
                       children: [
                         Icon(Icons.add),
                         if(sshServerList.isNotEmpty || termuxInfo != null) MenuAnchor(
+                          style: MenuStyle(
+                            backgroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardsBg),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: .circular(6)))
+                          ),
                           animated: true,
                           onAnimationStatusChanged: (status) {
                             _terminalSelectionStatus = status;
                           },
                           menuChildren: [
-                            ...sshServerList.where((server) => server.isConnected == true).map((s) {
-                              return MenuItemButton(
+                            ...sshServerList.map((server) =>
+                              MenuItemButton(
                                 onPressed: () {
-                                  //TODO
+                                  _createSession(
+                                    makeActive: true,
+                                    showFeedback: true,
+                                    externalServer: server
+                                  );
                                 },
-                                leadingIcon: FaIcon(FontAwesomeIcons.server),
-                                child: Text(s.name),
-                              );
-                            }),
+                                leadingIcon: Padding(
+                                  padding: const EdgeInsets.only(left: 3),
+                                  child: FaIcon(
+                                    FontAwesomeIcons.server,
+                                    color: appTheme.selectScreenCardTextColor,
+                                    size: 20
+                                  ),
+                                ),
+                                child: Text(
+                                  server.name,
+                                  style: TextStyle(
+                                    color: appTheme.selectScreenCardTextColor
+                                  )
+                                ),
+                              )
+                            ),
 
                             if(termuxInfo != null && termuxInfo!.isConnected)
                             MenuItemButton(
                               onPressed: () {
-                                //TODO
+                                _createSession(
+                                  makeActive: true,
+                                  showFeedback: true,
+                                  externalServer: termuxInfo
+                                );
                               },
                               leadingIcon: SvgPicture.asset(
                                 "assets/icons/Termux.svg",
                                 height: 20,
                                 width: 20
                               ),
-                              child: Text(termuxInfo!.name),
+                              child: Text(
+                                termuxInfo!.name,
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor
+                                )
+                              ),
                             )
                           ],
                           builder: (context, controller, child) => Padding(
@@ -1432,7 +1475,11 @@ class _SetupTerminalState extends State<SetupTerminal> {
                                   controller.open();
                                 }
                               },
-                              child: Icon(Icons.arrow_drop_down_rounded)
+                              child: Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: appTheme.selectScreenCardTextColor
+                                        
+                              )
                             ),
                           ),
                         ),

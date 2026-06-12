@@ -1288,3 +1288,19 @@ class TermuxCubit extends Cubit<TermuxState> {
     }
   }
 }
+
+class CurrentlySelectedTerminalCubit extends Cubit<SelectedTerminalState>{
+  CurrentlySelectedTerminalCubit() : super(SelectedTerminalState(null));
+
+  void updateId(int? id, bool isTermux){
+    emit(SelectedTerminalState(id, isTermux: isTermux));
+  }
+}
+
+class SelectedRuntimeEnvironmentCubit extends Cubit<SelectedRunEnvironmentState> {
+  SelectedRuntimeEnvironmentCubit() : super(SelectedRunEnvironmentState(null));
+
+  void updateId(int? id){
+    emit(SelectedRunEnvironmentState(id));
+  }
+}

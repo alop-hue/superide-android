@@ -1777,6 +1777,28 @@ void runCode(BuildContext context, String command, String rootDir) {
   }
 }
 
+void runCodeInTermux(BuildContext context, String command, String rootDir, int? id) {
+  try {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
+          projectDir: rootDir,
+          termuxId: id,
+          commandToExecuteInSSH: command,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SizeTransition(sizeFactor: animation, child: child);
+        },
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Execution failed: ${e.toString()}")),
+    );
+    debugPrint(e.toString());
+  }
+}
+
 String _resolveLspServerPath(String serverPath) {
   final normalized = serverPath
       .replaceAll('\$extensionDir', extensionDir)
