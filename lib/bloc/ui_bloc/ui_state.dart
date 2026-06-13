@@ -164,6 +164,17 @@ Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
     case 'Perplexity': return Perplexity(apiKey: apiKey, model: modelName);
     case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
     case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+    case 'LocalLlama':
+      final path = (modelConfig['modelPath'] ?? '').toString().trim();
+      if (path.isEmpty) return null;
+      return LocalLlama(
+        modelPath: path,
+        displayName: modelName.isNotEmpty ? modelName : path.split('/').last,
+        threads: (modelConfig['threads'] as num?)?.toInt() ?? 4,
+        contextSize: (modelConfig['contextSize'] as num?)?.toInt() ?? 4096,
+        gpuLayers: (modelConfig['gpuLayers'] as num?)?.toInt() ?? 0,
+      );
+
     case 'Custom':
       final url = (modelConfig['url'] ?? '').toString().trim();
       if (url.isEmpty) return null;
@@ -228,8 +239,12 @@ class AIState {
   final bool isEnabled, showSuggestionOntap;
   final Models? completionModel, chatModel;
 
-  AIState(this.config, this.isEnabled, this.modelSelected, this.showSuggestionOntap)
-    : completionModel = (() {
+  AIState(
+    this.config,
+    this.isEnabled,
+    this.modelSelected,
+    this.showSuggestionOntap
+  ) : completionModel = (() {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['code'] == null || config[modelSelected['code']] == null) {
           return null;
         }
@@ -676,4 +691,97 @@ class SelectedRunEnvironmentState {
   final int? currentlyRuntimeID;
 
   const SelectedRunEnvironmentState(this.currentlyRuntimeID);
+}
+
+enum LocalLlamaStatus { idle, loading, ready, generating, error }
+
+class LocalLlamaState {
+  final LocalLlamaStatus status;
+  final String? loadedModelPath;
+  final String? loadedModelName;
+  final String? error;
+  final GpuInfo? gpuInfo;
+
+  const LocalLlamaState({
+    this.status = LocalLlamaStatus.idle,
+    this.loadedModelPath,
+    this.loadedModelName,
+    this.error,
+    this.gpuInfo,
+  });
+
+  bool get isReady => status == LocalLlamaStatus.ready;
+  bool get isLoading => status == LocalLlamaStatus.loading;
+
+  LocalLlamaState copyWith({
+    LocalLlamaStatus? status,
+    String? loadedModelPath,
+    String? loadedModelName,
+    String? error,
+    GpuInfo? gpuInfo,
+    bool clearError = false,
+  }) => LocalLlamaState(
+    status: status ?? this.status,
+    loadedModelPath: loadedModelPath ?? this.loadedModelPath,
+    loadedModelName: loadedModelName ?? this.loadedModelName,
+    error: clearError ? null : (error ?? this.error),
+    gpuInfo: gpuInfo ?? this.gpuInfo,
+  );
+}
+
+class GgufDownloadState {
+  final Map<String, GgufDownloadTask> downloads;
+
+  const GgufDownloadState({required this.downloads});
+
+  GgufDownloadState copyWith({Map<String, GgufDownloadTask>? downloads}) {
+    return GgufDownloadState(downloads: downloads ?? this.downloads);
+  }
+}
+
+class GgufDownloadTask {
+  final String taskId;
+  final String modelName;
+  final String filename;
+  final String url;
+  final DownloadTaskStatus status;
+  final int progress;
+
+  GgufDownloadTask({
+    required this.taskId,
+    required this.modelName,
+    required this.filename,
+    required this.url,
+    required this.status,
+    required this.progress,
+  });
+
+  GgufDownloadTask copyWith({DownloadTaskStatus? status, int? progress}) {
+    return GgufDownloadTask(
+      taskId: taskId,
+      modelName: modelName,
+      filename: filename,
+      url: url,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'taskId': taskId,
+    'modelName': modelName,
+    'filename': filename,
+    'url': url,
+    'status': status.index,
+    'progress': progress,
+  };
+
+  factory GgufDownloadTask.fromJson(Map<String, dynamic> json) => GgufDownloadTask(
+    taskId: json['taskId'],
+    modelName: json['modelName'],
+    filename: json['filename'],
+    url: json['url'],
+    status: DownloadTaskStatus.values[json['status']],
+    progress: json['progress'],
+  );
 }

@@ -68,6 +68,8 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => GeneralBloc({"autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool})),
         BlocProvider(create: (_) => CopilotBloc()),
         BlocProvider(create: (_) => CopilotChatBloc()),
+        BlocProvider(create: (_) => LocalLlamaBloc()),
+        BlocProvider(create: (_) => GgufDownloadCubit()),
         BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
         BlocProvider(create: (_) => TermuxCubit(termuxInfo)),
         BlocProvider(create: (_) => CurrentlySelectedTerminalCubit()),

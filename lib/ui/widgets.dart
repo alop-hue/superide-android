@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:code_forge/code_forge.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:http/http.dart' as http;
+import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
@@ -8278,621 +8280,619 @@ $diffText
       ),
     ];
     return !isTemp
-        ? SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 25, left: 10),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      "SOURCE CONTROL",
-                      style: TextStyle(
-                        fontWeight: widget.appTheme.isDark
-                            ? FontWeight.w300
-                            : FontWeight.w500,
-                        color: widget.appTheme.selectScreenCardTextColor,
-                      ),
+      ? SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 25, left: 10),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    "SOURCE CONTROL",
+                    style: TextStyle(
+                      fontWeight: widget.appTheme.isDark
+                          ? FontWeight.w300
+                          : FontWeight.w500,
+                      color: widget.appTheme.selectScreenCardTextColor,
                     ),
                   ),
-                  const SizedBox(height: 13.5),
-                  if (!_isARepo) ...noRepoFound,
-                  if (_isARepo) ...[
-                    BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                      builder: (context, authState) {
-                        final isSignedIn = authState.isSignedIn;
-                        return BlocBuilder<RepoStatusBloc, RepoStatusState>(
-                          builder: (context, repoState) {
-                            return _buildGitActionsRow(context, repoState, isSignedIn);
+                ),
+                const SizedBox(height: 13.5),
+                if (!_isARepo) ...noRepoFound,
+                if (_isARepo) ...[
+                  BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                    builder: (context, authState) {
+                      final isSignedIn = authState.isSignedIn;
+                      return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                        builder: (context, repoState) {
+                          return _buildGitActionsRow(context, repoState, isSignedIn);
+                        },
+                      );
+                    },
+                  ),
+                  BlocBuilder<GitCommitBloc, GitCommitState>(
+                    builder: (context, commitState) {
+                      return SizedBox(
+                        height: 50,
+                        width: 250,
+                        child: TextField(
+                          controller: _commitController,
+                          keyboardType: TextInputType.url,
+                          style: const TextStyle(color: Colors.grey),
+                          cursorColor: Colors.grey,
+                          onChanged: (val) {
+                            context.read<GitCommitBloc>().add(
+                              GitCommitEvent(commitMessage: val),
+                            );
                           },
-                        );
-                      },
-                    ),
-                    BlocBuilder<GitCommitBloc, GitCommitState>(
-                      builder: (context, commitState) {
-                        return SizedBox(
-                          height: 50,
-                          width: 250,
-                          child: TextField(
-                            controller: _commitController,
-                            keyboardType: TextInputType.url,
-                            style: const TextStyle(color: Colors.grey),
-                            cursorColor: Colors.grey,
-                            onChanged: (val) {
-                              context.read<GitCommitBloc>().add(
-                                GitCommitEvent(commitMessage: val),
-                              );
-                            },
-                            decoration: InputDecoration(
-                              suffixIcon: BlocBuilder<AIBloc, AIState>(
-                                builder: (context, aiState) {
-                                  return BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                                    builder: (context, authState) {
-                                      return BlocBuilder<CopilotChatBloc, CopilotChatState>(
-                                        builder: (context, chatState) {
-                                          final copilotSignedIn = context.read<CopilotBloc>().state.isSignedIn;
-                                          _requestCopilotModelsIfNeeded(authState.isSignedIn, copilotSignedIn, chatState);
+                          decoration: InputDecoration(
+                            suffixIcon: BlocBuilder<AIBloc, AIState>(
+                              builder: (context, aiState) {
+                                return BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                                  builder: (context, authState) {
+                                    return BlocBuilder<CopilotChatBloc, CopilotChatState>(
+                                      builder: (context, chatState) {
+                                        final copilotSignedIn = context.read<CopilotBloc>().state.isSignedIn;
+                                        _requestCopilotModelsIfNeeded(authState.isSignedIn, copilotSignedIn, chatState);
 
-                                          final canGenerate = !_isGeneratingCommitMessage &&
-                                              _canGenerateCommitMessage(
-                                                aiState: aiState,
-                                                githubSignedIn: authState.isSignedIn,
-                                                copilotSignedIn: copilotSignedIn,
-                                                chatState: chatState,
-                                              );
+                                        final canGenerate = !_isGeneratingCommitMessage &&
+                                            _canGenerateCommitMessage(
+                                              aiState: aiState,
+                                              githubSignedIn: authState.isSignedIn,
+                                              copilotSignedIn: copilotSignedIn,
+                                              chatState: chatState,
+                                            );
 
-                                          final tooltip = _isGeneratingCommitMessage
-                                              ? 'Generating commit message...'
-                                              : (!aiState.isEnabled
-                                                  ? 'AI is disabled in settings'
-                                                  : canGenerate
-                                                      ? 'Generate commit message'
-                                                      : (chatState.isFetchingModels
-                                                          ? 'Loading AI models...'
-                                                          : 'No AI model available'));
+                                        final tooltip = _isGeneratingCommitMessage
+                                            ? 'Generating commit message...'
+                                            : (!aiState.isEnabled
+                                                ? 'AI is disabled in settings'
+                                                : canGenerate
+                                                    ? 'Generate commit message'
+                                                    : (chatState.isFetchingModels
+                                                        ? 'Loading AI models...'
+                                                        : 'No AI model available'));
 
-                                          return Tooltip(
-                                            message: tooltip,
-                                            child: IconButton(
-                                              onPressed: canGenerate
-                                                  ? () => _generateCommitMessage(
-                                                        context: context,
-                                                        aiState: aiState,
-                                                        chatState: chatState,
-                                                        githubSignedIn: authState.isSignedIn,
-                                                        copilotSignedIn: copilotSignedIn,
-                                                      )
-                                                  : null,
-                                              icon: _isGeneratingCommitMessage
-                                                  ? const SizedBox(
-                                                      height: 20,
-                                                      width: 20,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
+                                        return Tooltip(
+                                          message: tooltip,
+                                          child: IconButton(
+                                            onPressed: canGenerate
+                                                ? () => _generateCommitMessage(
+                                                      context: context,
+                                                      aiState: aiState,
+                                                      chatState: chatState,
+                                                      githubSignedIn: authState.isSignedIn,
+                                                      copilotSignedIn: copilotSignedIn,
                                                     )
-                                                  : SvgPicture.asset(
-                                                      'assets/icons/ai.svg',
-                                                      height: 20,
-                                                      width: 20,
-                                                      colorFilter: ColorFilter.mode(
-                                                        canGenerate
-                                                            ? widget.appTheme.selectScreenCardTextColor
-                                                                .withValues(alpha: 0.85)
-                                                            : widget.appTheme.selectScreenCardTextColor
-                                                                .withValues(alpha: 0.35),
-                                                        BlendMode.srcIn,
-                                                      ),
+                                                : null,
+                                            icon: _isGeneratingCommitMessage
+                                                ? const SizedBox(
+                                                    height: 20,
+                                                    width: 20,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
                                                     ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                              hintText: "Commit message",
-                              hintStyle: TextStyle(
-                                color: widget.appTheme.selectScreenCardTextColor
-                                    .withAlpha(120),
-                              ),
-                              border: const OutlineInputBorder(),
-                              focusedBorder: const OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Color(0xff0e639c),
-                                ),
+                                                  )
+                                                : SvgPicture.asset(
+                                                    'assets/icons/ai.svg',
+                                                    height: 20,
+                                                    width: 20,
+                                                    colorFilter: ColorFilter.mode(
+                                                      canGenerate
+                                                          ? widget.appTheme.selectScreenCardTextColor
+                                                              .withValues(alpha: 0.85)
+                                                          : widget.appTheme.selectScreenCardTextColor
+                                                              .withValues(alpha: 0.35),
+                                                      BlendMode.srcIn,
+                                                    ),
+                                                  ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                            hintText: "Commit message",
+                            hintStyle: TextStyle(
+                              color: widget.appTheme.selectScreenCardTextColor
+                                  .withAlpha(120),
+                            ),
+                            border: const OutlineInputBorder(),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color(0xff0e639c),
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                      builder: (context, authState) {
-                        final isSignedIn = authState.isSignedIn;
-                        return BlocBuilder<RepoStatusBloc, RepoStatusState>(
-                          builder: (_, repoState) {
-                            return Column(
-                              children: [
-                                if (repoState is RepoStatusLoaded)
-                                  _buildCommitButton(context, repoState, isSignedIn),
-                                if (repoState is RepoStatusLoading || repoState is RepoStatusInitial) ...[
-                                  const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(top: 20),
-                                      child: CircularProgressIndicator(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                    builder: (context, authState) {
+                      final isSignedIn = authState.isSignedIn;
+                      return BlocBuilder<RepoStatusBloc, RepoStatusState>(
+                        builder: (_, repoState) {
+                          return Column(
+                            children: [
+                              if (repoState is RepoStatusLoaded)
+                                _buildCommitButton(context, repoState, isSignedIn),
+                              if (repoState is RepoStatusLoading || repoState is RepoStatusInitial) ...[
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(top: 20),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              ] else if (repoState is RepoStatusError) ...[
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    'Error: ${repoState.message}',
+                                    style: TextStyle(
+                                      color: widget.appTheme.selectScreenCardTextColor,
                                     ),
                                   ),
-                                ] else if (repoState is RepoStatusError) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      'Error: ${repoState.message}',
-                                      style: TextStyle(
-                                        color: widget.appTheme.selectScreenCardTextColor,
-                                      ),
-                                    ),
-                                  ),
-                                ] else if (repoState is RepoStatusLoaded) ...[
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (repoState.staged.isNotEmpty)
-                                        _buildCollapsibleChangesList(
-                                          title: "Staged Changes",
-                                          isExpanded: _stagedExpanded,
-                                          onToggle: () => setState(() => _stagedExpanded =!_stagedExpanded),
-                                          itemCount: repoState.staged.length,
-                                          actionButton: Tooltip(
-                                            message: "Unstage All Changes",
-                                            child: IconButton(
-                                              onPressed: () async {
-                                                await unstageAll(
-                                                  widget.workSpace,
-                                                );
-                                                try {
-                                                  if (context.mounted) {
-                                                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                  }
-                                                } catch (_) {}
-                                              },
-                                              icon: Text(
-                                                "—",
-                                                style: TextStyle(
-                                                  color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          controller: _stagedScrollController,
-                                          itemBuilder: (_, index) {
-                                            final fileName =
-                                                _extractGitFilename(
-                                                  repoState.staged[index],
-                                                );
-                                            final (String, Color)
-                                            repoIndicator =
-                                                gitFileStatus[repoState.staged[index].substring(0, 2).trim()]!;
-                                            return Padding(
-                                              padding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 3,
-                                                ),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  onTap: () {},
-                                                  child: Container(
-                                                    padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 10,
-                                                      ),
-                                                    decoration: BoxDecoration(
-                                                      color: widget.appTheme.isDark
-                                                        ? Colors.white.withValues(alpha: 0.03)
-                                                        : Colors.black.withValues(alpha: 0.03),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                      border: Border.all(
-                                                        color: repoIndicator.$2.withValues(alpha: 0.2),
-                                                        width: 1,
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        Container(
-                                                          width: 32,
-                                                          height: 32,
-                                                          padding: const EdgeInsets.all(6),
-                                                          decoration: BoxDecoration(
-                                                            color: repoIndicator.$2.withValues(alpha: 0.1),
-                                                            borderRadius: BorderRadius.circular(6),
-                                                          ),
-                                                          child: (() {
-                                                            try {
-                                                              return languages.singleWhere((lang) => 
-                                                                lang.extension.contains(
-                                                                  path.extension(path.basename(fileName),).replaceAll('.','',)
-                                                                )).icon;
-                                                            } catch (e) {
-                                                              return Icon(
-                                                                Icons .insert_drive_file,
-                                                                size: 18,
-                                                                color: repoIndicator.$2,
-                                                              );
-                                                            }
-                                                          })(),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Text(path.basename(fileName),
-                                                                style: TextStyle(
-                                                                  fontSize: 13.5,
-                                                                  fontWeight: FontWeight.w500,
-                                                                  color: repoIndicator.$2,
-                                                                ),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 2,
-                                                              ),
-                                                              Text(
-                                                                fileName,
-                                                                style: TextStyle(
-                                                                  fontSize: 11,
-                                                                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
-                                                                ),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 3,
-                                                            ),
-                                                          decoration: BoxDecoration(
-                                                            color: repoIndicator.$2.withValues(alpha: 0.15),
-                                                            borderRadius: BorderRadius.circular(4),
-                                                          ),
-                                                          child: Text(
-                                                            repoIndicator.$1,
-                                                            style: TextStyle(
-                                                              color: repoIndicator.$2,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 11,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Tooltip(
-                                                          message:"Unstage Changes",
-                                                          child: InkWell(
-                                                            borderRadius:BorderRadius.circular(4),
-                                                            onTap: () async {
-                                                              await unstageChange(fileName,widget.workSpace);
-                                                              if (context.mounted) {
-                                                                try {
-                                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                                } catch (_) {}
-                                                              }
-                                                            },
-                                                            child: Padding(
-                                                              padding: const EdgeInsets.all(6),
-                                                              child: Icon(
-                                                                Icons.remove_circle_outline,
-                                                                size: 18,
-                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      if (repoState.unstaged.isNotEmpty)
-                                        _buildCollapsibleChangesList(
-                                          title: "Unstaged Changes",
-                                          isExpanded: _unstagedExpanded,
-                                          onToggle: () => setState(
-                                            () => _unstagedExpanded =
-                                                !_unstagedExpanded,
-                                          ),
-                                          itemCount: repoState.unstaged.length,
-                                          actionButton: Tooltip(
-                                            message: "Stage All Changes",
-                                            child: IconButton(
-                                              onPressed: () async {
-                                                await stageAll(
-                                                  widget.workSpace,
-                                                );
+                                ),
+                              ] else if (repoState is RepoStatusLoaded) ...[
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (repoState.staged.isNotEmpty)
+                                      _buildCollapsibleChangesList(
+                                        title: "Staged Changes",
+                                        isExpanded: _stagedExpanded,
+                                        onToggle: () => setState(() => _stagedExpanded =!_stagedExpanded),
+                                        itemCount: repoState.staged.length,
+                                        actionButton: Tooltip(
+                                          message: "Unstage All Changes",
+                                          child: IconButton(
+                                            onPressed: () async {
+                                              await unstageAll(
+                                                widget.workSpace,
+                                              );
+                                              try {
                                                 if (context.mounted) {
-                                                  try {
-                                                    context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                  } catch (_) {}
+                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
                                                 }
-                                              },
-                                              icon: Icon(
-                                                Icons.add,
+                                              } catch (_) {}
+                                            },
+                                            icon: Text(
+                                              "—",
+                                              style: TextStyle(
                                                 color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
                                               ),
                                             ),
                                           ),
-                                          controller: _unstagedScrollController,
-                                          itemBuilder: (_, index) {
-                                            final fileName =_extractGitFilename(repoState.unstaged[index]);
-                                            final (String, Color)
-                                            repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0, 2).trim()]!;
-                                            return Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 3),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius:BorderRadius.circular(8),
-                                                  onTap: () {
-                                                    widget.onOpenDiffView?.call(fileName, widget.workSpace, widget.activeEditorsBloc!);
-                                                  },
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                                    decoration: BoxDecoration(
-                                                      color: widget.appTheme.isDark
-                                                        ? Colors.white.withValues(alpha: 0.03)
-                                                        : Colors.black.withValues(alpha: 0.03),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                      border: Border.all(
-                                                        color: repoIndicator.$2.withValues(alpha: 0.2),
-                                                        width: 1,
-                                                      ),
+                                        ),
+                                        controller: _stagedScrollController,
+                                        itemBuilder: (_, index) {
+                                          final fileName =
+                                              _extractGitFilename(
+                                                repoState.staged[index],
+                                              );
+                                          final (String, Color)
+                                          repoIndicator =
+                                              gitFileStatus[repoState.staged[index].substring(0, 2).trim()]!;
+                                          return Padding(
+                                            padding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 3,
+                                              ),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(8),
+                                                onTap: () {},
+                                                child: Container(
+                                                  padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10,
                                                     ),
-                                                    child: Row(
-                                                      children: [
-                                                        Container(
-                                                          width: 32,
-                                                          height: 32,
-                                                          padding: const EdgeInsets.all(6),
-                                                          decoration: BoxDecoration(
-                                                            color: repoIndicator.$2.withValues(alpha: 0.1),
-                                                            borderRadius: BorderRadius.circular(6),
-                                                          ),
-                                                          child: (() {
-                                                            try {
-                                                              return languages.singleWhere((lang)
-                                                                => lang.extension.contains(path.extension(
-                                                                    path.basename(fileName)).replaceAll('.', ''),
-                                                                    ),
-                                                                  ).icon;
-                                                            } catch (e) {
-                                                              return Icon(
-                                                                Icons.insert_drive_file,
-                                                                size: 18,
-                                                                color: repoIndicator.$2,
-                                                              );
-                                                            }
-                                                          })(),
+                                                  decoration: BoxDecoration(
+                                                    color: widget.appTheme.isDark
+                                                      ? Colors.white.withValues(alpha: 0.03)
+                                                      : Colors.black.withValues(alpha: 0.03),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(
+                                                      color: repoIndicator.$2.withValues(alpha: 0.2),
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 32,
+                                                        height: 32,
+                                                        padding: const EdgeInsets.all(6),
+                                                        decoration: BoxDecoration(
+                                                          color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                          borderRadius: BorderRadius.circular(6),
                                                         ),
-                                                        const SizedBox(width: 12,),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Text(path.basename(fileName),
-                                                                style: TextStyle(
-                                                                  fontSize:13.5,
-                                                                  fontWeight: FontWeight.w500,
-                                                                  color: repoIndicator.$2,
-                                                                ),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                              const SizedBox(height: 2),
-                                                              Text(
-                                                                fileName,
-                                                                style: TextStyle(
-                                                                  fontSize: 11,
-                                                                  color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
-                                                                ),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6,vertical: 3),
-                                                          decoration: BoxDecoration(
-                                                            color: repoIndicator.$2.withValues(alpha: 0.15),
-                                                            borderRadius: BorderRadius.circular(4),
-                                                          ),
-                                                          child: Text(
-                                                            repoIndicator.$1,
-                                                            style: TextStyle(
+                                                        child: (() {
+                                                          try {
+                                                            return languages.singleWhere((lang) => 
+                                                              lang.extension.contains(
+                                                                path.extension(path.basename(fileName),).replaceAll('.','',)
+                                                              )).icon;
+                                                          } catch (e) {
+                                                            return Icon(
+                                                              Icons .insert_drive_file,
+                                                              size: 18,
                                                               color: repoIndicator.$2,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 11,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 4),
-                                                        Tooltip(
-                                                          message: "Discard Change",
-                                                          child: InkWell(
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            onTap: () {
-                                                              final repoBloc = context.read<RepoStatusBloc>();
-                                                              showDialog(
-                                                                context: context,
-                                                                builder: (context) => BlocProvider.value(
-                                                                  value: repoBloc,
-                                                                  child: AlertDialog(
-                                                                    title: Text(
-                                                                      "Are you sure want to discard the changes?",
-                                                                      style: TextStyle(
-                                                                        color: Colors.grey[400],
-                                                                        fontSize: 20,
-                                                                      ),
-                                                                    ),
-                                                                    backgroundColor:widget.appTheme.isDark
-                                                                        ? const Color(0xff2b2b2b)
-                                                                        : const Color.fromARGB(255,240,240,240),
-                                                                    icon: const Icon(Icons.info_outline, size: 35),
-                                                                    iconColor: Colors.blue,
-                                                                    actionsAlignment:MainAxisAlignment.center,
-                                                                    actions: [
-                                                                      TextButton(
-                                                                        onPressed: () => Navigator.of(context,).pop(),
-                                                                        child: const Text(
-                                                                          "Cancel",
-                                                                          style: TextStyle(
-                                                                            color:Colors.red,
-                                                                            fontSize:17,
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                      const SizedBox(width:25),
-                                                                      TextButton(
-                                                                        onPressed: () async {
-                                                                          try {
-                                                                            await gitRestoreFile(fileName, widget.workSpace);
-                                                                            if (!context.mounted) return;
-
-                                                                            final activeEditorBloc = widget.activeEditorsBloc;
-                                                                            if (activeEditorBloc != null) {
-                                                                              final activeEditors = activeEditorBloc.state.activeEditors;
-                                                                              ActiveEditor? activeEditor;
-
-                                                                              for (final editor in activeEditors) {
-                                                                                if (editor.isActive) {
-                                                                                  activeEditor = editor;
-                                                                                  break;
-                                                                                }
-                                                                              }
-
-                                                                              activeEditor ??= activeEditors.isNotEmpty ? activeEditors.first: null;
-                                                                              activeEditor?.controller.refetchFile();
-                                                                            }
-
-                                                                            try {
-                                                                              repoBloc.add(LoadRepoStatus(widget.workSpace));
-                                                                            } catch (_) {}
-                                                                          } catch (_) {
-                                                                            if (context.mounted) {
-                                                                              _showErrorSnackBar(
-                                                                                context,
-                                                                                'Failed to discard changes',
-                                                                              );
-                                                                            }
-                                                                          } finally {
-                                                                            if (context.mounted) {
-                                                                              Navigator.of(context).pop();
-                                                                            }
-                                                                          }
-                                                                        },
-                                                                        child: const Text(
-                                                                          "Yes",
-                                                                          style: TextStyle(
-                                                                            color: Colors.blue,
-                                                                            fontSize: 17,
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                            child: Padding(
-                                                              padding: const EdgeInsets.all(6),
-                                                              child: FaIcon(
-                                                                FontAwesomeIcons.arrowRotateLeft,
-                                                                size: 16,
-                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                            );
+                                                          }
+                                                        })(),
+                                                      ),
+                                                      const SizedBox(
+                                                        width: 12,
+                                                      ),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(path.basename(fileName),
+                                                              style: TextStyle(
+                                                                fontSize: 13.5,
+                                                                fontWeight: FontWeight.w500,
+                                                                color: repoIndicator.$2,
                                                               ),
+                                                              overflow: TextOverflow.ellipsis,
                                                             ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Tooltip(
-                                                          message: "Stage Changes",
-                                                          child: InkWell(
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            onTap: () async {
-                                                              await stageChange(fileName, widget.workSpace);
-                                                              if (context.mounted) {
-                                                                try {
-                                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
-                                                                } catch (_) {}
-                                                              }
-                                                            },
-                                                            child: Padding(
-                                                              padding: const EdgeInsets.all(6),
-                                                              child: Icon(
-                                                                Icons.add_circle_outline,
-                                                                size: 18,
-                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                            const SizedBox(
+                                                              height: 2,
+                                                            ),
+                                                            Text(
+                                                              fileName,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
                                                               ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 3,
+                                                          ),
+                                                        decoration: BoxDecoration(
+                                                          color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          repoIndicator.$1,
+                                                          style: TextStyle(
+                                                            color: repoIndicator.$2,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 11,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        width: 4,
+                                                      ),
+                                                      Tooltip(
+                                                        message:"Unstage Changes",
+                                                        child: InkWell(
+                                                          borderRadius:BorderRadius.circular(4),
+                                                          onTap: () async {
+                                                            await unstageChange(fileName,widget.workSpace);
+                                                            if (context.mounted) {
+                                                              try {
+                                                                context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                              } catch (_) {}
+                                                            }
+                                                          },
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(6),
+                                                            child: Icon(
+                                                              Icons.remove_circle_outline,
+                                                              size: 18,
+                                                              color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
                                                             ),
                                                           ),
                                                         ),
-                                                      ],
-                                                    ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
-                                            );
-                                          },
-                                        ),
-                                      Divider(thickness: 0.1,endIndent: 12,color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                      _buildCollapsibleCommitGraph(),
-                                    ],
-                                  ),
-                                ],
+                                    if (repoState.unstaged.isNotEmpty)
+                                      _buildCollapsibleChangesList(
+                                        title: "Unstaged Changes",
+                                        isExpanded: _unstagedExpanded,
+                                        onToggle: () => setState(
+                                          () => _unstagedExpanded =
+                                              !_unstagedExpanded,
+                                        ),
+                                        itemCount: repoState.unstaged.length,
+                                        actionButton: Tooltip(
+                                          message: "Stage All Changes",
+                                          child: IconButton(
+                                            onPressed: () async {
+                                              await stageAll(
+                                                widget.workSpace,
+                                              );
+                                              if (context.mounted) {
+                                                try {
+                                                  context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                } catch (_) {}
+                                              }
+                                            },
+                                            icon: Icon(
+                                              Icons.add,
+                                              color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                            ),
+                                          ),
+                                        ),
+                                        controller: _unstagedScrollController,
+                                        itemBuilder: (_, index) {
+                                          final fileName =_extractGitFilename(repoState.unstaged[index]);
+                                          final (String, Color)
+                                          repoIndicator = gitFileStatus[repoState.unstaged[index].substring(0, 2).trim()]!;
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8,vertical: 3),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:BorderRadius.circular(8),
+                                                onTap: () {
+                                                  widget.onOpenDiffView?.call(fileName, widget.workSpace, widget.activeEditorsBloc!);
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                  decoration: BoxDecoration(
+                                                    color: widget.appTheme.isDark
+                                                      ? Colors.white.withValues(alpha: 0.03)
+                                                      : Colors.black.withValues(alpha: 0.03),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(
+                                                      color: repoIndicator.$2.withValues(alpha: 0.2),
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 32,
+                                                        height: 32,
+                                                        padding: const EdgeInsets.all(6),
+                                                        decoration: BoxDecoration(
+                                                          color: repoIndicator.$2.withValues(alpha: 0.1),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: (() {
+                                                          try {
+                                                            return languages.singleWhere((lang)
+                                                              => lang.extension.contains(path.extension(
+                                                                  path.basename(fileName)).replaceAll('.', ''),
+                                                                  ),
+                                                                ).icon;
+                                                          } catch (e) {
+                                                            return Icon(
+                                                              Icons.insert_drive_file,
+                                                              size: 18,
+                                                              color: repoIndicator.$2,
+                                                            );
+                                                          }
+                                                        })(),
+                                                      ),
+                                                      const SizedBox(width: 12,),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Text(path.basename(fileName),
+                                                              style: TextStyle(
+                                                                fontSize:13.5,
+                                                                fontWeight: FontWeight.w500,
+                                                                color: repoIndicator.$2,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              fileName,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.5),
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6,vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          color: repoIndicator.$2.withValues(alpha: 0.15),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          repoIndicator.$1,
+                                                          style: TextStyle(
+                                                            color: repoIndicator.$2,
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 11,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Tooltip(
+                                                        message: "Discard Change",
+                                                        child: InkWell(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          onTap: () {
+                                                            final repoBloc = context.read<RepoStatusBloc>();
+                                                            showDialog(
+                                                              context: context,
+                                                              builder: (context) => BlocProvider.value(
+                                                                value: repoBloc,
+                                                                child: AlertDialog(
+                                                                  title: Text(
+                                                                    "Are you sure want to discard the changes?",
+                                                                    style: TextStyle(
+                                                                      color: Colors.grey[400],
+                                                                      fontSize: 20,
+                                                                    ),
+                                                                  ),
+                                                                  backgroundColor:widget.appTheme.isDark
+                                                                      ? const Color(0xff2b2b2b)
+                                                                      : const Color.fromARGB(255,240,240,240),
+                                                                  icon: const Icon(Icons.info_outline, size: 35),
+                                                                  iconColor: Colors.blue,
+                                                                  actionsAlignment:MainAxisAlignment.center,
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      onPressed: () => Navigator.of(context,).pop(),
+                                                                      child: const Text(
+                                                                        "Cancel",
+                                                                        style: TextStyle(
+                                                                          color:Colors.red,
+                                                                          fontSize:17,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(width:25),
+                                                                    TextButton(
+                                                                      onPressed: () async {
+                                                                        try {
+                                                                          await gitRestoreFile(fileName, widget.workSpace);
+                                                                          if (!context.mounted) return;
+
+                                                                          final activeEditorBloc = widget.activeEditorsBloc;
+                                                                          if (activeEditorBloc != null) {
+                                                                            final activeEditors = activeEditorBloc.state.activeEditors;
+                                                                            ActiveEditor? activeEditor;
+
+                                                                            for (final editor in activeEditors) {
+                                                                              if (editor.isActive) {
+                                                                                activeEditor = editor;
+                                                                                break;
+                                                                              }
+                                                                            }
+
+                                                                            activeEditor ??= activeEditors.isNotEmpty ? activeEditors.first: null;
+                                                                            activeEditor?.controller.refetchFile();
+                                                                          }
+
+                                                                          try {
+                                                                            repoBloc.add(LoadRepoStatus(widget.workSpace));
+                                                                          } catch (_) {}
+                                                                        } catch (_) {
+                                                                          if (context.mounted) {
+                                                                            _showErrorSnackBar(
+                                                                              context,
+                                                                              'Failed to discard changes',
+                                                                            );
+                                                                          }
+                                                                        } finally {
+                                                                          if (context.mounted) {
+                                                                            Navigator.of(context).pop();
+                                                                          }
+                                                                        }
+                                                                      },
+                                                                      child: const Text(
+                                                                        "Yes",
+                                                                        style: TextStyle(
+                                                                          color: Colors.blue,
+                                                                          fontSize: 17,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(6),
+                                                            child: FaIcon(
+                                                              FontAwesomeIcons.arrowRotateLeft,
+                                                              size: 16,
+                                                              color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        width: 4,
+                                                      ),
+                                                      Tooltip(
+                                                        message: "Stage Changes",
+                                                        child: InkWell(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          onTap: () async {
+                                                            await stageChange(fileName, widget.workSpace);
+                                                            if (context.mounted) {
+                                                              try {
+                                                                context.read<RepoStatusBloc>().add(LoadRepoStatus(widget.workSpace));
+                                                              } catch (_) {}
+                                                            }
+                                                          },
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(6),
+                                                            child: Icon(
+                                                              Icons.add_circle_outline,
+                                                              size: 18,
+                                                              color: widget.appTheme.selectScreenCardTextColor.withValues(alpha:0.6),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    Divider(thickness: 0.1,endIndent: 12,color: widget.appTheme.selectScreenCardTextColor.withAlpha(180),
+                                    ),
+                                    _buildCollapsibleCommitGraph(),
+                                  ],
+                                ),
                               ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ],
-              ),
+              ],
             ),
-          )
-        : Center(
-            child: Text(
-              "Cannot initalize a git repository in the temp directory.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: widget.appTheme.selectScreenCardTextColor,
-              ),
+          ),
+        )
+      : Center(
+          child: Text(
+            "Cannot initalize a git repository in the temp directory.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: widget.appTheme.selectScreenCardTextColor,
             ),
-          );
+          ),
+        );
   }
 }
-
-
 
 class APITesting extends StatelessWidget {
   final Map<String, String> params, headers;
@@ -8926,32 +8926,16 @@ class APITesting extends StatelessWidget {
               };
           if (webState.params.isNotEmpty) {
             for (int index = 0; index < webState.params.length; index++) {
-              paramControllers.keys.toList()[index].text = webState.params.keys
-                  .toList()[index];
-              paramControllers.values.toList()[index].text = webState
-                  .params
-                  .values
-                  .toList()[index];
-              params[webState.params.keys.toList()[index]] = webState
-                  .params
-                  .values
-                  .toList()[index];
+              paramControllers.keys.toList()[index].text = webState.params.keys.toList()[index];
+              paramControllers.values.toList()[index].text = webState.params.values.toList()[index];
+              params[webState.params.keys.toList()[index]] = webState.params.values.toList()[index];
             }
           }
           if (webState.headers.isNotEmpty) {
             for (int index = 0; index < webState.headers.length; index++) {
-              headerControllers.keys.toList()[index].text = webState
-                  .headers
-                  .keys
-                  .toList()[index];
-              headerControllers.values.toList()[index].text = webState
-                  .headers
-                  .values
-                  .toList()[index];
-              headers[webState.headers.keys.toList()[index]] = webState
-                  .headers
-                  .values
-                  .toList()[index];
+              headerControllers.keys.toList()[index].text = webState.headers.keys.toList()[index];
+              headerControllers.values.toList()[index].text = webState.headers.values.toList()[index];
+              headers[webState.headers.keys.toList()[index]] = webState.headers.values.toList()[index];
             }
           }
           apiUrlController.text = webState.url ?? "Enter URL";
@@ -8964,8 +8948,8 @@ class APITesting extends StatelessWidget {
                 style: TextStyle(
                   color: appTheme.selectScreenCardTextColor,
                   fontWeight: appTheme.isDark
-                      ? FontWeight.w300
-                      : FontWeight.w500,
+                    ? FontWeight.w300
+                    : FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 15),
@@ -8974,8 +8958,8 @@ class APITesting extends StatelessWidget {
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
                   value: webState.method,
                   dropdownColor: appTheme.isDark
-                      ? const Color(0xff2b2b2b)
-                      : const Color.fromARGB(255, 241, 241, 241),
+                    ? const Color(0xff2b2b2b)
+                    : const Color.fromARGB(255, 241, 241, 241),
                   items: [
                     DropdownMenuItem(
                       value: "POST",
@@ -8984,8 +8968,8 @@ class APITesting extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xffe0790b),
                           fontWeight: appTheme.isDark
-                              ? FontWeight.w500
-                              : FontWeight.w600,
+                            ? FontWeight.w500
+                            : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -8996,8 +8980,8 @@ class APITesting extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xff26cda3),
                           fontWeight: appTheme.isDark
-                              ? FontWeight.w500
-                              : FontWeight.w600,
+                            ? FontWeight.w500
+                            : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -9008,8 +8992,8 @@ class APITesting extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xff097bed),
                           fontWeight: appTheme.isDark
-                              ? FontWeight.w500
-                              : FontWeight.w600,
+                            ? FontWeight.w500
+                            : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -9020,8 +9004,8 @@ class APITesting extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xfff22814),
                           fontWeight: appTheme.isDark
-                              ? FontWeight.w500
-                              : FontWeight.w600,
+                            ? FontWeight.w500
+                            : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -9056,12 +9040,12 @@ class APITesting extends StatelessWidget {
                 labelPadding: const EdgeInsets.symmetric(horizontal: 2),
                 controller: paramTabController,
                 dividerColor: appTheme.isDark
-                    ? const Color.fromARGB(255, 61, 61, 61)
-                    : const Color.fromARGB(255, 182, 182, 182),
+                  ? const Color.fromARGB(255, 61, 61, 61)
+                  : const Color.fromARGB(255, 182, 182, 182),
                 dividerHeight: 1.5,
                 unselectedLabelColor: appTheme.isDark
-                    ? Colors.grey
-                    : const Color.fromARGB(255, 102, 102, 102),
+                  ? Colors.grey
+                  : const Color.fromARGB(255, 102, 102, 102),
                 labelColor: const Color.fromARGB(255, 62, 142, 195),
                 indicatorColor: const Color(0xff0e639c),
                 indicatorWeight: 2.5,
@@ -9147,29 +9131,16 @@ class APITesting extends StatelessWidget {
                               IconButton(
                                 onPressed: () {
                                   if (index == webState.params.length) {
-                                    if (paramControllers.keys
-                                            .toList()[index]
-                                            .text
-                                            .isNotEmpty &&
-                                        paramControllers.values
-                                            .toList()[index]
-                                            .text
-                                            .isNotEmpty) {
-                                      params.addEntries(
-                                        {
-                                          paramControllers.keys
-                                              .toList()[index]
-                                              .text: paramControllers.values
-                                              .toList()[index]
-                                              .text,
+                                    if (paramControllers.keys.toList()[index].text.isNotEmpty &&
+                                        paramControllers.values.toList()[index].text.isNotEmpty) {
+                                      params.addEntries({
+                                          paramControllers.keys.toList()[index].text: paramControllers.values.toList()[index].text,
                                         }.entries,
                                       );
                                     }
                                   } else {
                                     params.remove(
-                                      paramControllers.keys
-                                          .toList()[index]
-                                          .text,
+                                      paramControllers.keys.toList()[index].text,
                                     );
                                   }
                                   context.read<ApiBloc>().add(
@@ -9180,32 +9151,25 @@ class APITesting extends StatelessWidget {
                                   )[0];
                                   String queryString = '';
                                   if (params.isNotEmpty) {
-                                    queryString = params.entries
-                                        .map(
-                                          (entry) =>
-                                              '${entry.key}=${entry.value}',
-                                        )
-                                        .join('&');
+                                    queryString = params.entries.map((entry) =>'${entry.key}=${entry.value}').join('&');
                                   }
                                   String newUrl = queryString.isNotEmpty
-                                      ? '$baseUrl?$queryString'
-                                      : baseUrl;
-                                  apiUrlController.value = apiUrlController
-                                      .value
-                                      .copyWith(
-                                        text: newUrl,
-                                        selection: TextSelection.collapsed(
-                                          offset: newUrl.length,
-                                        ),
-                                      );
+                                    ? '$baseUrl?$queryString'
+                                    : baseUrl;
+                                  apiUrlController.value = apiUrlController.value.copyWith(
+                                    text: newUrl,
+                                    selection: TextSelection.collapsed(
+                                      offset: newUrl.length,
+                                    ),
+                                  );
                                   context.read<ApiBloc>().add(
                                     GetUrl(url: newUrl),
                                   );
                                 },
                                 icon: Icon(
                                   index == webState.params.length
-                                      ? Icons.add
-                                      : Icons.remove,
+                                    ? Icons.add
+                                    : Icons.remove,
                                   color: Colors.grey,
                                 ),
                               ),
@@ -9215,9 +9179,7 @@ class APITesting extends StatelessWidget {
                       }),
                     ),
                     Column(
-                      children: List.generate(webState.headers.length + 1, (
-                        index,
-                      ) {
+                      children: List.generate(webState.headers.length + 1, (index) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 5),
                           child: Row(
@@ -9227,8 +9189,7 @@ class APITesting extends StatelessWidget {
                                 child: TextField(
                                   cursorColor: Colors.grey,
                                   style: const TextStyle(color: Colors.grey),
-                                  controller: headerControllers.keys
-                                      .toList()[index],
+                                  controller: headerControllers.keys.toList()[index],
                                   textAlignVertical: TextAlignVertical.top,
                                   decoration: const InputDecoration(
                                     contentPadding: EdgeInsets.symmetric(
@@ -9250,8 +9211,7 @@ class APITesting extends StatelessWidget {
                                 child: TextField(
                                   cursorColor: Colors.grey,
                                   style: const TextStyle(color: Colors.grey),
-                                  controller: headerControllers.values
-                                      .toList()[index],
+                                  controller: headerControllers.values.toList()[index],
                                   textAlignVertical: TextAlignVertical.top,
                                   decoration: const InputDecoration(
                                     contentPadding: EdgeInsets.symmetric(
@@ -9270,29 +9230,16 @@ class APITesting extends StatelessWidget {
                               IconButton(
                                 onPressed: () {
                                   if (index == webState.headers.length) {
-                                    if (headerControllers.keys
-                                            .toList()[index]
-                                            .text
-                                            .isNotEmpty &&
-                                        headerControllers.values
-                                            .toList()[index]
-                                            .text
-                                            .isNotEmpty) {
-                                      headers.addEntries(
-                                        {
-                                          headerControllers.keys
-                                              .toList()[index]
-                                              .text: headerControllers.values
-                                              .toList()[index]
-                                              .text,
-                                        }.entries,
+                                    if (headerControllers.keys.toList()[index].text.isNotEmpty &&
+                                        headerControllers.values.toList()[index].text.isNotEmpty) {
+                                      headers.addEntries({
+                                        headerControllers.keys.toList()[index].text: headerControllers.values.toList()[index].text,
+                                      }.entries,
                                       );
                                     }
                                   } else {
                                     headers.remove(
-                                      headerControllers.keys
-                                          .toList()[index]
-                                          .text,
+                                      headerControllers.keys.toList()[index].text,
                                     );
                                   }
                                   context.read<ApiBloc>().add(
@@ -9301,8 +9248,8 @@ class APITesting extends StatelessWidget {
                                 },
                                 icon: Icon(
                                   index == webState.headers.length
-                                      ? Icons.add
-                                      : Icons.remove,
+                                    ? Icons.add
+                                    : Icons.remove,
                                   color: Colors.grey,
                                 ),
                               ),
@@ -9360,61 +9307,60 @@ class APITesting extends StatelessWidget {
                 ),
               ),
               webState.data == null
-                  ? const SizedBox.shrink()
-                  : Align(
-                      alignment: Alignment.bottomCenter,
-                      child: TabBar(
-                        controller: apiTabController,
-                        dividerColor: const Color.fromARGB(255, 61, 61, 61),
-                        dividerHeight: 1.5,
-                        unselectedLabelColor: Colors.grey,
-                        labelColor: const Color.fromARGB(255, 62, 142, 195),
-                        indicatorColor: const Color(0xff0e639c),
-                        indicatorWeight: 2.5,
-                        tabs: const [
-                          Tab(
-                            child: Text("{ }", style: TextStyle(fontSize: 22)),
-                          ),
-                          Tab(icon: FaIcon(FontAwesomeIcons.html5)),
-                          Tab(icon: Icon(Icons.raw_on_sharp, size: 35)),
-                        ],
-                      ),
+                ? const SizedBox.shrink()
+                : Align(
+                    alignment: Alignment.bottomCenter,
+                    child: TabBar(
+                      controller: apiTabController,
+                      dividerColor: const Color.fromARGB(255, 61, 61, 61),
+                      dividerHeight: 1.5,
+                      unselectedLabelColor: Colors.grey,
+                      labelColor: const Color.fromARGB(255, 62, 142, 195),
+                      indicatorColor: const Color(0xff0e639c),
+                      indicatorWeight: 2.5,
+                      tabs: const [
+                        Tab(
+                          child: Text("{ }", style: TextStyle(fontSize: 22)),
+                        ),
+                        Tab(icon: FaIcon(FontAwesomeIcons.html5)),
+                        Tab(icon: Icon(Icons.raw_on_sharp, size: 35)),
+                      ],
                     ),
+                  ),
               const SizedBox(height: 20),
               webState.data == null
-                  ? const SizedBox.shrink()
-                  : Expanded(
-                      child: TabBarView(
-                        controller: apiTabController,
-                        children: [
-                          JsonWidget(
-                            expandIcon: const Icon(
-                              Icons.keyboard_arrow_down_sharp,
-                              color: Colors.grey,
-                            ),
-                            collapseIcon: const Icon(
-                              Icons.keyboard_arrow_right_sharp,
-                              color: Colors.grey,
-                            ),
-                            json: webState.data!,
+                ? const SizedBox.shrink()
+                : Expanded(
+                    child: TabBarView(
+                      controller: apiTabController,
+                      children: [
+                        JsonWidget(
+                          expandIcon: const Icon(
+                            Icons.keyboard_arrow_down_sharp,
+                            color: Colors.grey,
                           ),
-                          InAppWebView(
-                            onWebViewCreated:
-                                (InAppWebViewController webViewController) {
-                                  webViewController.loadData(
-                                    data: webState.data!['body'],
-                                  );
-                                },
+                          collapseIcon: const Icon(
+                            Icons.keyboard_arrow_right_sharp,
+                            color: Colors.grey,
                           ),
-                          SingleChildScrollView(
-                            child: Text(
-                              webState.data!.toString(),
-                              style: const TextStyle(color: Colors.grey),
-                            ),
+                          json: webState.data!,
+                        ),
+                        InAppWebView(
+                          onWebViewCreated: (InAppWebViewController webViewController) {
+                            webViewController.loadData(
+                              data: webState.data!['body'],
+                            );
+                          },
+                        ),
+                        SingleChildScrollView(
+                          child: Text(
+                            webState.data!.toString(),
+                            style: const TextStyle(color: Colors.grey),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  ),
             ],
           );
         },
@@ -9462,6 +9408,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final AnimationController _statusPulseController;
   http.Client? _currentClient;
   bool _initialScrollDone = false;
   bool _requestedCopilotModelRefresh = false;
@@ -9471,7 +9418,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   bool _isPendingPollingActive = false;
   bool _copilotSignedInFromPrefs = false;
   StreamSubscription<CopilotState>? _copilotStateSubscription;
-  late final AnimationController _statusPulseController;
   List<AIConversation>? _pendingEditBaseConversations;
   List<AIConversation>? _pendingEditedConversations;
   String? _pendingEditOriginalText;
@@ -9658,8 +9604,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
                 final hunk = pending.editHunks[index];
                 final displayRange = _resolveDisplayLineRange(pending, hunk);
                 final lineLabel = hunk.type == 'removed'
-                    ? 'After L${displayRange.start + 1}'
-                    : 'L${displayRange.start + 1}-${displayRange.end + 1}';
+                  ? 'After L${displayRange.start + 1}'
+                  : 'L${displayRange.start + 1}-${displayRange.end + 1}';
                 return Row(
                   children: [
                     Expanded(
@@ -9753,9 +9699,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   bool get _hasPendingConversationEdit => _pendingEditBaseConversations != null;
 
   List<AIConversation> _cloneConversations(List<AIConversation> conversations) {
-    return conversations
-        .map((c) => AIConversation(c.userRequest, c.modelResponse))
-        .toList();
+    return conversations.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
   }
 
   void _restorePendingConversationEdit() {
@@ -9931,10 +9875,10 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
     _currentClient?.close();
     _currentClient = null;
-    
-    final copilotChatBloc = context.read<CopilotChatBloc>();
-    copilotChatBloc.chatClient?.cancelCurrentRequest();
-    
+
+    context.read<CopilotChatBloc>().chatClient?.cancelCurrentRequest();
+    context.read<LocalLlamaBloc>().add(LocalLlamaStopGeneration());
+
     _updateBlocState(isGenerating: false);
   }
 
@@ -10029,7 +9973,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     String? selectedModelId,
   ) {
     final isCopilotAvailable = githubSignedIn || copilotSignedIn;
-    final hasExternalModels = aiState.config.isNotEmpty;
     final List<_ModelOption> models = [];
     
 
@@ -10058,30 +10001,52 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       }
     }
     
-    if (hasExternalModels) {
-      for (final entry in aiState.config.entries) {
-        if (entry.value is! Map<String, dynamic>) continue;
-        final config = entry.value as Map<String, dynamic>;
-        final provider = config['apiProvider'] as String? ?? 'Unknown';
-        final modelName = config['model'] as String? ?? entry.key;
-        models.add(_ModelOption(
-          id: entry.key,
-          name: modelName,
-          provider: provider,
-          icon: _getProviderIcon(provider, textColor),
-          isCopilot: false,
-        ));
+    for (final entry in aiState.config.entries) {
+      if (entry.value is! Map<String, dynamic>) continue;
+      final config = entry.value as Map<String, dynamic>;
+      final provider = (config['apiProvider'] ?? config['provider'] ?? '').toString();
+      final isLocalLlama = provider == 'LocalLlama';
+      final modelName = (isLocalLlama
+          ? (config['modelName'] ?? config['model'] ?? entry.key)
+          : (config['model'] ?? entry.key)).toString();
+
+      Widget icon;
+      if (isLocalLlama) {
+        icon = BlocBuilder<LocalLlamaBloc, LocalLlamaState>(
+          builder: (context, llamaState) {
+            final isLoaded = llamaState.loadedModelPath == (config['modelPath'] ?? '').toString();
+            return Icon(
+              Icons.memory,
+              size: 14,
+              color: isLoaded ? Colors.teal : Colors.grey,
+            );
+          },
+        );
+      } else {
+        icon = _getProviderIcon(provider, textColor);
       }
+
+      models.add(_ModelOption(
+        id: entry.key,
+        name: modelName,
+        provider: isLocalLlama ? 'On-device' : (provider != 'Unknown' ? provider : null),
+        icon: icon,
+        isCopilot: false,
+      ));
     }
-    
-    if (models.isEmpty) {
-      return const SizedBox.shrink();
+
+    final uniqueModels = <_ModelOption>[];
+    final seenIds = <String>{};
+    for (final model in models) {
+      if (seenIds.add(model.id)) uniqueModels.add(model);
     }
+
+    if (uniqueModels.isEmpty) return const SizedBox.shrink();
     
     final currentModelId = selectedModelId != null && models.any((m) => m.id == selectedModelId)
-        ? selectedModelId
-        : models.first.id;
-    
+      ? selectedModelId
+      : models.first.id;
+  
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -10140,7 +10105,10 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
           onChanged: (modelId) {
             if (modelId == null) return;
             _updateBlocState(selectedModelId: modelId);
-          },
+            final currentModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+            currentModelSelected['chat'] = modelId;
+            context.read<AIBloc>().add(ModelSelectEvent(currentModelSelected));
+          }
         ),
       ),
     );
@@ -10255,8 +10223,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: appTheme.isDark
-            ? Colors.white.withAlpha(15)
-            : Colors.black.withAlpha(12),
+          ? Colors.white.withAlpha(15)
+          : Colors.black.withAlpha(12),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.withAlpha(80)),
       ),
@@ -10315,8 +10283,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: appTheme.isDark
-            ? Colors.white.withAlpha(10)
-            : Colors.black.withAlpha(10),
+          ? Colors.white.withAlpha(10)
+          : Colors.black.withAlpha(10),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.withAlpha(85)),
       ),
@@ -10339,8 +10307,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: appTheme.isDark
-                    ? Colors.black.withAlpha(80)
-                    : Colors.white.withAlpha(180),
+                  ? Colors.black.withAlpha(80)
+                  : Colors.white.withAlpha(180),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: Colors.grey.withAlpha(70)),
               ),
@@ -10386,8 +10354,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       margin: const EdgeInsets.only(top: 6, bottom: 6),
       decoration: BoxDecoration(
         color: appTheme.isDark
-            ? Colors.white.withAlpha(8)
-            : Colors.black.withAlpha(6),
+          ? Colors.white.withAlpha(8)
+          : Colors.black.withAlpha(6),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.withAlpha(70)),
       ),
@@ -10562,7 +10530,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     }
     return history;
   }
-
   
   List<Map<String, dynamic>> _buildGeminiHistory(List<AIConversation> conversations) {
     final List<Map<String, dynamic>> history = [];
@@ -10674,18 +10641,18 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         case 'activeEditorFile':
           final res = await tools.activeEditorFile();
           return res.success
-              ? (res.data ?? 'No active file')
-              : (res.error ?? 'Error getting active file');
+            ? (res.data ?? 'No active file')
+            : (res.error ?? 'Error getting active file');
         case 'currentlySelectedText':
           final res = await tools.currentlySelectedText();
           return res.success
-              ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
-              : (res.error ?? 'Error getting selected text');
+            ? 'Start Line: ${res.data?['startLine'] ?? 'Unknown'}, End Line: ${res.data?['endLine'] ?? 'Unknown'}, Text: ${res.data?['selectedText'] ?? ''}'
+            : (res.error ?? 'Error getting selected text');
         case 'getLspDiagnostics':
           final res = await tools.getLspDiagnostics(args['filePath']);
           return res.success
-              ? jsonEncode(res.data)
-              : (res.error ?? 'Error getting LSP diagnostics');
+            ? jsonEncode(res.data)
+            : (res.error ?? 'Error getting LSP diagnostics');
         case 'readFile':
           final res = await tools.readFile(
             args['filePath'],
@@ -10693,8 +10660,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             args['endLine'],
           );
           return res.success
-              ? (res.data ?? 'No content')
-              : (res.error ?? 'Error reading file');
+            ? (res.data ?? 'No content')
+            : (res.error ?? 'Error reading file');
         case 'writeFile':
           String? previousContent;
           final previousRead = await tools.readFile(args['filePath']);
@@ -10718,8 +10685,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? 'File written successfully'
-              : (res.error ?? 'Error writing file');
+            ? 'File written successfully'
+            : (res.error ?? 'Error writing file');
         case 'deleteFile':
           final previousRead = await tools.readFile(args['filePath']);
           final res = await tools.deleteFile(args['filePath']);
@@ -10735,24 +10702,24 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? 'File deleted successfully'
-              : (res.error ?? 'Error deleting file');
+            ? 'File deleted successfully'
+            : (res.error ?? 'Error deleting file');
         case 'renamePath':
           final res = await tools.renamePath(
             args['oldPath'],
             args['newPath'],
           );
           return res.success
-              ? 'Path renamed successfully'
-              : (res.error ?? 'Error renaming path');
+            ? 'Path renamed successfully'
+            : (res.error ?? 'Error renaming path');
         case 'rename':
           final res = await tools.rename(
             args['oldPath'],
             args['newPath'],
           );
           return res.success
-              ? 'Path renamed successfully'
-              : (res.error ?? 'Error renaming path');
+            ? 'Path renamed successfully'
+            : (res.error ?? 'Error renaming path');
         case 'insertAtLine':
           final res = await tools.insertAtLine(
             args['filePath'],
@@ -10772,8 +10739,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? 'Text inserted successfully'
-              : (res.error ?? 'Error inserting text');
+            ? 'Text inserted successfully'
+            : (res.error ?? 'Error inserting text');
         case 'replaceAllInFile':
           final res = await tools.replaceAllInFile(
             args['filePath'],
@@ -10796,8 +10763,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? jsonEncode(res.data)
-              : (res.error ?? 'Error replacing text');
+            ? jsonEncode(res.data)
+            : (res.error ?? 'Error replacing text');
         case 'listFiles':
           final res = await tools.listFiles(
             args['directoryPath'],
@@ -10805,18 +10772,16 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             recursive: args['recursive'] ?? false,
           );
           return res.success
-              ? (res.data?.join('\n') ?? 'No files')
-              : (res.error ?? 'Error listing files');
+            ? (res.data?.join('\n') ?? 'No files')
+            : (res.error ?? 'Error listing files');
         case 'readFilesBatch':
           final parsedFiles = (args['files'] as List?) ?? const [];
           final res = await tools.readFilesBatch(parsedFiles);
           return res.success
-              ? jsonEncode(res.data)
-              : (res.error ?? 'Error reading files batch');
+            ? jsonEncode(res.data)
+            : (res.error ?? 'Error reading files batch');
         case 'globSearchFiles':
-          final parsedExcludePatterns = (args['excludePatterns'] as List?)
-              ?.map((item) => item.toString())
-              .toList();
+          final parsedExcludePatterns = (args['excludePatterns'] as List?)?.map((item) => item.toString()).toList();
           final res = await tools.globSearchFiles(
             args['pattern'],
             directoryPath: args['directoryPath'] ?? '.',
@@ -10825,8 +10790,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             maxResults: args['maxResults'],
           );
           return res.success
-              ? (res.data?.join('\n') ?? 'No matches')
-              : (res.error ?? 'Error searching files by glob');
+            ? (res.data?.join('\n') ?? 'No matches')
+            : (res.error ?? 'Error searching files by glob');
         case 'searchInFiles':
           final res = await tools.searchInFiles(
             args['query'],
@@ -10836,11 +10801,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             useRegex: args['useRegex'] ?? false,
           );
           return res.success
-              ? (res.data
-                        ?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}')
-                        .join('\n') ??
-                    'No results')
-              : (res.error ?? 'Error searching files');
+            ? (res.data?.map((s) => '${s.filePath}:${s.lineNumber}: ${s.lineContent}').join('\n') ?? 'No results')
+            : (res.error ?? 'Error searching files');
         case 'grepInFiles':
           final res = await tools.grepInFiles(
             args['query'],
@@ -10853,8 +10815,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             maxResults: args['maxResults'],
           );
           return res.success
-              ? (res.data?.map((r) => r.toString()).join('\n') ?? 'No results')
-              : (res.error ?? 'Error grepping files');
+            ? (res.data?.map((r) => r.toString()).join('\n') ?? 'No results')
+            : (res.error ?? 'Error grepping files');
         case 'editFile':
           final res = await tools.editFile(
             args['filePath'],
@@ -10874,37 +10836,31 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? 'File edited successfully'
-              : (res.error ?? 'Error editing file');
+            ? 'File edited successfully'
+            : (res.error ?? 'Error editing file');
         case 'getPendingEditsForFile':
           final res = await tools.getPendingEditsForFile(args['filePath']);
           return res.success
-              ? (res.data == null ? 'No pending edits' : jsonEncode(res.data!.toJson()))
-              : (res.error ?? 'Error getting pending edits');
+            ? (res.data == null ? 'No pending edits' : jsonEncode(res.data!.toJson()))
+            : (res.error ?? 'Error getting pending edits');
         case 'getFileInfo':
           final res = await tools.getFileInfo(args['filePath']);
           return res.success
-              ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
-              : (res.error ?? 'Error getting file info');
+            ? 'Path: ${res.data?.path ?? 'Unknown'}, Size: ${res.data?.size ?? 0}, Modified: ${res.data?.modified ?? 'Unknown'}, IsDirectory: ${res.data?.isDirectory ?? false}'
+            : (res.error ?? 'Error getting file info');
         case 'openLinks':
           final res = await tools.openLinks(args['url']);
           return res.success
-              ? (res.data?.toString() ?? 'No content')
-              : (res.error ?? 'Error fetching web page');
+            ? (res.data?.toString() ?? 'No content')
+            : (res.error ?? 'Error fetching web page');
         case 'searchInWeb':
           final res = await tools.searchInWeb(args['searchQuery']);
           return res.success
-              ? (res.data?.map((w) => '${w.title}\n${w.url}\n${w.snippet}').join('\n---\n') ?? 'No results')
-              : (res.error ?? 'Error searching web');
+            ? (res.data?.map((w) => '${w.title}\n${w.url}\n${w.snippet}').join('\n---\n') ?? 'No results')
+            : (res.error ?? 'Error searching web');
         case 'runShellCommand':
-          final parsedArgs = (args['args'] as List?)
-                  ?.map((item) => item.toString())
-                  .toList() ??
-              <String>[];
-          final parsedEnvs = (args['envs'] as Map?)?.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              ) ??
-              <String, String>{};
+          final parsedArgs = (args['args'] as List?)?.map((item) => item.toString()).toList() ?? <String>[];
+          final parsedEnvs = (args['envs'] as Map?)?.map((key, value) => MapEntry(key.toString(), value.toString())) ?? <String, String>{};
           final preview = _shellCommandPreview(
             args['command']?.toString() ?? '',
             parsedArgs,
@@ -10934,13 +10890,13 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             );
           }
           return res.success
-              ? jsonEncode(res.data)
-              : (res.error ?? 'Error running shell command');
+            ? jsonEncode(res.data)
+            : (res.error ?? 'Error running shell command');
         case 'gitStatus':
           final res = await tools.gitStatus();
           return res.success
-              ? jsonEncode(res.data?.toJson())
-              : (res.error ?? 'Error getting git status');
+            ? jsonEncode(res.data?.toJson())
+            : (res.error ?? 'Error getting git status');
         case 'gitDiff':
           final res = await tools.gitDiff(
             filePath: args['filePath'],
@@ -10948,8 +10904,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             contextLines: args['contextLines'] ?? 3,
           );
           return res.success
-              ? (res.data ?? '')
-              : (res.error ?? 'Error getting git diff');
+            ? (res.data ?? '')
+            : (res.error ?? 'Error getting git diff');
         case 'gitLog':
           final res = await tools.gitLog(
             limit: args['limit'] ?? 20,
@@ -10975,15 +10931,14 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
   }) async {
     final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
     final availableTools = chatMode == ChatMode.agent
-        ? tools.getTools()
-        : tools.getTools(readAccessOnly: true);
+      ? tools.getTools()
+      : tools.getTools(readAccessOnly: true);
 
     final conversationMessages = _buildChatHistory(history);
     if (chatMode == ChatMode.agent) {
       conversationMessages.insert(0, {
         'role': 'system',
-        'content':
-            'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
+        'content': 'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
       });
     }
     conversationMessages.add({'role': 'user', 'content': prompt});
@@ -11095,7 +11050,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       _currentClient = null;
     }
   }
-
   
   String? _parseStreamChunk(String chunk, Models chatModel) {
     final buffer = StringBuffer();
@@ -11167,18 +11121,16 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
             } catch (_) {}
           }
         }
+      
+      case LocalLlama(): return '';
     }
     
     return buffer.isEmpty ? null : buffer.toString();
   }
 
-  
   String _getStreamingUrl(Models chatModel) {
     switch (chatModel) {
       case Gemini():
-        
-        
-        
         final uri = Uri.parse(chatModel.url);
         final newPath = uri.path.replaceFirst(':generateContent', ':streamGenerateContent');
         final newParams = Map<String, String>.from(uri.queryParameters);
@@ -11192,7 +11144,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         return chatModel.url; 
     }
   }
-
   
   Map<String, dynamic> _buildRequestBody(Models chatModel, String prompt, List<AIConversation> history) {
     switch (chatModel) {
@@ -11249,6 +11200,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
           "stream": true,
           "messages": messages,
         };
+      case LocalLlama(): return {};
     }
   }
 
@@ -11258,8 +11210,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
     final chatSessionBloc = context.read<ChatSessionBloc>();
     final chatMode = mounted
-        ? context.read<AIChatUIBloc>().state.chatMode
-        : ChatMode.ask;
+      ? context.read<AIChatUIBloc>().state.chatMode
+      : ChatMode.ask;
     final isFirstMessage = currentList.isEmpty;
 
     final newList = currentList.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
@@ -11613,6 +11565,137 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     }
   }
 
+  void _sendLocalLlamaPrompt(
+    LocalLlama model,
+    List<AIConversation> currentList,
+    String? sessionId,
+  ) async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) return;
+
+    final llamaBloc = context.read<LocalLlamaBloc>();
+    final chatSessionBloc = context.read<ChatSessionBloc>();
+    final isFirstMessage = currentList.isEmpty;
+
+    if (llamaBloc.state.loadedModelPath != model.modelPath ||
+        !llamaBloc.state.isReady) {
+      llamaBloc.add(LocalLlamaLoadModel(model));
+
+      await llamaBloc.stream.firstWhere(
+        (s) => s.status == LocalLlamaStatus.ready || s.status == LocalLlamaStatus.error,
+      );
+
+      if (llamaBloc.state.status == LocalLlamaStatus.error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load model: ${llamaBloc.state.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    final controller = llamaBloc.controller;
+    if (controller == null) return;
+
+    final newList = currentList
+      .map((c) => AIConversation(c.userRequest, c.modelResponse))
+      .toList();
+    newList.add(AIConversation(prompt, ''));
+    chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+
+    final int index = newList.length - 1;
+    _promptController.clear();
+    _updateBlocState(isGenerating: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    try {
+      final messages = _buildChatHistory(currentList)
+        .map((m) => ChatMessage(
+          role: m['role'] as String,
+          content: m['content'] as String,
+        )).toList();
+      messages.add(ChatMessage(role: 'user', content: prompt));
+
+      final fullResponse = StringBuffer();
+
+      await controller.generateChat(
+        messages: messages,
+        maxTokens: 2048,
+        temperature: 0.7,
+      ).listen((token) {
+          fullResponse.write(token);
+          newList[index] = newList[index].copyWith(
+            modelResponse: fullResponse.toString(),
+          );
+          chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController
+                  .jumpTo(_scrollController.position.maxScrollExtent);
+            }
+          });
+        },
+        onError: (e) {
+          final currentSession = chatSessionBloc.state.currentSession;
+          if (currentSession != null) {
+            final updated = currentSession.conversations
+              .map((c) => AIConversation(c.userRequest, c.modelResponse))
+              .toList();
+            if (index < updated.length) {
+              updated[index] = updated[index].copyWith(
+                modelResponse: _userFacingChatErrorMessage(e),
+              );
+              chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+            }
+          }
+        },
+      )
+      .asFuture();
+
+      _updateBlocState(isGenerating: false);
+      llamaBloc.add(LocalLlamaGenerationDone());
+
+      if (isFirstMessage && fullResponse.isNotEmpty) {
+        final fallbackTitle = prompt.split(' ').take(5).join(' ');
+        final currentSession = chatSessionBloc.state.currentSession;
+        if (currentSession != null) {
+          chatSessionBloc.add(UpdateSessionTitle(
+            sessionId: currentSession.id,
+            title: fallbackTitle,
+          ));
+        }
+      }
+    } catch (e, st) {
+      _logChatError('sendLocalLlama', e, st);
+      final currentSession = chatSessionBloc.state.currentSession;
+      if (currentSession != null) {
+        final updated = currentSession.conversations
+            .map((c) => AIConversation(c.userRequest, c.modelResponse))
+            .toList();
+        if (index < updated.length) {
+          updated[index] = updated[index].copyWith(
+            modelResponse: _userFacingChatErrorMessage(e),
+          );
+          chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+        }
+      }
+      _updateBlocState(isGenerating: false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -11623,411 +11706,447 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         }
       },
       child: BlocBuilder<AIChatUIBloc, AIChatUIState>(
-      builder: (context, aiChatUIState) {
-      return BlocBuilder<AppThemeBloc, AppThemeState>(
-      builder: (context, appThemeState) {
-        return BlocBuilder<AIBloc, AIState>(
-          builder: (context, aiState) {
-            final Models? chatModel = aiState.chatModel;
-            final bool externalModelConfigured = !(aiState.config.isEmpty ||
-                aiState.modelSelected.isEmpty ||
-                aiState.modelSelected['chat'] == null ||
-                aiState.config[aiState.modelSelected['chat']] == null
-              );
-                
-            return BlocBuilder<ChatSessionBloc, ChatSessionState>(
-              builder: (context, sessionState) {
-                final baseConversations = sessionState.currentSession?.conversations ?? [];
-                final conversations = _pendingEditedConversations ?? baseConversations;
-                final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
-                final textColor = appThemeState.appTheme.selectScreenCardTextColor;
-                final isDark = appThemeState.appTheme.isDark;
-                
-                return BlocBuilder<GithubAuthCubit, GithubAuthState>(
-                  builder: (context, authState) {
-                    final githubSignedIn = authState.isSignedIn;
-                    final copilotSignedIn =
-                        context.watch<CopilotBloc>().state.isSignedIn ||
-                        _copilotSignedInFromPrefs;
-                    final bool copilotModelsAvailable = githubSignedIn || copilotSignedIn;
-                    
-                    if (!externalModelConfigured && !copilotModelsAvailable) {
-                      return Center(
-                        child: Text(
-                          "Chat model is not configured. Either create a model in settings or sign in with GitHub Copilot.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: appThemeState.appTheme.selectScreenCardTextColor,
-                          ),
-                        ),
-                      );
-                    }
-                    
-                    return BlocBuilder<CopilotChatBloc, CopilotChatState>(
-                      builder: (context, chatState) {
-                        _updatePendingPolling(aiChatUIState.isGenerating);
-                        final pendingCounts = _pendingDiffCounts(_pendingEdits);
-
-                        if ((githubSignedIn || copilotSignedIn) && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
-                          _requestedCopilotModelRefresh = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            context.read<CopilotChatBloc>().add(CopilotChatFetchModels(forceRefresh: true));
-                          });
-                        }
-                        
-                        return SafeArea(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                                  child: Column(
-                                    children: [
-                                      Column(
-                                        spacing: 3.5,
+        builder: (context, aiChatUIState) {
+          return BlocBuilder<AppThemeBloc, AppThemeState>(
+            builder: (context, appThemeState) {
+              return BlocBuilder<AIBloc, AIState>(
+                builder: (context, aiState) {
+                  final Models? chatModel = aiState.chatModel;
+                  final bool externalModelConfigured = !(aiState.config.isEmpty ||
+                      aiState.modelSelected.isEmpty ||
+                      aiState.modelSelected['chat'] == null ||
+                      aiState.config[aiState.modelSelected['chat']] == null
+                    );
+                      
+                  return BlocBuilder<ChatSessionBloc, ChatSessionState>(
+                    builder: (context, sessionState) {
+                      final baseConversations = sessionState.currentSession?.conversations ?? [];
+                      final conversations = _pendingEditedConversations ?? baseConversations;
+                      final sessionTitle = sessionState.currentSession?.title ?? 'New Chat';
+                      final textColor = appThemeState.appTheme.selectScreenCardTextColor;
+                      final isDark = appThemeState.appTheme.isDark;
+                      
+                      return BlocBuilder<GithubAuthCubit, GithubAuthState>(
+                        builder: (context, authState) {
+                          final githubSignedIn = authState.isSignedIn;
+                          final copilotSignedIn = context.watch<CopilotBloc>().state.isSignedIn || _copilotSignedInFromPrefs;
+                          final bool copilotModelsAvailable = githubSignedIn || copilotSignedIn;
+                          
+                          if (!externalModelConfigured && !copilotModelsAvailable) {
+                            return Center(
+                              child: Text(
+                                "Chat model is not configured. Either create a model in settings or sign in with GitHub Copilot.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                ),
+                              ),
+                            );
+                          }
+                          
+                          return BlocBuilder<LocalLlamaBloc, LocalLlamaState>(
+                            builder: (context, llamaState) {
+                              return BlocBuilder<CopilotChatBloc, CopilotChatState>(
+                                builder: (context, chatState) {
+                                  _updatePendingPolling(aiChatUIState.isGenerating);
+                                  final pendingCounts = _pendingDiffCounts(_pendingEdits);
+    
+                                  if ((githubSignedIn || copilotSignedIn) && !_requestedCopilotModelRefresh && !chatState.isFetchingModels) {
+                                    _requestedCopilotModelRefresh = true;
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      context.read<CopilotChatBloc>().add(CopilotChatFetchModels(forceRefresh: true));
+                                    });
+                                  }
+                                  
+                                  return SafeArea(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      child: Column(
                                         children: [
-                                          _buildModelSelector(
-                                            context, 
-                                            aiState, 
-                                            chatState, 
-                                            textColor, 
-                                            isDark,
-                                            githubSignedIn,
-                                            copilotSignedIn,
-                                            aiChatUIState.selectedModelId,
-                                          ),
-                                          Row(
-                                            children: [
-                                              Expanded(child: _buildModeSelector(textColor, isDark, aiChatUIState.chatMode)),
-                                              IconButton(
-                                                onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
-                                                icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
-                                                tooltip: 'Chat History',
-                                                visualDensity: VisualDensity.compact,
-                                              ),
-                                              IconButton(
-                                                onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
-                                                icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
-                                                tooltip: 'New Chat',
-                                                visualDensity: VisualDensity.compact,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              sessionTitle,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                                fontSize: 14,
-                                                color: textColor.withAlpha(180),
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextField(
-                                  controller: _promptController,
-                                  cursorColor: appThemeState.appTheme.selectScreenCardTextColor,
-                                  textAlignVertical: TextAlignVertical.top,
-                                  style: TextStyle(
-                                    color: appThemeState.appTheme.selectScreenCardTextColor,
-                                  ),
-                                  maxLines: null,
-                                  decoration: InputDecoration(
-                                    focusedBorder: const OutlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xff0178b9)),
-                                    ),
-                                    suffix: IconButton(
-                                      onPressed: aiChatUIState.isGenerating
-                                        ? _stopGeneration
-                                        : () async {
-                                            if (_hasPendingConversationEdit) {
-                                              final currentText = _promptController.text.trim();
-                                              final oldText = _pendingEditOriginalText?.trim() ?? '';
-                                              if (currentText == oldText) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('Text must be different'),
-                                                    backgroundColor: Colors.orange,
-                                                  ),
-                                                );
-                                                return;
-                                              }
-                                            }
-
-                                            final sendingConversations = _cloneConversations(conversations);
-                                            if (_hasPendingConversationEdit) {
-                                              setState(() {
-                                                _pendingEditBaseConversations = null;
-                                                _pendingEditedConversations = null;
-                                                _pendingEditOriginalText = null;
-                                              });
-                                            }
-
-                                            final selectedModel = aiChatUIState.selectedModelId ?? '';
-                                            final selectedCopilotModel = chatState.models.firstWhere(
-                                              (model) => model['id'] == selectedModel,
-                                              orElse: () => const <String, dynamic>{},
-                                            );
-                                            if (selectedCopilotModel.isNotEmpty) {
-                                              _sendCopilotChatPrompt(
-                                                sendingConversations,
-                                                sessionState.currentSession?.id,
-                                                selectedModel,
-                                                widget.workspacePath
-                                              );
-                                            } else if (chatModel != null) {
-                                              _sendPrompt(chatModel, sendingConversations, sessionState.currentSession?.id);
-                                            } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text('Chat model not available'),
-                                                  backgroundColor: Colors.orange,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                      icon: Icon(
-                                        aiChatUIState.isGenerating ? Icons.stop_circle_outlined : Icons.send,
-                                        color: appThemeState.appTheme.selectScreenCardTextColor,
-                                      ),
-                                    ),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    labelText: 'Ask AI',
-                                    labelStyle: TextStyle(
-                                      color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8, right: 2.5),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: languages.firstWhere(
-                                          (item) => item.extension.contains(
-                                            path.extension(widget.filePath).isNotEmpty ? path.extension(widget.filePath).substring(1) : '',
-                                          ),
-                                          orElse: () => languages.first,
-                                        ).icon,
-                                      ),
-                                      SizedBox(width: 3),
-                                      Text(
-                                        path.basename(widget.filePath),
-                                        style: TextStyle(
-                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                        ),
-                                      ),
-                                      if (pendingCounts.added > 0 || pendingCounts.removed > 0) ...[
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '+${pendingCounts.added}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF2E7D32),
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '-${pendingCounts.removed}',
-                                          style: const TextStyle(
-                                            color: Color(0xFFC62828),
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: BlocBuilder<ConfigBloc, ConfigState>(
-                                    builder: (context, configState) {
-                                      final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
-                                      
-                                      if (!_initialScrollDone && conversations.isNotEmpty) {
-                                        _initialScrollDone = true;
-                                        final savedOffset = aiChatUIState.scrollOffset;
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          if (_scrollController.hasClients) {
-                                            if (savedOffset < 0) {
-                                              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-                                            } else {
-                                              final clampedOffset = savedOffset.clamp(
-                                                _scrollController.position.minScrollExtent,
-                                                _scrollController.position.maxScrollExtent,
-                                              );
-                                              _scrollController.jumpTo(clampedOffset);
-                                            }
-                                          }
-                                        });
-                                      }
-                                      
-                                      return ListView.builder(
-                                        controller: _scrollController,
-                                        itemCount: conversations.length,
-                                        itemBuilder: (context, index) {
-                                          final isDark = appThemeState.appTheme.isDark;
-                                          final fileExtension = path.extension(widget.filePath);
-                                          final extensionWithoutDot = fileExtension.startsWith('.')
-                                              ? fileExtension.substring(1)
-                                              : fileExtension;
-                                          final previewLanguage = languages.singleWhere(
-                                            (item) => extensionWithoutDot.isNotEmpty &&
-                                                item.extension.contains(extensionWithoutDot),
-                                            orElse: () => languages.first,
-                                          );
-                                          final config = isDark
-                                            ? MarkdownConfig.darkConfig.copy(
-                                                configs: [
-                                                  PConfig(
-                                                    textStyle: TextStyle(
-                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                    ),
-                                                  ),
-                                                  PreConfig(
-                                                    language: previewLanguage.name.toLowerCase(),
-                                                    theme: theme,
-                                                    styleNotMatched: TextStyle(
-                                                      color: theme['root']!.color
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: theme['root']!.backgroundColor
-                                                    )
-                                                  )
-                                                ],
-                                              )
-                                            : MarkdownConfig.defaultConfig;
-                                          final conv = conversations[index];
-                                          final hasResponse =
-                                              conv.modelResponse != null &&
-                                              conv.modelResponse!.isNotEmpty;
-                                          final isStreaming = conv.modelResponse != null && conv.modelResponse!.isEmpty;
-                                          return Padding(
-                                            padding: const EdgeInsets.only(top: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                                             child: Column(
                                               children: [
-                                                Align(
-                                                  alignment: Alignment.centerRight,
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      vertical: 6.5,
-                                                    ),
-                                                    child: GestureDetector(
-                                                      onLongPress: () => _showUserBubbleActions(
-                                                        index: index,
-                                                        conversation: conv,
-                                                        baseConversations: baseConversations,
-                                                        aiChatUIState: aiChatUIState,
-                                                        sessionState: sessionState,
-                                                        chatState: chatState,
-                                                        chatModel: chatModel,
-                                                        appTheme: appThemeState.appTheme,
-                                                      ),
-                                                      child: Container(
-                                                        padding: EdgeInsets.symmetric(
-                                                          vertical: 5,
-                                                          horizontal: 8,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.blueAccent.withAlpha(
-                                                            200,
-                                                          ),
-                                                          borderRadius: BorderRadius.only(
-                                                            topLeft: Radius.circular(16),
-                                                            topRight: Radius.zero,
-                                                            bottomLeft: Radius.circular(16),
-                                                            bottomRight: Radius.circular(16),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          conv.userRequest,
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                          ),
+                                                if (llamaState.isLoading)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                                                  color: Colors.teal.withAlpha(30),
+                                                  child: Row(
+                                                    children: [
+                                                      const SizedBox(
+                                                        width: 14, height: 14,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.teal,
                                                         ),
                                                       ),
-                                                    ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        'Loading ${llamaState.loadedModelName ?? 'model'}…',
+                                                        style: const TextStyle(
+                                                          color: Colors.teal,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                                Align(
-                                                  alignment: Alignment.centerLeft,
-                                                  child: hasResponse
-                                                    ? _buildAssistantResponseContent(
-                                                        conv.modelResponse!,
-                                                        config,
-                                                        appThemeState.appTheme,
-                                                      )
-                                                    : isStreaming
-                                                      ? Row(
-                                                          children: [
-                                                            SizedBox(
-                                                              width: 16,
-                                                              height: 16,
-                                                              child: CircularProgressIndicator(
-                                                                strokeWidth: 2,
-                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 8),
-                                                            Text(
-                                                              'Thinking...',
-                                                              style: TextStyle(
-                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                fontStyle: FontStyle.italic,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        )
-                                                      : const SizedBox.shrink(),
+                                                Column(
+                                                  spacing: 3.5,
+                                                  children: [
+                                                    _buildModelSelector(
+                                                      context, 
+                                                      aiState, 
+                                                      chatState, 
+                                                      textColor, 
+                                                      isDark,
+                                                      githubSignedIn,
+                                                      copilotSignedIn,
+                                                      aiChatUIState.selectedModelId,
+                                                    ),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(child: _buildModeSelector(textColor, isDark, aiChatUIState.chatMode)),
+                                                        IconButton(
+                                                          onPressed: () => _showHistoryDialog(context, appThemeState.appTheme, sessionState),
+                                                          icon: Icon(Icons.history, color: textColor.withAlpha(200), size: 20),
+                                                          tooltip: 'Chat History',
+                                                          visualDensity: VisualDensity.compact,
+                                                        ),
+                                                        IconButton(
+                                                          onPressed: () => context.read<ChatSessionBloc>().add(CreateNewSession()),
+                                                          icon: Icon(Icons.add_comment_outlined, color: textColor.withAlpha(200), size: 20),
+                                                          tooltip: 'New Chat',
+                                                          visualDensity: VisualDensity.compact,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        sessionTitle,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.w500,
+                                                          fontSize: 14,
+                                                          color: textColor.withAlpha(180),
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: _buildPendingDiffDrawerPanel(appThemeState.appTheme),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-    },
-    ),
+                                          ),
+                                          TextField(
+                                            controller: _promptController,
+                                            cursorColor: appThemeState.appTheme.selectScreenCardTextColor,
+                                            textAlignVertical: TextAlignVertical.top,
+                                            style: TextStyle(
+                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                            ),
+                                            maxLines: null,
+                                            decoration: InputDecoration(
+                                              focusedBorder: const OutlineInputBorder(
+                                                borderSide: BorderSide(color: Color(0xff0178b9)),
+                                              ),
+                                              suffix: IconButton(
+                                                onPressed: aiChatUIState.isGenerating
+                                                  ? _stopGeneration
+                                                  : () async {
+                                                      if (_hasPendingConversationEdit) {
+                                                        final currentText = _promptController.text.trim();
+                                                        final oldText = _pendingEditOriginalText?.trim() ?? '';
+                                                        if (currentText == oldText) {
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            const SnackBar(
+                                                              content: Text('Text must be different'),
+                                                              backgroundColor: Colors.orange,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+                                                      }
+    
+                                                      final sendingConversations = _cloneConversations(conversations);
+                                                      if (_hasPendingConversationEdit) {
+                                                        setState(() {
+                                                          _pendingEditBaseConversations = null;
+                                                          _pendingEditedConversations = null;
+                                                          _pendingEditOriginalText = null;
+                                                        });
+                                                      }
+    
+                                                      String selectedModelId = aiChatUIState.selectedModelId ?? '';
+                                                      if (selectedModelId.isEmpty) {
+                                                        selectedModelId = aiState.modelSelected['chat'] ?? '';
+                                                      }
+                                                      if (selectedModelId.isEmpty && aiState.config.isNotEmpty) {
+                                                        selectedModelId = aiState.config.keys.first;
+                                                      }
+                                                      final selectedModelConfig = aiState.config[selectedModelId];
+                                                      final isLocalModel = selectedModelConfig is Map &&
+                                                          (selectedModelConfig['apiProvider'] ?? selectedModelConfig['provider']) == 'LocalLlama';
+                                                      final isCopilotModel = chatState.models.any((model) => model['id'] == selectedModelId);
+
+                                                      if (isLocalModel) {
+                                                        final config = selectedModelConfig as Map<String, dynamic>;
+                                                        final localModel = LocalLlama(
+                                                          modelPath: config['modelPath'] ?? '',
+                                                          displayName: config['modelName'] ?? config['model'] ?? 'Local Model',
+                                                          threads: config['threads'] ?? 4,
+                                                          contextSize: config['contextSize'] ?? 4096,
+                                                          gpuLayers: config['gpuLayers'] ?? 0,
+                                                        );
+                                                        _sendLocalLlamaPrompt(localModel, sendingConversations, sessionState.currentSession?.id);
+                                                      } else if (isCopilotModel) {
+                                                        _sendCopilotChatPrompt(sendingConversations, sessionState.currentSession?.id, selectedModelId, widget.workspacePath);
+                                                      } else if (chatModel != null) {
+                                                        _sendPrompt(chatModel, sendingConversations, sessionState.currentSession?.id);
+                                                      } else {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(content: Text('Chat model not available'), backgroundColor: Colors.orange),
+                                                        );
+                                                      }
+    
+                                                    },
+                                                icon: Icon(
+                                                  aiChatUIState.isGenerating ? Icons.stop_circle_outlined : Icons.send,
+                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                ),
+                                              ),
+                                              contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 5,
+                                              ),
+                                              labelText: 'Ask AI',
+                                              labelStyle: TextStyle(
+                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                              ),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 8, right: 2.5),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              children: [
+                                                SizedBox(
+                                                  height: 18,
+                                                  width: 18,
+                                                  child: languages.firstWhere(
+                                                    (item) => item.extension.contains(
+                                                      path.extension(widget.filePath).isNotEmpty ? path.extension(widget.filePath).substring(1) : '',
+                                                    ),
+                                                    orElse: () => languages.first,
+                                                  ).icon,
+                                                ),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  path.basename(widget.filePath),
+                                                  style: TextStyle(
+                                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                  ),
+                                                ),
+                                                if (pendingCounts.added > 0 || pendingCounts.removed > 0) ...[
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    '+${pendingCounts.added}',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF2E7D32),
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '-${pendingCounts.removed}',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFC62828),
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: BlocBuilder<ConfigBloc, ConfigState>(
+                                              builder: (context, configState) {
+                                                final theme = highlightThemes[configState.codeForgeConfig['theme']] ?? atomOneDarkTheme;
+                                                
+                                                if (!_initialScrollDone && conversations.isNotEmpty) {
+                                                  _initialScrollDone = true;
+                                                  final savedOffset = aiChatUIState.scrollOffset;
+                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                    if (_scrollController.hasClients) {
+                                                      if (savedOffset < 0) {
+                                                        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                                                      } else {
+                                                        final clampedOffset = savedOffset.clamp(
+                                                          _scrollController.position.minScrollExtent,
+                                                          _scrollController.position.maxScrollExtent,
+                                                        );
+                                                        _scrollController.jumpTo(clampedOffset);
+                                                      }
+                                                    }
+                                                  });
+                                                }
+                                                
+                                                return ListView.builder(
+                                                  controller: _scrollController,
+                                                  itemCount: conversations.length,
+                                                  itemBuilder: (context, index) {
+                                                    final isDark = appThemeState.appTheme.isDark;
+                                                    final fileExtension = path.extension(widget.filePath);
+                                                    final extensionWithoutDot = fileExtension.startsWith('.')
+                                                      ? fileExtension.substring(1)
+                                                      : fileExtension;
+                                                    final previewLanguage = languages.singleWhere(
+                                                      (item) => extensionWithoutDot.isNotEmpty &&
+                                                          item.extension.contains(extensionWithoutDot),
+                                                      orElse: () => languages.first,
+                                                    );
+                                                    final config = isDark
+                                                      ? MarkdownConfig.darkConfig.copy(
+                                                          configs: [
+                                                            PConfig(
+                                                              textStyle: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              ),
+                                                            ),
+                                                            PreConfig(
+                                                              language: previewLanguage.name.toLowerCase(),
+                                                              theme: theme,
+                                                              styleNotMatched: TextStyle(
+                                                                color: theme['root']!.color
+                                                              ),
+                                                              decoration: BoxDecoration(
+                                                                color: theme['root']!.backgroundColor
+                                                              )
+                                                            )
+                                                          ],
+                                                        )
+                                                      : MarkdownConfig.defaultConfig;
+                                                    final conv = conversations[index];
+                                                    final hasResponse =
+                                                      conv.modelResponse != null &&
+                                                      conv.modelResponse!.isNotEmpty;
+                                                    final isStreaming = conv.modelResponse != null && conv.modelResponse!.isEmpty;
+                                                    return Padding(
+                                                      padding: const EdgeInsets.only(top: 8),
+                                                      child: Column(
+                                                        children: [
+                                                          Align(
+                                                            alignment: Alignment.centerRight,
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.symmetric(
+                                                                vertical: 6.5,
+                                                              ),
+                                                              child: GestureDetector(
+                                                                onLongPress: () => _showUserBubbleActions(
+                                                                  index: index,
+                                                                  conversation: conv,
+                                                                  baseConversations: baseConversations,
+                                                                  aiChatUIState: aiChatUIState,
+                                                                  sessionState: sessionState,
+                                                                  chatState: chatState,
+                                                                  chatModel: chatModel,
+                                                                  appTheme: appThemeState.appTheme,
+                                                                ),
+                                                                child: Container(
+                                                                  padding: EdgeInsets.symmetric(
+                                                                    vertical: 5,
+                                                                    horizontal: 8,
+                                                                  ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors.blueAccent.withAlpha(
+                                                                      200,
+                                                                    ),
+                                                                    borderRadius: BorderRadius.only(
+                                                                      topLeft: Radius.circular(16),
+                                                                      topRight: Radius.zero,
+                                                                      bottomLeft: Radius.circular(16),
+                                                                      bottomRight: Radius.circular(16),
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    conv.userRequest,
+                                                                    style: TextStyle(
+                                                                      color: Colors.white,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          Align(
+                                                            alignment: Alignment.centerLeft,
+                                                            child: hasResponse
+                                                              ? _buildAssistantResponseContent(
+                                                                  conv.modelResponse!,
+                                                                  config,
+                                                                  appThemeState.appTheme,
+                                                                )
+                                                              : isStreaming
+                                                                ? Row(
+                                                                    children: [
+                                                                      SizedBox(
+                                                                        width: 16,
+                                                                        height: 16,
+                                                                        child: CircularProgressIndicator(
+                                                                          strokeWidth: 2,
+                                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(width: 8),
+                                                                      Text(
+                                                                        'Thinking...',
+                                                                        style: TextStyle(
+                                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                          fontStyle: FontStyle.italic,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  )
+                                                                : const SizedBox.shrink(),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          Align(
+                                            alignment: Alignment.bottomRight,
+                                            child: _buildPendingDiffDrawerPanel(appThemeState.appTheme),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -12624,3 +12743,369 @@ Widget copyArea(
     ]
   ),
 );
+
+class GgufDownloadManager extends StatelessWidget {
+  final List<Map<String, String>> models;
+  final AppTheme appTheme;
+
+  const GgufDownloadManager({
+    super.key,
+    required this.models,
+    required this.appTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = appTheme.isDark;
+    return BlocProvider.value(
+      value: context.read<GgufDownloadCubit>(),
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xff1e1e2e) : Colors.white,
+        child: Container(
+          width: 500,
+          height: 550,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.lightBlue.withAlpha(20),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.cloud_download, color: Colors.lightBlue, size: 28),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'GGUF Model Manager',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xff2d2d2d) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TabBar(
+                          tabs: const [
+                            Tab(text: 'Available'),
+                            Tab(text: 'Downloads'),
+                          ],
+                          labelColor: Colors.lightBlue,
+                          unselectedLabelColor: isDark ? Colors.white70 : Colors.black54,
+                          indicator: BoxDecoration(
+                            color: Colors.lightBlue.withAlpha(30),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildAvailableTab(context),
+                            _buildDownloadsTab(context),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvailableTab(BuildContext context) {
+    final downloads = context.watch<GgufDownloadCubit>().state.downloads;
+    final isDark = appTheme.isDark;
+
+    return ListView.builder(
+      itemCount: models.length,
+      itemBuilder: (_, i) {
+        final model = models[i];
+        final alreadyDownloaded = downloads.values.any(
+          (t) => t.url == model['url'] && t.status == DownloadTaskStatus.complete,
+        );
+        final isDownloading = downloads.values.any(
+          (t) => t.url == model['url'] && t.status != DownloadTaskStatus.complete,
+        );
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff2a2a3e) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: SvgPicture.asset(
+              'assets/icons/gguf.svg',
+              height: 32,
+              width: 32,
+              colorFilter: ColorFilter.mode(
+                isDark ? Colors.white70 : Colors.black54,
+                BlendMode.srcIn,
+              ),
+              placeholderBuilder: (_) => const Icon(Icons.model_training, size: 32),
+            ),
+            title: Text(
+              model['name']!,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            subtitle: Text(
+              model['filename']!,
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
+            ),
+            trailing: alreadyDownloaded
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(20),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      const SizedBox(width: 4),
+                      Text('Downloaded', style: TextStyle(color: Colors.green)),
+                    ],
+                  ),
+                )
+              : isDownloading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: () {
+                        context.read<GgufDownloadCubit>().startDownload(
+                          model['url']!,
+                          model['filename']!,
+                          model['name']!,
+                        );
+                      },
+                      icon: const Icon(Icons.download, size: 18),
+                      label: const Text('Download'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDownloadsTab(BuildContext context) {
+    final downloads = context.watch<GgufDownloadCubit>().state.downloads.values.toList();
+    final isDark = appTheme.isDark;
+
+    if (downloads.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off, size: 64, color: isDark ? Colors.white30 : Colors.black26),
+            const SizedBox(height: 16),
+            Text(
+              'No active downloads',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: downloads.length,
+      itemBuilder: (_, i) {
+        final task = downloads[i];
+        final isComplete = task.status == DownloadTaskStatus.complete;
+        final isFailed = task.status == DownloadTaskStatus.failed;
+        final isCanceled = task.status == DownloadTaskStatus.canceled;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xff2a2a3e) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isComplete
+                            ? Colors.green.withAlpha(20)
+                            : isFailed
+                                ? Colors.red.withAlpha(20)
+                                : Colors.lightBlue.withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isComplete
+                            ? Icons.check
+                            : isFailed
+                                ? Icons.error
+                                : Icons.downloading,
+                        color: isComplete
+                            ? Colors.green
+                            : isFailed
+                                ? Colors.red
+                                : Colors.lightBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            task.modelName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            task.filename,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isComplete && !isFailed && !isCanceled)
+                      PopupMenuButton(
+                        icon: Icon(Icons.more_vert, color: isDark ? Colors.white70 : Colors.black54),
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            onTap: () => context.read<GgufDownloadCubit>().pauseDownload(task.taskId),
+                            child: const Row(
+                              children: [Icon(Icons.pause), SizedBox(width: 8), Text('Pause')],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            onTap: () => context.read<GgufDownloadCubit>().cancelDownload(task.taskId),
+                            child: const Row(
+                              children: [Icon(Icons.cancel), SizedBox(width: 8), Text('Cancel')],
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (!isComplete && !isFailed && !isCanceled) ...[
+                  LinearProgressIndicator(
+                    value: task.progress / 100,
+                    backgroundColor: isDark ? Colors.white24 : Colors.grey.shade300,
+                    color: Colors.lightBlue,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${task.progress}%',
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
+                      ),
+                      if (task.status == DownloadTaskStatus.paused)
+                        TextButton.icon(
+                          onPressed: () => context.read<GgufDownloadCubit>().resumeDownload(task.taskId),
+                          icon: const Icon(Icons.play_arrow, size: 16),
+                          label: const Text('Resume'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (isComplete)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        const SizedBox(width: 4),
+                        Text('Download complete', style: TextStyle(color: Colors.green, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                if (isFailed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error, color: Colors.red, size: 16),
+                        const SizedBox(width: 4),
+                        Text('Download failed', style: TextStyle(color: Colors.red, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                if (isCanceled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.cancel, color: Colors.orange, size: 16),
+                        const SizedBox(width: 4),
+                        Text('Canceled', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

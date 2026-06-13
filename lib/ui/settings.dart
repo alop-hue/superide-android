@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:code_forge/code_forge.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
@@ -38,6 +40,13 @@ class _SettingsState extends State<Settings> {
   final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>(), _sshUpdationKey = GlobalKey<FormState>();
   bool? _isGeneratedKey;
   int sshStackIndex = 0;
+  final List<Map<String, String>> _ggufModels = [
+    {
+      'name': 'Qwen2.5-Coder-3B-Instruct (Q6_K)',
+      'url': 'https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q6_K.gguf',
+      'filename': 'Qwen2.5-Coder-3B-Instruct-Q6_K.gguf',
+    },
+  ];
   final String demoCode =
 '''
 #include <stdio.h>
@@ -65,6 +74,7 @@ int main() {
     "OpenRouter",
     "FireWorks",
     "Custom",
+    "LocalLlama"
     ];
 
   @override
@@ -1030,21 +1040,17 @@ int main() {
   }) async {
     final isEditing = editingModelId != null && existingConfig != null;
     String? provider = isEditing
-        ? (existingConfig['provider']?.toString() ??
-              existingConfig['apiProvider']?.toString())
+        ? (existingConfig['provider']?.toString() ?? existingConfig['apiProvider']?.toString())
         : null;
     String customHttpMethod = isEditing
         ? (existingConfig['httpMethod']?.toString() ?? 'POST')
         : 'POST';
     String customToolCallingMethod = isEditing
-        ? (existingConfig['toolCallingMethod']?.toString() ??
-              'openAiCompatible')
+        ? (existingConfig['toolCallingMethod']?.toString() ?? 'openAiCompatible')
         : 'openAiCompatible';
 
     modelNameController.text = isEditing
-        ? (existingConfig['modelName']?.toString() ??
-              existingConfig['model']?.toString() ??
-              '')
+        ? (existingConfig['modelName']?.toString() ?? existingConfig['model']?.toString() ?? '')
         : '';
     apiController.text = isEditing ? (existingConfig['apiKey']?.toString() ?? '') : '';
     modelIdController.text = isEditing ? editingModelId : '';
@@ -1405,11 +1411,10 @@ int main() {
                               final modelName = modelNameController.text.trim();
                               final apiKey = apiController.text.trim();
                               final enteredModelId = modelIdController.text.trim();
-                              final targetModelId = enteredModelId.isNotEmpty
+                              final targetModelId =
+                                enteredModelId.isNotEmpty
                                   ? enteredModelId
-                                    : (isEditing
-                                      ? editingModelId
-                                      : '$modelName-${DateTime.now().millisecondsSinceEpoch}');
+                                  : (isEditing ? editingModelId : '$modelName-${DateTime.now().millisecondsSinceEpoch}');
 
                               final newModelConfig = <String, dynamic>{
                                 'provider': selectedProvider,
@@ -1736,6 +1741,174 @@ int main() {
         );
       }
     );
+  }
+
+  Future<void> _downloadAndAddGgufModel(
+    BuildContext context,
+    Map<String, String> modelInfo,
+    AppThemeState appThemeState,
+  ) async {
+    final saveDir = Directory('$filesDir/gguf');
+    if (!saveDir.existsSync()) await saveDir.create(recursive: true);
+    final savePath = '${saveDir.path}/${modelInfo['filename']}';
+
+    final progressNotifier = ValueNotifier<double>(0.0);
+    if(!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: appThemeState.appTheme.isDark
+          ? const Color(0xff2b2b2b)
+          : Colors.white,
+        title: Text('Downloading ${modelInfo['name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ValueListenableBuilder<double>(
+              valueListenable: progressNotifier,
+              builder: (_, progress, _) => LinearProgressIndicator(value: progress),
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<double>(
+              valueListenable: progressNotifier,
+              builder: (_, progress, _) => Text('${(progress * 100).toStringAsFixed(1)}%'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(modelInfo['url']!));
+      final response = await client.send(request);
+      final totalBytes = response.contentLength;
+      var received = 0;
+      final file = File(savePath);
+      final sink = file.openWrite();
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (totalBytes != null) {
+          progressNotifier.value = received / totalBytes;
+        }
+      }
+      await sink.close();
+      client.close();
+
+      if (context.mounted) Navigator.of(context).pop();
+
+      final prefs = await SharedPreferences.getInstance();
+      final aiConfigStr = await getAiConfig();
+      Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+      final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
+      aiConfig[modelId] = {
+        'provider': 'LocalLlama',
+        'apiProvider': 'LocalLlama',
+        'modelName': modelInfo['name'],
+        'model': modelInfo['name'],
+        'modelPath': savePath,
+        'threads': 4,
+        'contextSize': 4096,
+        'gpuLayers': 0,
+      };
+      await prefs.setString('aiConfig', jsonEncode(aiConfig));
+      if (context.mounted) {
+        context.read<AIBloc>().add(AIConfigEvent(aiConfig));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Model "${modelInfo['name']}" added to AI models')),
+        );
+
+        final modelSelectedStr = await getModelSelected();
+        Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+        if ((modelSelected['chat'] as String? ?? '').isEmpty) {
+          modelSelected['chat'] = modelId;
+          await prefs.setString('modelSelected', jsonEncode(modelSelected));
+          if(context.mounted) context.read<AIBloc>().add(ModelSelectEvent(modelSelected));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadLocalGgufModel(BuildContext context, AppThemeState appThemeState) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['gguf'],
+    );
+    if (result == null) return;
+    final path = result.files.single.path!;
+    final fileName = result.files.single.name;
+
+    final nameController = TextEditingController(text: fileName.replaceAll('.gguf', ''));
+    final threadsController = TextEditingController(text: '4');
+    final contextController = TextEditingController(text: '4096');
+    final gpuLayersController = TextEditingController(text: '0');
+    
+    if(!context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+        title: const Text('Configure Local LLM'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Display name')),
+            const SizedBox(height: 8),
+            TextField(controller: threadsController, decoration: const InputDecoration(labelText: 'Threads'), keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            TextField(controller: contextController, decoration: const InputDecoration(labelText: 'Context size'), keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            TextField(controller: gpuLayersController, decoration: const InputDecoration(labelText: 'GPU layers'), keyboardType: TextInputType.number),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final aiConfigStr = await getAiConfig();
+    Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+    final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
+    aiConfig[modelId] = {
+      'provider': 'LocalLlama',
+      'apiProvider': 'LocalLlama',
+      'modelName': nameController.text,
+      'model': nameController.text,
+      'modelPath': path,
+      'threads': int.tryParse(threadsController.text) ?? 4,
+      'contextSize': int.tryParse(contextController.text) ?? 4096,
+      'gpuLayers': int.tryParse(gpuLayersController.text) ?? 0,
+    };
+    await prefs.setString('aiConfig', jsonEncode(aiConfig));
+    if (context.mounted) {
+      context.read<AIBloc>().add(AIConfigEvent(aiConfig));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Model "${nameController.text}" added to AI models')),
+      );
+
+      final modelSelectedStr = await getModelSelected();
+      Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+      if ((modelSelected['chat'] as String? ?? '').isEmpty) {
+        modelSelected['chat'] = modelId;
+        await prefs.setString('modelSelected', jsonEncode(modelSelected));
+        if(context.mounted) context.read<AIBloc>().add(ModelSelectEvent(modelSelected));
+      }
+    }
   }
 
   @override void dispose() {
@@ -4582,7 +4755,7 @@ int main() {
                                                                   }
                                                                 };
                                                                 final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
-                                                                prefs.setString('aiConfig', jsonEncode(newConfig));
+                                                                await prefs.setString('aiConfig', jsonEncode(newConfig));
                                                                 if (context.mounted) {
                                                                   context.read<AIBloc>().add(AIConfigEvent(newConfig));
                                                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -4633,7 +4806,89 @@ int main() {
                                       ],
                                     )
                                   ),
+                              ),
+                              
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 15),
+                                child: SizedBox(
+                                  width: 280,
+                                  height: 45,
+                                  child: ElevatedButton(
+                                    style: ButtonStyle(
+                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                                      backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
+                                      foregroundColor: WidgetStatePropertyAll(Colors.white),
+                                    ),
+                                    onPressed: () async {
+                                      final selected = await showDialog<Map<String, String>>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
+                                          title: const Text('Select GGUF model to download'),
+                                          content: SizedBox(
+                                            width: 300,
+                                            height: 300,
+                                            child: ListView.builder(
+                                              itemCount: _ggufModels.length,
+                                              itemBuilder: (_, i) => ListTile(
+                                                title: Text(_ggufModels[i]['name']!),
+                                                onTap: () => Navigator.pop(ctx, _ggufModels[i]),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                      if (selected != null) {
+                                        if(context.mounted) {
+                                          await _downloadAndAddGgufModel(context, selected, appThemeState);
+                                        }
+                                      }
+                                    },
+                                    child: Row(
+                                      spacing: 8,
+                                      mainAxisAlignment: .center,
+                                      children: [
+                                        Icon(Icons.cloud_download),
+                                        Text(
+                                          "Download a GGUF model",
+                                          style: TextStyle(
+                                            fontWeight: .bold,
+                                            fontSize: 15
+                                          )
+                                        )
+                                      ],
+                                    )
+                                  ),
                                 ),
+                              ),
+
+                              SizedBox(
+                                width: 280,
+                                height: 45,
+                                child: ElevatedButton(
+                                  style: ButtonStyle(
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                                    backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
+                                    foregroundColor: WidgetStatePropertyAll(Colors.white),
+                                  ),
+                                  onPressed: () => _loadLocalGgufModel(context, appThemeState),
+                                  child: Row(
+                                    spacing: 8,
+                                    mainAxisAlignment: .center,
+                                    children: [
+                                      Icon(Icons.sd_storage),
+                                      Text(
+                                        "Load a GGUF model",
+                                        style: TextStyle(
+                                          fontWeight: .bold,
+                                          fontSize: 15
+                                        )
+                                      )
+                                    ],
+                                  )
+                                ),
+                              ),
+
                               Align(
                                 alignment: Alignment.center,
                                 child: Padding(
@@ -4748,8 +5003,7 @@ int main() {
                                                                 ),
                                                                 ElevatedButton(
                                                                   onPressed: () async {
-                                                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)
-                                                                      ..remove(e.key);
+                                                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)..remove(e.key);
                                                                     final prefs = await SharedPreferences.getInstance();
                                                                     await prefs.setString('aiConfig', jsonEncode(updatedConfig));
 
@@ -4762,6 +5016,7 @@ int main() {
                                                                     if (updatedModelSelected['chat'] == e.key) {
                                                                       updatedModelSelected['chat'] = '';
                                                                       modelSelectionChanged = true;
+                                                                      await prefs.remove('ai_selected_chat_model_id');
                                                                     }
                                                                     if (modelSelectionChanged) {
                                                                       await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
@@ -4962,82 +5217,6 @@ int main() {
                                 ),
                                 appThemeState.appTheme.isDark,
                                 subTitle: aiState.modelSelected['code'],
-                              ),
-                              settingsTile(
-                                () async{
-                                  if(aiState.config.isEmpty){
-                                    final prefs = await SharedPreferences.getInstance();
-                                    if(context.mounted){
-                                      prefs.setString('modelSelected', jsonEncode({}));
-                                      context.read<AIBloc>().add(ModelSelectEvent({}));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text("No AI models created yet. Please create a model first."))
-                                      );
-                                    }
-                                  }
-                                  else{
-                                    showDialog(
-                                      context: context,
-                                      builder: (contex) => AlertDialog(
-                                        backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                        title: Card(
-                                          color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[400],
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(9),
-                                            child: Text(
-                                              "Chat Model",
-                                              style: TextStyle(
-                                                color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                fontSize: 20
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        content: SizedBox(
-                                          height: 300,
-                                          width: 250,
-                                          child: RadioGroup<String>(
-                                            groupValue: aiState.modelSelected['chat'] ?? "",
-                                            onChanged: (val) async {
-                                              final prefs = await SharedPreferences.getInstance();
-                                              final currentState = aiState.modelSelected;
-                                              currentState['chat'] = val!;
-                                              prefs.setString('modelSelected', jsonEncode(currentState));
-
-                                              if (context.mounted) {
-                                                context.read<AIBloc>().add(ModelSelectEvent(currentState));
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text("Successfully selected model $val")),
-                                                );
-                                                Navigator.of(context).pop(true);
-                                              }
-                                            },
-                                            child: ListView(
-                                              children: List.generate(aiState.config.length, (index) {
-                                                return RadioListTile<String>(
-                                                  value: aiState.config.entries.elementAt(index).key,
-                                                  title: Text(aiState.config.entries.elementAt(index).key),
-                                                  activeColor: appThemeState.appTheme.isDark
-                                                      ? const Color(0xffb0c6fe)
-                                                      : const Color(0xff181a26),
-                                                );
-                                              }),
-                                            ),
-                                          ),
-
-                                        ),
-                                      )
-                                    );
-                                  }
-                                },
-                                "Select chat model",
-                                Icon(
-                                  Icons.chat,
-                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                  size: 19
-                                ),
-                                appThemeState.appTheme.isDark,
-                                subTitle: aiState.modelSelected['chat']
                               ),
                               settingsDivider
                             ],

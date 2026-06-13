@@ -1024,6 +1024,43 @@ class CustomModel extends Models {
   }
 }
 
+class LocalLlama extends Models {
+  final String modelPath, displayName;
+  final int threads;
+  final int contextSize;
+  final int gpuLayers;
+
+  LocalLlama({
+    required this.modelPath,
+    required this.displayName,
+    required this.threads,
+    required this.contextSize,
+    required this.gpuLayers
+  });
+
+  @override
+  String? get apiKey => null;
+
+  @override
+  Map<String, dynamic> buildRequest(String code) => {};
+
+  @override
+  Map<String, String> get headers => const {};
+
+  @override
+  String? get model => null;
+
+  @override
+  String responseParser(dynamic response) => response?.toString() ?? '';
+
+  @override
+  String get url => '';
+
+  @override
+  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.none;
+
+}
+
 enum CompletionType {
   auto,
   manual,

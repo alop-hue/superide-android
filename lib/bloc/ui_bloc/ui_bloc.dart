@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
+import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/utils/constants.dart';
 import '../../utils/ai.dart';
@@ -349,6 +350,7 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
 class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
   static const String _chatModePrefsKey = 'ai_chat_mode';
   static const String _agenticToolSelectionsPrefsKey = 'ai_agentic_tool_selections';
+  static const String _selectedModelIdPrefsKey = 'ai_selected_chat_model_id';
 
   AIChatUIBloc() : super(const AIChatUIState()) {
     on<AIChatUIEvent>((event, emit) async {
@@ -376,11 +378,58 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         );
       }
 
+      if (state.selectedModelId != nextState.selectedModelId) {
+        final prefs = await SharedPreferences.getInstance();
+        if (nextState.selectedModelId != null) {
+          await prefs.setString(_selectedModelIdPrefsKey, nextState.selectedModelId!);
+        } else {
+          await prefs.remove(_selectedModelIdPrefsKey);
+        }
+      }
+
       emit(nextState);
     });
 
     _restoreChatModeFromPrefs();
     _restoreAgenticToolSelectionsFromPrefs();
+    _restoreSelectedModelIdFromPrefs();
+  }
+
+  Future<void> _restoreSelectedModelIdFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? savedId = prefs.getString(_selectedModelIdPrefsKey);
+      
+      if (savedId == null || savedId.isEmpty) {
+        final modelSelectedStr = prefs.getString('modelSelected');
+        if (modelSelectedStr != null) {
+          final Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+          savedId = modelSelected['chat'] as String?;
+        }
+      }
+      
+      if (savedId != null && savedId.isNotEmpty) {
+        final aiConfigStr = prefs.getString('aiConfig');
+        if (aiConfigStr != null) {
+          final Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+          if (!aiConfig.containsKey(savedId)) {
+            savedId = null;
+          }
+        }
+      }
+      
+      if (savedId != null && savedId.isNotEmpty && savedId != state.selectedModelId) {
+        add(AIChatUIEvent(
+          chatMode: state.chatMode,
+          promptText: state.promptText,
+          selectedModelId: savedId,
+          scrollOffset: state.scrollOffset,
+          isGenerating: state.isGenerating,
+          agenticToolSelections: state.agenticToolSelections,
+        ));
+      }
+
+    } catch (_) {}
   }
 
   Future<void> _restoreChatModeFromPrefs() async {
@@ -404,9 +453,7 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
           ),
         );
       }
-    } catch (_) {
-      // Ignore preference read errors and keep default mode.
-    }
+    } catch (_) {}
   }
 
   Future<void> _restoreAgenticToolSelectionsFromPrefs() async {
@@ -443,9 +490,7 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
           ),
         );
       }
-    } catch (_) {
-      // Ignore preference read errors and keep default tool selections.
-    }
+    } catch (_) {}
   }
 }
 
@@ -1302,5 +1347,108 @@ class SelectedRuntimeEnvironmentCubit extends Cubit<SelectedRunEnvironmentState>
 
   void updateId(int? id){
     emit(SelectedRunEnvironmentState(id));
+  }
+}
+
+class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
+  LlamaController? _controller;
+
+  LocalLlamaBloc() : super(const LocalLlamaState()) {
+    on<LocalLlamaLoadModel>(_onLoadModel);
+    on<LocalLlamaUnloadModel>(_onUnloadModel);
+    on<LocalLlamaStopGeneration>(_onStopGeneration);
+    on<LocalLlamaDetectGpu>(_onDetectGpu);
+    on<LocalLlamaGenerationDone>(_onGenerationDone);
+  }
+
+  LlamaController? get controller => _controller;
+
+  Future<void> _onLoadModel(
+    LocalLlamaLoadModel event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    if (state.loadedModelPath == event.model.modelPath && state.status == LocalLlamaStatus.ready) return;
+
+    await _controller?.dispose();
+    _controller = null;
+
+    emit(state.copyWith(
+      status: LocalLlamaStatus.loading,
+      clearError: true,
+    ));
+
+    try {
+      _controller = LlamaController();
+
+      GpuInfo? gpuInfo = state.gpuInfo;
+      gpuInfo ??= await _controller!.detectGpu();
+
+      final layers = event.model.gpuLayers == 0
+          ? gpuInfo.recommendedGpuLayers
+          : event.model.gpuLayers;
+
+      await _controller!.loadModel(
+        modelPath: event.model.modelPath,
+        threads: event.model.threads,
+        contextSize: event.model.contextSize,
+        gpuLayers: layers,
+      );
+
+      emit(state.copyWith(
+        status: LocalLlamaStatus.ready,
+        loadedModelPath: event.model.modelPath,
+        loadedModelName: event.model.displayName,
+        gpuInfo: gpuInfo,
+      ));
+    } catch (e) {
+      await _controller?.dispose();
+      _controller = null;
+      emit(state.copyWith(
+        status: LocalLlamaStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onUnloadModel(
+    LocalLlamaUnloadModel event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    await _controller?.dispose();
+    _controller = null;
+    emit(const LocalLlamaState());
+  }
+
+  Future<void> _onStopGeneration(
+    LocalLlamaStopGeneration event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    await _controller?.stop();
+  }
+
+  Future<void> _onDetectGpu(
+    LocalLlamaDetectGpu event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    try {
+      _controller ??= LlamaController();
+      final gpuInfo = await _controller!.detectGpu();
+      emit(state.copyWith(gpuInfo: gpuInfo));
+    } catch (_) {}
+  }
+
+  void _onGenerationDone(
+    LocalLlamaGenerationDone event,
+    Emitter<LocalLlamaState> emit,
+  ) {
+    if (state.status == LocalLlamaStatus.generating) {
+      emit(state.copyWith(status: LocalLlamaStatus.ready));
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _controller?.dispose();
+    return super.close();
   }
 }

@@ -29,7 +29,7 @@ android {
 
     defaultConfig {
         applicationId = "com.roxum"
-        minSdk = flutter.minSdkVersion
+        minSdk = 26
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName

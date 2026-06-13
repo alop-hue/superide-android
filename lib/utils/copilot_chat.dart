@@ -19,8 +19,7 @@ class CopilotAuthContext {
 
 class CopilotChat {
   final String authToken;
-  static const String _preferredCopilotApiEndpoint =
-      'https://api.githubcopilot.com';
+  static const String _preferredCopilotApiEndpoint = 'https://api.githubcopilot.com';
   static const String _defaultCopilotApiEndpoint = 'https://api.individual.githubcopilot.com';
   static const String _graphqlEndpoint = 'https://api.github.com/graphql';
 
@@ -29,15 +28,13 @@ class CopilotChat {
   String? _apiEndpoint;
   List<Map<String, dynamic>>? _cachedModels;
 
-  static const String _copilotTokenEndpoint =
-      'https://api.github.com/copilot_internal/v2/token';
+  static const String _copilotTokenEndpoint = 'https://api.github.com/copilot_internal/v2/token';
 
   set agenticTools(AgenticTools tools) => _agenticTools = tools;
   final StreamController<Map<String, dynamic>> _conversationController =
       StreamController<Map<String, dynamic>>.broadcast();
 
-  Stream<Map<String, dynamic>> get conversationStream =>
-      _conversationController.stream;
+  Stream<Map<String, dynamic>> get conversationStream => _conversationController.stream;
 
   void cancelCurrentRequest() {
     _currentClient?.close();
@@ -572,8 +569,8 @@ class CopilotChat {
     void Function(String)? onPartial,
   }) async {
     var tools = chatMode == ChatMode.agent
-        ? _agenticTools?.getTools() ?? []
-        : _agenticTools?.getTools(readAccessOnly: true) ?? [];
+      ? _agenticTools?.getTools() ?? []
+      : _agenticTools?.getTools(readAccessOnly: true) ?? [];
     final conversationMessages = List<Map<String, dynamic>>.from(messages);
     final apiEndpoint = await _resolveApiEndpoint();
     final chatPath = _selectChatPath(
@@ -612,8 +609,8 @@ class CopilotChat {
       }
 
       final lines = streamedResponse.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter());
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
       Map<String, dynamic>? finalMessage;
       List<Map<String, dynamic>> toolCallDeltas = [];
 
@@ -687,8 +684,7 @@ class CopilotChat {
                     }
                     if (functionDelta['arguments'] != null) {
                       toolCallDeltas[index]['function']['arguments'] ??= '';
-                      toolCallDeltas[index]['function']['arguments'] +=
-                          functionDelta['arguments'];
+                      toolCallDeltas[index]['function']['arguments'] += functionDelta['arguments'];
                     }
                   }
                 }
@@ -756,8 +752,8 @@ class CopilotChat {
       conversationMessages.add(message);
 
       final toolCallsFromMessage = message['tool_calls'] is List
-          ? message['tool_calls'] as List
-          : const [];
+        ? message['tool_calls'] as List
+        : const [];
       if (chatPath != '/chat/completions' ||
           toolCallsFromMessage.isEmpty) {
         final output = streamedOutput.toString();

@@ -328,3 +328,17 @@ class _CopilotChatInternalUpdateMessages extends CopilotChatEvent {
 
   _CopilotChatInternalUpdateMessages(this.messages);
 }
+
+sealed class LocalLlamaEvent {}
+class LocalLlamaLoadModel extends LocalLlamaEvent {
+  final LocalLlama model;
+  LocalLlamaLoadModel(this.model);
+}
+
+class LocalLlamaUnloadModel extends LocalLlamaEvent {}
+
+class LocalLlamaStopGeneration extends LocalLlamaEvent {}
+
+class LocalLlamaDetectGpu extends LocalLlamaEvent {}
+
+class LocalLlamaGenerationDone extends LocalLlamaEvent {}
