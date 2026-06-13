@@ -6,6 +6,8 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_file_downloader/flutter_file_downloader.dart';
+import 'package:http/http.dart' as http;
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/utils/constants.dart';
@@ -1450,5 +1452,179 @@ class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
   Future<void> close() async {
     await _controller?.dispose();
     return super.close();
+  }
+}
+
+class GgufDownloadCubit extends Cubit<GgufDownloadState> {
+  GgufDownloadCubit() : super(GgufDownloadState.initial()) {
+    _loadFromPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tasksJson = prefs.getString('gguf_downloads');
+    if (tasksJson != null) {
+      final List<dynamic> decoded = jsonDecode(tasksJson);
+      final tasks = decoded.map((e) => GgufDownloadTask.fromJson(e)).toList();
+      for (int i = 0; i < tasks.length; i++) {
+        if (tasks[i].status == GgufDownloadStatus.downloading) {
+          tasks[i] = tasks[i].copyWith(status: GgufDownloadStatus.failed);
+        }
+      }
+      emit(state.copyWith(tasks: tasks));
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(state.tasks.map((t) => t.toJson()).toList());
+    await prefs.setString('gguf_downloads', json);
+  }
+
+  Future<int?> _getFileSize(String url) async {
+    try {
+      final response = await http.head(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final length = response.headers['content-length'];
+        if (length != null) return int.tryParse(length);
+      }
+    } catch (e) {
+      debugPrint('HEAD request failed: $e');
+    }
+    return null;
+  }
+
+  void startDownload(GgufModel model) async {
+    if (state.tasks.any((t) => t.url == model.url && 
+        (t.status == GgufDownloadStatus.downloading || t.status == GgufDownloadStatus.completed))) {
+      return;
+    }
+
+    final saveDir = '$filesDir/gguf';
+    if (!Directory(saveDir).existsSync()) {
+      Directory(saveDir).createSync(recursive: true);
+    }
+    final savePath = '$saveDir/${model.fileName}';
+
+    final existing = File(savePath);
+    if (await existing.exists()) await existing.delete();
+
+    final totalBytes = await _getFileSize(model.url);
+
+    final taskId = DateTime.now().millisecondsSinceEpoch.toString();
+    final task = GgufDownloadTask(
+      taskId: taskId,
+      modelName: model.name,
+      url: model.url,
+      fileName: model.fileName,
+      localPath: savePath,
+      status: GgufDownloadStatus.downloading,
+      progress: 0,
+      registered: false,
+      quant: model.quant,
+      paramSize: model.paramSize,
+      imageUrl: model.imageUrl,
+    );
+
+    final updatedTasks = [task, ...state.tasks];
+    emit(state.copyWith(tasks: updatedTasks));
+    _saveToPrefs();
+
+    FileDownloader.downloadFile(
+      url: model.url,
+      name: model.fileName,
+      downloadDestination: DownloadDestinations.appFiles,
+      notificationType: NotificationType.all,
+      onProgress: (fileName, progress) {
+        double realProgress;
+        if (totalBytes != null && progress < 0) {
+          final overflowAbs = 4294967296 - totalBytes;
+          realProgress = (-progress) * overflowAbs / totalBytes;
+        } else {
+          realProgress = progress.clamp(0.0, 100.0);
+        }
+        _updateProgress(taskId, realProgress);
+      },
+
+      onDownloadCompleted: (path) async {
+        final downloadedFile = File(path);
+        if (await downloadedFile.exists()) {
+          await downloadedFile.copy(savePath);
+          await downloadedFile.delete();
+        }
+        _onDownloadComplete(taskId, savePath);
+      },
+      onDownloadError: (error) {
+        _onDownloadError(taskId, error);
+      },
+    );
+  }
+
+  void _updateProgress(String taskId, double progress) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1) {
+      tasks[index] = tasks[index].copyWith(progress: progress.clamp(0.0, 100.0));
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
+  }
+
+  void _onDownloadComplete(String taskId, String path) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index == -1) return;
+    tasks[index] = tasks[index].copyWith(
+      status: GgufDownloadStatus.completed,
+      localPath: path,
+      progress: 100,
+    );
+    emit(state.copyWith(tasks: tasks));
+    _saveToPrefs();
+  }
+
+  void _onDownloadError(String taskId, dynamic error) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1) {
+      tasks[index] = tasks[index].copyWith(status: GgufDownloadStatus.failed);
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
+  }
+
+  void deleteTask(String taskId) async {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index == -1) return;
+    final file = File(tasks[index].localPath);
+    if (await file.exists()) await file.delete();
+    tasks.removeAt(index);
+    emit(state.copyWith(tasks: tasks));
+    _saveToPrefs();
+  }
+
+  void retryDownload(GgufDownloadTask task) {
+    deleteTask(task.taskId);
+    startDownload(
+      GgufModel(
+        name: task.modelName,
+        url: task.url,
+        fileName: task.fileName,
+        quant: task.quant,
+        paramSize: task.paramSize,
+        imageUrl: task.imageUrl,
+      )
+    );
+  }
+
+  void markTaskRegistered(String taskId) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1 && !tasks[index].registered) {
+      tasks[index] = tasks[index].copyWith(registered: true);
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
   }
 }

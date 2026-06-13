@@ -9,7 +9,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
@@ -40,12 +39,71 @@ class _SettingsState extends State<Settings> {
   final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>(), _sshUpdationKey = GlobalKey<FormState>();
   bool? _isGeneratedKey;
   int sshStackIndex = 0;
-  final List<Map<String, String>> _ggufModels = [
+  final List<Map<String, dynamic>> _ggufModels = [
     {
-      'name': 'Qwen2.5-Coder-3B-Instruct (Q6_K)',
+      'name': 'Qwen2.5-Coder-3B',
       'url': 'https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q6_K.gguf',
       'filename': 'Qwen2.5-Coder-3B-Instruct-Q6_K.gguf',
+      'param-size': 3,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png'
     },
+    {
+      'name': 'Phi-3.5-mini',
+      'url': 'https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q6_K.gguf',
+      'filename': 'Phi-3.5-mini-instruct-Q6_K.gguf',
+      'param-size': 3.8,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png'
+    },
+    {
+      'name': 'Phi-3-mini-4k',
+      'url': 'https://huggingface.co/bartowski/Phi-3-mini-4k-instruct-GGUF/resolve/main/Phi-3-mini-4k-instruct-Q6_K.gguf',
+      'filename': 'Phi-3-mini-4k-instruct-Q6_K.gguf',
+      'param-size': 3.8,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/1583646260758-5e64858c87403103f9f1055d.png'
+    },
+    {
+      'name': 'Qwen2.5.1-Coder-1.5B',
+      'url': 'https://huggingface.co/bartowski/Qwen2.5.1-Coder-1.5B-Instruct-GGUF/resolve/main/Qwen2.5.1-Coder-1.5B-Instruct-Q6_K.gguf',
+      'filename': 'Qwen2.5.1-Coder-1.5B-Instruct-Q6_K.gguf',
+      'param-size': 1.5,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png'
+    },
+    { 
+      'name': 'deepseek-coder-1.3B',
+      'url': 'https://huggingface.co/bartowski/deepseek-coder-1.3B-kexer-GGUF/resolve/main/deepseek-coder-1.3B-kexer-Q6_K.gguf',
+      'filename': 'deepseek-coder-1.3B-kexer-Q6_K.gguf',
+      'param-size': 1.3,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/6538815d1bdb3c40db94fbfa/xMBly9PUMphrFVMxLX4kq.png'
+    },
+    {
+      'name': 'Granite-Code-3B',
+      'url': 'https://huggingface.co/unsloth/granite-4.1-3b-GGUF/resolve/main/granite-4.1-3b-Q6_K.gguf',
+      'filename': 'granite-code-3b-instruct-Q6_K.gguf',
+      'param-size': 3,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/6602b217c774ff142b1493ef/Tvie7jwa9ggFjrQ5ty_Br.webp'
+    },
+    {
+      'name': 'Gemma-2-2B',
+      'url': 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q6_K.gguf',
+      'filename': 'gemma-2-2b-it-Q6_K.gguf',
+      'param-size': 2,
+      'quant': 'Q6_K',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/5dd96eb166059660ed1ee413/WtA3YYitedOr9n02eHfJe.png'
+    },
+    {
+      'name': 'CodeLlama-7B',
+      'url': 'https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q4_K_M.gguf',
+      'filename': 'CodeLlama-7B-Instruct-Q4_K_M.gguf',
+      'param-size': 7,
+      'quant': 'Q4_K_M',
+      'image-url': 'https://cdn-avatars.huggingface.co/v1/production/uploads/646cf8084eefb026fb8fd8bc/oCTqufkdTkjyGodsx1vo1.png'
+    }
   ];
   final String demoCode =
 '''
@@ -1741,101 +1799,6 @@ int main() {
         );
       }
     );
-  }
-
-  Future<void> _downloadAndAddGgufModel(
-    BuildContext context,
-    Map<String, String> modelInfo,
-    AppThemeState appThemeState,
-  ) async {
-    final saveDir = Directory('$filesDir/gguf');
-    if (!saveDir.existsSync()) await saveDir.create(recursive: true);
-    final savePath = '${saveDir.path}/${modelInfo['filename']}';
-
-    final progressNotifier = ValueNotifier<double>(0.0);
-    if(!context.mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: appThemeState.appTheme.isDark
-          ? const Color(0xff2b2b2b)
-          : Colors.white,
-        title: Text('Downloading ${modelInfo['name']}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ValueListenableBuilder<double>(
-              valueListenable: progressNotifier,
-              builder: (_, progress, _) => LinearProgressIndicator(value: progress),
-            ),
-            const SizedBox(height: 8),
-            ValueListenableBuilder<double>(
-              valueListenable: progressNotifier,
-              builder: (_, progress, _) => Text('${(progress * 100).toStringAsFixed(1)}%'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final client = http.Client();
-      final request = http.Request('GET', Uri.parse(modelInfo['url']!));
-      final response = await client.send(request);
-      final totalBytes = response.contentLength;
-      var received = 0;
-      final file = File(savePath);
-      final sink = file.openWrite();
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (totalBytes != null) {
-          progressNotifier.value = received / totalBytes;
-        }
-      }
-      await sink.close();
-      client.close();
-
-      if (context.mounted) Navigator.of(context).pop();
-
-      final prefs = await SharedPreferences.getInstance();
-      final aiConfigStr = await getAiConfig();
-      Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
-      final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
-      aiConfig[modelId] = {
-        'provider': 'LocalLlama',
-        'apiProvider': 'LocalLlama',
-        'modelName': modelInfo['name'],
-        'model': modelInfo['name'],
-        'modelPath': savePath,
-        'threads': 4,
-        'contextSize': 4096,
-        'gpuLayers': 0,
-      };
-      await prefs.setString('aiConfig', jsonEncode(aiConfig));
-      if (context.mounted) {
-        context.read<AIBloc>().add(AIConfigEvent(aiConfig));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Model "${modelInfo['name']}" added to AI models')),
-        );
-
-        final modelSelectedStr = await getModelSelected();
-        Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
-        if ((modelSelected['chat'] as String? ?? '').isEmpty) {
-          modelSelected['chat'] = modelId;
-          await prefs.setString('modelSelected', jsonEncode(modelSelected));
-          if(context.mounted) context.read<AIBloc>().add(ModelSelectEvent(modelSelected));
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
   }
 
   Future<void> _loadLocalGgufModel(BuildContext context, AppThemeState appThemeState) async {
@@ -3840,7 +3803,8 @@ int main() {
                                                     title: Text(server.name, overflow: .ellipsis),
                                                     titleTextStyle: TextStyle(
                                                       fontSize: 16,
-                                                      fontFamily: "monospace"
+                                                      fontFamily: "monospace",
+                                                      color: appTheme.selectScreenCardTextColor,
                                                     ),
                                                     subtitleTextStyle: TextStyle(
                                                       color: appTheme.selectScreenCardTextColor,
@@ -4819,30 +4783,19 @@ int main() {
                                       backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
                                       foregroundColor: WidgetStatePropertyAll(Colors.white),
                                     ),
-                                    onPressed: () async {
-                                      final selected = await showDialog<Map<String, String>>(
+                                    onPressed: () {
+                                      final models = _ggufModels.map((m) => GgufModel(
+                                        name: m['name']!,
+                                        url: m['url']!,
+                                        fileName: m['filename']!,
+                                        paramSize: (m['param-size']! as num).toDouble(),
+                                        quant: m['quant']!,
+                                        imageUrl: m['image-url']!
+                                      )).toList();
+                                      showDialog(
                                         context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
-                                          title: const Text('Select GGUF model to download'),
-                                          content: SizedBox(
-                                            width: 300,
-                                            height: 300,
-                                            child: ListView.builder(
-                                              itemCount: _ggufModels.length,
-                                              itemBuilder: (_, i) => ListTile(
-                                                title: Text(_ggufModels[i]['name']!),
-                                                onTap: () => Navigator.pop(ctx, _ggufModels[i]),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                        builder: (_) => GgufDownloadManager(availableModels: models),
                                       );
-                                      if (selected != null) {
-                                        if(context.mounted) {
-                                          await _downloadAndAddGgufModel(context, selected, appThemeState);
-                                        }
-                                      }
                                     },
                                     child: Row(
                                       spacing: 8,

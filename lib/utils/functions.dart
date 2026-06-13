@@ -229,6 +229,8 @@ Future<Directory> setupFilesDir() async {
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
+  final ggufDir = Directory('${target.path}/gguf');
+  if (!ggufDir.existsSync()) await ggufDir.create(recursive: true);
 
   final currentFiles = File('${target.path}/.current_files.json');
 
@@ -3344,4 +3346,97 @@ class SshKeygen {
     _writeUint32(b, bytes.length);
     b.add(bytes);
   }
+}
+
+enum GgufDownloadStatus { downloading, completed, failed }
+
+class GgufDownloadTask {
+  final String taskId, modelName, url, fileName, localPath, quant, imageUrl;
+  final GgufDownloadStatus status;
+  final double progress, paramSize;
+  final bool registered;
+
+  GgufDownloadTask({
+    required this.taskId,
+    required this.modelName,
+    required this.url,
+    required this.fileName,
+    required this.localPath,
+    required this.status,
+    required this.progress,
+    required this.registered,
+    required this.quant,
+    required this.paramSize,
+    required this.imageUrl
+  });
+
+  GgufDownloadTask copyWith({
+    String? taskId,
+    String? modelName,
+    String? url,
+    String? fileName,
+    String? localPath,
+    String? quant,
+    String? imageUrl,
+    GgufDownloadStatus? status,
+    double? progress,
+    double? paramSize,
+    bool? registered,
+  }) {
+    return GgufDownloadTask(
+      taskId: taskId ?? this.taskId,
+      modelName: modelName ?? this.modelName,
+      url: url ?? this.url,
+      fileName: fileName ?? this.fileName,
+      localPath: localPath ?? this.localPath,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      registered: registered ?? this.registered,
+      quant: quant ?? this.quant,
+      paramSize: paramSize ?? this.paramSize,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'taskId': taskId,
+    'modelName': modelName,
+    'url': url,
+    'fileName': fileName,
+    'localPath': localPath,
+    'status': status.index,
+    'progress': progress,
+    'registered': registered,
+    'quant': quant,
+    'paramSize': paramSize,
+    'imageUrl': imageUrl
+  };
+
+  factory GgufDownloadTask.fromJson(Map<String, dynamic> json) => GgufDownloadTask(
+    taskId: json['taskId'] as String? ?? '',
+    modelName: json['modelName'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+    fileName: json['fileName'] as String? ?? '',
+    localPath: json['localPath'] as String? ?? '',
+    status: GgufDownloadStatus.values[json['status'] as int? ?? 0],
+    progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+    registered: json['registered'] as bool? ?? false,
+    quant: json['quant'] as String? ?? '',
+    paramSize: (json['paramSize'] as num?)?.toDouble() ?? 0.0,
+    imageUrl: json['imageUrl'] ?? '',
+  );
+}
+
+class GgufModel {
+  final String name, url, fileName, quant, imageUrl;
+  final double paramSize;
+
+  GgufModel({
+    required this.name,
+    required this.url,
+    required this.fileName,
+    required this.quant,
+    required this.paramSize,
+    required this.imageUrl
+  });
 }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:code_forge/code_forge.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_json/flutter_json.dart';
 import 'package:flutter_svg/svg.dart';
@@ -15,9 +14,11 @@ import 'package:markdown_widget/config/configs.dart';
 import 'package:markdown_widget/widget/all.dart';
 import 'package:path/path.dart' as path;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:roxum/utils/agentic_tools.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -11768,27 +11769,33 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
                                             child: Column(
                                               children: [
                                                 if (llamaState.isLoading)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                                                  color: Colors.teal.withAlpha(30),
-                                                  child: Row(
-                                                    children: [
-                                                      const SizedBox(
-                                                        width: 14, height: 14,
-                                                        child: CircularProgressIndicator(
-                                                          strokeWidth: 2,
-                                                          color: Colors.teal,
+                                                Padding(
+                                                  padding: const EdgeInsets.only(bottom: 5.5),
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.teal.withAlpha(30),
+                                                      borderRadius: .circular(8)
+                                                    ),
+                                                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                                                    child: Row(
+                                                      children: [
+                                                        const SizedBox(
+                                                          width: 14, height: 14,
+                                                          child: CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: Colors.teal,
+                                                          ),
                                                         ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        'Loading ${llamaState.loadedModelName ?? 'model'}…',
-                                                        style: const TextStyle(
-                                                          color: Colors.teal,
-                                                          fontSize: 12,
+                                                        const SizedBox(width: 8),
+                                                        Text(
+                                                          'Loading ${llamaState.loadedModelName ?? 'model'}…',
+                                                          style: const TextStyle(
+                                                            color: Colors.teal,
+                                                            fontSize: 12,
+                                                          ),
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                                 Column(
@@ -12744,368 +12751,502 @@ Widget copyArea(
   ),
 );
 
-class GgufDownloadManager extends StatelessWidget {
-  final List<Map<String, String>> models;
-  final AppTheme appTheme;
+class GgufDownloadManager extends StatefulWidget {
+  final List<GgufModel> availableModels;
 
-  const GgufDownloadManager({
-    super.key,
-    required this.models,
-    required this.appTheme,
-  });
+  const GgufDownloadManager({super.key, required this.availableModels});
+
+  @override
+  State<GgufDownloadManager> createState() => _GgufDownloadManagerState();
+}
+
+class _GgufDownloadManagerState extends State<GgufDownloadManager>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _registerUnregisteredCompletedTasks(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _registerUnregisteredCompletedTasks(BuildContext context) async {
+    final cubit = context.read<GgufDownloadCubit>();
+    final tasks = cubit.state.tasks;
+    for (final task in tasks) {
+      if (task.status == GgufDownloadStatus.completed && !task.registered) {
+        await _registerModelWithAI(context, task);
+        cubit.markTaskRegistered(task.taskId);
+      }
+    }
+  }
+
+  Future<void> _registerModelWithAI(BuildContext context, GgufDownloadTask task) async {
+    final prefs = await SharedPreferences.getInstance();
+    final aiConfigStr = await getAiConfig();
+    Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+    final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
+    aiConfig[modelId] = {
+      'provider': 'LocalLlama',
+      'apiProvider': 'LocalLlama',
+      'modelName': task.modelName,
+      'model': task.modelName,
+      'modelPath': task.localPath,
+      'threads': 4,
+      'contextSize': 4096,
+      'gpuLayers': 0,
+    };
+    await prefs.setString('aiConfig', jsonEncode(aiConfig));
+    if (context.mounted) {
+      context.read<AIBloc>().add(AIConfigEvent(aiConfig));
+
+      final modelSelectedStr = await getModelSelected();
+      Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+      if ((modelSelected['chat'] as String? ?? '').isEmpty) {
+        modelSelected['chat'] = modelId;
+        await prefs.setString('modelSelected', jsonEncode(modelSelected));
+        if (context.mounted) {
+          context.read<AIBloc>().add(ModelSelectEvent(modelSelected));
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Model "${task.modelName}" added to AI models'), backgroundColor: Colors.green),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final appTheme = context.watch<AppThemeBloc>().state.appTheme;
     final isDark = appTheme.isDark;
-    return BlocProvider.value(
-      value: context.read<GgufDownloadCubit>(),
-      child: Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xff1e1e2e) : Colors.white,
-        child: Container(
-          width: 500,
-          height: 550,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Row(
+    final textColor = appTheme.selectScreenCardTextColor;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: isDark ? const Color(0xff2b2b2b) : Colors.white,
+      child: Container(
+        width: 500,
+        height: 600,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_download, color: Colors.lightBlue, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'GGUF Model Manager',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TabBar(
+              controller: _tabController,
+              labelColor: Colors.lightBlue,
+              unselectedLabelColor: textColor.withAlpha(150),
+              indicatorColor: Colors.lightBlue,
+              tabs: const [
+                Tab(text: 'Available Models'),
+                Tab(text: 'Downloads'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.lightBlue.withAlpha(20),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.cloud_download, color: Colors.lightBlue, size: 28),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'GGUF Model Manager',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
-                  ),
+                  _buildAvailableTab(context, appTheme),
+                  _buildDownloadsTab(context, appTheme),
                 ],
               ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xff2d2d2d) : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: TabBar(
-                          tabs: const [
-                            Tab(text: 'Available'),
-                            Tab(text: 'Downloads'),
-                          ],
-                          labelColor: Colors.lightBlue,
-                          unselectedLabelColor: isDark ? Colors.white70 : Colors.black54,
-                          indicator: BoxDecoration(
-                            color: Colors.lightBlue.withAlpha(30),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          indicatorSize: TabBarIndicatorSize.tab,
-                          dividerColor: Colors.transparent,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            _buildAvailableTab(context),
-                            _buildDownloadsTab(context),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildAvailableTab(BuildContext context) {
-    final downloads = context.watch<GgufDownloadCubit>().state.downloads;
+  Widget _buildAvailableTab(BuildContext context, AppTheme appTheme) {
     final isDark = appTheme.isDark;
 
-    return ListView.builder(
-      itemCount: models.length,
-      itemBuilder: (_, i) {
-        final model = models[i];
-        final alreadyDownloaded = downloads.values.any(
-          (t) => t.url == model['url'] && t.status == DownloadTaskStatus.complete,
-        );
-        final isDownloading = downloads.values.any(
-          (t) => t.url == model['url'] && t.status != DownloadTaskStatus.complete,
-        );
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xff2a2a3e) : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: SvgPicture.asset(
-              'assets/icons/gguf.svg',
-              height: 32,
-              width: 32,
-              colorFilter: ColorFilter.mode(
-                isDark ? Colors.white70 : Colors.black54,
-                BlendMode.srcIn,
-              ),
-              placeholderBuilder: (_) => const Icon(Icons.model_training, size: 32),
-            ),
-            title: Text(
-              model['name']!,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            subtitle: Text(
-              model['filename']!,
-              style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
-            ),
-            trailing: alreadyDownloaded
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withAlpha(20),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                      const SizedBox(width: 4),
-                      Text('Downloaded', style: TextStyle(color: Colors.green)),
-                    ],
-                  ),
-                )
-              : isDownloading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : ElevatedButton.icon(
-                      onPressed: () {
-                        context.read<GgufDownloadCubit>().startDownload(
-                          model['url']!,
-                          model['filename']!,
-                          model['name']!,
-                        );
-                      },
-                      icon: const Icon(Icons.download, size: 18),
-                      label: const Text('Download'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-          ),
-        );
-      },
-    );
-  }
+    String hardwareLevel(double params) {
+      if (params <= 1.5) return "Light";
+      if (params <= 3) return "Medium";
+      return "Heavy";
+    }
 
-  Widget _buildDownloadsTab(BuildContext context) {
-    final downloads = context.watch<GgufDownloadCubit>().state.downloads.values.toList();
-    final isDark = appTheme.isDark;
+    Color hardwareColor(double params) {
+      if (params <= 1.5) return Colors.green;
+      if (params <= 3) return Colors.orange;
+      return Colors.redAccent;
+    }
 
-    if (downloads.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    String hardwareNote(double params) {
+      if (params <= 1.5) return "Runs on most phones";
+      if (params <= 3) return "Needs decent RAM";
+      return "High-end device needed";
+    }
+
+    Widget buildChip(String text, IconData icon) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.black.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off, size: 64, color: isDark ? Colors.white30 : Colors.black26),
-            const SizedBox(height: 16),
+            Icon(icon, size: 13),
+            const SizedBox(width: 4),
             Text(
-              'No active downloads',
-              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+              text,
+              style: TextStyle(
+                color: appTheme.selectScreenCardTextColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      itemCount: downloads.length,
-      itemBuilder: (_, i) {
-        final task = downloads[i];
-        final isComplete = task.status == DownloadTaskStatus.complete;
-        final isFailed = task.status == DownloadTaskStatus.failed;
-        final isCanceled = task.status == DownloadTaskStatus.canceled;
+    return BlocBuilder<GgufDownloadCubit, GgufDownloadState>(
+      builder: (context, state) {
+        final cubit = context.read<GgufDownloadCubit>();
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xff2a2a3e) : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isComplete
-                            ? Colors.green.withAlpha(20)
-                            : isFailed
-                                ? Colors.red.withAlpha(20)
-                                : Colors.lightBlue.withAlpha(20),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        isComplete
-                            ? Icons.check
-                            : isFailed
-                                ? Icons.error
-                                : Icons.downloading,
-                        color: isComplete
-                            ? Colors.green
-                            : isFailed
-                                ? Colors.red
-                                : Colors.lightBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            task.modelName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            task.filename,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.white54 : Colors.black54,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!isComplete && !isFailed && !isCanceled)
-                      PopupMenuButton(
-                        icon: Icon(Icons.more_vert, color: isDark ? Colors.white70 : Colors.black54),
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            onTap: () => context.read<GgufDownloadCubit>().pauseDownload(task.taskId),
-                            child: const Row(
-                              children: [Icon(Icons.pause), SizedBox(width: 8), Text('Pause')],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            onTap: () => context.read<GgufDownloadCubit>().cancelDownload(task.taskId),
-                            child: const Row(
-                              children: [Icon(Icons.cancel), SizedBox(width: 8), Text('Cancel')],
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
+        return ListView.builder(
+          itemCount: widget.availableModels.length,
+          itemBuilder: (_, i) {
+            final model = widget.availableModels[i];
+
+            GgufDownloadTask? existing;
+            for (var task in state.tasks) {
+              if (task.url == model.url) {
+                existing = task;
+                break;
+              }
+            }
+
+            final isCompleted = existing?.status == GgufDownloadStatus.completed;
+
+            final isDownloading = existing?.status == GgufDownloadStatus.downloading;
+
+            return Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: isDark
+                  ? const Color(0xff1e1e2e)
+                  : Colors.grey.shade50,
+                border: Border.all(
+                  color: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.grey.shade300,
                 ),
-                const SizedBox(height: 12),
-                if (!isComplete && !isFailed && !isCanceled) ...[
-                  LinearProgressIndicator(
-                    value: task.progress / 100,
-                    backgroundColor: isDark ? Colors.white24 : Colors.grey.shade300,
-                    color: Colors.lightBlue,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  const SizedBox(height: 8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${task.progress}%',
-                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Image.network(model.imageUrl, width: 20, height: 20)
                       ),
-                      if (task.status == DownloadTaskStatus.paused)
-                        TextButton.icon(
-                          onPressed: () => context.read<GgufDownloadCubit>().resumeDownload(task.taskId),
-                          icon: const Icon(Icons.play_arrow, size: 16),
-                          label: const Text('Resume'),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: Text(
+                          model.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: appTheme.selectScreenCardTextColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
                         ),
+                      ),
                     ],
                   ),
+
+                  const SizedBox(height: 12),
+
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      buildChip("${model.paramSize}B", Icons.storage),
+                      buildChip(model.quant, Icons.compress),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hardwareColor(model.paramSize).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          hardwareLevel(model.paramSize),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: hardwareColor(model.paramSize),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    hardwareNote(model.paramSize),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: isCompleted
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                        )
+                      : isDownloading
+                          ? SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color:
+                                    appTheme.selectScreenCardTextColor,
+                              ),
+                            )
+                          : ElevatedButton.icon(
+                              onPressed: () {
+                                cubit.startDownload(model);
+                                _tabController.animateTo(1);
+                              },
+                              icon: const Icon(
+                                Icons.download,
+                                size: 16,
+                              ),
+                              label: const Text("Download"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.lightBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                  ),
                 ],
-                if (isComplete)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-                        const SizedBox(width: 4),
-                        Text('Download complete', style: TextStyle(color: Colors.green, fontSize: 12)),
-                      ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDownloadsTab(BuildContext context, AppTheme appTheme) {
+    return BlocBuilder<GgufDownloadCubit, GgufDownloadState>(
+      builder: (context, state) {
+        final tasks = state.tasks.where((t) => t.status != GgufDownloadStatus.completed).toList();
+        final completed = state.tasks.where((t) => t.status == GgufDownloadStatus.completed).toList();
+
+        if (tasks.isEmpty && completed.isEmpty) {
+          return Center(
+            child: Text(
+              'No downloads yet',
+              style: TextStyle(color: appTheme.selectScreenCardTextColor.withAlpha(150)),
+            ),
+          );
+        }
+
+        return ListView(
+          children: [
+            if (tasks.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('Active Downloads', style: TextStyle(color: appTheme.selectScreenCardTextColor, fontWeight: FontWeight.w600)),
+              ),
+              ...tasks.map((task) => _buildTaskTile(task, appTheme, context.read<GgufDownloadCubit>())),
+            ],
+            if (completed.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('Completed', style: TextStyle(color: appTheme.selectScreenCardTextColor, fontWeight: FontWeight.w600)),
+              ),
+              ...completed.map((task) => _buildTaskTile(task, appTheme, context.read<GgufDownloadCubit>())),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTaskTile(GgufDownloadTask task, AppTheme appTheme, GgufDownloadCubit cubit) {
+    final isDark = appTheme.isDark;
+    final isActive = task.status == GgufDownloadStatus.downloading;
+    final isCompleted = task.status == GgufDownloadStatus.completed;
+    final isFailed = task.status == GgufDownloadStatus.failed;
+    final progress = task.progress.clamp(0.0, 100.0);
+    final hasAccurateProgress = progress > 0.0 && progress < 100.0;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      elevation: 0,
+      color: isDark ? const Color(0xff1e1e2e) : Colors.grey.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isCompleted ? Icons.check_circle : (isFailed ? Icons.error : Icons.downloading),
+                  color: isCompleted ? Colors.green : (isFailed ? Colors.red : Colors.lightBlue),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    task.modelName,
+                    style: TextStyle(
+                      color: appTheme.selectScreenCardTextColor,
+                      fontWeight: FontWeight.w500,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: isDark ? const Color(0xff2b2b2b) : Colors.white,
+                        title: Text(
+                          'Remove item?',
+                          style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                        ),
+                        content: Text(
+                          'Remove "${task.modelName}" from the list? The downloaded file will also be deleted.',
+                          style: TextStyle(color: appTheme.selectScreenCardTextColor.withAlpha(180)),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              cubit.deleteTask(task.taskId);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Remove'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  tooltip: 'Remove from list and delete file',
+                ),
+              ],
+            ),
+            // Progress section
+            if (isActive) ...[
+              const SizedBox(height: 8),
+              if (hasAccurateProgress)
+                LinearPercentIndicator(
+                  progressColor: Colors.lightBlue,
+                  percent: progress / 100,
+                  lineHeight: 8,
+                  barRadius: const Radius.circular(4),
+                )
+              else
+                const LinearProgressIndicator(),
+              const SizedBox(height: 4),
+              Text(
+                hasAccurateProgress ? '${progress.toStringAsFixed(1)}%' : 'Downloading…',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+            if (isFailed) ...[
+              const SizedBox(height: 8),
+              Text('Download failed.', style: TextStyle(color: Colors.red.shade300, fontSize: 12)),
+            ],
+            // Action buttons
+            Wrap(
+              spacing: 8,
+              children: [
                 if (isFailed)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error, color: Colors.red, size: 16),
-                        const SizedBox(width: 4),
-                        Text('Download failed', style: TextStyle(color: Colors.red, fontSize: 12)),
-                      ],
+                  ElevatedButton.icon(
+                    onPressed: () => cubit.retryDownload(task),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.lightBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ),
-                if (isCanceled)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.cancel, color: Colors.orange, size: 16),
-                        const SizedBox(width: 4),
-                        Text('Canceled', style: TextStyle(color: Colors.orange, fontSize: 12)),
-                      ],
+                if (isCompleted)
+                  ElevatedButton.icon(
+                    onPressed: () => cubit.deleteTask(task.taskId),
+                    icon: const Icon(Icons.delete, size: 16),
+                    label: const Text('Delete file'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ),
               ],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }

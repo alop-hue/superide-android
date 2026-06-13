@@ -730,58 +730,13 @@ class LocalLlamaState {
 }
 
 class GgufDownloadState {
-  final Map<String, GgufDownloadTask> downloads;
+  final List<GgufDownloadTask> tasks;
 
-  const GgufDownloadState({required this.downloads});
+  const GgufDownloadState({required this.tasks});
 
-  GgufDownloadState copyWith({Map<String, GgufDownloadTask>? downloads}) {
-    return GgufDownloadState(downloads: downloads ?? this.downloads);
+  factory GgufDownloadState.initial() => const GgufDownloadState(tasks: []);
+
+  GgufDownloadState copyWith({List<GgufDownloadTask>? tasks}) {
+    return GgufDownloadState(tasks: tasks ?? this.tasks);
   }
-}
-
-class GgufDownloadTask {
-  final String taskId;
-  final String modelName;
-  final String filename;
-  final String url;
-  final DownloadTaskStatus status;
-  final int progress;
-
-  GgufDownloadTask({
-    required this.taskId,
-    required this.modelName,
-    required this.filename,
-    required this.url,
-    required this.status,
-    required this.progress,
-  });
-
-  GgufDownloadTask copyWith({DownloadTaskStatus? status, int? progress}) {
-    return GgufDownloadTask(
-      taskId: taskId,
-      modelName: modelName,
-      filename: filename,
-      url: url,
-      status: status ?? this.status,
-      progress: progress ?? this.progress,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'taskId': taskId,
-    'modelName': modelName,
-    'filename': filename,
-    'url': url,
-    'status': status.index,
-    'progress': progress,
-  };
-
-  factory GgufDownloadTask.fromJson(Map<String, dynamic> json) => GgufDownloadTask(
-    taskId: json['taskId'],
-    modelName: json['modelName'],
-    filename: json['filename'],
-    url: json['url'],
-    status: DownloadTaskStatus.values[json['status']],
-    progress: json['progress'],
-  );
 }

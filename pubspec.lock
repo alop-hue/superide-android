@@ -262,14 +262,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
-  flutter_downloader:
+  flutter_file_downloader:
     dependency: "direct main"
     description:
-      name: flutter_downloader
-      sha256: "93a9ddbd561f8a3f5483b4189453fba145a0a1014a88143c96a966296b78a118"
+      name: flutter_file_downloader
+      sha256: b0ec675d000d88125a4f0daf3d7013a6d1c2fbdc29aa4fe3498f463c43a5c8fe
       url: "https://pub.dev"
     source: hosted
-    version: "1.12.0"
+    version: "2.1.1"
   flutter_highlight:
     dependency: transitive
     description:
