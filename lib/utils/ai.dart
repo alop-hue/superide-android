@@ -32,8 +32,7 @@ sealed class Models {
   bool get supportsToolCalling => toolCallingMethod != ToolCallingMethod.none;
   String get chatUrl => url;
 
-  @protected
-  final String instruction =
+  static const String instruction =
       "You are a code completion engine. "
       "The input contains partial code context split into sections, with the exact insertion point marked by the placeholder '<|CURSOR|>'. "
       "Using only the provided context, generate the code that should be inserted at the cursor position. "
@@ -353,7 +352,6 @@ sealed class Models {
       declarations.add({
         'name': name,
         'description': function['description'] ?? '',
-        // Gemini supports a subset of OpenAPI Schema; strip unsupported keys.
         'parameters': _toGeminiSchema(function['parameters'], isRoot: true),
       });
     }
@@ -744,7 +742,7 @@ sealed class OpenAiCompatible extends Models {
     return {
       "model": model,
       "messages": [
-        {"role": "system", "content": instruction},
+        {"role": "system", "content": Models.instruction},
         {"role": "user", "content": code},
       ],
     };
@@ -800,7 +798,7 @@ class Gemini extends Models {
     return {
       "systemInstruction": {
         "parts": [
-          {"text": instruction},
+          {"text": Models.instruction},
         ],
       },
       "contents": [
@@ -852,7 +850,7 @@ class OpenAI extends Models {
 
   @override
   Map<String, dynamic> buildRequest(String code) {
-    return {"model": model, "instructions": instruction, "input": code};
+    return {"model": model, "instructions": Models.instruction, "input": code};
   }
 }
 
@@ -888,7 +886,7 @@ class Claude extends Models {
     return {
       "model": model,
       "max_tokens": 1024,
-      "system": instruction,
+      "system": Models.instruction,
       "messages": [
         {"role": "user", "content": code},
       ],
@@ -990,12 +988,12 @@ class CustomModel extends Models {
   @override
   Map<String, dynamic> buildRequest(String code) {
     if (requestBuilder != null) {
-      return requestBuilder!(code, instruction);
+      return requestBuilder!(code, Models.instruction);
     }
     return {
       if (model != null) 'model': model,
       'code': code,
-      'parameters': {'instruction': instruction, 'temperature': 0.2},
+      'parameters': {'instruction': Models.instruction, 'temperature': 0.2},
     };
   }
 
@@ -1027,37 +1025,36 @@ class CustomModel extends Models {
 class LocalLlama extends Models {
   final String modelPath, displayName;
   final int threads;
-  final int contextSize;
-  final int gpuLayers;
+  final int topK, repeatLastN, seed, maxTokens, mirostat, contextSize, gpuLayers;
+  final double temperature, topP, repeatPenalty, frequencyPenalty, presencePenalty, mirostatTau, mirostatEta;
 
   LocalLlama({
     required this.modelPath,
     required this.displayName,
     required this.threads,
     required this.contextSize,
-    required this.gpuLayers
+    required this.gpuLayers,
+    this.temperature = 0.7,
+    this.topP = 0.9,
+    this.topK = 40,
+    this.repeatPenalty = 1.1,
+    this.frequencyPenalty = 0.0,
+    this.presencePenalty = 0.0,
+    this.repeatLastN = 64,
+    this.seed = 42,
+    this.maxTokens = 512,
+    this.mirostat = 0,
+    this.mirostatTau = 5.0,
+    this.mirostatEta = 0.1,
   });
 
-  @override
-  String? get apiKey => null;
-
-  @override
-  Map<String, dynamic> buildRequest(String code) => {};
-
-  @override
-  Map<String, String> get headers => const {};
-
-  @override
-  String? get model => null;
-
-  @override
-  String responseParser(dynamic response) => response?.toString() ?? '';
-
-  @override
-  String get url => '';
-
-  @override
-  ToolCallingMethod get toolCallingMethod => ToolCallingMethod.none;
+  @override String? get apiKey => null;
+  @override Map<String, dynamic> buildRequest(String code) => {};
+  @override Map<String, String> get headers => const {};
+  @override String? get model => null;
+  @override String responseParser(dynamic response) => response?.toString() ?? '';
+  @override String get url => '';
+  @override ToolCallingMethod get toolCallingMethod => ToolCallingMethod.none;
 
 }
 
@@ -1066,3 +1063,108 @@ enum CompletionType {
   manual,
   mixed,
 }
+
+// const Map<String, LocalLlamaPreset> modelPresets = {
+//   'Qwen2.5-Coder-3B': LocalLlamaPreset(
+//     temperature: 0.6,
+//     topP: 0.9,
+//     topK: 50,
+//     repeatPenalty: 1.1,
+//     frequencyPenalty: 0.2,
+//     presencePenalty: 0.1,
+//     maxTokens: 2048,
+//     mirostat: 0,
+//   ),
+//   'Phi-3.5-mini': LocalLlamaPreset(
+//     temperature: 0.7,
+//     topP: 0.95,
+//     topK: 40,
+//     repeatPenalty: 1.05,
+//     frequencyPenalty: 0.1,
+//     presencePenalty: 0.1,
+//     maxTokens: 4096,
+//     mirostat: 1,
+//     mirostatTau: 5.0,
+//     mirostatEta: 0.1,
+//   ),
+//   'Phi-3-mini-4k': LocalLlamaPreset(
+//     temperature: 0.7,
+//     topP: 0.95,
+//     topK: 40,
+//     repeatPenalty: 1.05,
+//     frequencyPenalty: 0.1,
+//     presencePenalty: 0.1,
+//     maxTokens: 4096,
+//     mirostat: 1,
+//     mirostatTau: 5.0,
+//     mirostatEta: 0.1,
+//   ),
+//   'Qwen2.5.1-Coder-1.5B': LocalLlamaPreset(
+//     temperature: 0.5,
+//     topP: 0.85,
+//     topK: 40,
+//     repeatPenalty: 1.1,
+//     maxTokens: 1024,
+//   ),
+//   'deepseek-coder-1.3B': LocalLlamaPreset(
+//     temperature: 0.4,
+//     topP: 0.9,
+//     topK: 30,
+//     repeatPenalty: 1.15,
+//     frequencyPenalty: 0.15,
+//     presencePenalty: 0.1,
+//     maxTokens: 1024,
+//   ),
+//   'Granite-Code-3B': LocalLlamaPreset(
+//     temperature: 0.6,
+//     topP: 0.9,
+//     topK: 50,
+//     repeatPenalty: 1.1,
+//     maxTokens: 2048,
+//   ),
+//   'Gemma-2-2B': LocalLlamaPreset(
+//     temperature: 0.7,
+//     topP: 0.9,
+//     topK: 40,
+//     repeatPenalty: 1.0,
+//     frequencyPenalty: 0.1,
+//     maxTokens: 2048,
+//   ),
+//   'CodeLlama-7B': LocalLlamaPreset(
+//     temperature: 0.2,
+//     topP: 0.9,
+//     topK: 40,
+//     repeatPenalty: 1.1,
+//     maxTokens: 512,
+//   ),
+// };
+
+// class LocalLlamaPreset {
+//   final double temperature;
+//   final double topP;
+//   final int topK;
+//   final double repeatPenalty;
+//   final double frequencyPenalty;
+//   final double presencePenalty;
+//   final int repeatLastN;
+//   final int seed;
+//   final int maxTokens;
+//   final int mirostat;
+//   final double mirostatTau;
+//   final double mirostatEta;
+
+//   const LocalLlamaPreset({
+//     this.temperature = 0.7,
+//     this.topP = 0.9,
+//     this.topK = 40,
+//     this.repeatPenalty = 1.1,
+//     this.frequencyPenalty = 0.0,
+//     this.presencePenalty = 0.0,
+//     this.repeatLastN = 64,
+//     this.seed = 42,
+//     this.maxTokens = 512,
+//     this.mirostat = 0,
+//     this.mirostatTau = 5.0,
+//     this.mirostatEta = 0.1,
+//   });
+// }

@@ -167,9 +167,10 @@ Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
     case 'LocalLlama':
       final path = (modelConfig['modelPath'] ?? '').toString().trim();
       if (path.isEmpty) return null;
+      final displayName = modelName.isNotEmpty ? modelName : path.split('/').last;
       return LocalLlama(
         modelPath: path,
-        displayName: modelName.isNotEmpty ? modelName : path.split('/').last,
+        displayName: displayName,
         threads: (modelConfig['threads'] as num?)?.toInt() ?? 4,
         contextSize: (modelConfig['contextSize'] as num?)?.toInt() ?? 4096,
         gpuLayers: (modelConfig['gpuLayers'] as num?)?.toInt() ?? 0,

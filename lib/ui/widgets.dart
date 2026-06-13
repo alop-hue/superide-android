@@ -1348,10 +1348,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     if (completionModel == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selected completion model is not configured correctly.'),
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text('Selected completion model is not configured correctly.')),
       );
       return;
     }
@@ -1366,14 +1363,57 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
     final prompt = '''Language: ${language.name}\nFile: ${file.path}\nCode:\n$beforeCursor<|CURSOR|>${text.substring(cursorOffset)}''';
 
     try {
+      if (completionModel is LocalLlama) {
+        final llamaBloc = context.read<LocalLlamaBloc>();
+        if (llamaBloc.state.loadedModelPath != completionModel.modelPath ||
+            !llamaBloc.state.isReady) {
+          llamaBloc.add(LocalLlamaLoadModel(completionModel));
+          await llamaBloc.stream.firstWhere(
+            (s) => s.status == LocalLlamaStatus.ready || s.status == LocalLlamaStatus.error,
+          );
+          if (llamaBloc.state.status == LocalLlamaStatus.error) {
+            throw Exception('Failed to load model: ${llamaBloc.state.error}');
+          }
+        }
+        final llamaController = llamaBloc.controller;
+        if (llamaController == null) throw Exception('Llama controller is null');
+
+        final buffer = StringBuffer();
+        await for (final token in llamaController.generate(
+          prompt: "${Models.instruction}\n\n$prompt",
+          maxTokens: completionModel.maxTokens,
+          temperature: completionModel.temperature,
+          topP: completionModel.topP,
+          topK: completionModel.topK,
+          repeatPenalty: completionModel.repeatPenalty,
+          frequencyPenalty: completionModel.frequencyPenalty,
+          presencePenalty: completionModel.presencePenalty,
+          repeatLastN: completionModel.repeatLastN,
+          seed: completionModel.seed,
+          mirostat: completionModel.mirostat,
+          mirostatTau: completionModel.mirostatTau,
+          mirostatEta: completionModel.mirostatEta,
+        )) {
+          buffer.write(token);
+          controller.setGhostText(GhostText(
+            line: cursorLine,
+            column: cursorColumn,
+            text: buffer.toString(),
+            style: TextStyle(
+            color: Colors.grey.withValues(alpha: 0.6),
+              fontStyle: FontStyle.italic,
+            ),
+          ));
+        }
+        return;
+      }
+
       final suggestion = await completionModel.completionResponse(prompt);
+
       if (!mounted) return;
       if (suggestion.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No completion available for this position.'),
-            duration: Duration(seconds: 2),
-          ),
+          const SnackBar(content: Text('No completion available for this position.')),
         );
         return;
       }
@@ -1388,16 +1428,12 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
             color: Colors.grey.withValues(alpha: 0.6),
             fontStyle: FontStyle.italic,
           ),
-          shouldPersist: false,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Completion request failed: $e'),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text('Completion request failed: $e'), duration: const Duration(seconds: 3)),
       );
     }
   }
@@ -11630,11 +11666,21 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       messages.add(ChatMessage(role: 'user', content: prompt));
 
       final fullResponse = StringBuffer();
-
+      
       await controller.generateChat(
         messages: messages,
-        maxTokens: 2048,
-        temperature: 0.7,
+        maxTokens: model.maxTokens,
+        temperature: model.temperature,
+        topP: model.topP,
+        topK: model.topK,
+        repeatPenalty: model.repeatPenalty,
+        frequencyPenalty: model.frequencyPenalty,
+        presencePenalty: model.presencePenalty,
+        repeatLastN: model.repeatLastN,
+        seed: model.seed,
+        mirostat: model.mirostat,
+        mirostatTau: model.mirostatTau,
+        mirostatEta: model.mirostatEta,
       ).listen((token) {
           fullResponse.write(token);
           newList[index] = newList[index].copyWith(
@@ -12906,8 +12952,8 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.black.withOpacity(0.05),
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -12959,7 +13005,7 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                   : Colors.grey.shade50,
                 border: Border.all(
                   color: isDark
-                    ? Colors.white.withOpacity(0.05)
+                    ? Colors.white.withValues(alpha: 0.05)
                     : Colors.grey.shade300,
                 ),
               ),
@@ -13007,7 +13053,7 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: hardwareColor(model.paramSize).withOpacity(0.15),
+                          color: hardwareColor(model.paramSize).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -13192,7 +13238,6 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                 ),
               ],
             ),
-            // Progress section
             if (isActive) ...[
               const SizedBox(height: 8),
               if (hasAccurateProgress)
@@ -13214,7 +13259,6 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
               const SizedBox(height: 8),
               Text('Download failed.', style: TextStyle(color: Colors.red.shade300, fontSize: 12)),
             ],
-            // Action buttons
             Wrap(
               spacing: 8,
               children: [
