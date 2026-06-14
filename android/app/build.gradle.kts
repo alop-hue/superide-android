@@ -57,6 +57,9 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            pickFirsts += listOf(
+                "lib/arm64-v8a/libc++_shared.so",
+            )
             excludes += setOf("**/armeabi-v7a/**", "**/x86_64/**")
         }
     }
@@ -79,7 +82,7 @@ android {
             ":app:emmylua_feature",
             ":app:bash_language_server_feature",
             ":app:copilot_language_server_feature",
-            ":app:jdt_ls_feature",
+            ":app:kmp_lsp_feature",
             ":app:vscode_langservers_extracted_feature",
         )
     )

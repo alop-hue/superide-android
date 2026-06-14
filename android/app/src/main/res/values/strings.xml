@@ -12,7 +12,7 @@
     <string name="emmylua_feature_title">EmmyLuaLs Feature</string>
     <string name="bash_language_server_feature_title">Bash Language Server Feature</string>
     <string name="copilot_language_server_feature_title">GitHub Copilot Feature</string>
-    <string name="jdt_ls_feature_title">JDT-LS Feature</string>
+    <string name="kmp_lsp_feature_title">Kmp LSP Feature</string>
     <string name="vscode_langservers_extracted_feature_title">VSCode Langservers Extracted Feature</string>
     <string name="ruby_feature_title">Ruby Feature</string>
     <string name="lua_feature_title">Lua Feature</string>

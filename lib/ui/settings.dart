@@ -3202,7 +3202,7 @@ int main() {
                                                         ((){
                                                           if(_isGeneratedKey == null) {
                                                             return const Text(
-                                                              "Genrate keys",
+                                                              "Generate keys",
                                                               style: TextStyle(
                                                                 fontSize: 16
                                                               )
@@ -3221,7 +3221,7 @@ int main() {
                                                         Text(
                                                           _isGeneratedKey ?? false
                                                             ? "Caution: Regenerating ssh keys will revoke\nyour access from all hosts."
-                                                            : "Generate a public-private key pair for ssh connection.",
+                                                            : "Generate a public-private key pair\nfor the ssh connection.",
                             
                                                           style: TextStyle(
                                                             fontSize: 9.5,

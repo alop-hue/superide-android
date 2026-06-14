@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../utils/constants.dart';
 import '../utils/functions.dart';
@@ -146,11 +147,11 @@ class _DownloadManagerState extends State<DownloadManager> {
       weight: 80.0,
       displayName: 'Github Copilot',
     ),
-    'jdt-ls': _PfdRuntimeConfig(
-      moduleName: 'jdt_ls_feature',
-      assetArchiveName: 'JDT-LS.zip',
+    'kmp-lsp': _PfdRuntimeConfig(
+      moduleName: 'kmp_lsp_feature',
+      requiresExtraction: false,
       weight: 80.0,
-      displayName: 'JDT-LS',
+      displayName: 'Kmp LSP',
     ),
     'vscode-langservers-extracted': _PfdRuntimeConfig(
       moduleName: 'vscode_langservers_extracted_feature',
@@ -569,6 +570,8 @@ class _DownloadManagerState extends State<DownloadManager> {
         await _createGoplsExecutableSymlink();
       } else if (normalizedParent == 'emmyluals') {
         await _createEmmyLuaExecutableSymlink();
+      } else if(normalizedParent == 'kmp-lsp') {
+        await _createKmpLspExecutableSymlink();
       } else {
         throw Exception(
           'Unsupported module-only extension: ${config.displayName}',
@@ -600,6 +603,13 @@ class _DownloadManagerState extends State<DownloadManager> {
     await _createModuleExecutableSymlink(
       executableName: 'ty',
       libraryFileName: 'libty.so',
+    );
+  }
+  
+  Future<void> _createKmpLspExecutableSymlink() async {
+    await _createModuleExecutableSymlink(
+      executableName: 'kmp-lsp',
+      libraryFileName: 'libkmplsp.so',
     );
   }
 
@@ -1707,7 +1717,16 @@ class _DownloadManagerState extends State<DownloadManager> {
                                 ),
                               ),
                             ),
-                            Text(exten.details)
+                            Text(exten.details),
+                            IconButton(
+                              onPressed: () async{
+                                await launchUrl(Uri.parse(exten.githubUrl));
+                              },
+                              icon: FaIcon(
+                                FontAwesomeIcons.github,
+                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                              )
+                            )
                           ],
                         ),
                         trailing: SizedBox(

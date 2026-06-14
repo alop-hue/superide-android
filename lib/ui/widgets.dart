@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1278,15 +1279,15 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                     final hunk = pending.editHunks[index];
                     final displayRange = _resolveDisplayLineRange(pending, hunk);
                     final lineLabel = hunk.type == 'removed'
-                        ? 'After L${displayRange.start + 1}'
-                        : 'L${displayRange.start + 1}-${displayRange.end + 1}';
+                      ? 'After L${displayRange.start + 1}'
+                      : 'L${displayRange.start + 1}-${displayRange.end + 1}';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                       decoration: BoxDecoration(
                         color: appTheme.isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.black.withValues(alpha: 0.03),
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : Colors.black.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -3314,6 +3315,9 @@ class FindWordWidget extends StatefulWidget {
 
 class _FindWordWidgetState extends State<FindWordWidget> {
   final ScrollController _resultsScrollController = ScrollController();
+    Timer? _debounceTimer;
+    int _searchId = 0;
+    final InvertedIndex _invertedIndex = InvertedIndex();
 
   ActiveEditor? _getActiveEditor() {
     if (widget.editorState.activeEditors.isEmpty) return null;
@@ -3406,119 +3410,94 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     String query,
     WorkspaceSearchState searchState,
   ) async {
+    _debounceTimer?.cancel();
+
     if (query.isEmpty) {
-      context.read<WorkspaceSearchBloc>().add(
-        UpdateSearchResults(results: [], query: ''),
-      );
+      if (context.mounted) {
+        context.read<WorkspaceSearchBloc>().add(ClearSearchResults());
+      }
       return;
     }
 
+    final debounceCompleter = Completer<void>();
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 300),
+      debounceCompleter.complete,
+    );
+    await debounceCompleter.future;
+
+    if (!context.mounted) return;
+
+    final myId = ++_searchId;
+
     context.read<WorkspaceSearchBloc>().add(SetSearching(isSearching: true));
 
-    final results = <SearchResultData>[];
-    final dir = Directory(widget.workspacePath);
-
-    try {
-      await for (final entity in dir.list(recursive: true)) {
-        if (entity is File) {
-          final relativePath = entity.path.replaceFirst(
-            '${widget.workspacePath}/',
-            '',
-          );
-          if (relativePath.contains('/.') ||
-              relativePath.startsWith('.') ||
-              relativePath.contains('/build/') ||
-              relativePath.contains('/.git/')) {
-            continue;
-          }
-
-          final ext = path.extension(entity.path).toLowerCase();
-          final textExtensions = [
-            '.dart',
-            '.js',
-            '.ts',
-            '.json',
-            '.xml',
-            '.html',
-            '.css',
-            '.md',
-            '.txt',
-            '.yaml',
-            '.yml',
-            '.java',
-            '.kt',
-            '.py',
-            '.c',
-            '.cpp',
-            '.h',
-            '.hpp',
-            '.sh',
-            '.gradle',
-            '.properties',
-            '.swift',
-            '.m',
-            '.go',
-            '.rs',
-            '.rb',
-            '.php',
-            '.sql',
-            '.vue',
-            '.jsx',
-            '.tsx',
-          ];
-          if (!textExtensions.contains(ext) && ext.isNotEmpty) {
-            continue;
-          }
-
+    if (_invertedIndex.isReady &&
+        !searchState.isRegex &&
+        searchState.matchWholeWord &&
+        query.length >= 3 &&
+        !query.contains(RegExp(r'\s'))) {
+      final hit = _invertedIndex.lookup(query);
+      if (hit != null) {
+        final results = <SearchResultData>[];
+        for (final entry in hit.entries) {
+          final relativePath =
+              entry.key.replaceFirst('${widget.workspacePath}/', '');
           try {
-            final content = await entity.readAsString();
-            final lines = content.split('\n');
-
-            for (int i = 0; i < lines.length; i++) {
-              final line = lines[i];
-              bool hasMatch = false;
-
-              if (searchState.isRegex) {
-                try {
-                  final regex = RegExp(
-                    query,
-                    caseSensitive: searchState.matchCase,
-                  );
-                  hasMatch = regex.hasMatch(line);
-                } catch (_) {}
-              } else if (searchState.matchWholeWord) {
-                final pattern = RegExp(
-                  '\\b${RegExp.escape(query)}\\b',
-                  caseSensitive: searchState.matchCase,
-                );
-                hasMatch = pattern.hasMatch(line);
-              } else {
-                hasMatch = searchState.matchCase
-                    ? line.contains(query)
-                    : line.toLowerCase().contains(query.toLowerCase());
-              }
-
-              if (hasMatch) {
-                results.add(
-                  SearchResultData(
-                    filePath: entity.path,
-                    lineNumber: i + 1,
-                    lineContent: line.trim(),
-                    relativePath: relativePath,
-                  ),
-                );
+            int lineNo = 0;
+            await for (final line in File(entry.key)
+                .openRead()
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
+              lineNo++;
+              if (entry.value.contains(lineNo)) {
+                results.add(SearchResultData(
+                  filePath:     entry.key,
+                  relativePath: relativePath,
+                  lineNumber:   lineNo,
+                  lineContent:  line.trim(),
+                ));
               }
             }
           } catch (_) {}
         }
-      }
-    } catch (_) {}
 
-    if (context.mounted) {
-      context.read<WorkspaceSearchBloc>().add(
-        UpdateSearchResults(results: results, query: query),
-      );
+        if (!context.mounted || _searchId != myId) return;
+        context.read<WorkspaceSearchBloc>().add(
+          UpdateSearchResults(results: results, query: query),
+        );
+        return;
+      }
     }
+
+    final params = SearchParams(
+      workspacePath: widget.workspacePath,
+      query: query,
+      matchCase: searchState.matchCase,
+      matchWholeWord: searchState.matchWholeWord,
+      isRegex: searchState.isRegex,
+    );
+
+    List<RawResult> rawResults;
+    try {
+      rawResults = await compute(searchIsolate, params);
+    } catch (_) {
+      rawResults = const [];
+    }
+
+    if (!context.mounted || _searchId != myId) return;
+
+    final results = rawResults
+      .map((r) => SearchResultData(
+        filePath: r.filePath,
+        relativePath: r.relativePath,
+        lineNumber: r.lineNumber,
+        lineContent: r.lineContent,
+      )).toList();
+
+    context.read<WorkspaceSearchBloc>().add(
+      UpdateSearchResults(results: results, query: query),
+    );
   }
 
   Future<void> _replaceInWorkspace(
@@ -3583,8 +3562,17 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     }
   }
 
+
+  @override
+  void initState() {
+    super.initState();
+    _invertedIndex.build(widget.workspacePath);
+  }
+
+
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _resultsScrollController.dispose();
     super.dispose();
   }
@@ -3604,8 +3592,8 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   "SEARCH",
                   style: TextStyle(
                     fontWeight: widget.appTheme.isDark
-                        ? FontWeight.w300
-                        : FontWeight.w500,
+                      ? FontWeight.w300
+                      : FontWeight.w500,
                     color: widget.appTheme.selectScreenCardTextColor,
                   ),
                 ),
@@ -3619,15 +3607,12 @@ class _FindWordWidgetState extends State<FindWordWidget> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       final activeEditor = _getActiveEditor();
-                      if (activeEditor != null &&
-                          activeEditor.findController != null) {
+                      if (activeEditor != null && activeEditor.findController != null) {
                         Navigator.of(context).pop();
 
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           activeEditor.findController!.isActive = true;
-
-                          activeEditor.findController!.findInputFocusNode
-                              .requestFocus();
+                          activeEditor.findController!.findInputFocusNode.requestFocus();
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -4087,8 +4072,6 @@ class _FindWordWidgetState extends State<FindWordWidget> {
     );
   }
 }
-
-
 
 class SourceControl extends StatefulWidget {
   final AppTheme appTheme;

@@ -20,7 +20,7 @@ pluginManagement {
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.13.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    // id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
 include(":app")
@@ -48,8 +48,8 @@ include(":app:bash_language_server_feature")
 project(":app:bash_language_server_feature").projectDir = file("app/src/bash_language_server_feature")
 include(":app:copilot_language_server_feature")
 project(":app:copilot_language_server_feature").projectDir = file("app/src/copilot_language_server_feature")
-include(":app:jdt_ls_feature")
-project(":app:jdt_ls_feature").projectDir = file("app/src/jdt_ls_feature")
+include(":app:kmp_lsp_feature")
+project(":app:kmp_lsp_feature").projectDir = file("app/src/kmp_lsp_feature")
 include(":app:vscode_langservers_extracted_feature")
 project(":app:vscode_langservers_extracted_feature").projectDir = file("app/src/vscode_langservers_extracted_feature")
 include(":app:rust_feature")
