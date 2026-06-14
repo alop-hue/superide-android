@@ -1386,8 +1386,8 @@ class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
       gpuInfo ??= await _controller!.detectGpu();
 
       final layers = event.model.gpuLayers == 0
-          ? gpuInfo.recommendedGpuLayers
-          : event.model.gpuLayers;
+        ? gpuInfo.recommendedGpuLayers
+        : event.model.gpuLayers;
 
       await _controller!.loadModel(
         modelPath: event.model.modelPath,
@@ -1456,6 +1456,7 @@ class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
 }
 
 class GgufDownloadCubit extends Cubit<GgufDownloadState> {
+
   GgufDownloadCubit() : super(GgufDownloadState.initial()) {
     _loadFromPrefs();
   }
@@ -1535,6 +1536,9 @@ class GgufDownloadCubit extends Cubit<GgufDownloadState> {
       name: model.fileName,
       downloadDestination: DownloadDestinations.appFiles,
       notificationType: NotificationType.all,
+      onDownloadRequestIdReceived: (downloadId) {
+        emit(state.copyWith(id: downloadId));
+      },
       onProgress: (fileName, progress) {
         double realProgress;
         if (totalBytes != null && progress < 0) {
@@ -1616,6 +1620,15 @@ class GgufDownloadCubit extends Cubit<GgufDownloadState> {
         imageUrl: task.imageUrl,
       )
     );
+  }
+
+  static Future<String> cancelGGUFDownload(int id) async{
+    try {
+      final canceled = await FileDownloader.cancelDownload(id);
+      return "Canceled $canceled";
+    } catch (_) {
+      return "An error occurred";
+    }
   }
 
   void markTaskRegistered(String taskId) {

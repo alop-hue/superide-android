@@ -37,6 +37,7 @@ class _SettingsState extends State<Settings> {
   final sshPasswordController = TextEditingController();
   final themeScroll = ScrollController(), fontScroll = ScrollController();
   final _formKey = GlobalKey<FormState>(), _sshFormKey = GlobalKey<FormState>(), _sshUpdationKey = GlobalKey<FormState>();
+  final _ggufKey = GlobalKey<FormState>();
   bool? _isGeneratedKey;
   int sshStackIndex = 0;
   final List<Map<String, dynamic>> _ggufModels = [
@@ -1811,9 +1812,6 @@ int main() {
     final fileName = result.files.single.name;
 
     final nameController = TextEditingController(text: fileName.replaceAll('.gguf', ''));
-    final threadsController = TextEditingController(text: '4');
-    final contextController = TextEditingController(text: '4096');
-    final gpuLayersController = TextEditingController(text: '0');
     
     if(!context.mounted) return;
 
@@ -1822,21 +1820,30 @@ int main() {
       builder: (ctx) => AlertDialog(
         backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff2b2b2b) : Colors.white,
         title: const Text('Configure Local LLM'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Display name')),
-            const SizedBox(height: 8),
-            TextField(controller: threadsController, decoration: const InputDecoration(labelText: 'Threads'), keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            TextField(controller: contextController, decoration: const InputDecoration(labelText: 'Context size'), keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            TextField(controller: gpuLayersController, decoration: const InputDecoration(labelText: 'GPU layers'), keyboardType: TextInputType.number),
-          ],
+        content: Form(
+          key: _ggufKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Display name')),
+              settingsTextField(
+                nameController,
+                Icons.abc,
+                "Display name",
+                appThemeState.appTheme.selectScreenCardTextColor,
+                null,
+                (val) => val == null || val.isEmpty ? "Display name cannot be empty" : null
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+          TextButton(onPressed: () {
+            if(_ggufKey.currentState!.validate()){
+              Navigator.pop(ctx, false);
+            }
+          }, child: const Text('Add')),
         ],
       ),
     );
@@ -1853,9 +1860,9 @@ int main() {
       'modelName': nameController.text,
       'model': nameController.text,
       'modelPath': path,
-      'threads': int.tryParse(threadsController.text) ?? 4,
-      'contextSize': int.tryParse(contextController.text) ?? 4096,
-      'gpuLayers': int.tryParse(gpuLayersController.text) ?? 0,
+      'threads': 4,
+      'contextSize': 4096,
+      'gpuLayers': 0,
     };
     await prefs.setString('aiConfig', jsonEncode(aiConfig));
     if (context.mounted) {
@@ -4910,8 +4917,14 @@ int main() {
                                                 child: ListTile(
                                                   dense: true,
                                                   leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
-                                                  title: Text(e.key, style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                  subtitle: Text(config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                  title: Text(
+                                                    config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown',
+                                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
+                                                  ),
+                                                  subtitle: Text(
+                                                    e.key,
+                                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))
+                                                  ),
                                                   trailing: Row(
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [

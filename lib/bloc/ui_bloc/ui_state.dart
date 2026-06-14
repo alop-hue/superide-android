@@ -732,12 +732,19 @@ class LocalLlamaState {
 
 class GgufDownloadState {
   final List<GgufDownloadTask> tasks;
+  final int? id;
 
-  const GgufDownloadState({required this.tasks});
+  const GgufDownloadState({
+    required this.tasks,
+    this.id
+  });
 
-  factory GgufDownloadState.initial() => const GgufDownloadState(tasks: []);
+  factory GgufDownloadState.initial() => const GgufDownloadState(tasks: [], id: null);
 
-  GgufDownloadState copyWith({List<GgufDownloadTask>? tasks}) {
-    return GgufDownloadState(tasks: tasks ?? this.tasks);
+  GgufDownloadState copyWith({List<GgufDownloadTask>? tasks, int? id}) {
+    return GgufDownloadState(
+      tasks: tasks ?? this.tasks,
+      id: id ?? this.id
+    );
   }
 }

@@ -1400,8 +1400,8 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
     final errors = diagnostics.where((diag) => diag.severity == 1).toList();
     final warnings = diagnostics.where((diag) => diag.severity == 2).toList();
     final infos = diagnostics
-        .where((diag) => diag.severity == 3 || diag.severity == 4)
-        .toList();
+      .where((diag) => diag.severity == 3 || diag.severity == 4)
+      .toList();
 
     if (diagnostics.isEmpty) {
       return Center(

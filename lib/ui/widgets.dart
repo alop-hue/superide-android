@@ -136,18 +136,18 @@ Widget drawerButtons(
       child: IconButton(
         onPressed: onPressed,
         icon: isMaterialIcon
-            ? Icon(
+          ? Icon(
+              icon,
+              color: color,
+              size: 35,
+            )
+          : isFontAwesomeIcon
+              ? FaIcon(
                 icon,
                 color: color,
-                size: 35,
+                size: 30,
               )
-            : isFontAwesomeIcon
-                ? FaIcon(
-                    icon,
-                    color: color,
-                    size: 30,
-                  )
-                : (icon is Widget ? icon : Icon(Icons.help_outline, color: color)),
+              : (icon is Widget ? icon : Icon(Icons.help_outline, color: color)),
       ),
     ),
   );
@@ -168,8 +168,8 @@ Widget fileTiles(
         text,
         style: TextStyle(
           color: isDark
-              ? const Color.fromARGB(255, 118, 180, 234)
-              : const Color.fromARGB(255, 20, 107, 183),
+            ? const Color.fromARGB(255, 118, 180, 234)
+            : const Color.fromARGB(255, 20, 107, 183),
           fontWeight: isDark ? FontWeight.w300 : FontWeight.w400,
         ),
       ),
@@ -219,8 +219,8 @@ dynamic settingsTile(
         fontSize: 17.5,
         fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
         color: isDark
-            ? Colors.grey[400]
-            : const Color.fromARGB(255, 93, 93, 93),
+          ? Colors.grey[400]
+          : const Color.fromARGB(255, 93, 93, 93),
       ),
     ),
     subtitle: subTitle != null
@@ -230,8 +230,8 @@ dynamic settingsTile(
               fontSize: 13,
               fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
               color: isDark
-                  ? Colors.grey[400]
-                  : const Color.fromARGB(255, 93, 93, 93),
+                ? Colors.grey[400]
+                : const Color.fromARGB(255, 93, 93, 93),
             ),
           )
         : null,
@@ -280,11 +280,11 @@ Widget bottomTool(
 ]) {
   final effectiveEnabled = isEnabled && onPressed != null;
   final iconColor = !isDark
-      ? const Color.fromARGB(255, 40, 40, 40)
-      : const Color.fromARGB(255, 194, 194, 194);
+    ? const Color.fromARGB(255, 40, 40, 40)
+    : const Color.fromARGB(255, 194, 194, 194);
   final disabledColor = isDark
-      ? Colors.grey.shade700
-      : Colors.grey.shade500;
+    ? Colors.grey.shade700
+    : Colors.grey.shade500;
 
   return SizedBox(
     height: 37,
@@ -300,14 +300,12 @@ Widget bottomTool(
       ),
       padding: EdgeInsets.zero,
       onPressed: effectiveEnabled
-          ? () {
-              try {
-                onPressed.call();
-              } catch (e) {
-                /**/
-              }
-            }
-          : null,
+        ? () {
+            try {
+              onPressed.call();
+            } catch (_) {}
+          }
+        : null,
       
       icon: iconData is IconData ? Icon(
         iconData,
@@ -318,8 +316,8 @@ Widget bottomTool(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: effectiveEnabled
-                    ? (isDark ? Colors.grey[400]! : Colors.grey)
-                    : disabledColor,
+                  ? (isDark ? Colors.grey[400]! : Colors.grey)
+                  : disabledColor,
                 width: 0.5
               )
             ),
@@ -327,8 +325,8 @@ Widget bottomTool(
               iconData,
               style: TextStyle(
                 color: effectiveEnabled
-                    ? (isDark ? Colors.grey[400]! : Colors.grey)
-                    : disabledColor,
+                  ? (isDark ? Colors.grey[400]! : Colors.grey)
+                  : disabledColor,
                 fontSize: 12
               )
             )
@@ -1015,6 +1013,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
   late final String ext;
   final GlobalKey<_CodeEditorState> _editorKey = GlobalKey();
   final cursor = ValueNotifier<({int line, int col})>((line: 0, col: 0));
+  final isGeneratingCompletion = ValueNotifier<bool>(false);
   PendingEditFile? _pendingEdits;
   bool _isApplyingPendingAction = false;
   Timer? _pendingRefreshTimer;
@@ -1379,6 +1378,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
         if (llamaController == null) throw Exception('Llama controller is null');
 
         final buffer = StringBuffer();
+        isGeneratingCompletion.value = true;
         await for (final token in llamaController.generate(
           prompt: "${Models.instruction}\n\n$prompt",
           maxTokens: completionModel.maxTokens,
@@ -1405,10 +1405,13 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
             ),
           ));
         }
+        isGeneratingCompletion.value = false;
         return;
       }
 
+      isGeneratingCompletion.value = true;
       final suggestion = await completionModel.completionResponse(prompt);
+      isGeneratingCompletion.value = false;
 
       if (!mounted) return;
       if (suggestion.trim().isEmpty) {
@@ -1435,6 +1438,8 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Completion request failed: $e'), duration: const Duration(seconds: 3)),
       );
+    } finally {
+      isGeneratingCompletion.value = false;
     }
   }
 
@@ -1583,6 +1588,59 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                 ),
               ),
             ],
+          ),
+        ),
+        Align(
+          alignment: .centerEnd,
+          child: ValueListenableBuilder(
+            valueListenable: isGeneratingCompletion,
+            builder:(context, aiValue, _) => aiValue ? Padding(
+              padding: const EdgeInsets.only(right: 7, bottom: 7),
+              child: Container(
+                height: 50,
+                width: 300,
+                decoration: BoxDecoration(
+                  color: appTheme.selectScreenDrawerBg,
+                  borderRadius: .circular(10)
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      flex: 15,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            Icon(
+                              Icons.info_outlined,
+                              color: Colors.blue
+                            ),
+                            Expanded(
+                              child: Text(
+                                "Generating...",
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor
+                                )
+                              )
+                            ),
+                          ]
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: LinearProgressIndicator(
+                          borderRadius: .circular(5)
+                        ),
+                      )
+                    )
+                  ]
+                )
+              ),
+            ) : SizedBox.shrink(),
           ),
         ),
         RawScrollbar(
@@ -1788,23 +1846,6 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                               Icons.lightbulb,
                               (){
                                 controller.getCodeAction();
-                                if(controller.codeActionsNotifier.value == null){
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: appTheme.cardTheme.color,
-                                      content: Padding(
-                                        padding: const EdgeInsets.only(left: 10),
-                                        child: Row(
-                                          spacing: 7, 
-                                          children: [
-                                            Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
-                                            Text("No code actions available at this moment")
-                                          ]
-                                        ),
-                                      )
-                                    )
-                                  );
-                                }
                               },
                               null,
                               codeActionEnabled,
@@ -2022,27 +2063,7 @@ class _EditorPageState extends State<EditorArea> with AutomaticKeepAliveClientMi
                             child: bottomTool(
                               appTheme.isDark,
                               Icons.signpost,
-                              (){
-                                controller.callSignatureHelp();
-                            
-                                if(controller.signatureNotifier.value == null){
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: appTheme.cardTheme.color,
-                                      content: Padding(
-                                        padding: const EdgeInsets.only(left: 10),
-                                        child: Row(
-                                          spacing: 7, 
-                                          children: [
-                                            Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
-                                            Text("No signature help available at this region.\nTry it inside functions.")
-                                          ]
-                                        ),
-                                      )
-                                    )
-                                  );
-                                }
-                              },
+                              () => controller.callSignatureHelp(),
                               null,
                               signatureHelpEnabled,
                             ),
@@ -9587,8 +9608,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
   ButtonStyle _drawerPendingActionStyle(AppTheme appTheme, {bool destructive = false}) {
     final accent = destructive
-        ? const Color(0xFFC62828)
-        : (appTheme.isDark ? const Color(0xFF66BB6A) : const Color(0xFF2E7D32));
+      ? const Color(0xFFC62828)
+      : (appTheme.isDark ? const Color(0xFF66BB6A) : const Color(0xFF2E7D32));
     return OutlinedButton.styleFrom(
       foregroundColor: accent,
       side: BorderSide(color: accent.withValues(alpha: 0.75)),
@@ -10311,9 +10332,9 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     String? exitCode,
   }) {
     final hasCapturedOutput =
-        (stdout != null && stdout.isNotEmpty) ||
-        (stderr != null && stderr.isNotEmpty) ||
-        (exitCode != null && exitCode.isNotEmpty);
+      (stdout != null && stdout.isNotEmpty) ||
+      (stderr != null && stderr.isNotEmpty) ||
+      (exitCode != null && exitCode.isNotEmpty);
 
     return Container(
       margin: const EdgeInsets.only(top: 6, bottom: 6),
@@ -12078,7 +12099,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
                                                               language: previewLanguage.name.toLowerCase(),
                                                               theme: theme,
                                                               styleNotMatched: TextStyle(
-                                                                color: theme['root']!.color
+                                                                color: theme['root']!.color,
+                                                                fontFamily: configState.codeForgeConfig['fontFamily'],
                                                               ),
                                                               decoration: BoxDecoration(
                                                                 color: theme['root']!.backgroundColor
@@ -13129,9 +13151,9 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
 
   Widget _buildDownloadsTab(BuildContext context, AppTheme appTheme) {
     return BlocBuilder<GgufDownloadCubit, GgufDownloadState>(
-      builder: (context, state) {
-        final tasks = state.tasks.where((t) => t.status != GgufDownloadStatus.completed).toList();
-        final completed = state.tasks.where((t) => t.status == GgufDownloadStatus.completed).toList();
+      builder: (context, downldState) {
+        final tasks = downldState.tasks.where((t) => t.status != GgufDownloadStatus.completed).toList();
+        final completed = downldState.tasks.where((t) => t.status == GgufDownloadStatus.completed).toList();
 
         if (tasks.isEmpty && completed.isEmpty) {
           return Center(
@@ -13172,125 +13194,217 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
     final progress = task.progress.clamp(0.0, 100.0);
     final hasAccurateProgress = progress > 0.0 && progress < 100.0;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      elevation: 0,
-      color: isDark ? const Color(0xff1e1e2e) : Colors.grey.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return BlocBuilder<GgufDownloadCubit, GgufDownloadState>(
+      builder: (context, downldState) {
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          elevation: 0,
+          color: isDark ? const Color(0xff1e1e2e) : Colors.grey.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isCompleted ? Icons.check_circle : (isFailed ? Icons.error : Icons.downloading),
-                  color: isCompleted ? Colors.green : (isFailed ? Colors.red : Colors.lightBlue),
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    task.modelName,
-                    style: TextStyle(
-                      color: appTheme.selectScreenCardTextColor,
-                      fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    Icon(
+                      isCompleted ? Icons.check_circle : (isFailed ? Icons.error : Icons.downloading),
+                      color: isCompleted ? Colors.green : (isFailed ? Colors.red : Colors.lightBlue),
+                      size: 20,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: isDark ? const Color(0xff2b2b2b) : Colors.white,
-                        title: Text(
-                          'Remove item?',
-                          style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        task.modelName,
+                        style: TextStyle(
+                          color: appTheme.selectScreenCardTextColor,
+                          fontWeight: FontWeight.w500,
                         ),
-                        content: Text(
-                          'Remove "${task.modelName}" from the list? The downloaded file will also be deleted.',
-                          style: TextStyle(color: appTheme.selectScreenCardTextColor.withAlpha(180)),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              cubit.deleteTask(task.taskId);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Remove'),
-                          ),
-                        ],
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    );
-                  },
-                  tooltip: 'Remove from list and delete file',
+                    ),
+                    if(!isCompleted) IconButton(
+                      icon: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: isDark ? const Color(0xff2b2b2b) : Colors.white,
+                            title: Text(
+                              'Cancel download?',
+                              style: TextStyle(color: appTheme.selectScreenCardTextColor),
+                            ),
+                            content: Text(
+                              'Remove "${task.modelName}" from the list? The downloaded file will also be deleted.',
+                              style: TextStyle(color: appTheme.selectScreenCardTextColor.withAlpha(180)),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () async{
+                                  Navigator.of(ctx).pop();
+                                  if(downldState.id != null){
+                                    final msg = await GgufDownloadCubit.cancelGGUFDownload(downldState.id!);
+                                    if(context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Canceled $msg')),
+                                      );
+                                    }
+                                  }
+                                  cubit.deleteTask(task.taskId);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: .circular(10))
+                                ),
+                                child: const Text('Remove'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      tooltip: 'Remove from list and delete file',
+                    ),
+                  ],
+                ),
+                if (isActive) ...[
+                  const SizedBox(height: 8),
+                  if (hasAccurateProgress)
+                    LinearPercentIndicator(
+                      progressColor: Colors.lightBlue,
+                      percent: progress / 100,
+                      lineHeight: 8,
+                      barRadius: const Radius.circular(4),
+                    )
+                  else
+                    const LinearProgressIndicator(),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasAccurateProgress ? '${progress.toStringAsFixed(1)}%' : 'Downloading…',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+                if (isFailed) ...[
+                  const SizedBox(height: 8),
+                  Text('Download failed.', style: TextStyle(color: Colors.red.shade300, fontSize: 12)),
+                ],
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (isFailed)
+                      ElevatedButton.icon(
+                        onPressed: () => cubit.retryDownload(task),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.lightBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    if (isCompleted)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          cubit.deleteTask(task.taskId);
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: appTheme.isDark ? const Color(0xff181A26) : null,
+                              title: Text(
+                                'Delete model ?',
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              content: Text(
+                                'Are you sure you want to delete this model? This action cannot be undone.',
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor.withAlpha(150),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              actions: [
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final aiState = context.read<AIBloc>();
+                                    String configKey = '';
+                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)..remove(
+                                      ((){
+                                        final entries = Map<String, dynamic>.from(aiState.config);
+                                        configKey = entries.keys.singleWhere(
+                                          (key) => key.startsWith("LocalLlama-") && entries[key]['modelName'] == task.modelName
+                                        );
+                                        return configKey;
+                                      })()
+                                    );
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setString('aiConfig', jsonEncode(updatedConfig));
+    
+                                    final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+                                    var modelSelectionChanged = false;
+                                    if (updatedModelSelected['code'] == configKey) {
+                                      updatedModelSelected['code'] = '';
+                                      modelSelectionChanged = true;
+                                    }
+                                    if (updatedModelSelected['chat'] == configKey) {
+                                      updatedModelSelected['chat'] = '';
+                                      modelSelectionChanged = true;
+                                      await prefs.remove('ai_selected_chat_model_id');
+                                    }
+                                    if (modelSelectionChanged) {
+                                      await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
+                                    }
+    
+                                    try{
+                                      await File(task.fileName).delete();
+                                    } catch (_){}
+    
+                                    if (context.mounted) {
+                                      context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
+                                      if (modelSelectionChanged) {
+                                        context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+                                      }
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Successfully deleted model ${task.modelName}')),
+                                      );
+                                      Navigator.of(context).pop(true);
+                                    }
+                                  },
+                                  style: ButtonStyle(
+                                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                                  ),
+                                  child: Text('Delete', style: TextStyle(color: Colors.white)),
+                                )
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: const Text('Delete file'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
-            if (isActive) ...[
-              const SizedBox(height: 8),
-              if (hasAccurateProgress)
-                LinearPercentIndicator(
-                  progressColor: Colors.lightBlue,
-                  percent: progress / 100,
-                  lineHeight: 8,
-                  barRadius: const Radius.circular(4),
-                )
-              else
-                const LinearProgressIndicator(),
-              const SizedBox(height: 4),
-              Text(
-                hasAccurateProgress ? '${progress.toStringAsFixed(1)}%' : 'Downloading…',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-            if (isFailed) ...[
-              const SizedBox(height: 8),
-              Text('Download failed.', style: TextStyle(color: Colors.red.shade300, fontSize: 12)),
-            ],
-            Wrap(
-              spacing: 8,
-              children: [
-                if (isFailed)
-                  ElevatedButton.icon(
-                    onPressed: () => cubit.retryDownload(task),
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                if (isCompleted)
-                  ElevatedButton.icon(
-                    onPressed: () => cubit.deleteTask(task.taskId),
-                    icon: const Icon(Icons.delete, size: 16),
-                    label: const Text('Delete file'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
