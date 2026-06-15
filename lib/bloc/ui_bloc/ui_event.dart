@@ -2,7 +2,11 @@ part of 'ui_bloc.dart';
 
 @immutable
 sealed class UiEvent {}
+
+@immutable
 sealed class RestEvent extends UiEvent {}
+
+@immutable
 sealed class AIEvent extends UiEvent{}
 
 class StackIndexChange extends UiEvent {
@@ -152,6 +156,7 @@ class AIChatUIEvent extends UiEvent {
   final String? selectedModelId;
   final double scrollOffset;
   final bool isGenerating;
+  final Map<String, bool>? agenticToolSelections;
 
   AIChatUIEvent({
     required this.chatMode,
@@ -159,6 +164,7 @@ class AIChatUIEvent extends UiEvent {
     this.selectedModelId,
     required this.scrollOffset,
     required this.isGenerating,
+    this.agenticToolSelections,
   });
 }
 
@@ -225,8 +231,6 @@ class UpdateSearchOptions extends WorkspaceSearchEvent {
 }
 
 class ClearSearchResults extends WorkspaceSearchEvent {}
-
-// ================== Copilot Events ==================
 
 sealed class CopilotEvent extends UiEvent {}
 
@@ -324,3 +328,17 @@ class _CopilotChatInternalUpdateMessages extends CopilotChatEvent {
 
   _CopilotChatInternalUpdateMessages(this.messages);
 }
+
+sealed class LocalLlamaEvent {}
+class LocalLlamaLoadModel extends LocalLlamaEvent {
+  final LocalLlama model;
+  LocalLlamaLoadModel(this.model);
+}
+
+class LocalLlamaUnloadModel extends LocalLlamaEvent {}
+
+class LocalLlamaStopGeneration extends LocalLlamaEvent {}
+
+class LocalLlamaDetectGpu extends LocalLlamaEvent {}
+
+class LocalLlamaGenerationDone extends LocalLlamaEvent {}

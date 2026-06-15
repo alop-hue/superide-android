@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'constants.dart';
 import 'languages.dart';
@@ -142,6 +143,7 @@ class PackageCatalogService {
         '\$extensionDir/copilot-language-server/language-server.js',
       ],
       iconUrl: 'assets/icons/github-copilot-icon.svg',
+      githubUrl: 'https://github.com/orgs/github/packages/npm/package/copilot-language-server',
     ),
     Extension(
       name: 'Ty',
@@ -149,10 +151,11 @@ class PackageCatalogService {
       archiveName: 'libty.so',
       parentName: 'ty',
       archiveSize: 21,
-      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/libty.so',
+      url: '',
       fileExtension: const ['py'],
       serverFile: const [],
       iconUrl: 'assets/icons/ty.svg',
+      githubUrl: 'https://github.com/astral-sh/ty',
     ),
     Extension(
       name: 'rust-analyzer',
@@ -160,10 +163,12 @@ class PackageCatalogService {
       archiveName: 'librust-analyzer.so',
       parentName: 'rust-analyzer',
       archiveSize: 36,
-      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/librust-analyzer.so',
+      url: '',
       fileExtension: const ['rs'],
       serverFile: const [],
       iconUrl: 'assets/icons/rust-analyzer.svg',
+      githubUrl: 'https://github.com/rust-lang/rust-analyzer',
+      iconSize: 15
     ),
     Extension(
       name: 'gopls',
@@ -171,10 +176,11 @@ class PackageCatalogService {
       archiveName: 'libgopls.so',
       parentName: 'gopls',
       archiveSize: 30,
-      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/libgopls.so',
+      url: '',
       fileExtension: const ['go'],
       serverFile: const [],
       iconUrl: 'assets/material_icons/go_gopher.svg',
+      githubUrl: 'https://github.com/golang/tools/tree/master/gopls',
     ),
     Extension(
       name: 'EmmyLuaLs',
@@ -182,10 +188,11 @@ class PackageCatalogService {
       archiveName: 'libemmy.so',
       parentName: 'emmyluals',
       archiveSize: 28,
-      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/libemmy.so',
+      url: '',
       fileExtension: const ['lua'],
       serverFile: const [],
       iconUrl: 'assets/icons/emmy_lua.png',
+      githubUrl: 'https://github.com/EmmyLuaLs/emmylua-analyzer-rust',
     ),
     Extension(
       name: 'bash-language-server',
@@ -199,17 +206,19 @@ class PackageCatalogService {
         '/data/data/com.roxum/extensions/bash-language-server/node_modules/bash-language-server/out/cli.js',
       ],
       iconUrl: 'assets/icons/bash.png',
+      githubUrl: 'https://github.com/bash-lsp/bash-language-server',
     ),
     Extension(
-      name: 'JDT-LS',
-      details: 'The Eclipse JDT-LS language server for java.\nNote: Open JDK installation is required.',
-      archiveName: 'JDT-LS.zip',
-      parentName: 'JDT-LS',
-      archiveSize: 47,
-      url: 'https://github.com/heckmon/android-arm64-shared-libraries/releases/download/extensions/JDT-LS.zip',
+      name: 'Kmp LSP',
+      details: 'Language server for java, kotlin and swift',
+      archiveName: 'libkmplsp.so',
+      parentName: 'kmp-lsp',
+      archiveSize: 14,
+      url: '',
       fileExtension: const ['java'],
       serverFile: const [],
-      iconUrl: 'assets/icons/eclipse.svg',
+      iconUrl: 'assets/material_icons/kotlin.svg',
+      githubUrl: 'https://github.com/Hessesian/kmp-lsp',
     ),
     Extension(
       name: 'VScode-extracted LSP Servers',
@@ -227,6 +236,7 @@ class PackageCatalogService {
         '/data/data/com.roxum/extensions/vscode-langservers-extracted/node_modules/vscode-langservers-extracted/lib/eslint-language-server/eslintServer.js',
       ],
       iconUrl: 'assets/icons/html-css.png',
+      githubUrl: 'https://github.com/hrsh7th/vscode-langservers-extracted',
     ),
   ];
 

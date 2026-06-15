@@ -762,8 +762,7 @@ class FolderStyle {
     this.rootFolderOpenedIcon = const Icon(Icons.keyboard_arrow_down_sharp),
     this.folderNameStyle = const TextStyle(),
     this.iconForCreateFolder = const Icon(Icons.create_new_folder),
-    this.iconForCreateFile =
-        const Icon(FontAwesomeIcons.fileCirclePlus, size: 20),
+    this.iconForCreateFile = const FaIcon(FontAwesomeIcons.fileCirclePlus, size: 20),
     this.iconForDeleteFolder = const Icon(Icons.delete),
     this.folderClosedicon = const Icon(Icons.folder),
     this.folderOpenedicon = const Icon(Icons.folder_open),

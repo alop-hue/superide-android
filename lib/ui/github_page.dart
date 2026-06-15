@@ -12,6 +12,7 @@ import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 import 'package:roxum/ui/editor_page.dart';
 import 'package:roxum/utils/constants.dart';
 import 'package:roxum/utils/functions.dart';
+import 'package:roxum/utils/github_language_colors.dart';
 import 'package:roxum/utils/themes.dart';
 
 class GithubPage extends StatefulWidget {
@@ -176,7 +177,7 @@ class _GithubPageState extends State<GithubPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 8),
-                Icon(
+                FaIcon(
                   FontAwesomeIcons.github,
                   size: 48,
                   color: appTheme.selectScreenCardTextColor,
@@ -355,7 +356,7 @@ class _GithubPageState extends State<GithubPage> {
                   ),
                 ],
               ),
-              child: Icon(
+              child: FaIcon(
                 FontAwesomeIcons.github,
                 size: 64,
                 color: appTheme.isDark ? Colors.white : Colors.black,
@@ -487,7 +488,7 @@ class _GithubPageState extends State<GithubPage> {
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(FontAwesomeIcons.github, size: 22),
+                        FaIcon(FontAwesomeIcons.github, size: 22),
                         SizedBox(width: 12),
                         Text(
                           "Sign in with GitHub",
@@ -539,10 +540,7 @@ class _GithubPageState extends State<GithubPage> {
           child: _buildSearchAndFilters(appTheme),
         ),
         
-        if (_isLoadingRepos)
-          const SliverFillRemaining(
-            child: Center(child: CircularProgressIndicator()),
-          )
+        if (_isLoadingRepos) const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
         else if (_filteredRepos.isEmpty)
           SliverFillRemaining(
             child: Center(
@@ -755,7 +753,6 @@ class _GithubPageState extends State<GithubPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search bar
           Container(
             decoration: BoxDecoration(
               color: appTheme.isDark
@@ -919,10 +916,14 @@ class _GithubPageState extends State<GithubPage> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      isFork ? Icons.fork_right : Icons.book_outlined,
-                      size: 20,
+                    isFork ?  FaIcon(
+                      FontAwesomeIcons.codeFork,
+                      size: 16,
                       color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.7),
+                    ): Icon(
+                      Icons.book_outlined,
+                        size: 20,
+                        color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -1009,9 +1010,9 @@ class _GithubPageState extends State<GithubPage> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Icon(
-                      Icons.fork_right,
-                      size: 16,
+                    FaIcon(
+                      FontAwesomeIcons.codeFork,
+                      size: 11,
                       color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.6),
                     ),
                     const SizedBox(width: 4),
@@ -1168,7 +1169,7 @@ class _GithubPageState extends State<GithubPage> {
                     Navigator.pop(context);
                   }
                 },
-                icon: Icon(
+                icon: FaIcon(
                   FontAwesomeIcons.github,
                   size: 18,
                   color: appTheme.selectScreenCardTextColor,
@@ -1261,26 +1262,7 @@ class _GithubPageState extends State<GithubPage> {
   }
 
   Color _getLanguageColor(String language) {
-    final colors = {
-      'JavaScript': const Color(0xfff1e05a),
-      'TypeScript': const Color(0xff3178c6),
-      'Python': const Color(0xff3572A5),
-      'Java': const Color(0xffb07219),
-      'Kotlin': const Color(0xffA97BFF),
-      'Dart': const Color(0xff00B4AB),
-      'Swift': const Color(0xffF05138),
-      'Go': const Color(0xff00ADD8),
-      'Rust': const Color(0xffdea584),
-      'C': const Color(0xff555555),
-      'C++': const Color(0xfff34b7d),
-      'C#': const Color(0xff178600),
-      'Ruby': const Color(0xff701516),
-      'PHP': const Color(0xff4F5D95),
-      'HTML': const Color(0xffe34c26),
-      'CSS': const Color(0xff563d7c),
-      'Shell': const Color(0xff89e051),
-    };
-    return colors[language] ?? Colors.grey;
+    return githubLanguageColors[language] ?? Colors.grey;
   }
 
   String _formatDate(DateTime date) {

@@ -1,23 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_pty/flutter_pty.dart';
-import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
-import 'package:roxum/utils/constants.dart';
-import 'package:roxum/utils/functions.dart';
-import 'package:roxum/utils/themes.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../bloc/ui_bloc/ui_bloc.dart';
+import '../utils/constants.dart';
+import '../utils/functions.dart';
+import '../utils/themes.dart';
 
 class SetupTerminal extends StatefulWidget {
   final String projectDir;
   final List<String> args;
-  final bool useScaffold;
-  final bool showKeyboardMenu;
-  final bool readOnly;
+  final bool useScaffold, showKeyboardMenu, readOnly;
+  final int? sshId, termuxId;
+  final String? commandToExecuteInSSH;
 
   const SetupTerminal({
     super.key,
@@ -26,6 +29,9 @@ class SetupTerminal extends StatefulWidget {
     this.useScaffold = true,
     this.showKeyboardMenu = true,
     this.readOnly = false,
+    this.sshId,
+    this.termuxId,
+    this.commandToExecuteInSSH
   });
 
   @override
@@ -204,7 +210,7 @@ class _TerminalRuntime {
   final TerminalController controller;
 
   Pty? pty;
-  StreamSubscription<String>? outputSubscription;
+  SSHSession? sshSession;
   String currentInput = '';
   VoidCallback? selectionListener;
 
@@ -215,19 +221,24 @@ class _TerminalRuntime {
     required this.controller,
   });
 
-  bool get isRunning => pty != null;
+  bool get isRunning {
+    if (sshSession != null) return true;
+    return pty != null;
+  }
 
   void stopProcess() {
-    final process = pty;
-    if (process != null) {
+    if(sshSession != null){
+      sshSession!.kill(SSHSignal.KILL);
+    }
+    if (pty != null) {
       try {
-        process.kill(ProcessSignal.sigint);
+        pty!.kill(ProcessSignal.sigint);
       } catch (_) {}
       try {
-        process.kill(ProcessSignal.sigterm);
+        pty!.kill(ProcessSignal.sigterm);
       } catch (_) {}
       try {
-        process.kill(ProcessSignal.sigkill);
+        pty!.kill(ProcessSignal.sigkill);
       } catch (_) {}
     }
     pty = null;
@@ -235,8 +246,6 @@ class _TerminalRuntime {
 
   Future<void> dispose() async {
     stopProcess();
-    await outputSubscription?.cancel();
-    outputSubscription = null;
     if (selectionListener != null) {
       controller.removeListener(selectionListener!);
     }
@@ -246,7 +255,10 @@ class _TerminalRuntime {
 
 class _SetupTerminalState extends State<SetupTerminal> {
   late final TerminalSessionBloc _sessionBloc;
+  late final List<SSHInfo> sshServerList;
+  late final SSHPrivateKey? termuxInfo;
   final Map<String, _TerminalRuntime> _sessionRuntimes = {};
+  AnimationStatus _terminalSelectionStatus = .dismissed;
   String _sharedPath = '';
 
   OverlayEntry? _selectionToolbarOverlay;
@@ -263,6 +275,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
     _sessionBloc = TerminalSessionBloc(
       initialFontSize: _terminalFontSizeFromConfig(),
     );
+    sshServerList = context.read<SSHServersCubit>().state.serverList.where((server) => server.isConnected).toList();
+    termuxInfo = context.read<TermuxCubit>().state.termInfo;
     _bootstrapTerminalPage();
     _loadPathBinaries();
   }
@@ -278,6 +292,15 @@ class _SetupTerminalState extends State<SetupTerminal> {
       args: widget.args,
       makeActive: true,
       title: 'Session 1',
+      externalServer: ((){
+        final sshId = widget.sshId;
+        final termuxId = widget.termuxId;
+        if (sshId != null) {
+          return sshServerList.singleWhere((server) => server.id == sshId);
+        } else if(termuxId != null) {
+          return termuxInfo;
+        }
+      })()
     );
   }
 
@@ -313,6 +336,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
     bool makeActive = true,
     String? title,
     bool showFeedback = false,
+    SSHInfo? externalServer
   }) async {
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final sessionTitle = title ?? _nextSessionTitle();
@@ -336,7 +360,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       ),
     );
 
-    await _startPty(runtime, args: args);
+    await _startPty(runtime, args: args, externalServer: externalServer);
 
     if (showFeedback && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -455,9 +479,7 @@ class _SetupTerminalState extends State<SetupTerminal> {
       final raw = context.read<ConfigBloc>().state.codeForgeConfig['terminalFontSize'];
       if (raw is num) return raw.toDouble();
       if (raw is String) return double.tryParse(raw) ?? 14.0;
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
     return 14.0;
   }
 
@@ -482,7 +504,58 @@ class _SetupTerminalState extends State<SetupTerminal> {
   Future<void> _startPty(
     _TerminalRuntime runtime, {
     List<String> args = const [],
+    SSHInfo? externalServer,
   }) async {
+    if(externalServer != null && externalServer.client != null){
+      final terminal = runtime.terminal;
+      final session = await externalServer.client!.shell(
+        pty: SSHPtyConfig(
+          width: terminal.viewWidth,
+          height: terminal.viewHeight,
+        ),
+      );
+
+      runtime.sshSession = session;
+
+      terminal.buffer.clear();
+      terminal.buffer.setCursor(0, 0);
+      terminal.onResize = (w, h, pw, ph) {
+        session.resizeTerminal(w, h, pw, ph);
+      };
+      
+      if(widget.termuxId != null) {
+        session.write(utf8.encode("cd ${widget.projectDir}\n"));
+      }
+      
+      if(widget.commandToExecuteInSSH != null){
+        session.write(utf8.encode("${widget.commandToExecuteInSSH}\n"));
+      }
+
+      terminal.onOutput = (data) {
+        session.write(utf8.encode(data));
+      };
+
+      session.stdout
+        .cast<List<int>>()
+        .transform(Utf8Decoder())
+        .listen(terminal.write);
+
+      session.stderr
+        .cast<List<int>>()
+        .transform(Utf8Decoder())
+        .listen(terminal.write);
+
+      session.done.then((_) {
+        if (!_sessionRuntimes.containsKey(runtime.sessionId)) return;
+        runtime.terminal.write('\r\n\n[Program finished with exit code ${session.exitCode}]');
+        _sessionBloc.add(
+          UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: false),
+        );
+      });
+
+      return;
+    }
+
     if (_sharedPath.isEmpty) {
       _sharedPath = await NativeChannel.getLibraryPath();
     }
@@ -502,7 +575,8 @@ class _SetupTerminalState extends State<SetupTerminal> {
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',
       'RUSTFLAGS': '--sysroot $runtimesDir/rust',
-      'GOROOT': '$runtimesDir/go'
+      'GOROOT': '$runtimesDir/go',
+      'CC': 'clang'
     };
 
     final process = Pty.start(
@@ -513,16 +587,16 @@ class _SetupTerminalState extends State<SetupTerminal> {
       columns: runtime.terminal.viewWidth,
       arguments: args,
     );
+
     runtime.pty = process;
     _sessionBloc.add(
       UpdateTerminalSessionStatus(id: runtime.sessionId, isRunning: true),
     );
 
-    await runtime.outputSubscription?.cancel();
-    runtime.outputSubscription = process.output
-        .cast<List<int>>()
-        .transform(const Utf8Decoder())
-        .listen(runtime.terminal.write);
+    process.output
+      .cast<List<int>>()
+      .transform(const Utf8Decoder())
+      .listen(runtime.terminal.write);
 
     process.exitCode.then((code) {
       if (!_sessionRuntimes.containsKey(runtime.sessionId)) return;
@@ -1309,7 +1383,12 @@ class _SetupTerminalState extends State<SetupTerminal> {
                     );
                   },
                 ),
-                title: Text(activeRuntime?.title ?? 'Terminal'),
+                title: Text(
+                  activeRuntime?.title ?? 'Terminal',
+                  style: TextStyle(
+                    color: appTheme.selectScreenCardTextColor
+                  ),
+                ),
                 actions: [
                   IconButton(
                     onPressed: () => _onTerminalFontSizeChanged(state.fontSize - 1),
@@ -1321,8 +1400,91 @@ class _SetupTerminalState extends State<SetupTerminal> {
                   ),
                   IconButton(
                     tooltip: 'New session',
-                    onPressed: () => _createSession(makeActive: true, showFeedback: true),
-                    icon: const Icon(Icons.add),
+                    onPressed: () => _createSession(
+                      makeActive: true,
+                      showFeedback: true,
+                    ),
+                    icon: Row(
+                      children: [
+                        Icon(Icons.add),
+                        if(sshServerList.isNotEmpty || termuxInfo != null) MenuAnchor(
+                          style: MenuStyle(
+                            backgroundColor: WidgetStatePropertyAll(appTheme.selectScreenCardsBg),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: .circular(6)))
+                          ),
+                          animated: true,
+                          onAnimationStatusChanged: (status) {
+                            _terminalSelectionStatus = status;
+                          },
+                          menuChildren: [
+                            ...sshServerList.map((server) =>
+                              MenuItemButton(
+                                onPressed: () {
+                                  _createSession(
+                                    makeActive: true,
+                                    showFeedback: true,
+                                    externalServer: server
+                                  );
+                                },
+                                leadingIcon: Padding(
+                                  padding: const EdgeInsets.only(left: 3),
+                                  child: FaIcon(
+                                    FontAwesomeIcons.server,
+                                    color: appTheme.selectScreenCardTextColor,
+                                    size: 20
+                                  ),
+                                ),
+                                child: Text(
+                                  server.name,
+                                  style: TextStyle(
+                                    color: appTheme.selectScreenCardTextColor
+                                  )
+                                ),
+                              )
+                            ),
+
+                            if(termuxInfo != null && termuxInfo!.isConnected)
+                            MenuItemButton(
+                              onPressed: () {
+                                _createSession(
+                                  makeActive: true,
+                                  showFeedback: true,
+                                  externalServer: termuxInfo
+                                );
+                              },
+                              leadingIcon: SvgPicture.asset(
+                                "assets/icons/Termux.svg",
+                                height: 20,
+                                width: 20
+                              ),
+                              child: Text(
+                                termuxInfo!.name,
+                                style: TextStyle(
+                                  color: appTheme.selectScreenCardTextColor
+                                )
+                              ),
+                            )
+                          ],
+                          builder: (context, controller, child) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: InkWell(
+                              onTap: () {
+                                if(_terminalSelectionStatus.isForwardOrCompleted){
+                                  controller.close();
+                                } else {
+                                  controller.open();
+                                }
+                              },
+                              child: Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: appTheme.selectScreenCardTextColor
+                                        
+                              )
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

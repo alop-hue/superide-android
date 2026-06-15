@@ -8,8 +8,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Keep this aligned with the base app module minSdk.
-        minSdk = 24
+        minSdk = 26
     }
 
     buildTypes {

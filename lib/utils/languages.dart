@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:roxum/utils/constants.dart';
-import 'package:roxum/utils/functions.dart';
 
 final txt = Mode();
 final unknown = Mode();
@@ -208,8 +207,7 @@ class Language {
     this.lspExecutable,
     this.args,
     List<CustomCodeSnippet>? customCodeSnippet,
-  }) : customCodeSnippet =
-           customCodeSnippet ?? _defaultSnippetsForExtensions(extension);
+  }) : customCodeSnippet = customCodeSnippet ?? _defaultSnippetsForExtensions(extension);
 }
 
 class RunTime with IconBuilder{
@@ -255,16 +253,17 @@ class RunTime with IconBuilder{
     'icon-url': iconUrl,
   };
 
-  Widget get icon => buildPackageIcon(iconUrl, size: 35);
+  Widget get icon => buildPackageIcon(iconUrl, 35);
 }
 
 class Extension with IconBuilder{
   @override
   final String name;
-  final String details, url, archiveName, parentName;
+  final String details, url, archiveName, parentName, githubUrl;
   final List<String> fileExtension, serverFile;
-  final double archiveSize;
+  final double archiveSize, iconSize;
   final String iconUrl;
+
   Extension({
     required this.name,
     required this.details,
@@ -272,9 +271,11 @@ class Extension with IconBuilder{
     required this.parentName,
     required this.archiveSize,
     required this.url,
+    required this.githubUrl,
     required this.iconUrl,
     required this.fileExtension,
-    required this.serverFile
+    required this.serverFile,
+    this.iconSize = 35
   });
 
   factory Extension.fromJson(Map<String, dynamic> json) {
@@ -288,6 +289,7 @@ class Extension with IconBuilder{
       iconUrl: (json['icon-url'] ?? json['iconUrl'] ?? '').toString(),
       fileExtension: (json['fileExtension'] as List<dynamic>? ?? const []).map((item) => item.toString()).toList(),
       serverFile: (json['serverFile'] as List<dynamic>? ?? const []).map((item) => item.toString()).toList(),
+      githubUrl: 'github-url'
     );
   }
 
@@ -301,16 +303,17 @@ class Extension with IconBuilder{
     'fileExtension': fileExtension,
     'serverFile': serverFile,
     'icon-url': iconUrl,
+    'github-url': githubUrl
   };
 
-  Widget get icon => buildPackageIcon(iconUrl, size: 35);
+  Widget get icon => buildPackageIcon(iconUrl, iconSize);
 
 }
 
   mixin IconBuilder {
     String get name;
 
-    Widget buildPackageIcon(String iconUrl, {double size = 35}) {
+    Widget buildPackageIcon(String iconUrl, double size) {
       
       if (iconUrl.isEmpty) {
         return Icon(Icons.extension, size: size);
@@ -331,19 +334,7 @@ class Extension with IconBuilder{
           iconUrl,
           height: size,
           width: size,
-          colorFilter:
-            name == "Github Copilot" && (){
-              bool isDark = false;
-              getAppTheme().then((val){
-                isDark = val == "dark";
-              });
-              return isDark;
-            }()
-              ? ColorFilter.mode(
-                 Colors.grey[400]!,
-                BlendMode.srcIn
-              )
-              : null,
+          colorFilter: name == "Github Copilot" ? ColorFilter.mode(Colors.grey[600]!, .srcIn) : null,
         );
       }
       return Image.asset(iconUrl, height: size, width: size);
@@ -427,14 +418,14 @@ final langjava = Language(
   icon: SvgPicture.asset('assets/material_icons/java.svg', height: 35,width: 35),
   command: 'javac',
   type: 'compiled',
-  lspExecutable: "/data/data/com.roxum/bin/java",
+  lspExecutable: "/data/data/com.roxum/bin/kmp-lsp",
 );
 final langc = Language(
   name: 'C',
   extension: ['c'],
   details:'A powerful, low-level language widely used in system programming.',
   language: builtinAllLanguages['c'],
-  helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World!n");\n  return 0;\n}',
+  helloWorld:'#include <stdio.h> \n\nint main(){\n  printf("Hello, World\n");\n  return 0;\n}',
   command: 'clang',
   icon: SvgPicture.asset('assets/material_icons/c.svg',height: 35,width: 35),
   type: 'compiled',
@@ -569,7 +560,8 @@ final langswift = Language(
   helloWorld: 'print("Hello, World!")',
   command: 'swift',
   icon: SvgPicture.asset('assets/material_icons/swift.svg',height: 35,width: 35),
-  type: 'compiled'
+  type: 'compiled',
+  lspExecutable: "/data/data/com.roxum/bin/kmp-lsp",
 );
 final langkotlin = Language(
   name: 'Kotlin',
@@ -579,7 +571,8 @@ final langkotlin = Language(
   helloWorld: 'fun main(){\n println("Hello, World!")\n}',
   command: 'kotlinc',
   icon: SvgPicture.asset('assets/material_icons/kotlin.svg',height: 35,width: 35),
-  type: 'compiled'
+  type: 'compiled',
+  lspExecutable: "/data/data/com.roxum/bin/kmp-lsp",
 );
 final langcsharp = Language(
   name: 'C#',

@@ -11,6 +11,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:roxum/utils/agentic_tool_catalog.dart';
 import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
 import 'package:roxum/utils/constants.dart';
 import 'package:roxum/utils/functions.dart';
@@ -18,6 +19,8 @@ import 'package:roxum/utils/functions.dart';
 class AgenticTools {
   final BuildContext context;
   final String workspacePath;
+
+  static List<AgenticToolSpec> get toolSpecs => agenticToolSpecs;
 
   AgenticTools({required this.workspacePath, required this.context})
     : _activeEditor = context
@@ -35,6 +38,13 @@ class AgenticTools {
         ? filePath
         : path.join(workspacePath, filePath);
     return File(resolvedPath).absolute.path;
+  }
+
+  List<Map<String, dynamic>> _applyToolSelectionFilter(
+    List<Map<String, dynamic>> tools,
+  ) {
+    final selections = context.read<AIChatUIBloc>().state.agenticToolSelections;
+    return filterAgenticToolsBySelection(tools, selections);
   }
 
   bool _isInsideWorkspace(String canonicalPath) {
@@ -1777,7 +1787,7 @@ class AgenticTools {
   }
 
   List<Map<String, dynamic>> getTools({bool readAccessOnly = false}) {
-    return [
+    return _applyToolSelectionFilter([
       {
         "type": "function",
         "function": {
@@ -2341,7 +2351,7 @@ class AgenticTools {
             },
           },
         },
-    ];
+      ]);
   }
 
   RegExp _globToRegex(String glob) {

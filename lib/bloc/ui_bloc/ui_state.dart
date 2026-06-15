@@ -164,6 +164,18 @@ Models? _modelFromConfig(Map<String, dynamic> modelConfig) {
     case 'Perplexity': return Perplexity(apiKey: apiKey, model: modelName);
     case 'OpenRouter': return OpenRouter(apiKey: apiKey, model: modelName);
     case 'FireWorks': return FireWorks(apiKey: apiKey, model: modelName);
+    case 'LocalLlama':
+      final path = (modelConfig['modelPath'] ?? '').toString().trim();
+      if (path.isEmpty) return null;
+      final displayName = modelName.isNotEmpty ? modelName : path.split('/').last;
+      return LocalLlama(
+        modelPath: path,
+        displayName: displayName,
+        threads: (modelConfig['threads'] as num?)?.toInt() ?? 4,
+        contextSize: (modelConfig['contextSize'] as num?)?.toInt() ?? 4096,
+        gpuLayers: (modelConfig['gpuLayers'] as num?)?.toInt() ?? 0,
+      );
+
     case 'Custom':
       final url = (modelConfig['url'] ?? '').toString().trim();
       if (url.isEmpty) return null;
@@ -228,8 +240,12 @@ class AIState {
   final bool isEnabled, showSuggestionOntap;
   final Models? completionModel, chatModel;
 
-  AIState(this.config, this.isEnabled, this.modelSelected, this.showSuggestionOntap)
-    : completionModel = (() {
+  AIState(
+    this.config,
+    this.isEnabled,
+    this.modelSelected,
+    this.showSuggestionOntap
+  ) : completionModel = (() {
         if (config.isEmpty || modelSelected.isEmpty || modelSelected['code'] == null || config[modelSelected['code']] == null) {
           return null;
         }
@@ -281,6 +297,7 @@ class AIChatUIState {
   final String? selectedModelId;
   final double scrollOffset;
   final bool isGenerating;
+  final Map<String, bool> agenticToolSelections;
 
   const AIChatUIState({
     this.chatMode = ChatMode.ask,
@@ -288,6 +305,7 @@ class AIChatUIState {
     this.selectedModelId,
     this.scrollOffset = -1,
     this.isGenerating = false,
+    this.agenticToolSelections = const {},
   });
 
   AIChatUIState copyWith({
@@ -296,6 +314,7 @@ class AIChatUIState {
     String? selectedModelId,
     double? scrollOffset,
     bool? isGenerating,
+    Map<String, bool>? agenticToolSelections,
   }) {
     return AIChatUIState(
       chatMode: chatMode ?? this.chatMode,
@@ -303,6 +322,8 @@ class AIChatUIState {
       selectedModelId: selectedModelId ?? this.selectedModelId,
       scrollOffset: scrollOffset ?? this.scrollOffset,
       isGenerating: isGenerating ?? this.isGenerating,
+      agenticToolSelections:
+          agenticToolSelections ?? this.agenticToolSelections,
     );
   }
 }
@@ -641,6 +662,89 @@ class CopilotChatState {
       hasFetchedModels: hasFetchedModels ?? this.hasFetchedModels,
       models: models ?? this.models,
       error: error,
+    );
+  }
+}
+
+class SSHServersState {
+  final List<SSHInfo> serverList;
+
+  const SSHServersState(this.serverList);
+}
+
+class TermuxState {
+  final SSHPrivateKey? termInfo;
+
+  const TermuxState(this.termInfo);
+}
+
+class SelectedTerminalState {
+  final int? currentlySelectedID;
+  final bool isTermux;
+
+  const SelectedTerminalState(
+    this.currentlySelectedID,
+    {this.isTermux = false}
+  );
+}
+
+class SelectedRunEnvironmentState {
+  final int? currentlyRuntimeID;
+
+  const SelectedRunEnvironmentState(this.currentlyRuntimeID);
+}
+
+enum LocalLlamaStatus { idle, loading, ready, generating, error }
+
+class LocalLlamaState {
+  final LocalLlamaStatus status;
+  final String? loadedModelPath;
+  final String? loadedModelName;
+  final String? error;
+  final GpuInfo? gpuInfo;
+
+  const LocalLlamaState({
+    this.status = LocalLlamaStatus.idle,
+    this.loadedModelPath,
+    this.loadedModelName,
+    this.error,
+    this.gpuInfo,
+  });
+
+  bool get isReady => status == LocalLlamaStatus.ready;
+  bool get isLoading => status == LocalLlamaStatus.loading;
+
+  LocalLlamaState copyWith({
+    LocalLlamaStatus? status,
+    String? loadedModelPath,
+    String? loadedModelName,
+    String? error,
+    GpuInfo? gpuInfo,
+    bool clearError = false,
+  }) => LocalLlamaState(
+    status: status ?? this.status,
+    loadedModelPath: loadedModelPath ?? this.loadedModelPath,
+    loadedModelName: loadedModelName ?? this.loadedModelName,
+    error: clearError ? null : (error ?? this.error),
+    gpuInfo: gpuInfo ?? this.gpuInfo,
+  );
+}
+
+class GgufDownloadState {
+  final List<GgufDownloadTask> tasks;
+  final int? id;
+
+  const GgufDownloadState({
+    required this.tasks,
+    this.id
+  });
+
+  factory GgufDownloadState.initial() => const GgufDownloadState(tasks: [], id: null);
+
+  GgufDownloadState copyWith({List<GgufDownloadTask>? tasks, int? id}) {
+    return GgufDownloadState(
+      tasks: tasks ?? this.tasks,
+      id: id ?? this.id
     );
   }
 }

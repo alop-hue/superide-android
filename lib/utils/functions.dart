@@ -1,8 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:code_forge/code_forge.dart';
+import 'package:cryptography/cryptography.dart';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:diff_match_patch/diff_match_patch.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_archive/flutter_archive.dart';
@@ -60,6 +67,148 @@ bool isPreviewFilePath(String filePath) {
     isPdfFilePath(filePath);
 }
 
+const String _legacyProjectDir = '/data/data/com.roxum/Roxum/Projects';
+const String _legacyTemplateDir = '/data/data/com.roxum/Roxum/Templates';
+const String _legacyFilesDir = '/data/data/com.roxum/Roxum/Files';
+const String sharedStorageMigrationNoticeKey = 'roxum_shared_storage_migration_notice';
+const String sharedStorageMigrationDoneKey = 'roxum_shared_storage_migration_done_v1';
+
+Future<void> _copyEntityRecursive(FileSystemEntity source, Directory targetRoot) async {
+  if (source is Directory) {
+    final target = Directory(path.join(targetRoot.path, path.basename(source.path)));
+    if (!target.existsSync()) {
+      await target.create(recursive: true);
+    }
+    await for (final child in source.list(recursive: false, followLinks: false)) {
+      await _copyEntityRecursive(child, target);
+    }
+    return;
+  }
+
+  if (source is File) {
+    final target = File(path.join(targetRoot.path, path.basename(source.path)));
+    await target.parent.create(recursive: true);
+    await source.copy(target.path);
+  }
+}
+
+Future<bool> _migrateDirectoryRoot(String sourcePath, String targetPath) async {
+  final source = Directory(sourcePath);
+  if (!await source.exists()) {
+    return false;
+  }
+
+  final target = Directory(targetPath);
+  if (!await target.exists()) {
+    await target.create(recursive: true);
+  }
+
+  final entities = await source.list(followLinks: false).toList();
+  for (final entity in entities) {
+    final destination = path.join(target.path, path.basename(entity.path));
+    if (entity is Directory) {
+      await Directory(destination).create(recursive: true);
+      await for (final child in entity.list(followLinks: false)) {
+        await _copyEntityRecursive(child, Directory(destination));
+      }
+    } else if (entity is File) {
+      await File(destination).parent.create(recursive: true);
+      await entity.copy(destination);
+    }
+  }
+
+  await source.delete(recursive: true);
+  return true;
+}
+
+Map<String, dynamic>? _normalizeRecentMap(dynamic rawEntry) {
+  if (rawEntry is Map && rawEntry['type'] is String && rawEntry['path'] is String) {
+    return {
+      'type': rawEntry['type'],
+      'path': rawEntry['path'],
+      'rootDir': rawEntry['rootDir'] ?? rawEntry['path'],
+    };
+  }
+
+  if (rawEntry is Map && rawEntry.length == 1) {
+    final dynamic key = rawEntry.keys.first;
+    if (key is String) {
+      return {'type': 'file', 'path': key, 'rootDir': rawEntry[key]};
+    }
+  }
+
+  return null;
+}
+
+String _remapLegacyPath(String value) {
+  if (value.startsWith(_legacyProjectDir)) {
+    return value.replaceFirst(_legacyProjectDir, projectDir);
+  }
+  if (value.startsWith(_legacyTemplateDir)) {
+    return value.replaceFirst(_legacyTemplateDir, templateDir);
+  }
+  if (value.startsWith(_legacyFilesDir)) {
+    return value.replaceFirst(_legacyFilesDir, filesDir);
+  }
+  return value;
+}
+
+Future<void> _remapRecentEntriesToSharedStorage() async {
+  final prefs = await SharedPreferences.getInstance();
+  final rawRecent = prefs.getString('recent');
+  if (rawRecent == null || rawRecent.trim().isEmpty) {
+    return;
+  }
+
+  try {
+    final decoded = jsonDecode(rawRecent);
+    if (decoded is! List) return;
+
+    var changed = false;
+    final remapped = <dynamic>[];
+
+    for (final rawEntry in decoded) {
+      final normalized = _normalizeRecentMap(rawEntry);
+      if (normalized == null) {
+        continue;
+      }
+
+      final nextPath = _remapLegacyPath(normalized['path'] as String);
+      final nextRootDir = _remapLegacyPath(normalized['rootDir'] as String);
+      if (nextPath != normalized['path'] || nextRootDir != normalized['rootDir']) {
+        changed = true;
+      }
+
+      remapped.add({
+        'type': normalized['type'],
+        'path': nextPath,
+        'rootDir': nextRootDir,
+      });
+    }
+
+    if (changed) {
+      await prefs.setString('recent', jsonEncode(remapped));
+    }
+  } catch (_) {}
+}
+
+Future<bool> migrateSharedStorageRoots() async {
+  var migrated = false;
+  migrated = await _migrateDirectoryRoot(_legacyProjectDir, projectDir) || migrated;
+  migrated = await _migrateDirectoryRoot(_legacyTemplateDir, templateDir) || migrated;
+  migrated = await _migrateDirectoryRoot(_legacyFilesDir, filesDir) || migrated;
+
+  await _remapRecentEntriesToSharedStorage();
+
+  if (migrated) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(sharedStorageMigrationNoticeKey, true);
+    await prefs.setBool(sharedStorageMigrationDoneKey, true);
+  }
+
+  return migrated;
+}
+
 Future<Directory> setupProjectDir() async {
   final target = Directory(projectDir);
   if (!target.existsSync()) {
@@ -81,6 +230,8 @@ Future<Directory> setupFilesDir() async {
   if (!target.existsSync()) {
     await target.create(recursive: true);
   }
+  final ggufDir = Directory('${target.path}/gguf');
+  if (!ggufDir.existsSync()) await ggufDir.create(recursive: true);
 
   final currentFiles = File('${target.path}/.current_files.json');
 
@@ -475,6 +626,29 @@ Future<List<CommitNode>> getGraph(String workspacePath) async {
     environment: gitEnvs(sharedPath),
   );
 
+  String? headHash;
+  String? upstreamHash;
+
+  final headResult = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "HEAD"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (headResult.exitCode == 0) {
+    headHash = (headResult.stdout as String).trim();
+  }
+
+  final upstreamResult = await Process.run(
+    "$binDir/git",
+    ["rev-parse", "--verify", "@{u}"],
+    workingDirectory: workspacePath,
+    environment: gitEnvs(sharedPath),
+  );
+  if (upstreamResult.exitCode == 0) {
+    upstreamHash = (upstreamResult.stdout as String).trim();
+  }
+
   final List<CommitNode> commits = [];
   final lines = result.stdout.toString().split('\n');
 
@@ -494,6 +668,8 @@ Future<List<CommitNode>> getGraph(String workspacePath) async {
           parents: parentHashes,
           author: author,
           message: message,
+          isHead: hash == headHash,
+          isRemoteHead: upstreamHash != null && hash == upstreamHash,
         ),
       );
     }
@@ -1300,7 +1476,7 @@ String extractRepoName(String url) {
 }
 
 Future<File?> pickFile() async {
-  final result = await FilePicker.platform.pickFiles(
+  final result = await FilePicker.pickFiles(
     allowMultiple: false,
     type: FileType.custom,
   );
@@ -1358,10 +1534,12 @@ Future<Directory?> pickDir() async {
 Future<String?> selectDir({
   String? dialogeTitle,
   String? initialDirectory,
+  String? fileName,
   Uint8List? bytes,
 }) async {
-  return await FilePicker.platform.saveFile(
+  return await FilePicker.saveFile(
     dialogTitle: dialogeTitle,
+    fileName: fileName,
     initialDirectory: initialDirectory,
     bytes: bytes,
   );
@@ -1602,6 +1780,28 @@ void runCode(BuildContext context, String command, String rootDir) {
   }
 }
 
+void runCodeInTermux(BuildContext context, String command, String rootDir, int? id) {
+  try {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, scondaryAnimation) => SetupTerminal(
+          projectDir: rootDir,
+          termuxId: id,
+          commandToExecuteInSSH: command,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SizeTransition(sizeFactor: animation, child: child);
+        },
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Execution failed: ${e.toString()}")),
+    );
+    debugPrint(e.toString());
+  }
+}
+
 String _resolveLspServerPath(String serverPath) {
   final normalized = serverPath
       .replaceAll('\$extensionDir', extensionDir)
@@ -1688,7 +1888,6 @@ bool isLspServerAvailable({
   if (executable == null || executable.isEmpty) return false;
   final executableExists = File(executable).existsSync();
   if (!executableExists) return false;
-
   final normalizedExt = ext.toLowerCase();
 
   if (normalizedExt == 'dart') {
@@ -1700,12 +1899,6 @@ bool isLspServerAvailable({
   if (normalizedExt == 'js' || normalizedExt == 'ts') {
     return File(
       '$runtimesDir/node/lib/node_modules/typescript-language-server/lib/cli.mjs',
-    ).existsSync();
-  }
-
-  if (normalizedExt == 'java') {
-    return File(
-      '$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar',
     ).existsSync();
   }
 
@@ -1773,11 +1966,10 @@ Future<LspConfig?> startLspServer({
     final String dartRuntimeDir = '$runtimeDir/dart';
     final String dartRuntimeExecutable = '$dartRuntimeDir/bin/dart';
     final String dartAotRuntimeExecutable = '$dartRuntimeDir/bin/dartaotruntime';
-    final String dartAnalysisServerSnapshot =
-      '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
+    final String dartAnalysisServerSnapshot = '$dartRuntimeDir/bin/snapshots/analysis_server_aot.dart.snapshot';
     final String resolvedExecutable = normalizedExt == 'dart'
       ? dartAotRuntimeExecutable
-        : executable;
+      : executable;
     List<String> resolveServerArgs(String ext, List<String> args) {
       final normalizedExt = ext.toLowerCase();
 
@@ -1844,24 +2036,6 @@ Future<LspConfig?> startLspServer({
           dartAnalysisServerSnapshot,
           "--protocol=lsp",
           "--dart-sdk=$dartRuntimeDir",
-        ];
-      } else if (normalizedExt == 'java') {
-        return [
-          "-Declipse.application=org.eclipse.jdt.ls.core.id1",
-          "-Dosgi.bundles.defaultStartLevel=4",
-          "-Declipse.product=org.eclipse.jdt.ls.core.product",
-          "-Dlog.level=ALL",
-          "-Xmx1G",
-          "--add-modules=ALL-SYSTEM",
-          "--add-opens=java.base/java.util=ALL-UNNAMED",
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "-jar",
-          "$extensionDir/JDT-LS/plugins/org.eclipse.equinox.launcher_1.7.100.v20251111-0406.jar",
-          "-configuration",
-          "$extensionDir/JDT-LS/config_linux_arm",
-          "-data",
-          workspacePath,
-          ...args,
         ];
       }
       return resolveServerArgs(ext, args);
@@ -2085,6 +2259,27 @@ class NativeChannel {
     );
   }
 
+  static Future<bool> syncImportedItem({
+    required String sourceUri,
+    required String localPath,
+    required bool isDirectory,
+  }) async {
+    try {
+      final bool? result = await _channel.invokeMethod<bool>(
+        'syncImportedItem',
+        {
+          'sourceUri': sourceUri,
+          'localPath': localPath,
+          'isDirectory': isDirectory,
+        },
+      );
+      return result ?? false;
+    } on PlatformException catch (e) {
+      debugPrint('Failed to sync imported item: ${e.message}');
+      return false;
+    }
+  }
+
   static Stream<Map<String, dynamic>> moduleInstallEvents() {
     return _pfdEventChannel.receiveBroadcastStream().map((event) {
       if (event is Map) {
@@ -2130,6 +2325,9 @@ class ActiveEditor {
 
     return json;
   }
+
+  @override
+  String toString() => toJsonMap().toString();
 
   Future<void> dispose() async {
     try {
@@ -2247,6 +2445,8 @@ class CommitNode {
   int? childLane;
   bool isMerge;
   bool isBranchStart;
+  bool isHead;
+  bool isRemoteHead;
 
   CommitNode({
     required this.hash,
@@ -2257,6 +2457,8 @@ class CommitNode {
     this.childLane,
     this.isMerge = false,
     this.isBranchStart = false,
+    this.isHead = false,
+    this.isRemoteHead = false,
   });
 }
 
@@ -2375,11 +2577,15 @@ List<CommitRowInfo> assignVSCodeLanes(List<CommitNode> commits) {
       if (existingParentLane != null) {
         parentLane = existingParentLane;
         parentColor = existingParentColor!;
+        final hasDiagonal = parentLane != commitLane;
+        final edgeColor = hasDiagonal
+            ? (commit.isMerge && p > 0 ? parentColor : colorIndex)
+            : parentColor;
         lines.add(
           GraphLine(
             fromLane: commitLane,
             toLane: parentLane,
-            colorIndex: parentColor,
+            colorIndex: edgeColor,
           ),
         );
       } else {
@@ -2830,5 +3036,749 @@ class PendingEditFile {
   static Future<Map<String, dynamic>> getFromPref() async {
     final prefs = await SharedPreferences.getInstance();
     return _decodePrefs(prefs.getString(_prefsKey));
+  }
+}
+
+sealed class SSHInfo {
+  final String url, name;
+  final int id;
+
+  SSHInfo({
+    required this.id,
+    required this.url,
+    required this.name
+  });
+
+  SSHClient? get client;
+  bool get isConnected;
+
+  Uri get uri => Uri.parse(url);
+  String get username => uri.userInfo.split(':').first;
+  String get host => uri.host;
+  int get port => uri.port == 0 ? 22 : uri.port;
+
+  factory SSHInfo.fromJsonMap(Map<String, dynamic> jsonMap){
+    switch (jsonMap["login"]) {
+      case true: return SSHLogin.fromJsonMap(jsonMap);
+      case false: return SSHPrivateKey.fromJsonMap(jsonMap);
+      default: throw Exception('Invalid SSH type');
+    }
+  }
+
+  Map<String, dynamic> toJsonMap();
+
+  Future<(bool, String)> connect();
+  void disconnect();
+
+  static Future<List<SSHInfo>> getSavedSSHServers() async{
+    final prefs = await SharedPreferences.getInstance();
+    final serverList = (jsonDecode(prefs.getString('sshServerList') ?? '[]') as List).cast<Map<String, dynamic>>();
+    return serverList.map(SSHInfo.fromJsonMap).toList();
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is SSHInfo && other.id == id;
+  }
+  
+  @override int get hashCode => id;
+}
+
+class SSHLogin extends SSHInfo{
+  final String password;
+
+  SSHLogin({
+    required super.name,
+    required super.id,
+    required super.url,
+    required this.password,
+  });
+  
+  @override
+  Map<String, dynamic> toJsonMap() => {
+    "name": name,
+    "id": id,
+    "url": url,
+    "username": username,
+    "password": password,
+    "login": true
+  };
+
+  @override
+  String toString() => toJsonMap().toString();
+  
+  
+  static SSHLogin fromJsonMap(Map<String, dynamic> jsonMap) => SSHLogin(
+    name: jsonMap["name"],
+    id: jsonMap["id"],
+    url: jsonMap["url"],
+    password: jsonMap["password"],
+  );
+  
+  SSHClient? _client;
+  bool _isConnected = false;
+
+  @override
+  SSHClient? get client => _client;
+
+  @override
+  bool get isConnected => _isConnected;
+
+  @override
+  Future<(bool, String)> connect() async{
+    try {
+      _client = SSHClient(
+        await SSHSocket.connect(host, port),
+        username: username,
+        onPasswordRequest: () => password,
+      );
+      await _client!.authenticated;
+      _isConnected = true;
+      return (true, "Successfully connected to $host as $username");
+    } on SocketException catch(e) {
+      return (false, "Server unreachable: $e");
+    } on TimeoutException catch(e) {
+      return (false, "Connection timed out: $e");
+    } catch (e) {
+      return (false, "An error occurred: $e");
+    }
+  }
+
+  @override
+  void disconnect() {
+    _isConnected = false;
+    _client?.close();
+  }
+}
+
+class SSHPrivateKey extends SSHInfo{
+  final File? termuxKeyLoc;
+
+  SSHPrivateKey({
+    required super.name,
+    required super.id,
+    required super.url,
+    this.termuxKeyLoc
+  });
+  
+  @override
+  Map<String, dynamic> toJsonMap() => {
+    "name": name,
+    "id": id,
+    "url": url,
+    "login": false
+  };
+
+  static SSHPrivateKey fromJsonMap(Map<String, dynamic> jsonMap) => SSHPrivateKey(
+    name: jsonMap["name"],
+    id: jsonMap["id"],
+    url: jsonMap["url"],
+  );
+
+  SSHClient? _client;
+  bool _isConnected = false;
+
+  @override
+  String toString() => toJsonMap().toString();
+
+  @override
+  SSHClient? get client => _client;
+
+  @override
+  bool get isConnected => _isConnected;
+  
+  @override
+  Future<(bool, String)> connect() async{
+    try {
+      _client = SSHClient(
+        await SSHSocket.connect(host, port),
+        username: username,
+        identities: [
+          ...SSHKeyPair.fromPem(await (termuxKeyLoc ?? SshKeygen.privateKeyFilelocation).readAsString())
+        ]
+      );
+      await _client!.authenticated;
+      _isConnected = true;
+      return (true, "Successfully connected to $host as $username");
+    } on SocketException catch(e) {
+      return (false, "Server unreachable: $e");
+    } on TimeoutException catch(e) {
+      return (false, "Connection timed out: $e");
+    } catch (e) {
+      return (false, "An error occurred: $e");
+    }
+  }
+
+  @override
+  void disconnect() {
+    _isConnected = false;
+    _client?.close();
+  }
+}
+
+class SshKeygen {
+  final String? comment;
+  final File? termPubKey;
+  final File? termPrivKey;
+
+  static final publicKeyFilelocation = File("$appDir/.ssh/id_ed25519.pub");
+  static final privateKeyFilelocation = File("$appDir/.ssh/id_ed25519");
+
+  SshKeygen({
+    this.comment,
+    this.termPubKey,
+    this.termPrivKey,
+  });
+
+  Future<void> generate() async{
+    final algo = Ed25519();
+    final keyPair = await algo.newKeyPair();
+    final pubKey = await keyPair.extractPublicKey();
+    final privSeed = await keyPair.extractPrivateKeyBytes();
+    final pubBytes = Uint8List.fromList(pubKey.bytes);
+    final seedBytes = Uint8List.fromList(privSeed);
+    final publicKeyFile = buildPublicKeyFile(pubBytes, comment: comment ?? 'user@host');
+    final privateKeyFile = buildPrivateKeyFile(pubBytes, seedBytes, comment: comment ?? 'user@host');
+    if(!(await (termPrivKey ?? privateKeyFilelocation).exists())){
+      await (termPrivKey ?? privateKeyFilelocation).create(recursive: true);
+    }
+
+    if(!(await (termPubKey ?? publicKeyFilelocation).exists())){
+      await (termPubKey ?? publicKeyFilelocation).create(recursive: true);
+    }
+    
+    await (termPrivKey ?? privateKeyFilelocation).writeAsString(privateKeyFile);
+    await (termPubKey ?? publicKeyFilelocation).writeAsString(publicKeyFile);
+  }
+
+  String buildPublicKeyFile(Uint8List pubBytes, {String comment = ''}) {
+    final buf = BytesBuilder();
+    _writeString(buf, 'ssh-ed25519');
+    _writeBytes(buf, pubBytes);
+    final b64 = base64.encode(buf.toBytes());
+    return 'ssh-ed25519 $b64 $comment'.trim();
+  }
+
+  String buildPrivateKeyFile(Uint8List pubBytes, Uint8List seedBytes, {String comment = ''}) {
+    final privBytes = Uint8List(64)
+      ..setRange(0, 32, seedBytes)
+      ..setRange(32, 64, pubBytes);
+
+    final pubBlob = _buildPubBlob(pubBytes);
+    final privBlob = _buildPrivBlob(pubBytes, privBytes, comment);
+
+    final outer = BytesBuilder();
+    outer.add(utf8.encode('openssh-key-v1\x00'));
+    _writeString(outer, 'none');
+    _writeString(outer, 'none');
+    _writeString(outer, '');
+    _writeUint32(outer, 1);
+    _writeBytes(outer, pubBlob);
+    _writeBytes(outer, privBlob);
+
+    final b64 = base64.encode(outer.toBytes());
+    final lines = RegExp('.{1,70}').allMatches(b64).map((m) => m.group(0)!).join('\n');
+    return '-----BEGIN OPENSSH PRIVATE KEY-----\n$lines\n-----END OPENSSH PRIVATE KEY-----\n';
+  }
+
+  Uint8List _buildPubBlob(Uint8List pubBytes) {
+    final b = BytesBuilder();
+    _writeString(b, 'ssh-ed25519');
+    _writeBytes(b, pubBytes);
+    return b.toBytes();
+  }
+
+  Uint8List _buildPrivBlob(Uint8List pubBytes, Uint8List privBytes, String comment) {
+    final checkInt = Random.secure().nextInt(0xFFFFFFFF);
+    final b = BytesBuilder();
+    _writeUint32(b, checkInt);
+    _writeUint32(b, checkInt);
+    _writeString(b, 'ssh-ed25519');
+    _writeBytes(b, pubBytes);
+    _writeBytes(b, privBytes);
+    _writeString(b, comment); 
+    int pad = 1;
+    while (b.length % 8 != 0) {
+      b.addByte(pad++);
+    }
+    return b.toBytes();
+  }
+
+  void _writeUint32(BytesBuilder b, int value) {
+    b.addByte((value >> 24) & 0xFF);
+    b.addByte((value >> 16) & 0xFF);
+    b.addByte((value >> 8) & 0xFF);
+    b.addByte(value & 0xFF);
+  }
+
+  void _writeString(BytesBuilder b, String s) {
+    final bytes = utf8.encode(s);
+    _writeUint32(b, bytes.length);
+    b.add(bytes);
+  }
+
+  void _writeBytes(BytesBuilder b, Uint8List bytes) {
+    _writeUint32(b, bytes.length);
+    b.add(bytes);
+  }
+}
+
+enum GgufDownloadStatus { downloading, completed, failed }
+
+class GgufDownloadTask {
+  final String taskId, modelName, url, fileName, localPath, quant, imageUrl;
+  final GgufDownloadStatus status;
+  final double progress, paramSize;
+  final bool registered;
+
+  GgufDownloadTask({
+    required this.taskId,
+    required this.modelName,
+    required this.url,
+    required this.fileName,
+    required this.localPath,
+    required this.status,
+    required this.progress,
+    required this.registered,
+    required this.quant,
+    required this.paramSize,
+    required this.imageUrl
+  });
+
+  GgufDownloadTask copyWith({
+    String? taskId,
+    String? modelName,
+    String? url,
+    String? fileName,
+    String? localPath,
+    String? quant,
+    String? imageUrl,
+    GgufDownloadStatus? status,
+    double? progress,
+    double? paramSize,
+    bool? registered,
+  }) {
+    return GgufDownloadTask(
+      taskId: taskId ?? this.taskId,
+      modelName: modelName ?? this.modelName,
+      url: url ?? this.url,
+      fileName: fileName ?? this.fileName,
+      localPath: localPath ?? this.localPath,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      registered: registered ?? this.registered,
+      quant: quant ?? this.quant,
+      paramSize: paramSize ?? this.paramSize,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'taskId': taskId,
+    'modelName': modelName,
+    'url': url,
+    'fileName': fileName,
+    'localPath': localPath,
+    'status': status.index,
+    'progress': progress,
+    'registered': registered,
+    'quant': quant,
+    'paramSize': paramSize,
+    'imageUrl': imageUrl
+  };
+
+  factory GgufDownloadTask.fromJson(Map<String, dynamic> json) => GgufDownloadTask(
+    taskId: json['taskId'] as String? ?? '',
+    modelName: json['modelName'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+    fileName: json['fileName'] as String? ?? '',
+    localPath: json['localPath'] as String? ?? '',
+    status: GgufDownloadStatus.values[json['status'] as int? ?? 0],
+    progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
+    registered: json['registered'] as bool? ?? false,
+    quant: json['quant'] as String? ?? '',
+    paramSize: (json['paramSize'] as num?)?.toDouble() ?? 0.0,
+    imageUrl: json['imageUrl'] ?? '',
+  );
+}
+
+class GgufModel {
+  final String name, url, fileName, quant, imageUrl;
+  final double paramSize;
+
+  GgufModel({
+    required this.name,
+    required this.url,
+    required this.fileName,
+    required this.quant,
+    required this.paramSize,
+    required this.imageUrl
+  });
+
+  static Future<({String modelId, Map<String, dynamic> aiConfig, Map<String, dynamic> modelSelected})> registerGgufModelWithAI(GgufDownloadTask task) async {
+    final prefs = await SharedPreferences.getInstance();
+    final aiConfigStr = await getAiConfig();
+    final Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+
+    final alreadyExists = aiConfig.values.any((v) =>
+      v is Map<String, dynamic> &&
+      v['provider'] == 'LocalLlama' &&
+      v['modelPath'] == task.localPath
+    );
+    if (alreadyExists) {
+      final existingKey = aiConfig.entries.firstWhere((e) =>
+        e.value is Map<String, dynamic> &&
+        (e.value as Map)['modelPath'] == task.localPath
+      ).key;
+      final modelSelectedStr = await getModelSelected();
+      return (
+        modelId: existingKey,
+        aiConfig: aiConfig,
+        modelSelected: jsonDecode(modelSelectedStr) as Map<String, dynamic>,
+      );
+    }
+
+    final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
+    aiConfig[modelId] = {
+      'provider': 'LocalLlama',
+      'apiProvider': 'LocalLlama',
+      'modelName': task.modelName,
+      'model': task.modelName,
+      'modelPath': task.localPath,
+      'threads': 4,
+      'contextSize': 4096,
+      'gpuLayers': 0,
+    };
+    await prefs.setString('aiConfig', jsonEncode(aiConfig));
+
+    final modelSelectedStr = await getModelSelected();
+    final Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+    if ((modelSelected['chat'] as String? ?? '').isEmpty) {
+      modelSelected['chat'] = modelId;
+      await prefs.setString('modelSelected', jsonEncode(modelSelected));
+    }
+
+    return (modelId: modelId, aiConfig: aiConfig, modelSelected: modelSelected);
+  }
+}
+
+class BoyerMooreSearch {
+  final String pattern;
+  final bool caseSensitive;
+
+  late final String _pat;
+  late final List<int> _skip;
+
+  BoyerMooreSearch(this.pattern, {this.caseSensitive = true}) {
+    _pat = caseSensitive ? pattern : pattern.toLowerCase();
+    _skip = List<int>.filled(256, _pat.length);
+    for (int i = 0; i < _pat.length - 1; i++) {
+      final c = _pat.codeUnitAt(i);
+      if (c < 256) _skip[c] = _pat.length - 1 - i;
+    }
+  }
+
+  bool containsIn(String text) => _firstMatch(
+    caseSensitive ? text : text.toLowerCase(),
+  ) != -1;
+
+  int firstMatch(String text) => _firstMatch(caseSensitive ? text : text.toLowerCase());
+
+  List<int> findAll(String text) {
+    final src = caseSensitive ? text : text.toLowerCase();
+    final m = _pat.length;
+    if (m == 0) return [];
+    final hits = <int>[];
+    int base = 0;
+    while (base <= src.length - m) {
+      final idx = _firstMatch(src.substring(base));
+      if (idx == -1) break;
+      hits.add(base + idx);
+      base += idx + m;
+    }
+    return hits;
+  }
+
+  bool isWholeWordMatch(String text, int offset) {
+    final end = offset + _pat.length;
+    final before = offset == 0 || !_isWordChar(text.codeUnitAt(offset - 1));
+    final after  = end >= text.length || !_isWordChar(text.codeUnitAt(end));
+    return before && after;
+  }
+
+  int _firstMatch(String src) {
+    final m = _pat.length;
+    final n = src.length;
+    if (m == 0) return 0;
+    if (m > n)  return -1;
+
+    int i = m - 1;
+    while (i < n) {
+      int j = m - 1, k = i;
+      while (j >= 0 && src.codeUnitAt(k) == _pat.codeUnitAt(j)) {
+        k--;
+        j--;
+      }
+      if (j < 0) return k + 1;
+      final c = src.codeUnitAt(i);
+      i += (c < 256) ? _skip[c] : m;
+    }
+    return -1;
+  }
+
+  static bool _isWordChar(int c) =>
+      (c >= 65 && c <= 90)  ||
+      (c >= 97 && c <= 122) ||
+      (c >= 48 && c <= 57)  ||
+      c == 95;
+}
+
+String? _regexLiteralPrefix(String regexPattern) {
+  final sb = StringBuffer();
+  for (int i = 0; i < regexPattern.length; i++) {
+    final c = regexPattern[i];
+    if (r'\^$.|?*+()[]{}'.contains(c)) break;
+    sb.write(c);
+  }
+  final p = sb.toString();
+  return p.length >= 2 ? p : null;
+}
+
+Future<bool> _isBinaryFile(File file, {int sampleBytes = 4096}) async {
+  try {
+    final raf = await file.open();
+    try {
+      final buf = await raf.read(sampleBytes);
+      return buf.contains(0);
+    } finally {
+      await raf.close();
+    }
+  } catch (_) {
+    return true;
+  }
+}
+
+class SearchParams {
+  final String workspacePath;
+  final String query;
+  final bool matchCase;
+  final bool matchWholeWord;
+  final bool isRegex;
+  final int maxFileSizeBytes;
+
+  const SearchParams({
+    required this.workspacePath,
+    required this.query,
+    required this.matchCase,
+    required this.matchWholeWord,
+    required this.isRegex,
+    this.maxFileSizeBytes = 5 * 1024 * 1024,
+  });
+}
+
+class RawResult {
+  final String filePath;
+  final String relativePath;
+  final int lineNumber;
+  final String lineContent;
+
+  const RawResult({
+    required this.filePath,
+    required this.relativePath,
+    required this.lineNumber,
+    required this.lineContent,
+  });
+}
+
+const _kTextExtensions = {
+  '.dart', '.js',   '.ts',   '.json', '.xml',   '.html',  '.css',
+  '.md',   '.txt',  '.yaml', '.yml',  '.java',  '.kt',    '.py',
+  '.c',    '.cpp',  '.h',    '.hpp',  '.sh',    '.gradle',
+  '.properties',   '.swift', '.m',    '.go',    '.rs',    '.rb',
+  '.php',  '.sql',  '.vue',  '.jsx',  '.tsx',   '.toml',  '.lock',
+};
+
+Future<List<RawResult>> searchIsolate(SearchParams p) async {
+  final results = <RawResult>[];
+  final dir = Directory(p.workspacePath);
+
+  BoyerMooreSearch? bm;
+  RegExp? regex;
+  BoyerMooreSearch? prefixBm;
+
+  if (p.isRegex) {
+    try {
+      regex = RegExp(p.query, caseSensitive: p.matchCase);
+    } catch (_) {
+      return results;
+    }
+    final prefix = _regexLiteralPrefix(p.query);
+    if (prefix != null) {
+      prefixBm = BoyerMooreSearch(prefix, caseSensitive: p.matchCase);
+    }
+  } else {
+    bm = BoyerMooreSearch(p.query, caseSensitive: p.matchCase);
+  }
+
+  await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    if (entity is! File) continue;
+
+    final relativePath = entity.path.replaceFirst('${p.workspacePath}/', '');
+
+    if (relativePath.startsWith('.') ||
+        relativePath.contains('/.') ||
+        relativePath.contains('/build/') ||
+        relativePath.contains('/.git/') ||
+        relativePath.contains('/node_modules/') ||
+        relativePath.contains('/.dart_tool/') ||
+        relativePath.contains('/.gradle/')) {
+      continue;
+    }
+
+    final ext = path.extension(entity.path).toLowerCase();
+    if (ext.isNotEmpty && !_kTextExtensions.contains(ext)) continue;
+
+    try {
+      final stat = await entity.stat();
+      if (stat.size == 0 || stat.size > p.maxFileSizeBytes) continue;
+    } catch (_) {
+      continue;
+    }
+
+    if (await _isBinaryFile(entity)) continue;
+
+    try {
+      int lineNumber = 0;
+
+      await for (final line in entity
+          .openRead()
+          .transform(utf8.decoder) 
+          .transform(const LineSplitter())) {
+        lineNumber++;
+
+        bool hasMatch;
+
+        if (p.isRegex) {
+          if (prefixBm != null && !prefixBm.containsIn(line)) {
+            hasMatch = false;
+          } else {
+            hasMatch = regex!.hasMatch(line);
+          }
+        } else if (p.matchWholeWord) {
+          final offsets = bm!.findAll(line);
+          hasMatch = offsets.any((o) => bm!.isWholeWordMatch(line, o));
+        } else {
+          hasMatch = bm!.containsIn(line);
+        }
+
+        if (hasMatch) {
+          results.add(RawResult(
+            filePath:     entity.path,
+            relativePath: relativePath,
+            lineNumber:   lineNumber,
+            lineContent:  line.trim(),
+          ));
+        }
+      }
+    } on FormatException {
+      continue;
+    } catch (_) {
+      continue;
+    }
+  }
+
+  return results;
+}
+
+class InvertedIndex {
+  final Map<String, Map<String, List<int>>> _index = {};
+  bool _ready = false;
+
+  bool get isReady => _ready;
+
+  static final _wordRe = RegExp(r'\b[A-Za-z_]\w{2,}\b');
+  static const _maxFileSizeForIndex = 2 * 1024 * 1024;   // 2 MB
+
+  Future<void> build(String workspacePath) async {
+    _index.clear();
+    _ready = false;
+    await _scan(workspacePath);
+    _ready = true;
+  }
+
+  Future<void> _scan(String workspacePath) async {
+    final dir = Directory(workspacePath);
+
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+
+      final relativePath = entity.path.replaceFirst('$workspacePath/', '');
+      if (relativePath.startsWith('.') ||
+          relativePath.contains('/.') ||
+          relativePath.contains('/build/') ||
+          relativePath.contains('/.git/') ||
+          relativePath.contains('/node_modules/')) {
+        continue;
+      }
+
+      final ext = path.extension(entity.path).toLowerCase();
+      if (ext.isNotEmpty && !_kTextExtensions.contains(ext)) continue;
+
+      try {
+        final stat = await entity.stat();
+        if (stat.size == 0 || stat.size > _maxFileSizeForIndex) continue;
+      } catch (_) {
+        continue;
+      }
+
+      if (await _isBinaryFile(entity)) continue;
+
+      try {
+        int lineNo = 0;
+        await for (final line in entity
+            .openRead()
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+          lineNo++;
+          for (final m in _wordRe.allMatches(line.toLowerCase())) {
+            final word = m.group(0)!;
+            (_index[word] ??= {})[entity.path] ??= [];
+            _index[word]![entity.path]!.add(lineNo);
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+  }
+
+  Map<String, List<int>>? lookup(String word) {
+    if (!_ready || word.length < 3) return null;
+    return _index[word.toLowerCase()];
+  }
+
+  Future<void> updateFile(File file) async {
+    for (final v in _index.values) {
+      v.remove(file.path);
+    }
+    try {
+      int lineNo = 0;
+      await for (final line in file
+          .openRead()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        lineNo++;
+        for (final m in _wordRe.allMatches(line.toLowerCase())) {
+          final word = m.group(0)!;
+          (_index[word] ??= {})[file.path] ??= [];
+          _index[word]![file.path]!.add(lineNo);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void clear() {
+    _index.clear();
+    _ready = false;
   }
 }

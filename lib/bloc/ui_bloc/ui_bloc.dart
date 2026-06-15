@@ -6,9 +6,13 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_file_downloader/flutter_file_downloader.dart';
+import 'package:http/http.dart' as http;
+import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:roxum/utils/constants.dart';
 import '../../utils/ai.dart';
+import '../../utils/agentic_tool_catalog.dart';
 import '../../utils/copilot_chat.dart';
 import '../../utils/copilot_lsp.dart';
 import '../../utils/functions.dart';
@@ -347,6 +351,8 @@ class AIChatBloc extends Bloc<AIChatEvent, AIChatState>{
 
 class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
   static const String _chatModePrefsKey = 'ai_chat_mode';
+  static const String _agenticToolSelectionsPrefsKey = 'ai_agentic_tool_selections';
+  static const String _selectedModelIdPrefsKey = 'ai_selected_chat_model_id';
 
   AIChatUIBloc() : super(const AIChatUIState()) {
     on<AIChatUIEvent>((event, emit) async {
@@ -356,6 +362,9 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         selectedModelId: event.selectedModelId,
         scrollOffset: event.scrollOffset,
         isGenerating: event.isGenerating,
+        agenticToolSelections: event.agenticToolSelections != null
+            ? normalizeAgenticToolSelections(event.agenticToolSelections)
+            : state.agenticToolSelections,
       );
 
       if (state.chatMode != nextState.chatMode) {
@@ -363,10 +372,66 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         await prefs.setString(_chatModePrefsKey, nextState.chatMode.name);
       }
 
+      if (state.agenticToolSelections != nextState.agenticToolSelections) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _agenticToolSelectionsPrefsKey,
+          jsonEncode(nextState.agenticToolSelections),
+        );
+      }
+
+      if (state.selectedModelId != nextState.selectedModelId) {
+        final prefs = await SharedPreferences.getInstance();
+        if (nextState.selectedModelId != null) {
+          await prefs.setString(_selectedModelIdPrefsKey, nextState.selectedModelId!);
+        } else {
+          await prefs.remove(_selectedModelIdPrefsKey);
+        }
+      }
+
       emit(nextState);
     });
 
     _restoreChatModeFromPrefs();
+    _restoreAgenticToolSelectionsFromPrefs();
+    _restoreSelectedModelIdFromPrefs();
+  }
+
+  Future<void> _restoreSelectedModelIdFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? savedId = prefs.getString(_selectedModelIdPrefsKey);
+      
+      if (savedId == null || savedId.isEmpty) {
+        final modelSelectedStr = prefs.getString('modelSelected');
+        if (modelSelectedStr != null) {
+          final Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+          savedId = modelSelected['chat'] as String?;
+        }
+      }
+      
+      if (savedId != null && savedId.isNotEmpty) {
+        final aiConfigStr = prefs.getString('aiConfig');
+        if (aiConfigStr != null) {
+          final Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+          if (!aiConfig.containsKey(savedId)) {
+            savedId = null;
+          }
+        }
+      }
+      
+      if (savedId != null && savedId.isNotEmpty && savedId != state.selectedModelId) {
+        add(AIChatUIEvent(
+          chatMode: state.chatMode,
+          promptText: state.promptText,
+          selectedModelId: savedId,
+          scrollOffset: state.scrollOffset,
+          isGenerating: state.isGenerating,
+          agenticToolSelections: state.agenticToolSelections,
+        ));
+      }
+
+    } catch (_) {}
   }
 
   Future<void> _restoreChatModeFromPrefs() async {
@@ -390,9 +455,44 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
           ),
         );
       }
-    } catch (_) {
-      // Ignore preference read errors and keep default mode.
-    }
+    } catch (_) {}
+  }
+
+  Future<void> _restoreAgenticToolSelectionsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSelections = prefs.getString(_agenticToolSelectionsPrefsKey);
+      if (savedSelections == null || savedSelections.isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(savedSelections);
+      if (decoded is! Map) {
+        return;
+      }
+
+      final restoredSelections = <String, bool>{};
+      decoded.forEach((key, value) {
+        if (key != null) {
+          restoredSelections[key.toString()] = value == true;
+        }
+      });
+
+      final normalizedSelections =
+          normalizeAgenticToolSelections(restoredSelections);
+      if (normalizedSelections != state.agenticToolSelections) {
+        add(
+          AIChatUIEvent(
+            chatMode: state.chatMode,
+            promptText: state.promptText,
+            selectedModelId: state.selectedModelId,
+            scrollOffset: state.scrollOffset,
+            isGenerating: state.isGenerating,
+            agenticToolSelections: normalizedSelections,
+          ),
+        );
+      }
+    } catch (_) {}
   }
 }
 
@@ -1156,5 +1256,390 @@ class CopilotChatBloc extends Bloc<CopilotChatEvent, CopilotChatState> {
     _conversationSubscription?.cancel();
     _chatClient?.dispose();
     return super.close();
+  }
+}
+
+class SSHServersCubit extends Cubit<SSHServersState> {
+  SSHServersCubit(List<SSHInfo> serverList) : super(SSHServersState(serverList));
+
+  Future<void> addServer(SSHInfo server) async{
+    final updatedList = [...state.serverList, server];
+    emit(SSHServersState(updatedList));
+    await _save(updatedList);
+  }
+
+  Future<void> removeServer(int id) async{
+    final List<SSHInfo> serverList = List.from(state.serverList);
+    serverList.removeWhere((server) => server.id == id);
+    emit(SSHServersState(serverList));
+    await _save(serverList);
+  }
+
+  Future<void> updateServer(SSHInfo serverInfo) async {
+    final serverList = List<SSHInfo>.from(state.serverList);
+    final index = serverList.indexWhere((s) => s.id == serverInfo.id);
+    if (index == -1) return;
+    serverList[index] = serverInfo;
+    emit(SSHServersState(serverList));
+    await _save(serverList);
+  }
+
+  Future<void> _save(List<SSHInfo> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'sshServerList',
+      jsonEncode(
+        servers.map((e) => e.toJsonMap()).toList(),
+      ),
+    );
+  }
+}
+
+class TermuxCubit extends Cubit<TermuxState> {
+  TermuxCubit(SSHPrivateKey? termuxInfo) : super(TermuxState(termuxInfo));
+
+  Future<void> setTermuxInfo(SSHPrivateKey info) async{
+    emit(TermuxState(info));
+    await _save(info);
+  }
+
+  void unSetTermuxInfo() {
+    emit(const TermuxState(null));
+  }
+
+  Future<void> clear() async {
+    unSetTermuxInfo();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('termuxInfo');
+  }
+
+  Future<void> _save(SSHPrivateKey info) async{
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('termuxInfo', jsonEncode(info.toJsonMap()));
+  }
+
+  static Future<SSHPrivateKey?> getSavedTermuxInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final json = prefs.getString('termuxInfo');
+      if (json == null) return null;
+
+      return SSHPrivateKey.fromJsonMap(
+        jsonDecode(json) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+class CurrentlySelectedTerminalCubit extends Cubit<SelectedTerminalState>{
+  CurrentlySelectedTerminalCubit() : super(SelectedTerminalState(null));
+
+  void updateId(int? id, bool isTermux){
+    emit(SelectedTerminalState(id, isTermux: isTermux));
+  }
+}
+
+class SelectedRuntimeEnvironmentCubit extends Cubit<SelectedRunEnvironmentState> {
+  SelectedRuntimeEnvironmentCubit() : super(SelectedRunEnvironmentState(null));
+
+  void updateId(int? id){
+    emit(SelectedRunEnvironmentState(id));
+  }
+}
+
+class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
+  LlamaController? _controller;
+
+  LocalLlamaBloc() : super(const LocalLlamaState()) {
+    on<LocalLlamaLoadModel>(_onLoadModel);
+    on<LocalLlamaUnloadModel>(_onUnloadModel);
+    on<LocalLlamaStopGeneration>(_onStopGeneration);
+    on<LocalLlamaDetectGpu>(_onDetectGpu);
+    on<LocalLlamaGenerationDone>(_onGenerationDone);
+  }
+
+  LlamaController? get controller => _controller;
+
+  Future<void> _onLoadModel(
+    LocalLlamaLoadModel event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    if (state.loadedModelPath == event.model.modelPath && state.status == LocalLlamaStatus.ready) return;
+
+    await _controller?.dispose();
+    _controller = null;
+
+    emit(state.copyWith(
+      status: LocalLlamaStatus.loading,
+      clearError: true,
+    ));
+
+    try {
+      _controller = LlamaController();
+
+      GpuInfo? gpuInfo = state.gpuInfo;
+      gpuInfo ??= await _controller!.detectGpu();
+
+      final layers = event.model.gpuLayers == 0
+        ? gpuInfo.recommendedGpuLayers
+        : event.model.gpuLayers;
+
+      await _controller!.loadModel(
+        modelPath: event.model.modelPath,
+        threads: event.model.threads,
+        contextSize: event.model.contextSize,
+        gpuLayers: layers,
+      );
+
+      emit(state.copyWith(
+        status: LocalLlamaStatus.ready,
+        loadedModelPath: event.model.modelPath,
+        loadedModelName: event.model.displayName,
+        gpuInfo: gpuInfo,
+      ));
+    } catch (e) {
+      await _controller?.dispose();
+      _controller = null;
+      emit(state.copyWith(
+        status: LocalLlamaStatus.error,
+        error: e.toString(),
+      ));
+    }
+  }
+
+  Future<void> _onUnloadModel(
+    LocalLlamaUnloadModel event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    await _controller?.dispose();
+    _controller = null;
+    emit(const LocalLlamaState());
+  }
+
+  Future<void> _onStopGeneration(
+    LocalLlamaStopGeneration event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    await _controller?.stop();
+  }
+
+  Future<void> _onDetectGpu(
+    LocalLlamaDetectGpu event,
+    Emitter<LocalLlamaState> emit,
+  ) async {
+    try {
+      _controller ??= LlamaController();
+      final gpuInfo = await _controller!.detectGpu();
+      emit(state.copyWith(gpuInfo: gpuInfo));
+    } catch (_) {}
+  }
+
+  void _onGenerationDone(
+    LocalLlamaGenerationDone event,
+    Emitter<LocalLlamaState> emit,
+  ) {
+    if (state.status == LocalLlamaStatus.generating) {
+      emit(state.copyWith(status: LocalLlamaStatus.ready));
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _controller?.dispose();
+    return super.close();
+  }
+}
+
+class GgufDownloadCubit extends Cubit<GgufDownloadState> {
+  void Function(GgufDownloadTask task)? onTaskCompleted;
+
+  GgufDownloadCubit({this.onTaskCompleted}) : super(GgufDownloadState.initial()) {
+    _loadFromPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tasksJson = prefs.getString('gguf_downloads');
+    if (tasksJson != null) {
+      final List<dynamic> decoded = jsonDecode(tasksJson);
+      final tasks = decoded.map((e) => GgufDownloadTask.fromJson(e)).toList();
+      for (int i = 0; i < tasks.length; i++) {
+        if (tasks[i].status == GgufDownloadStatus.downloading) {
+          tasks[i] = tasks[i].copyWith(status: GgufDownloadStatus.failed);
+        }
+      }
+      emit(state.copyWith(tasks: tasks));
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(state.tasks.map((t) => t.toJson()).toList());
+    await prefs.setString('gguf_downloads', json);
+  }
+
+  Future<int?> _getFileSize(String url) async {
+    try {
+      final response = await http.head(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final length = response.headers['content-length'];
+        if (length != null) return int.tryParse(length);
+      }
+    } catch (e) {
+      debugPrint('HEAD request failed: $e');
+    }
+    return null;
+  }
+
+  void startDownload(GgufModel model) async {
+    if (state.tasks.any((t) => t.url == model.url && 
+        (t.status == GgufDownloadStatus.downloading || t.status == GgufDownloadStatus.completed))) {
+      return;
+    }
+
+    final saveDir = '$filesDir/gguf';
+    if (!Directory(saveDir).existsSync()) {
+      Directory(saveDir).createSync(recursive: true);
+    }
+    final savePath = '$saveDir/${model.fileName}';
+
+    final existing = File(savePath);
+    if (await existing.exists()) await existing.delete();
+
+    final totalBytes = await _getFileSize(model.url);
+
+    final taskId = DateTime.now().millisecondsSinceEpoch.toString();
+    final task = GgufDownloadTask(
+      taskId: taskId,
+      modelName: model.name,
+      url: model.url,
+      fileName: model.fileName,
+      localPath: savePath,
+      status: GgufDownloadStatus.downloading,
+      progress: 0,
+      registered: false,
+      quant: model.quant,
+      paramSize: model.paramSize,
+      imageUrl: model.imageUrl,
+    );
+
+    final updatedTasks = [task, ...state.tasks];
+    emit(state.copyWith(tasks: updatedTasks));
+    _saveToPrefs();
+
+    FileDownloader.downloadFile(
+      url: model.url,
+      name: model.fileName,
+      downloadDestination: DownloadDestinations.appFiles,
+      notificationType: NotificationType.all,
+      onDownloadRequestIdReceived: (downloadId) {
+        emit(state.copyWith(id: downloadId));
+      },
+      onProgress: (fileName, progress) {
+        double realProgress;
+        if (totalBytes != null && progress < 0) {
+          final overflowAbs = 4294967296 - totalBytes;
+          realProgress = (-progress) * overflowAbs / totalBytes;
+        } else {
+          realProgress = progress.clamp(0.0, 100.0);
+        }
+        _updateProgress(taskId, realProgress);
+      },
+
+      onDownloadCompleted: (path) async {
+        final downloadedFile = File(path);
+        if (await downloadedFile.exists()) {
+          await downloadedFile.copy(savePath);
+          await downloadedFile.delete();
+        }
+        _onDownloadComplete(taskId, savePath);
+      },
+      onDownloadError: (error) {
+        _onDownloadError(taskId, error);
+      },
+    );
+  }
+
+  void _updateProgress(String taskId, double progress) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1) {
+      tasks[index] = tasks[index].copyWith(progress: progress.clamp(0.0, 100.0));
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
+  }
+
+  void _onDownloadComplete(String taskId, String path) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index == -1) return;
+    tasks[index] = tasks[index].copyWith(
+      status: GgufDownloadStatus.completed,
+      localPath: path,
+      progress: 100,
+    );
+    emit(state.copyWith(tasks: tasks));
+    _saveToPrefs();
+    onTaskCompleted?.call(tasks[index]);
+  }
+
+  void _onDownloadError(String taskId, dynamic error) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1) {
+      tasks[index] = tasks[index].copyWith(status: GgufDownloadStatus.failed);
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
+  }
+
+  void deleteTask(String taskId) async {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index == -1) return;
+    final file = File(tasks[index].localPath);
+    if (await file.exists()) await file.delete();
+    tasks.removeAt(index);
+    emit(state.copyWith(tasks: tasks));
+    _saveToPrefs();
+  }
+
+  void retryDownload(GgufDownloadTask task) {
+    deleteTask(task.taskId);
+    startDownload(
+      GgufModel(
+        name: task.modelName,
+        url: task.url,
+        fileName: task.fileName,
+        quant: task.quant,
+        paramSize: task.paramSize,
+        imageUrl: task.imageUrl,
+      )
+    );
+  }
+
+  static Future<String> cancelGGUFDownload(int id) async{
+    try {
+      final canceled = await FileDownloader.cancelDownload(id);
+      return "Canceled $canceled";
+    } catch (_) {
+      return "An error occurred";
+    }
+  }
+
+  void markTaskRegistered(String taskId) {
+    final tasks = List<GgufDownloadTask>.from(state.tasks);
+    final index = tasks.indexWhere((t) => t.taskId == taskId);
+    if (index != -1 && !tasks[index].registered) {
+      tasks[index] = tasks[index].copyWith(registered: true);
+      emit(state.copyWith(tasks: tasks));
+      _saveToPrefs();
+    }
   }
 }
