@@ -9,6 +9,16 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
   <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">
 </a>
 
+## What's new in version 2:
+- **Added SSH support for connecting with remote systems.**
+- **Added built-in termux support for using termux as a backend.**
+- **Option to dwonload and load local GGUF LLM models for offline chat and code completion as requested in [#9](https://github.com/heckmon/roxum-ide/issues/9) and [#16](https://github.com/heckmon/roxum-ide/issues/16)**
+- **Added search bar for themes as requested in [#11](https://github.com/heckmon/roxum-ide/issues/11).**
+- **Migrated the [editor](https://github.com/heckmon/code_forge) backend to rust.**
+- **Replaced JDT-LS with kmp-lsp, which provides LSP support for java, kotlin and swift.**
+- **Fixed [#15](https://github.com/heckmon/roxum-ide/issues/15) and [#14](https://github.com/heckmon/roxum-ide/issues/14), if it still persists, termux can be used.**
+- **[#10](https://github.com/heckmon/roxum-ide/issues/10) and [#18](https://github.com/heckmon/roxum-ide/issues/18) Can be solved by using the new termux backend.**
+
 ### Gallery
 
  <table>
@@ -20,7 +30,7 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
   </tr>
   <tr>
     <td><img src="https://lh3.googleusercontent.com/o8_GNH3SBQnbnrJWduWE9xbW-RF8NBO3iphBx1mEc_gVYbSkyAGZyy5zEcMTGupt_1oCQipOpZMwbjlhJgbjyEs" width="100%"></td>
-    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/git_diff.jpg" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/ext.jpg" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/diag.jpg" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/accnt.jpg" width="100%"></td>
   </tr>
@@ -29,6 +39,12 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/lsp.jpg" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/ai_cmpl.jpg" width="100%"></td>
     <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/themes.jpg" width="100%"></td>
+  </tr>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/git_diff.jpg" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/gguf.jpg" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/termenu.jpg" width="100%"></td>
+    <td><img src="https://raw.githubusercontent.com/heckmon/android-arm64-shared-libraries/refs/heads/main/scrnshots/term.jpg" width="100%"></td>
   </tr>
   
 </table> 
@@ -48,14 +64,14 @@ Clone this repo, then:
 
 ### Building the full version
 Make sure that [git-lfs](https://git-lfs.com/) is installed in your system and accessible via the `path`. Don't skip this step, the compilers and interpreters are stored in the Github large file storage.
-#### 1) Build the app as an `aab` bundle
+#### 1) Build the app as an `aab` bundle or download the `release.aab` from the [releases](https://github.com/heckmon/roxum-ide/releases)
 
 > [!NOTE]
 > 
 > To include all compilers, interpreters and extensions in the build, we build it as a standalone `aab` file, which is bigger compared to the apk downloaded from the playstore. Playstore build is smaller because these external dependencies are downloaded on demand when the user requested for the particular compiler/interpreter/extension.
 
 ```bash
-cd android && ./gradlew :app: bundleRelease
+cd android && ./gradlew :app:bundleRelease
 ```
 This will generate the output file in `build/app/outputs/bundle/release/app-release.aab`
 
@@ -87,6 +103,9 @@ java -jar /path/to/bundletool.jar install-apks --apks=output.apks
   - ty language server
   - emmyLua language server
   - gopls language server
+  - SSH support
+  - Termux support
+  - External GGUF LLM models.
 
 > For downloading the apk, go to the [releases](https://github.com/heckmon/roxum-ide/releases)
 

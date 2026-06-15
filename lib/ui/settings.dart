@@ -3909,188 +3909,170 @@ int main() {
                                               fontSize: 17
                                             ),
                                             subtitle: Text("The one time setup to connect with Termux"),
-                                            onTap: (){
+                                            onTap: () async {
                                               final termFolder = "$appDir/.termux/.ssh";
                                               final termPubKey = File("$termFolder/id_ed25519.pub");
                                               final termPrivKey = File("$termFolder/id_ed25519");
                                               final termxUrlCtrl = TextEditingController()..text = termuxState.termInfo?.username ?? "";
                                               final termxFormKey = GlobalKey<FormState>();
-                                              showDialog(
+                                              if(!termPubKey.existsSync() || !termPrivKey.existsSync()){
+                                                  await SshKeygen(
+                                                  comment: "roxum@termux",
+                                                  termPubKey: termPubKey,
+                                                  termPrivKey: termPrivKey
+                                                ).generate();
+                                              }
+                                              if(context.mounted) {
+                                                await showDialog(
                                                 context: context,
-                                                builder: (context) => FutureBuilder<int>(
-                                                  future: (() async{
-                                                    if(!termPubKey.existsSync() || !termPrivKey.existsSync()){
-                                                        await SshKeygen(
-                                                        comment: "roxum@termux",
-                                                        termPubKey: termPubKey,
-                                                        termPrivKey: termPrivKey
-                                                      ).generate();
-                                                      return 0;
-                                                    }
-                                                    return 1;
-                                                  })(),
-                                                  
-                                                  builder: (context, asyncSnapshot) {
-                                                    if(asyncSnapshot.connectionState == .waiting){
-                                                      return Center(child: CircularProgressIndicator());
-                                                    } else if (asyncSnapshot.hasError) {
-                                                      return Text(
-                                                        "Failed to generate keys for termux",
-                                                        style: TextStyle(
-                                                          color: appTheme.selectScreenCardTextColor,
-                                                          fontSize: 20
-                                                        )
-                                                      );
-                                                    }
-                                          
-                                                    return StatefulBuilder(
-                                                      builder:(context, setTState) => Dialog(
-                                                        constraints: BoxConstraints(
-                                                          maxHeight: 700
-                                                        ),
-                                                        backgroundColor: appTheme.selectScreenCardsBg,
-                                                        child: DefaultTextStyle(
-                                                          style: TextStyle(
-                                                            color: appTheme.selectScreenCardTextColor,
-                                                            fontSize: 18
-                                                          ),
-                                                          child: Padding(
-                                                            padding: const EdgeInsets.all(18),
-                                                            child: Scrollbar(
-                                                              child: ListView(
-                                                                children: [
-                                                                  const Padding(
-                                                                    padding: EdgeInsets.only(bottom: 20),
-                                                                    child: Center(child: Text("First time setup")),
-                                                                  ),
-                                                                  const Text("1. Install OpenSSH"),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                                                    child: copyArea(
-                                                                      context,
-                                                                      appTheme,
-                                                                      "pkg install openssh",
-                                                                      50
-                                                                    ),
-                                                                  ),
-                                                                                                        
-                                                                  const Text("2. Paste the below command"),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                                                    child: copyArea(
-                                                                      context,
-                                                                      appTheme,
-                                                                      "mkdir -p ~/.ssh\n\n"
-                                                                      "chmod 700 ~/.ssh\n\n"
-                                                                      "echo \"${termPubKey.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
-                                                                      "chmod 600 ~/.ssh/authorized_keys",
-                                                                      250
-                                                                    ),
-                                                                  ),
+                                                builder: (context) =>  StatefulBuilder(
+                                                  builder:(context, setTState) => Dialog(
+                                                    constraints: BoxConstraints(
+                                                      maxHeight: 700
+                                                    ),
+                                                    backgroundColor: appTheme.selectScreenCardsBg,
+                                                    child: DefaultTextStyle(
+                                                      style: TextStyle(
+                                                        color: appTheme.selectScreenCardTextColor,
+                                                        fontSize: 18
+                                                      ),
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.all(18),
+                                                        child: Scrollbar(
+                                                          child: ListView(
+                                                            children: [
+                                                              const Padding(
+                                                                padding: EdgeInsets.only(bottom: 20),
+                                                                child: Center(child: Text("First time setup")),
+                                                              ),
+                                                              const Text("1. Install OpenSSH"),
+                                                              Padding(
+                                                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                child: copyArea(
+                                                                  context,
+                                                                  appTheme,
+                                                                  "pkg install openssh",
+                                                                  50
+                                                                ),
+                                                              ),
+                                                                                                    
+                                                              const Text("2. Paste the below command"),
+                                                              Padding(
+                                                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                child: copyArea(
+                                                                  context,
+                                                                  appTheme,
+                                                                  "mkdir -p ~/.ssh\n\n"
+                                                                  "chmod 700 ~/.ssh\n\n"
+                                                                  "echo \"${termPubKey.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                                  "chmod 600 ~/.ssh/authorized_keys",
+                                                                  250
+                                                                ),
+                                                              ),
 
-                                                                  const Text("3. Setup storage access"),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                                                    child: copyArea(
-                                                                      context,
-                                                                      appTheme,
-                                                                      "termux-setup-storage",
-                                                                      50
-                                                                    ),
+                                                              const Text("3. Setup storage access"),
+                                                              Padding(
+                                                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                child: copyArea(
+                                                                  context,
+                                                                  appTheme,
+                                                                  "termux-setup-storage",
+                                                                  50
+                                                                ),
+                                                              ),
+                                                                                                    
+                                                              const Text("4. Get the username"),
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(top: 20),
+                                                                child: copyArea(
+                                                                  context,
+                                                                  appTheme,
+                                                                  "whoami",
+                                                                  50
+                                                                ),
+                                                              ),
+                                      
+                                                              Padding(
+                                                                padding: const EdgeInsets.only(left: 10, top: 3.5, bottom: 20),
+                                                                child: Text(
+                                                                  "eg output: u0_a399",
+                                                                  style: TextStyle(
+                                                                    fontSize: 14
+                                                                  )
+                                                                ),
+                                                              ),
+                                      
+                                                              const Text("5. Paste the username here"),
+                                                              Padding(
+                                                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                                                child: Form(
+                                                                  key: termxFormKey,
+                                                                  child: settingsTextField(
+                                                                    termxUrlCtrl,
+                                                                    Icons.person,
+                                                                    "Termux username",
+                                                                    appTheme.selectScreenCardTextColor,
+                                                                    "eg: u0_a399",
+                                                                    (val) => val == null || val.isEmpty || !val.startsWith("u") ? "Enter a valid username" : null
                                                                   ),
-                                                                                                        
-                                                                  const Text("4. Get the username"),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.only(top: 20),
-                                                                    child: copyArea(
-                                                                      context,
-                                                                      appTheme,
-                                                                      "whoami",
-                                                                      50
-                                                                    ),
-                                                                  ),
-                                          
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.only(left: 10, top: 3.5, bottom: 20),
-                                                                    child: Text(
-                                                                      "eg output: u0_a399",
-                                                                      style: TextStyle(
-                                                                        fontSize: 14
-                                                                      )
-                                                                    ),
-                                                                  ),
-                                          
-                                                                  const Text("5. Paste the username here"),
-                                                                  Padding(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                                                    child: Form(
-                                                                      key: termxFormKey,
-                                                                      child: settingsTextField(
-                                                                        termxUrlCtrl,
-                                                                        Icons.person,
-                                                                        "Termux username",
-                                                                        appTheme.selectScreenCardTextColor,
-                                                                        "eg: u0_a399",
-                                                                        (val) => val == null || val.isEmpty || !val.startsWith("u") ? "Enter a valid username" : null
-                                                                      ),
-                                                                    ),
-                                                                  ),
+                                                                ),
+                                                              ),
 
-                                                                  ElevatedButton(
-                                                                    style: ElevatedButton.styleFrom(
-                                                                      backgroundColor: appTheme.scaffoldBg,
-                                                                      foregroundColor: Colors.white,
-                                                                      shape: RoundedRectangleBorder(
-                                                                        borderRadius: .circular(10),
-                                                                        side: BorderSide(
-                                                                          color: Colors.blue
-                                                                        )
-                                                                      )
-                                                                    ),
-                                                                    onPressed: () async{
-                                                                      if(termxFormKey.currentState!.validate()){
-                                                                        final server = SSHPrivateKey(
-                                                                          name: "Termux",
-                                                                          id: DateTime.now().millisecondsSinceEpoch,
-                                                                          url: "ssh://${termxUrlCtrl.text}@localhost:8022"
-                                                                        );
-                                          
-                                                                        context.read<TermuxCubit>().setTermuxInfo(server);
-                                                                        Navigator.pop(context);
-                                                                        if(termuxState.termInfo != null){
-                                                                          ScaffoldMessenger.of(context).showSnackBar(
-                                                                            SnackBar(
-                                                                              backgroundColor: Colors.green,
-                                                                              content: Text(
-                                                                                "Successfully saved.\nGo to the next step to connect with Termux.",
-                                                                                style: TextStyle(
-                                                                                  color: Colors.white
-                                                                                )
-                                                                              )
-                                                                            )
-                                                                          );
-                                                                        }
-                                                                      }
-                                                                      
-                                                                    },
-                                                                    child: Row(
-                                                                      mainAxisAlignment: .center,
-                                                                      children: [
-                                                                        Icon(Icons.save),
-                                                                        Text("Save"),
-                                                                      ],
+                                                              ElevatedButton(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: appTheme.scaffoldBg,
+                                                                  foregroundColor: Colors.white,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius: .circular(10),
+                                                                    side: BorderSide(
+                                                                      color: Colors.blue
                                                                     )
                                                                   )
-                                                                ],
-                                                              ),
-                                                            ),
+                                                                ),
+                                                                onPressed: () async{
+                                                                  if(termxFormKey.currentState!.validate()){
+                                                                    final server = SSHPrivateKey(
+                                                                      name: "Termux",
+                                                                      id: DateTime.now().millisecondsSinceEpoch,
+                                                                      url: "ssh://${termxUrlCtrl.text}@localhost:8022",
+                                                                      termuxKeyLoc: termPrivKey
+                                                                    );
+                                      
+                                                                    context.read<TermuxCubit>().setTermuxInfo(server);
+                                                                    Navigator.pop(context);
+                                                                    if(termuxState.termInfo != null){
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(
+                                                                          backgroundColor: Colors.green,
+                                                                          content: Text(
+                                                                            "Successfully saved.\nGo to the next step to connect with Termux.",
+                                                                            style: TextStyle(
+                                                                              color: Colors.white
+                                                                            )
+                                                                          )
+                                                                        )
+                                                                      );
+                                                                    }
+                                                                  }
+                                                                  
+                                                                },
+                                                                child: Row(
+                                                                  mainAxisAlignment: .center,
+                                                                  children: [
+                                                                    Icon(Icons.save),
+                                                                    Text("Save"),
+                                                                  ],
+                                                                )
+                                                              )
+                                                            ],
                                                           ),
                                                         ),
                                                       ),
-                                                    );
-                                                  }
+                                                    ),
+                                                  ),
                                                 ),
                                               );
+                                              }
                                             },
                                           ),
 
