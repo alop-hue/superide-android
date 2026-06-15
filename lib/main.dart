@@ -52,9 +52,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => ConfigBloc(
-          codeForgeConfig: jsonDecode(codeForgeConfig)
-        )),
+        BlocProvider(create: (_) => ConfigBloc(codeForgeConfig: jsonDecode(codeForgeConfig))),
         BlocProvider(create: (_) => FolderBloc()),
         BlocProvider(create: (_) => GitCommitBloc()),
         BlocProvider(create: (_) => RecentBloc(recent: jsonDecode(recent))),
@@ -67,13 +65,6 @@ class MainApp extends StatelessWidget {
         BlocProvider(create: (_) => ChatSessionBloc()..add(LoadChatSessions())),
         BlocProvider(create: (_) => GeneralBloc({"autoSave": jsonDecode(codeForgeConfig)['autoSave'] as bool})),
         BlocProvider(create: (_) => CopilotBloc()),
-        BlocProvider(create: (_) => CopilotChatBloc()),
-        BlocProvider(create: (_) => LocalLlamaBloc()),
-        BlocProvider(create: (_) => GgufDownloadCubit()),
-        BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
-        BlocProvider(create: (_) => TermuxCubit(termuxInfo)),
-        BlocProvider(create: (_) => CurrentlySelectedTerminalCubit()),
-        BlocProvider(create: (_) => SelectedRuntimeEnvironmentCubit()),
         BlocProvider(create: (context) => AIBloc(
           jsonDecode(aiConfig),
           jsonDecode(codeForgeConfig)['isAIEnabled'] as bool,
@@ -81,9 +72,24 @@ class MainApp extends StatelessWidget {
           jsonDecode(codeForgeConfig)['manualCompletion'] as bool,
           copilotBloc: context.read<CopilotBloc>(),
         )),
+        BlocProvider(create: (_) => CopilotChatBloc()),
+        BlocProvider(create: (_) => LocalLlamaBloc()),
+        BlocProvider(create: (_) => GgufDownloadCubit()),
+        BlocProvider(create: (_) => SSHServersCubit(sshSServerList)),
+        BlocProvider(create: (_) => TermuxCubit(termuxInfo)),
+        BlocProvider(create: (_) => CurrentlySelectedTerminalCubit()),
+        BlocProvider(create: (_) => SelectedRuntimeEnvironmentCubit()),
       ],
       child: BlocBuilder<AppThemeBloc, AppThemeState>(
         builder: (context, appThemeState) {
+          context.read<GgufDownloadCubit>().onTaskCompleted = (task) async {
+            final result = await GgufModel.registerGgufModelWithAI(task);
+            if (context.mounted) {
+              context.read<AIBloc>().add(AIConfigEvent(result.aiConfig));
+              context.read<AIBloc>().add(ModelSelectEvent(result.modelSelected));
+              context.read<GgufDownloadCubit>().markTaskRegistered(task.taskId);
+            }
+          };
           return MaterialApp(
             theme: ThemeData(
               progressIndicatorTheme: progressTheme,

@@ -3414,6 +3414,52 @@ class GgufModel {
     required this.paramSize,
     required this.imageUrl
   });
+
+  static Future<({String modelId, Map<String, dynamic> aiConfig, Map<String, dynamic> modelSelected})> registerGgufModelWithAI(GgufDownloadTask task) async {
+    final prefs = await SharedPreferences.getInstance();
+    final aiConfigStr = await getAiConfig();
+    final Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
+
+    final alreadyExists = aiConfig.values.any((v) =>
+      v is Map<String, dynamic> &&
+      v['provider'] == 'LocalLlama' &&
+      v['modelPath'] == task.localPath
+    );
+    if (alreadyExists) {
+      final existingKey = aiConfig.entries.firstWhere((e) =>
+        e.value is Map<String, dynamic> &&
+        (e.value as Map)['modelPath'] == task.localPath
+      ).key;
+      final modelSelectedStr = await getModelSelected();
+      return (
+        modelId: existingKey,
+        aiConfig: aiConfig,
+        modelSelected: jsonDecode(modelSelectedStr) as Map<String, dynamic>,
+      );
+    }
+
+    final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
+    aiConfig[modelId] = {
+      'provider': 'LocalLlama',
+      'apiProvider': 'LocalLlama',
+      'modelName': task.modelName,
+      'model': task.modelName,
+      'modelPath': task.localPath,
+      'threads': 4,
+      'contextSize': 4096,
+      'gpuLayers': 0,
+    };
+    await prefs.setString('aiConfig', jsonEncode(aiConfig));
+
+    final modelSelectedStr = await getModelSelected();
+    final Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
+    if ((modelSelected['chat'] as String? ?? '').isEmpty) {
+      modelSelected['chat'] = modelId;
+      await prefs.setString('modelSelected', jsonEncode(modelSelected));
+    }
+
+    return (modelId: modelId, aiConfig: aiConfig, modelSelected: modelSelected);
+  }
 }
 
 class BoyerMooreSearch {

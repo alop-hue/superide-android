@@ -10013,7 +10013,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     bool copilotSignedIn,
     String? selectedModelId,
   ) {
-    final isCopilotAvailable = githubSignedIn || copilotSignedIn;
+    final isCopilotAvailable = copilotSignedIn;
     final List<_ModelOption> models = [];
     
 
@@ -12832,48 +12832,14 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
 
   Future<void> _registerUnregisteredCompletedTasks(BuildContext context) async {
     final cubit = context.read<GgufDownloadCubit>();
-    final tasks = cubit.state.tasks;
-    for (final task in tasks) {
+    for (final task in cubit.state.tasks) {
       if (task.status == GgufDownloadStatus.completed && !task.registered) {
-        await _registerModelWithAI(context, task);
-        cubit.markTaskRegistered(task.taskId);
-      }
-    }
-  }
-
-  Future<void> _registerModelWithAI(BuildContext context, GgufDownloadTask task) async {
-    final prefs = await SharedPreferences.getInstance();
-    final aiConfigStr = await getAiConfig();
-    Map<String, dynamic> aiConfig = jsonDecode(aiConfigStr);
-    final modelId = 'LocalLlama-${DateTime.now().millisecondsSinceEpoch}';
-    aiConfig[modelId] = {
-      'provider': 'LocalLlama',
-      'apiProvider': 'LocalLlama',
-      'modelName': task.modelName,
-      'model': task.modelName,
-      'modelPath': task.localPath,
-      'threads': 4,
-      'contextSize': 4096,
-      'gpuLayers': 0,
-    };
-    await prefs.setString('aiConfig', jsonEncode(aiConfig));
-    if (context.mounted) {
-      context.read<AIBloc>().add(AIConfigEvent(aiConfig));
-
-      final modelSelectedStr = await getModelSelected();
-      Map<String, dynamic> modelSelected = jsonDecode(modelSelectedStr);
-      if ((modelSelected['chat'] as String? ?? '').isEmpty) {
-        modelSelected['chat'] = modelId;
-        await prefs.setString('modelSelected', jsonEncode(modelSelected));
+        final result = await GgufModel.registerGgufModelWithAI(task);
         if (context.mounted) {
-          context.read<AIBloc>().add(ModelSelectEvent(modelSelected));
+          context.read<AIBloc>().add(AIConfigEvent(result.aiConfig));
+          context.read<AIBloc>().add(ModelSelectEvent(result.modelSelected));
+          cubit.markTaskRegistered(task.taskId);
         }
-      }
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Model "${task.modelName}" added to AI models'), backgroundColor: Colors.green),
-        );
       }
     }
   }
@@ -13293,13 +13259,12 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                     if (isCompleted)
                       ElevatedButton.icon(
                         onPressed: () {
-                          cubit.deleteTask(task.taskId);
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
                               backgroundColor: appTheme.isDark ? const Color(0xff181A26) : null,
                               title: Text(
-                                'Delete model ?',
+                                'Delete model?',
                                 style: TextStyle(
                                   color: appTheme.selectScreenCardTextColor,
                                   fontSize: 20,
@@ -13315,50 +13280,60 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                               actions: [
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(),
-                                  child: Text('Cancel'),
+                                  child: const Text('Cancel'),
                                 ),
                                 ElevatedButton(
                                   onPressed: () async {
                                     final aiState = context.read<AIBloc>();
-                                    String configKey = '';
-                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)..remove(
-                                      ((){
-                                        final entries = Map<String, dynamic>.from(aiState.config);
-                                        configKey = entries.keys.singleWhere(
-                                          (key) => key.startsWith("LocalLlama-") && entries[key]['modelName'] == task.modelName
-                                        );
-                                        return configKey;
-                                      })()
+                                    final entries = Map<String, dynamic>.from(aiState.config);
+
+                                    final configKey = entries.keys.firstWhere(
+                                      (key) => key.startsWith("LocalLlama-") &&
+                                        entries[key] is Map &&
+                                        entries[key]['modelName'] == task.modelName,
+                                      orElse: () => '',
                                     );
-                                    final prefs = await SharedPreferences.getInstance();
-                                    await prefs.setString('aiConfig', jsonEncode(updatedConfig));
-    
-                                    final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
-                                    var modelSelectionChanged = false;
-                                    if (updatedModelSelected['code'] == configKey) {
-                                      updatedModelSelected['code'] = '';
-                                      modelSelectionChanged = true;
-                                    }
-                                    if (updatedModelSelected['chat'] == configKey) {
-                                      updatedModelSelected['chat'] = '';
-                                      modelSelectionChanged = true;
-                                      await prefs.remove('ai_selected_chat_model_id');
-                                    }
-                                    if (modelSelectionChanged) {
-                                      await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
-                                    }
-    
-                                    try{
-                                      await File(task.fileName).delete();
-                                    } catch (_){}
-    
-                                    if (context.mounted) {
-                                      context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
-                                      if (modelSelectionChanged) {
-                                        context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+
+                                    if (configKey.isNotEmpty) {
+                                      final updatedConfig = Map<String, dynamic>.from(aiState.config)
+                                        ..remove(configKey);
+                                      final prefs = await SharedPreferences.getInstance();
+                                      await prefs.setString('aiConfig', jsonEncode(updatedConfig));
+
+                                      final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+                                      var modelSelectionChanged = false;
+                                      if (updatedModelSelected['code'] == configKey) {
+                                        updatedModelSelected['code'] = '';
+                                        modelSelectionChanged = true;
                                       }
+                                      if (updatedModelSelected['chat'] == configKey) {
+                                        updatedModelSelected['chat'] = '';
+                                        modelSelectionChanged = true;
+                                        await prefs.remove('ai_selected_chat_model_id');
+                                      }
+                                      if (modelSelectionChanged) {
+                                        await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
+                                      }
+
+                                      if (context.mounted) {
+                                        context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
+                                        if (modelSelectionChanged) {
+                                          context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+                                        }
+                                      }
+                                    }
+
+                                    try {
+                                      await File(task.localPath).delete();
+                                    } catch (_) {}
+
+                                    cubit.deleteTask(task.taskId);
+
+                                    if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Successfully deleted model ${task.modelName}')),
+                                        SnackBar(
+                                          content: Text('Successfully deleted model ${task.modelName}')
+                                        ),
                                       );
                                       Navigator.of(context).pop(true);
                                     }
@@ -13366,8 +13341,8 @@ class _GgufDownloadManagerState extends State<GgufDownloadManager>
                                   style: ButtonStyle(
                                     backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
                                   ),
-                                  child: Text('Delete', style: TextStyle(color: Colors.white)),
-                                )
+                                  child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                                ),
                               ],
                             ),
                           );

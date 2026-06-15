@@ -603,10 +603,11 @@ packages:
   llama_flutter_android:
     dependency: "direct main"
     description:
-      name: llama_flutter_android
-      sha256: "203c8ac4dc28a4e4dc7fabb6523704ad18aaf09f65261696628328e669744d3e"
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: HEAD
+      resolved-ref: "17eb5d536ad2e150b56fe71be872d240278bfed1"
+      url: "https://github.com/heckmon/Llama-Flutter.git"
+    source: git
     version: "0.2.3"
   logging:
     dependency: transitive

@@ -1456,8 +1456,9 @@ class LocalLlamaBloc extends Bloc<LocalLlamaEvent, LocalLlamaState> {
 }
 
 class GgufDownloadCubit extends Cubit<GgufDownloadState> {
+  void Function(GgufDownloadTask task)? onTaskCompleted;
 
-  GgufDownloadCubit() : super(GgufDownloadState.initial()) {
+  GgufDownloadCubit({this.onTaskCompleted}) : super(GgufDownloadState.initial()) {
     _loadFromPrefs();
   }
 
@@ -1585,6 +1586,7 @@ class GgufDownloadCubit extends Cubit<GgufDownloadState> {
     );
     emit(state.copyWith(tasks: tasks));
     _saveToPrefs();
+    onTaskCompleted?.call(tasks[index]);
   }
 
   void _onDownloadError(String taskId, dynamic error) {
