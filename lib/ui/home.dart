@@ -187,16 +187,15 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
           Navigator.of(context).push(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                  EditorPage(
-                    rootDir: targetDir.path,
-                    isCloned: true,
-                    isProject: true,
-                    languageDetails: null,
-                  ),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return SizeTransition(sizeFactor: animation, child: child);
-                  },
+                EditorPage(
+                  rootDir: targetDir.path,
+                  isCloned: true,
+                  isProject: true,
+                  languageDetails: null,
+                ),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return SizeTransition(sizeFactor: animation, child: child);
+              },
             ),
           );
         }

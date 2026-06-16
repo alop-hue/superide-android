@@ -3057,6 +3057,19 @@ int main() {
                                                                         password: sshPasswordController.text
                                                                       )
                                                                     );
+                                                                    if(context.mounted){
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(
+                                                                          backgroundColor: Colors.green,
+                                                                          content: Text(
+                                                                            "Successfully saved !",
+                                                                            style: TextStyle(
+                                                                              color: Colors.white
+                                                                            )
+                                                                          )
+                                                                        )
+                                                                      );
+                                                                    }
                                                                   }
                                                                 },
                                                                 child: Row(
@@ -3097,7 +3110,6 @@ int main() {
                                                                   if(!context.mounted) return;
                                                                   await context.read<SSHServersCubit>().addServer(server);
                                                                   if(context.mounted){
-                                                                    Navigator.pop(context);
                                                                     if(result.$1) {
                                                                       ScaffoldMessenger.of(context).showSnackBar(
                                                                         SnackBar(
@@ -4029,32 +4041,32 @@ int main() {
                                                                     )
                                                                   )
                                                                 ),
-                                                                onPressed: () async{
-                                                                  if(termxFormKey.currentState!.validate()){
+                                                                onPressed: () async {
+                                                                  if (termxFormKey.currentState!.validate()) {
+                                                                    final termPrivKey = File("$appDir/.termux/.ssh/id_ed25519");
                                                                     final server = SSHPrivateKey(
                                                                       name: "Termux",
                                                                       id: DateTime.now().millisecondsSinceEpoch,
                                                                       url: "ssh://${termxUrlCtrl.text}@localhost:8022",
-                                                                      termuxKeyLoc: termPrivKey
+                                                                      termuxKeyLoc: termPrivKey,
                                                                     );
-                                      
+                                                                    
+                                                                    final wasAlreadyConfigured = termuxState.termInfo != null;
                                                                     context.read<TermuxCubit>().setTermuxInfo(server);
                                                                     Navigator.pop(context);
-                                                                    if(termuxState.termInfo != null){
+                                                                    
+                                                                    if (wasAlreadyConfigured && context.mounted) {
                                                                       ScaffoldMessenger.of(context).showSnackBar(
                                                                         SnackBar(
                                                                           backgroundColor: Colors.green,
                                                                           content: Text(
                                                                             "Successfully saved.\nGo to the next step to connect with Termux.",
-                                                                            style: TextStyle(
-                                                                              color: Colors.white
-                                                                            )
-                                                                          )
-                                                                        )
+                                                                            style: TextStyle(color: Colors.white),
+                                                                          ),
+                                                                        ),
                                                                       );
                                                                     }
                                                                   }
-                                                                  
                                                                 },
                                                                 child: Row(
                                                                   mainAxisAlignment: .center,
@@ -4213,7 +4225,7 @@ int main() {
                                                                 }
 
                                                                 if(server.isConnected) {
-                                                                  showDialog(
+                                                                  await showDialog(
                                                                     context: context,
                                                                     builder: (context) => StatefulBuilder(
                                                                       builder: (context, _) {
@@ -4284,7 +4296,7 @@ int main() {
                                                                       )
                                                                     );
                                                                   } else if(result.$2.startsWith("Server unreachable")){
-                                                                    showDialog(
+                                                                    await showDialog(
                                                                       context: context,
                                                                       builder:(context) => AlertDialog(
                                                                         backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,

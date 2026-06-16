@@ -3166,13 +3166,15 @@ class SSHPrivateKey extends SSHInfo{
     "name": name,
     "id": id,
     "url": url,
-    "login": false
+    "login": false,
+    "termuxKeyLoc": termuxKeyLoc?.path
   };
 
   static SSHPrivateKey fromJsonMap(Map<String, dynamic> jsonMap) => SSHPrivateKey(
     name: jsonMap["name"],
     id: jsonMap["id"],
     url: jsonMap["url"],
+    termuxKeyLoc: File("$appDir/.termux/.ssh/id_ed25519"),
   );
 
   SSHClient? _client;
