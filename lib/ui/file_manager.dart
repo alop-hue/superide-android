@@ -331,6 +331,22 @@ class _FileManagerPageState extends State<FileManagerPage> {
     );
   }
 
+  void _openFolder(String dirPath){
+    Navigator.of(context).push(PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+          EditorPage(
+            rootDir: dirPath,
+            isProject: true,
+            isCloned: true,
+            languageDetails: null,
+          ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SizeTransition(sizeFactor: animation, child: child);
+        },
+      )
+    );
+  }
+
   Future<void> _openFile(File file) async {
     if (!await file.exists()) return;
     if (!mounted) return;
@@ -570,7 +586,12 @@ class _FileManagerPageState extends State<FileManagerPage> {
     var accumulated = root;
     for (final segment in segments) {
       final nextPath = path.join(accumulated, segment);
-      crumbs.add(const Text('  /  '));
+      crumbs.add(Text(
+        ' / ',
+        style: TextStyle(
+          color: appTheme.selectScreenCardTextColor
+        ),
+      ));
       crumbs.add(
         InkWell(
           onTap: () async {
@@ -597,7 +618,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
     );
   }
 
-  Widget _buildQuickRoots(AppTheme appTheme) {
+  Widget  _buildQuickRoots(AppTheme appTheme) {
     final roots = [
       (label: 'Projects', dir: Directory(projectDir), icon: Icons.workspaces_outline),
       (label: 'Files', dir: Directory(filesDir), icon: Icons.description_outlined),
@@ -633,6 +654,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mini File Manager'),
+        titleTextStyle: TextStyle(
+          color: appTheme.selectScreenCardTextColor,
+          fontSize: 20
+        ),
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
@@ -724,10 +749,17 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                   foregroundColor: appTheme.selectScreenCardTextColor
                                 ),
                                 onSelected: (value) async {
-                                  if (value == 'export') {
-                                    await _downloadToStorage(entry);
-                                  } else if (value == 'delete') {
-                                    await _deleteEntity(entry);
+                                  switch (value) {
+                                    case 'export':
+                                      await _downloadToStorage(entry);  
+                                      break;
+                                    case 'delete':
+                                      await _deleteEntity(entry);
+                                      break;
+                                    case 'open':
+                                      _openFolder(entry.path);
+                                      break;
+                                    default:
                                   }
                                 },
                                 itemBuilder: (_) {
@@ -741,7 +773,20 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                       ),
                                       leading: Icon(
                                         syncable ? Icons.sync : Icons.file_download_outlined,
-                                        color: syncable ? Colors.blue : Colors.blue,
+                                        color: Colors.blue,
+                                      ),
+                                      titleTextStyle: TextStyle(
+                                        color: appTheme.selectScreenCardTextColor
+                                      )
+                                    ),
+                                  ),
+                                  if (entry is Directory) PopupMenuItem(
+                                    value: 'open',
+                                    child: ListTile(
+                                      title: Text('Open in editor'),
+                                      leading: Icon(
+                                        Icons.open_in_new,
+                                        color: Colors.blue
                                       ),
                                       titleTextStyle: TextStyle(
                                         color: appTheme.selectScreenCardTextColor

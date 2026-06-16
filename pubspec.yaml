@@ -1,7 +1,7 @@
 name: roxum
-description: "A new Flutter project."
+description: "A minimal and powerful IDE for Android."
 publish_to: 'none'
-version: 2.0.0+25
+version: 2.1.0+26
 
 environment:
   sdk: ^3.12.2

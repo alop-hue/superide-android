@@ -6746,8 +6746,7 @@ $diffText
                 decoration: InputDecoration(
                   hintText: 'Tag name (e.g., v1.0.0)',
                   hintStyle: TextStyle(
-                    color: widget.appTheme.selectScreenCardTextColor
-                        .withValues(alpha: 0.5),
+                    color: widget.appTheme.selectScreenCardTextColor.withValues(alpha: 0.5),
                   ),
                   filled: true,
                   fillColor: widget.appTheme.isDark
