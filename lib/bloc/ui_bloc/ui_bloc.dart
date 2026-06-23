@@ -363,8 +363,8 @@ class AIChatUIBloc extends Bloc<AIChatUIEvent, AIChatUIState> {
         scrollOffset: event.scrollOffset,
         isGenerating: event.isGenerating,
         agenticToolSelections: event.agenticToolSelections != null
-            ? normalizeAgenticToolSelections(event.agenticToolSelections)
-            : state.agenticToolSelections,
+          ? normalizeAgenticToolSelections(event.agenticToolSelections)
+          : state.agenticToolSelections,
       );
 
       if (state.chatMode != nextState.chatMode) {
@@ -1326,6 +1326,7 @@ class TermuxCubit extends Cubit<TermuxState> {
 
       final json = prefs.getString('termuxInfo');
       if (json == null) return null;
+
 
       return SSHPrivateKey.fromJsonMap(
         jsonDecode(json) as Map<String, dynamic>,

@@ -2204,6 +2204,15 @@ class NativeChannel {
     }
   }
 
+  static Future<String> getExternalMediaDir() async {
+    try {
+      final String result = await _channel.invokeMethod('getExtMediaPath');
+      return result;
+    } catch (e) {
+      return "Error $e";
+    }
+  }
+
   static Future<List<String>> consumePendingOpenFiles() async {
     try {
       final List<dynamic>? raw = await _channel.invokeMethod<List<dynamic>>(

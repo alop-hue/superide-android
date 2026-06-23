@@ -444,8 +444,7 @@ class DownloadManagerState {
   }
 
   bool isDownloading(int index) {
-    return downloadProgress.containsKey(index) && 
-           (downloadProgress[index] ?? 0) < 100.0;
+    return downloadProgress.containsKey(index) && (downloadProgress[index] ?? 0) < 100.0;
   }
 
   bool isDownloadComplete(int index) {

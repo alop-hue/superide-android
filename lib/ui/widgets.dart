@@ -10015,7 +10015,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     final isCopilotAvailable = copilotSignedIn;
     final List<_ModelOption> models = [];
     
-
     if (isCopilotAvailable) {
       for (final model in chatState.models) {
         final id = model['id'] as String?;
@@ -11762,12 +11761,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
               return BlocBuilder<AIBloc, AIState>(
                 builder: (context, aiState) {
                   final Models? chatModel = aiState.chatModel;
-                  final bool externalModelConfigured = !(aiState.config.isEmpty ||
-                      aiState.modelSelected.isEmpty ||
-                      aiState.modelSelected['chat'] == null ||
-                      aiState.config[aiState.modelSelected['chat']] == null
-                    );
-                      
+                  final bool externalModelConfigured = !(aiState.config.isEmpty || aiState.modelSelected.isEmpty);
+
                   return BlocBuilder<ChatSessionBloc, ChatSessionState>(
                     builder: (context, sessionState) {
                       final baseConversations = sessionState.currentSession?.conversations ?? [];

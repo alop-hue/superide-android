@@ -59,14 +59,36 @@ class StartScreen extends StatefulWidget {
 class _StartScreenState extends State<StartScreen> {
   double progress = 0.0;
   bool isDone = false;
-
+  
   @override
   void initState() {
     super.initState();
-    _initializeApp(context);
+    _safeInitialize();
+  }
+
+  Future<void> _safeInitialize() async {
+    try {
+      await _initializeApp(context);
+    } catch (e, stack) {
+      debugPrint("Startup error: $e");
+      debugPrint("$stack");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            "Startup failed: $e",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _initializeApp(BuildContext context) async {
+    await NativeChannel.getExternalMediaDir();
     final downdir = Directory(downloadsDir);
     final gitCore = "$binDir/git-core";
     final binDirectory = Directory(binDir);

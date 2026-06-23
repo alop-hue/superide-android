@@ -143,7 +143,12 @@ class _GithubPageState extends State<GithubPage> {
           ),
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: appTheme.scaffoldBg,
+              shape: RoundedRectangleBorder(borderRadius: .circular(10))
+            ),
             onPressed: () => Navigator.pop(context),
             child: const Text('OK'),
           ),
@@ -356,10 +361,12 @@ class _GithubPageState extends State<GithubPage> {
                   ),
                 ],
               ),
-              child: FaIcon(
-                FontAwesomeIcons.github,
-                size: 64,
-                color: appTheme.isDark ? Colors.white : Colors.black,
+              child: Center(
+                child: FaIcon(
+                  FontAwesomeIcons.github,
+                  size: 64,
+                  color: appTheme.isDark ? Colors.white : Colors.black,
+                ),
               ),
             ),
             

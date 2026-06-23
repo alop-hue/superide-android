@@ -30,9 +30,9 @@ import java.io.FileOutputStream
 import java.io.OutputStream
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicLong
+import com.google.android.play.core.splitcompat.SplitCompat
 
 class MainActivity : FlutterActivity() {
-
     private val TAG = "MainActivity"
     private val CORE_CHANNEL = "com.roxum"
     private val SAF_CHANNEL = "roxum/saf"
@@ -51,6 +51,11 @@ class MainActivity : FlutterActivity() {
         val progressBar: ProgressBar,
         val percentView: TextView,
     )
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        SplitCompat.installActivity(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,12 +78,15 @@ class MainActivity : FlutterActivity() {
             CORE_CHANNEL
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                "getLibraryPath" ->
-                    result.success(applicationInfo.nativeLibraryDir)
+                "getLibraryPath" -> result.success(applicationInfo.nativeLibraryDir)
                 "consumePendingOpenFiles" -> {
                     val files = pendingOpenFiles.toList()
                     pendingOpenFiles.clear()
                     result.success(files)
+                }
+                "getExtMediaPath" -> {
+                    val mediaDir = context.getExternalMediaDirs().firstOrNull()
+                    result.success(mediaDir?.absolutePath ?: "")
                 }
                 else ->
                     result.notImplemented()
@@ -409,20 +417,17 @@ class MainActivity : FlutterActivity() {
 
     private fun copyModuleAssetToPath(moduleName: String, assetName: String, targetPath: String): Boolean {
         splitInstallService.refreshSplitCompat()
+        SplitCompat.installActivity(this)
 
         val candidates = listOf(
+            "assets/$assetName",
             assetName,
             "$moduleName/$assetName",
-            "assets/$assetName",
         )
 
         val inputStream = candidates.firstNotNullOfOrNull { candidate ->
-            try {
-                assets.open(candidate)
-            } catch (_: Exception) {
-                null
-            }
-        } ?: return false
+            runCatching { assets.open(candidate) }.getOrNull()
+        } ?: throw Exception("Asset '$assetName' not found in any candidate path: ${candidates.joinToString()}")
 
         val outputFile = File(targetPath)
         outputFile.parentFile?.mkdirs()

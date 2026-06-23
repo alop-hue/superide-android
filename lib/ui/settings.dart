@@ -4723,6 +4723,9 @@ int main() {
                                                                 await prefs.setString('aiConfig', jsonEncode(newConfig));
                                                                 if (context.mounted) {
                                                                   context.read<AIBloc>().add(AIConfigEvent(newConfig));
+                                                                  final currentModelSelected = Map<String, dynamic>.from(newConfig);
+                                                                  currentModelSelected['chat'] = modelId;
+                                                                  context.read<AIBloc>().add(ModelSelectEvent(currentModelSelected));
                                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                                     SnackBar(content: Text("Successfully created model $modelName"))
                                                                   );

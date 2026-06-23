@@ -217,7 +217,7 @@ class PackageCatalogService {
       url: '',
       fileExtension: const ['java'],
       serverFile: const [],
-      iconUrl: 'assets/material_icons/kotlin.svg',
+      iconUrl: 'assets/icons/kmp-logo.png',
       githubUrl: 'https://github.com/Hessesian/kmp-lsp',
     ),
     Extension(

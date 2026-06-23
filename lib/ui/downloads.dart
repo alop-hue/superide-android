@@ -496,8 +496,8 @@ class _DownloadManagerState extends State<DownloadManager> {
     }
 
     final archivePath = pfdConfig != null
-        ? "$tempDir/$stagedArchiveName"
-        : "$targetDir/$archiveName";
+      ? "$tempDir/$stagedArchiveName"
+      : "$targetDir/$archiveName";
     final extractDir = isExtension
       ? extensionDir
       : runtimesDir;
@@ -526,6 +526,7 @@ class _DownloadManagerState extends State<DownloadManager> {
         archiveName,
         runtimeParentName: packageParentName,
       );
+      
       if (mounted) {
         setState(() {
           loadingIndexes.remove(index);
@@ -685,6 +686,7 @@ class _DownloadManagerState extends State<DownloadManager> {
         targetPath: archivePath,
       );
       return true;
+
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -825,7 +827,6 @@ class _DownloadManagerState extends State<DownloadManager> {
         },
       );
       
-      
       final archiveFile = File(archivePath);
       if (await archiveFile.exists()) {
         await archiveFile.delete();
@@ -875,6 +876,15 @@ class _DownloadManagerState extends State<DownloadManager> {
       downloadBloc.markFullyCompleted(index);
     } catch (e) {
       debugPrint('Error during extraction: $e');
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to extract: $e',
+            ),
+          ),
+        );
+      }
       downloadBloc.markFullyCompleted(index);
     } finally {
       if (mounted) {

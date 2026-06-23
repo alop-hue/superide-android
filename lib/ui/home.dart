@@ -8,6 +8,7 @@ import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'about.dart';
 import 'donation_page.dart';
 import 'file_manager.dart';
@@ -293,9 +294,9 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
       builder: (context, appThemestate) {
         return BlocListener<PackageCatalogCubit, PackageCatalogState>(
           listenWhen: (previous, current) =>
-              !_didShowPackageUpdateToast &&
-              !previous.hasUpdates &&
-              current.hasUpdates,
+            !_didShowPackageUpdateToast &&
+            !previous.hasUpdates &&
+            current.hasUpdates,
           listener: (context, state) {
             _didShowPackageUpdateToast = true;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -348,8 +349,8 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     FaIcon(
                       FontAwesomeIcons.githubAlt,
                       color: appThemestate.appTheme.isDark
-                          ? Colors.grey
-                          : const Color.fromARGB(255, 36, 36, 36),
+                        ? Colors.grey
+                        : const Color.fromARGB(255, 36, 36, 36),
                       size: 26.5,
                     ),
                   ),
@@ -398,6 +399,18 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 1.5),
+                  child: drawerTile(
+                    () async => await launchUrl(Uri.parse("https://heckmon.github.io/roxum-privacy-policy/")),
+                    "Privacy policy",
+                    Icon(
+                      Icons.shield,
+                      size: 26,
+                      color: Colors.grey
+                    )
+                  ),
+                )
               ],
             ),
           ),
@@ -510,7 +523,10 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                   );
                                 },
                                 child: currentlySelectedTerminalID == null
-                                  ? Icon(Icons.terminal, size: 34)
+                                  ? Padding(
+                                    padding: const EdgeInsets.only(right: 2.5),
+                                    child: Icon(Icons.terminal, size: 34),
+                                  )
                                   : isTermux
                                     ? SvgPicture.asset(
                                       "assets/icons/Termux.svg",
@@ -664,15 +680,13 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                   tooltip: "Github",
                   onPressed: () => Navigator.of(context).push(
                     PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          GithubPage(),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            return SizeTransition(
-                              sizeFactor: animation,
-                              child: child,
-                            );
-                          },
+                      pageBuilder: (context, animation, secondaryAnimation) => GithubPage(),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return SizeTransition(
+                          sizeFactor: animation,
+                          child: child,
+                        );
+                      },
                     ),
                   ),
                   icon: BlocBuilder<GithubAuthCubit, GithubAuthState>(
@@ -1161,7 +1175,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     }
                   }},
                   "Open Folder...",
-                  const FaIcon(FontAwesomeIcons.folderOpen),
+                  const FaIcon(FontAwesomeIcons.solidFolderOpen),
                   appThemestate.appTheme.isDark,
                 ),
                 fileTiles(
@@ -1248,14 +1262,11 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                       hintStyle: TextStyle(
                                         color: Colors.grey[500],
                                       ),
-                                      hintText:
-                                          " https://github.com/user/repo.git",
+                                      hintText: " https://github.com/user/repo.git",
                                       filled: true,
                                       fillColor: appThemestate.appTheme.isDark
-                                          ? Colors.white.withValues(alpha: 0.05)
-                                          : Colors.black.withValues(
-                                              alpha: 0.05,
-                                            ),
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.black.withValues(alpha: 0.05),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(15),
                                         borderSide: const BorderSide(
@@ -1447,7 +1458,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                     height: 28,
                     width: 28,
                     colorFilter: const ColorFilter.mode(
-                      Color(0xff4783b7),
+                      Color.fromARGB(255, 29, 107, 176),
                       BlendMode.srcIn,
                     ),
                   ),
@@ -1605,8 +1616,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                               )
                             : SizedBox(
                                 width: 350,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
+                                child: Center(
                                   child: ListView.builder(
                                     shrinkWrap: true,
                                     itemCount: recentData.length,
@@ -1643,7 +1653,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                               );
                                               return;
                                             }
-
+                                  
                                             if (isProject) {
                                               Navigator.of(context).push(
                                                 PageRouteBuilder(
@@ -1664,7 +1674,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                                               );
                                               return;
                                             }
-
+                                  
                                             Navigator.of(context).push(
                                               PageRouteBuilder(
                                                 pageBuilder: (context, animation, secondaryAnimation) => EditorPage(
