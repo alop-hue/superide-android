@@ -23,11 +23,7 @@ class AgenticTools {
   static List<AgenticToolSpec> get toolSpecs => agenticToolSpecs;
 
   AgenticTools({required this.workspacePath, required this.context})
-    : _activeEditor = context
-      .read<ActiveEditorBloc>()
-      .state
-      .activeEditors
-      .singleWhere((editor) => editor.isActive);
+    : _activeEditor = context.read<ActiveEditorBloc>().state.activeEditors.singleWhere((editor) => editor.isActive);
 
   late final ActiveEditor _activeEditor;
 
@@ -35,8 +31,8 @@ class AgenticTools {
 
   String _canonicalFilePath(String filePath) {
     final resolvedPath = path.isAbsolute(filePath)
-        ? filePath
-        : path.join(workspacePath, filePath);
+      ? filePath
+      : path.join(workspacePath, filePath);
     return File(resolvedPath).absolute.path;
   }
 

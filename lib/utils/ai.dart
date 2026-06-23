@@ -51,10 +51,10 @@ sealed class Models {
     switch (toolCallingMethod) {
       case ToolCallingMethod.anthropicMessages:
         final systemPrompts = messages
-            .where((message) => message['role'] == 'system')
-            .map((message) => message['content']?.toString() ?? '')
-            .where((text) => text.isNotEmpty)
-            .toList();
+          .where((message) => message['role'] == 'system')
+          .map((message) => message['content']?.toString() ?? '')
+          .where((text) => text.isNotEmpty)
+          .toList();
 
         final nonSystemMessages = messages
             .where((message) => message['role'] != 'system')
@@ -70,14 +70,12 @@ sealed class Models {
         };
       case ToolCallingMethod.geminiFunctionCalling:
         final systemPrompts = messages
-            .where((message) => message['role'] == 'system')
-            .map((message) => message['content']?.toString() ?? '')
-            .where((text) => text.isNotEmpty)
-            .toList();
+          .where((message) => message['role'] == 'system')
+          .map((message) => message['content']?.toString() ?? '')
+          .where((text) => text.isNotEmpty)
+          .toList();
 
-        final nonSystemMessages = messages
-            .where((message) => message['role'] != 'system')
-            .toList();
+        final nonSystemMessages = messages.where((message) => message['role'] != 'system').toList();
 
         return {
           'contents': _toGeminiContents(nonSystemMessages),
@@ -1002,19 +1000,13 @@ class CustomModel extends Models {
     try {
       final uri = Uri.parse(url);
       final response = httpMethod.toUpperCase() == 'GET'
-          ? await http.get(uri, headers: headers)
-          : await http.post(
-              uri,
-              headers: headers,
-              body: jsonEncode(buildRequest(code)),
-            );
+        ? await http.get(uri, headers: headers)
+        : await http.post(uri, headers: headers, body: jsonEncode(buildRequest(code)));
 
       if (response.statusCode == 200) {
         return responseParser(jsonDecode(response.body));
       } else {
-        throw Exception(
-          'Request failed with status ${response.statusCode}\n ${response.body}\n$uri',
-        );
+        throw Exception('Request failed with status ${response.statusCode}\n ${response.body}\n$uri');
       }
     } catch (e) {
       throw Exception('Failed to complete request: $e');
@@ -1054,8 +1046,7 @@ class LocalLlama extends Models {
   @override String? get model => null;
   @override String responseParser(dynamic response) => response?.toString() ?? '';
   @override String get url => '';
-  @override ToolCallingMethod get toolCallingMethod => ToolCallingMethod.none;
-
+  @override ToolCallingMethod get toolCallingMethod => ToolCallingMethod.openAiCompatible;
 }
 
 enum CompletionType {

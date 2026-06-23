@@ -137,18 +137,10 @@ Widget drawerButtons(
       child: IconButton(
         onPressed: onPressed,
         icon: isMaterialIcon
-          ? Icon(
-              icon,
-              color: color,
-              size: 35,
-            )
+          ? Icon(icon, color: color, size: 35)
           : isFontAwesomeIcon
-              ? FaIcon(
-                icon,
-                color: color,
-                size: 30,
-              )
-              : (icon is Widget ? icon : Icon(Icons.help_outline, color: color)),
+            ? FaIcon(icon, color: color, size: 30)
+            : (icon is Widget ? icon : Icon(Icons.help_outline, color: color)),
       ),
     ),
   );
@@ -11211,13 +11203,6 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
           "messages": messages,
         };
       case OpenAI():
-        final messages = _buildChatHistory(history);
-        messages.add({"role": "user", "content": prompt});
-        return {
-          "model": chatModel.model,
-          "stream": true,
-          "messages": messages,
-        };
       case Grok():
       case DeepSeek():
       case TogetherAi():
@@ -11604,6 +11589,18 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     }
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   void _sendLocalLlamaPrompt(
     LocalLlama model,
     List<AIConversation> currentList,
@@ -11614,24 +11611,22 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
     final llamaBloc = context.read<LocalLlamaBloc>();
     final chatSessionBloc = context.read<ChatSessionBloc>();
+    final chatMode = mounted
+      ? context.read<AIChatUIBloc>().state.chatMode
+      : ChatMode.ask;
     final isFirstMessage = currentList.isEmpty;
 
-    if (llamaBloc.state.loadedModelPath != model.modelPath ||
-        !llamaBloc.state.isReady) {
+    if (llamaBloc.state.loadedModelPath != model.modelPath || !llamaBloc.state.isReady) {
       llamaBloc.add(LocalLlamaLoadModel(model));
-
       await llamaBloc.stream.firstWhere(
         (s) => s.status == LocalLlamaStatus.ready || s.status == LocalLlamaStatus.error,
       );
-
       if (llamaBloc.state.status == LocalLlamaStatus.error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load model: ${llamaBloc.state.error}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to load model: ${llamaBloc.state.error}'),
+          backgroundColor: Colors.red,
+        ));
         return;
       }
     }
@@ -11639,9 +11634,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     final controller = llamaBloc.controller;
     if (controller == null) return;
 
-    final newList = currentList
-      .map((c) => AIConversation(c.userRequest, c.modelResponse))
-      .toList();
+    final newList = currentList.map((c) => AIConversation(c.userRequest, c.modelResponse)).toList();
     newList.add(AIConversation(prompt, ''));
     chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
 
@@ -11649,81 +11642,209 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     _promptController.clear();
     _updateBlocState(isGenerating: true);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    _scrollToBottom();
 
     try {
-      final messages = _buildChatHistory(currentList)
-        .map((m) => ChatMessage(
-          role: m['role'] as String,
-          content: m['content'] as String,
-        )).toList();
+      final messages = _buildChatHistory(currentList).map((m) => ChatMessage(
+        role: m['role'] as String,
+        content: m['content'] as String,
+      )).toList();
+
+      if (chatMode == ChatMode.agent && mounted) {
+        final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+        
+        final toolList = tools.getTools()
+          .map((tool) {
+            final func = tool['function'];
+            final name = func['name']?.toString() ?? '';
+            final desc = func['description']?.toString() ?? '';
+            return '- $name: $desc';
+          })
+          .join('\n');
+
+        messages.insert(0, ChatMessage(
+          role: 'system',
+          content: '''You are a code completion agent in Roxum IDE.
+
+  When you need to use a tool, respond with a JSON block like:
+  {"type": "tool_call", "function": "toolName", "arguments": {"key": "value"}}
+
+  Available tools:
+  $toolList
+
+  After each tool call, I will provide the result. Continue with your response.
+  Do not claim missing permissions unless a tool call fails explicitly.''',
+        ));
+      }
+
       messages.add(ChatMessage(role: 'user', content: prompt));
 
       final fullResponse = StringBuffer();
-      
-      await controller.generateChat(
-        messages: messages,
-        maxTokens: model.maxTokens,
-        temperature: model.temperature,
-        topP: model.topP,
-        topK: model.topK,
-        repeatPenalty: model.repeatPenalty,
-        frequencyPenalty: model.frequencyPenalty,
-        presencePenalty: model.presencePenalty,
-        repeatLastN: model.repeatLastN,
-        seed: model.seed,
-        mirostat: model.mirostat,
-        mirostatTau: model.mirostatTau,
-        mirostatEta: model.mirostatEta,
-      ).listen((token) {
-          fullResponse.write(token);
-          newList[index] = newList[index].copyWith(
-            modelResponse: fullResponse.toString(),
-          );
-          chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+      var toolCallsParsed = <Map<String, dynamic>>[];
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_scrollController.hasClients) {
-              _scrollController
-                  .jumpTo(_scrollController.position.maxScrollExtent);
+      try {
+        final generateFuture = controller.generateChat(
+          messages: messages,
+          maxTokens: model.maxTokens,
+          temperature: model.temperature,
+          topP: model.topP,
+          topK: model.topK,
+          repeatPenalty: model.repeatPenalty,
+          frequencyPenalty: model.frequencyPenalty,
+          presencePenalty: model.presencePenalty,
+          repeatLastN: model.repeatLastN,
+          seed: model.seed,
+          mirostat: model.mirostat,
+          mirostatTau: model.mirostatTau,
+          mirostatEta: model.mirostatEta,
+        ).listen(
+          (token) {
+            fullResponse.write(token);
+            newList[index] = newList[index].copyWith(
+              modelResponse: fullResponse.toString(),
+            );
+            chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+            _scrollToBottom();
+          },
+          onError: (e) {
+            debugPrint('[LocalLlama] Stream error: $e');
+            final currentSession = chatSessionBloc.state.currentSession;
+            if (currentSession != null) {
+              final updated = currentSession.conversations
+                .map((c) => AIConversation(c.userRequest, c.modelResponse))
+                .toList();
+              if (index < updated.length) {
+                updated[index] = updated[index].copyWith(
+                  modelResponse: _userFacingChatErrorMessage(e),
+                );
+                chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+              }
             }
-          });
-        },
-        onError: (e) {
-          final currentSession = chatSessionBloc.state.currentSession;
-          if (currentSession != null) {
-            final updated = currentSession.conversations
-              .map((c) => AIConversation(c.userRequest, c.modelResponse))
-              .toList();
-            if (index < updated.length) {
-              updated[index] = updated[index].copyWith(
-                modelResponse: _userFacingChatErrorMessage(e),
+          },
+        ).asFuture();
+
+        await generateFuture.timeout(
+          const Duration(seconds: 120),
+          onTimeout: () {
+            throw TimeoutException('Local model generation timed out after 120s');
+          },
+        );
+      } catch (e) {
+        if (e is TimeoutException) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Generation timeout: ${e.message}'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+        _logChatError('sendLocalLlama.generateChat', e, StackTrace.current);
+        _updateBlocState(isGenerating: false);
+        return;
+      }
+
+      if (chatMode == ChatMode.agent && fullResponse.isNotEmpty) {
+        toolCallsParsed = _extractToolCallsFromPrompt(fullResponse.toString());
+
+        if (toolCallsParsed.isNotEmpty && mounted) {
+          final tools = AgenticTools(workspacePath: widget.workspacePath, context: context);
+          var currentMessages = List<ChatMessage>.from(messages);
+          currentMessages.add(ChatMessage(role: 'assistant', content: fullResponse.toString()));
+
+          for (var turnIdx = 0; turnIdx < 3 && toolCallsParsed.isNotEmpty; turnIdx++) {
+            final toolResults = <String>[];
+
+            for (final call in toolCallsParsed) {
+              final functionName = call['function']?.toString();
+              final args = call['arguments'] as Map<String, dynamic>? ?? {};
+
+              if (functionName != null && functionName.isNotEmpty) {
+                try {
+                  final result = await _executeExternalToolCall(
+                    tools: tools,
+                    functionName: functionName,
+                    args: args,
+                    pushPartial: (partial) {},
+                  );
+                  toolResults.add(result);
+                } catch (e) {
+                  toolResults.add('Error executing $functionName: $e');
+                }
+              }
+            }
+
+            currentMessages.add(ChatMessage(
+              role: 'user',
+              content: 'Tool results:\n${toolResults.join('\n')}\n\nContinue your response based on the tool results.',
+            ));
+
+            final nextTurnResponse = StringBuffer();
+            try {
+              final nextGenerateFuture = controller.generateChat(
+                messages: currentMessages,
+                maxTokens: model.maxTokens,
+                temperature: model.temperature,
+                topP: model.topP,
+                topK: model.topK,
+                repeatPenalty: model.repeatPenalty,
+                frequencyPenalty: model.frequencyPenalty,
+                presencePenalty: model.presencePenalty,
+                repeatLastN: model.repeatLastN,
+                seed: model.seed,
+                mirostat: model.mirostat,
+                mirostatTau: model.mirostatTau,
+                mirostatEta: model.mirostatEta,
+              ).listen(
+                (token) {
+                  nextTurnResponse.write(token);
+                  fullResponse.write(token);
+                  newList[index] = newList[index].copyWith(
+                    modelResponse: fullResponse.toString(),
+                  );
+                  chatSessionBloc.add(UpdateCurrentSession(conversations: newList));
+                  _scrollToBottom();
+                },
+                onError: (e) {
+                  debugPrint('[LocalLlama] Tool loop stream error: $e');
+                },
+              ).asFuture();
+
+              await nextGenerateFuture.timeout(
+                const Duration(seconds: 120),
+                onTimeout: () {
+                  throw TimeoutException('Tool loop generation timed out after 120s');
+                },
               );
-              chatSessionBloc.add(UpdateCurrentSession(conversations: updated));
+            } catch (e) {
+              if (e is TimeoutException) {
+                debugPrint('[LocalLlama] Tool turn timed out: ${e.message}');
+              } else {
+                debugPrint('[LocalLlama] Tool turn error: $e');
+              }
+              break;
+            }
+
+            currentMessages.add(ChatMessage(role: 'assistant', content: nextTurnResponse.toString()));
+
+            toolCallsParsed = _extractToolCallsFromPrompt(nextTurnResponse.toString());
+
+            if (toolCallsParsed.isEmpty) {
+              break;
             }
           }
-        },
-      )
-      .asFuture();
+        }
+      }
 
       _updateBlocState(isGenerating: false);
-      llamaBloc.add(LocalLlamaGenerationDone());
 
       if (isFirstMessage && fullResponse.isNotEmpty) {
-        final fallbackTitle = prompt.split(' ').take(5).join(' ');
         final currentSession = chatSessionBloc.state.currentSession;
         if (currentSession != null) {
           chatSessionBloc.add(UpdateSessionTitle(
             sessionId: currentSession.id,
-            title: fallbackTitle,
+            title: prompt.split(' ').take(5).join(' '),
           ));
         }
       }
@@ -11732,8 +11853,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       final currentSession = chatSessionBloc.state.currentSession;
       if (currentSession != null) {
         final updated = currentSession.conversations
-            .map((c) => AIConversation(c.userRequest, c.modelResponse))
-            .toList();
+          .map((c) => AIConversation(c.userRequest, c.modelResponse))
+          .toList();
         if (index < updated.length) {
           updated[index] = updated[index].copyWith(
             modelResponse: _userFacingChatErrorMessage(e),
@@ -11743,6 +11864,30 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       }
       _updateBlocState(isGenerating: false);
     }
+  }
+
+  List<Map<String, dynamic>> _extractToolCallsFromPrompt(String response) {
+    final calls = <Map<String, dynamic>>[];
+    try {
+      final pattern = RegExp(
+        r'\{\s*"type"\s*:\s*"tool_call".*?\}',
+        dotAll: true,
+        multiLine: true,
+      );
+      
+      for (final match in pattern.allMatches(response)) {
+        try {
+          final json = jsonDecode(match.group(0)!);
+          if (json is Map && json['type'] == 'tool_call') {
+            calls.add({
+              'function': json['function'],
+              'arguments': json['arguments'] ?? {},
+            });
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return calls;
   }
 
   @override

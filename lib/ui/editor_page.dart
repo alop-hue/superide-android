@@ -1064,8 +1064,6 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
           right: -5,
           top: -6,
           child: Container(
-            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
               color: badgeColor ?? const Color(0xffd9534f),
               borderRadius: BorderRadius.circular(20),
@@ -1978,31 +1976,32 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         ? appTheme.editorPageToolSelectedBgColor
                                         : Colors.transparent,
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 7.5),
-                                      child: drawerButtons(
-                                        () => context.read<StackBloc>().add(
-                                          StackIndexChange(stackValue: 2),
-                                        ),
-                                        BlocBuilder<DiagnosticsTickBloc, int>(
-                                          builder: (context, _) {
-                                            final openErrorCount = _openEditorsErrorCount(editorState.activeEditors);
-                                            return _buildBadgedIcon(
+                                    drawerButtons(
+                                      () => context.read<StackBloc>().add(
+                                        StackIndexChange(stackValue: 2),
+                                      ),
+                                      BlocBuilder<DiagnosticsTickBloc, int>(
+                                        builder: (context, _) {
+                                          final openErrorCount = _openEditorsErrorCount(editorState.activeEditors);
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                                            child: _buildBadgedIcon(
                                               icon: Icon(
                                                 Icons.rule_rounded,
+                                                size: 31,
                                                 color: state.stackIndex == 2
                                                   ? appTheme.editorPageToolSelectedColor
                                                   : appTheme.editorPageToolColor,
                                               ),
                                               count: openErrorCount,
                                               appTheme: appTheme,
-                                            );
-                                          },
-                                        ),
-                                        bgColor: state.stackIndex == 2
-                                          ? appTheme.editorPageToolSelectedBgColor
-                                          : Colors.transparent,
+                                            ),
+                                          );
+                                        },
                                       ),
+                                      bgColor: state.stackIndex == 2
+                                        ? appTheme.editorPageToolSelectedBgColor
+                                        : Colors.transparent,
                                     ),
                                     drawerButtons(
                                       () => context.read<StackBloc>().add(
