@@ -7,17 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:flutter_switch/flutter_switch.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart';
-import 'package:roxum/utils/constants.dart';
+import '../utils/constants.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
-import 'downloads.dart';
 import '../utils/functions.dart';
 import '../utils/languages.dart';
 import '../utils/themes.dart';
+import 'downloads.dart';
 import 'widgets.dart';
 
 class Settings extends StatefulWidget {
@@ -199,8 +198,8 @@ int main() {
     switch (status) {
       case CopilotStatus.notInitialized:
       case CopilotStatus.notSignedIn:
-        buttonText = "Sign in with GitHub Copilot";
-        buttonColor = Colors.lightBlue;
+        buttonText = "Login to GitHub Copilot";
+        buttonColor = Color(0xff007acc);
         onPressed = () => _startCopilotSignIn(context, appThemeState);
         break;
       case CopilotStatus.initializing:
@@ -1906,7 +1905,6 @@ int main() {
         return BlocBuilder<AppThemeBloc, AppThemeState>(
           builder: (context, appThemeState) {
             return Scaffold(
-              backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
               appBar: AppBar(
                 backgroundColor: Colors.transparent,
                 title: Text(
@@ -1930,33 +1928,37 @@ int main() {
                         "Auto Save",
                         Icon(Icons.save, color: appThemeState.appTheme.selectScreenCardTextColor, size: 19),
                         appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: BlocBuilder<GeneralBloc, GeneralState>(
-                            builder: (context, generalState) {
-                              return FlutterSwitch(
-                                toggleColor: Color(0xff002b6e),
-                                inactiveToggleColor: Colors.white,
-                                activeColor: Color(0xffb0c6fe),
-                                value: generalState.generalSettings['autoSave'] ?? true,
-                                onToggle: (value) async{
-                                  final prefs = await SharedPreferences.getInstance();
-                                  final currentState = configState.codeForgeConfig;
-                                  currentState['autoSave'] = value;
-                                  await prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                  prefs.setInt("fontSize", value ? 20 : 15);
-                                  if(context.mounted) {
-                                    final currentval = context.read<GeneralBloc>().state.generalSettings;
-                                    currentval['autoSave'] = value;
-                                    context.read<GeneralBloc>().add(GeneralEvent(generalSettings: currentval));
-                                  }
+                        trailing: BlocBuilder<GeneralBloc, GeneralState>(
+                          builder: (context, generalState) {
+                            return FlutterSwitch(
+                              borderRadius: 5,
+                              width: 65,
+                              height: 26,
+                              toggleSize: 32,
+                              toggleColor: Color(0xff007ACC),
+                              inactiveToggleColor: Colors.white,
+                              activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                              activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                              inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                              toggleShape: BoxShape.rectangle,
+                              toggleBorderRadius: .circular(4),
+                              padding: 2,
+                              value: generalState.generalSettings['autoSave'] ?? true,
+                              onToggle: (value) async{
+                                final prefs = await SharedPreferences.getInstance();
+                                final currentState = configState.codeForgeConfig;
+                                currentState['autoSave'] = value;
+                                await prefs.setString('codeForgeConfig', jsonEncode(currentState));
+                                prefs.setInt("fontSize", value ? 20 : 15);
+                                if(context.mounted) {
+                                  final currentval = context.read<GeneralBloc>().state.generalSettings;
+                                  currentval['autoSave'] = value;
+                                  context.read<GeneralBloc>().add(GeneralEvent(generalSettings: currentval));
                                 }
-                              );
-                            },
-                          ),
+                              }
+                            );
+                          },
                         ),
-                        subTitle: configState.fontSize > 15 ? "Large" : "Normal"
                       ),
                       settingsDivider,
                       settingsType("Appearance", appThemeState.appTheme.isDark),
@@ -1971,29 +1973,31 @@ int main() {
                           color: const Color.fromARGB(255, 36, 36, 36),
                         ),
                         appThemeState.appTheme.isDark,
-                        subTitle: appThemeState.appTheme.isDark ? "Dark" : "Light",
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            activeIcon: Icon(Icons.dark_mode, color: Colors.white,),
-                            inactiveIcon: Icon(Icons.light_mode),
-                            value: appThemeState.appTheme.isDark,
-                            onToggle: (value) async{
-                              final prefs = await SharedPreferences.getInstance();
-                              if(value){
-                                if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: DarkTheme()));
-                                prefs.setString("savedAppTheme", "dark");
-                              }
-                              else{
-                                if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: LightTheme()));
-                                prefs.setString("savedAppTheme", "light");
-                              }
+                        trailing: FlutterSwitch(
+                          width: 65,
+                          height: 26,
+                          borderRadius: 5,
+                          padding: 2,
+                          toggleSize: 32,
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Icon(Icons.dark_mode, color: Colors.white,),
+                          inactiveIcon: Icon(Icons.light_mode),
+                          value: appThemeState.appTheme.isDark,
+                          onToggle: (value) async{
+                            final prefs = await SharedPreferences.getInstance();
+                            if(value){
+                              if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: DarkTheme()));
+                              prefs.setString("savedAppTheme", "dark");
                             }
-                          ),
+                            else{
+                              if(context.mounted) context.read<AppThemeBloc>().add(AppThemeEvent(appTheme: LightTheme()));
+                              prefs.setString("savedAppTheme", "light");
+                            }
+                          }
                         )
                       ),
                       settingsTile(() {
@@ -2022,9 +2026,7 @@ int main() {
                               });
                               return AlertDialog(
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                backgroundColor: appThemeState.appTheme.isDark
-                                  ? const Color(0xff1e1e2e)
-                                  : Colors.white,
+                                backgroundColor: appThemeState.appTheme.scaffoldBg,
                                 title: Column(
                                   children: [
                                     Container(
@@ -2032,8 +2034,8 @@ int main() {
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: appThemeState.appTheme.isDark
-                                            ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
-                                            : [Colors.blue.shade100, Colors.blue.shade50],
+                                            ? [Colors.blue.shade800, Colors.blue.shade300]
+                                            : [Colors.blue.shade300, Colors.blue.shade100],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -2090,7 +2092,7 @@ int main() {
                                           hintText: "Search theme",
                                           backgroundColor: WidgetStatePropertyAll(
                                             appThemeState.appTheme.isDark
-                                              ? const Color(0xff24243a)
+                                              ? appThemeState.appTheme.editorPageDrawerBg
                                               : Colors.blueGrey.shade50,
                                           ),
                                           elevation: const WidgetStatePropertyAll(0),
@@ -2161,13 +2163,13 @@ int main() {
                                                       decoration: BoxDecoration(
                                                         color: isSelected
                                                           ? (appThemeState.appTheme.isDark
-                                                            ? Colors.blue.withAlpha(40)
-                                                            : Colors.blue.withAlpha(30))
+                                                            ? Color(0xff007acc).withAlpha(40)
+                                                            : Color(0xff007acc).withAlpha(30))
                                                           : Colors.transparent,
                                                         borderRadius: BorderRadius.circular(12),
                                                         border: Border.all(
                                                           color: isSelected
-                                                            ? Colors.blue
+                                                            ? Color(0xff007acc)
                                                             : Colors.transparent,
                                                           width: 2,
                                                         ),
@@ -2208,7 +2210,7 @@ int main() {
                                                           if (isSelected)
                                                             Icon(
                                                               Icons.check_circle,
-                                                              color: Colors.blue,
+                                                              color: Color(0xff007acc),
                                                               size: 24,
                                                             ),
                                                         ],
@@ -2274,16 +2276,14 @@ int main() {
                                 });
                                 return AlertDialog(
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  backgroundColor: appThemeState.appTheme.isDark
-                                    ? const Color(0xff1e1e2e)
-                                    : Colors.white,
+                                  backgroundColor: appThemeState.appTheme.scaffoldBg,
                                   title: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: appThemeState.appTheme.isDark
-                                          ? [const Color(0xff3d3d5c), const Color(0xff2a2a3e)]
-                                          : [Colors.purple.shade100, Colors.purple.shade50],
+                                          ? [Colors.purple.shade800, Colors.purple.shade300]
+                                          : [Colors.purple.shade200, Colors.purple.shade100],
                                       ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -2456,24 +2456,28 @@ int main() {
                           size: 19
                         ),
                         appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            value: isIndentEnabled,
-                            onToggle: (value) async{
-                              final prefs = await SharedPreferences.getInstance();
-                              final currentState = configState.codeForgeConfig;
-                              currentState['indentLineStatus'] = value;
-                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
-                            }
-                          ),
+                        trailing: FlutterSwitch(
+                          borderRadius: 5,
+                          width: 65,
+                          height: 26,
+                          toggleSize: 32,
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                          inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          padding: 2,
+                          value: isIndentEnabled,
+                          onToggle: (value) async{
+                            final prefs = await SharedPreferences.getInstance();
+                            final currentState = configState.codeForgeConfig;
+                            currentState['indentLineStatus'] = value;
+                            if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                            prefs.setString("codeForgeConfig", jsonEncode(currentState));
+                          }
                         ),
-                        subTitle: isIndentEnabled ? "Enabled" : "Disabled"
                       ),
                       settingsTile(
                         null,
@@ -2484,24 +2488,28 @@ int main() {
                           size: 19
                         ),
                         appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            value: lineWrap,
-                            onToggle: (value) async{
-                              final prefs = await SharedPreferences.getInstance();
-                              final currentState = configState.codeForgeConfig;
-                              currentState['lineWrap'] = value;
-                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
-                            }
-                          ),
+                        trailing: FlutterSwitch(
+                          borderRadius: 5,
+                          width: 65,
+                          height: 26,
+                          toggleSize: 32,
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                          inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          padding: 2,
+                          value: lineWrap,
+                          onToggle: (value) async{
+                            final prefs = await SharedPreferences.getInstance();
+                            final currentState = configState.codeForgeConfig;
+                            currentState['lineWrap'] = value;
+                            if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                            prefs.setString("codeForgeConfig", jsonEncode(currentState));
+                          }
                         ),
-                        subTitle: lineWrap ? "Enabled" : "Disabled"
                       ),
                       settingsTile(
                         null,
@@ -2512,24 +2520,28 @@ int main() {
                           size: 19
                         ),
                         appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            value: enableFolding,
-                            onToggle: (value) async{
-                              final prefs = await SharedPreferences.getInstance();
-                              final currentState = configState.codeForgeConfig;
-                              currentState['enableFolding'] = value;
-                              if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
-                              prefs.setString("codeForgeConfig", jsonEncode(currentState));
-                            }
-                          ),
+                        trailing: FlutterSwitch(
+                          borderRadius: 5,
+                          width: 65,
+                          height: 26,
+                          toggleSize: 32,
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                          inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          padding: 2,
+                          value: enableFolding,
+                          onToggle: (value) async{
+                            final prefs = await SharedPreferences.getInstance();
+                            final currentState = configState.codeForgeConfig;
+                            currentState['enableFolding'] = value;
+                            if(context.mounted) context.read<ConfigBloc>().add(ChangeConfigEvent(currentState));
+                            prefs.setString("codeForgeConfig", jsonEncode(currentState));
+                          }
                         ),
-                        subTitle: enableFolding ? "Enabled" : "Disabled"
                       ),
                       const SizedBox(height: 25),
                       Align(
@@ -2546,7 +2558,7 @@ int main() {
                               enableFolding: enableFolding,
                               selectionStyle: CodeSelectionStyle(
                                 selectionColor: Colors.blueAccent.withAlpha(80),
-                                cursorBubbleColor: Colors.blue,
+                                cursorBubbleColor: Color(0xff007acc),
                               ),
                               key: ValueKey(CodeForgeDemoKey(
                                 theme: theme,
@@ -2591,9 +2603,7 @@ int main() {
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                     ),
-                                    backgroundColor: appThemeState.appTheme.isDark
-                                      ? const Color(0xff1e1e2e)
-                                      : Colors.white,
+                                    backgroundColor: appThemeState.appTheme.scaffoldBg,
                                     title: Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
@@ -2810,70 +2820,79 @@ int main() {
                                   padding: const EdgeInsets.symmetric(vertical: 20),
                                   child: SizedBox(
                                     height: 35,
-                                    child: Row(
-                                      mainAxisAlignment: .center,
-                                      children: [
-                                        InkWell(
-                                          borderRadius: BorderRadius.only(
-                                            topLeft: Radius.circular(20),
-                                            bottomLeft: Radius.circular(20)
-                                          ),
-                                          onTap: (){
-                                            if(sshStackIndex == 0) return;
-                                            setState(() => sshStackIndex = 0);
-                                          }, child: Container(
-                                            alignment: .center,
-                                            decoration: BoxDecoration(
-                                              color: sshStackIndex == 0 ? Colors.blue : null,
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: Radius.circular(20),
-                                                bottomLeft: Radius.circular(20)
-                                              ),
-                                              border: Border.all(
-                                                color: appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                width: 1
-                                              )
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: .circular(5),
+                                        border: BoxBorder.all(
+                                          width: 0.5,
+                                          color: appTheme.selectScreenCardTextColor
+                                        )
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: .min,
+                                        mainAxisAlignment: .center,
+                                        children: [
+                                          InkWell(
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(2),
+                                              bottomLeft: Radius.circular(2)
                                             ),
-                                            width: 100,
-                                            child: Text(
-                                              "Login",
-                                              style: TextStyle(
-                                                color: sshStackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                            onTap: (){
+                                              if(sshStackIndex == 0) return;
+                                              setState(() => sshStackIndex = 0);
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(3),
+                                              child: Container(
+                                                alignment: .center,
+                                                decoration: BoxDecoration(
+                                                  color: sshStackIndex == 0 ? Color(0xff007acc) : null,
+                                                  borderRadius: BorderRadius.only(
+                                                    topLeft: Radius.circular(2),
+                                                    bottomLeft: Radius.circular(2)
+                                                  ),
+                                                ),
+                                                width: 100,
+                                                child: Text(
+                                                  "Login",
+                                                  style: TextStyle(
+                                                    color: sshStackIndex == 0 ? Colors.white : Colors.grey.withAlpha(150)
+                                                  ),
+                                                )
                                               ),
                                             )
-                                          )
-                                        ),
-                                        InkWell(
-                                          borderRadius: BorderRadius.only(
-                                            topRight: Radius.circular(20),
-                                            bottomRight: Radius.circular(20)
                                           ),
-                                          onTap: (){
-                                            if(sshStackIndex == 1) return;
-                                            setState(() => sshStackIndex = 1);
-                                          }, child: Container(
-                                            alignment: .center,
-                                            decoration: BoxDecoration(
-                                              color: sshStackIndex == 1 ? Colors.blue : null,
-                                              borderRadius: BorderRadius.only(
-                                                topRight: Radius.circular(20),
-                                                bottomRight: Radius.circular(20)
-                                              ),
-                                              border: Border.all(
-                                                color: appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                width: 1
-                                              )
+                                          InkWell(
+                                            borderRadius: BorderRadius.only(
+                                              topRight: Radius.circular(2),
+                                              bottomRight: Radius.circular(2)
                                             ),
-                                            width: 100,
-                                            child: Text(
-                                              "Private key",
-                                              style: TextStyle(
-                                                color: sshStackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
+                                            onTap: (){
+                                              if(sshStackIndex == 1) return;
+                                              setState(() => sshStackIndex = 1);
+                                            }, child: Padding(
+                                              padding: const EdgeInsets.all(3),
+                                              child: Container(
+                                                alignment: .center,
+                                                decoration: BoxDecoration(
+                                                  color: sshStackIndex == 1 ? Color(0xff007acc) : null,
+                                                  borderRadius: BorderRadius.only(
+                                                    topRight: Radius.circular(2),
+                                                    bottomRight: Radius.circular(2)
+                                                  ),
+                                                ),
+                                                width: 100,
+                                                child: Text(
+                                                  "Private key",
+                                                  style: TextStyle(
+                                                    color: sshStackIndex == 1 ? Colors.white : Colors.grey.withAlpha(150)
+                                                  ),
+                                                )
                                               ),
                                             )
-                                          )
-                                        ),
-                                      ]
+                                          ),
+                                        ]
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -2884,7 +2903,7 @@ int main() {
                                     decoration: BoxDecoration(
                                       borderRadius: .circular(10),
                                       border: .all(
-                                        color: Colors.blue
+                                        color: Color(0xff007acc)
                                       )
                                     ),
                                     child: Row(
@@ -2893,7 +2912,7 @@ int main() {
                                           padding: const EdgeInsets.all(8.0),
                                           child: Icon(
                                             Icons.info_outlined,
-                                            color: Colors.blue,
+                                            color: Color(0xff007acc),
                                             size: 18
                                           ),
                                         ),
@@ -2912,7 +2931,7 @@ int main() {
                                                   TextSpan(
                                                     text: 'ssh',
                                                     style: const TextStyle(
-                                                      color: Colors.blue,
+                                                      color: Color(0xff007acc),
                                                       decoration: TextDecoration.underline,
                                                     ),
                                                     recognizer: TapGestureRecognizer()
@@ -2937,810 +2956,663 @@ int main() {
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 32, bottom: 25, top: 40),
-                                  child: Row(
-                                    spacing: 18,
-                                    children: [
-                                      FaIcon(
-                                        FontAwesomeIcons.server,
-                                        color: Colors.lightBlue
-                                      ),
-                                      Text(
-                                        "Add a remote host",
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: .w500,
-                                          color: appTheme.selectScreenCardTextColor
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 340,
-                                  child: Column(
-                                    spacing: 15,
-                                    children: [
-                                      settingsTextField(
-                                        sshServerNameController,
-                                        Icons.abc,
-                                        "Server name",
-                                        appTheme.selectScreenCardTextColor,
-                                        "Eg: My server",
-                                        (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
-                                      ),
-                                            
-                                      settingsTextField(
-                                        sshUrlController,
-                                        Icons.link,
-                                        "Host url",
-                                        appTheme.selectScreenCardTextColor,
-                                        "Eg: ssh://jhon@192.168.1.100",
-                                        (val) {
-                                          if(val == null || val.isEmpty){
-                                            return "Please enter a valid host/ip address";
-                                          }
-                                            
-                                          final valUri = Uri.parse(val);
-                                          if(valUri.scheme != "ssh") {
-                                            return "Invalid ssh url";
-                                          } else if(valUri.host.isEmpty){
-                                            return "Invalid Or empty host name";
-                                          } else if(valUri.userInfo.isEmpty) {
-                                            return "Invalid or empty username";
-                                          } else {
-                                            return null;
-                                          }
-                                        },
-                                      ),
-                                            
-                                    ],
-                                  ),
-                                ),
-                            
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 300),
-                                  child: sshStackIndex == 0
-                                    ? SizedBox(
-                                      width: 380,
-                                      child: Column(
-                                        children:[
-                                          Padding(
-                                            padding: const EdgeInsets.only(bottom: 20),
-                                            child: SizedBox(
-                                              child: Container(
-                                              padding: EdgeInsets.all(20),
-                                              width: double.infinity,
-                                              child: DefaultTextStyle.merge(
+                                  padding: const EdgeInsets.all(12.5),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: .circular(5),
+                                      border: BoxBorder.all(
+                                        width: 0.5,
+                                        color: appTheme.selectScreenCardTextColor.withAlpha(200)
+                                      )
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 32, bottom: 25, top: 40),
+                                          child: Row(
+                                            spacing: 18,
+                                            children: [
+                                              FaIcon(
+                                                FontAwesomeIcons.server,
+                                                color: Colors.lightBlue,
+                                                size: 17
+                                              ),
+                                              Text(
+                                                "ADD A REMOTE HOST",
                                                 style: TextStyle(
-                                                  color: appTheme.selectScreenCardTextColor
+                                                  fontSize: 13,
+                                                  fontWeight: .w500,
+                                                  color: appTheme.selectScreenCardTextColor.withAlpha(200)
                                                 ),
-                                                child: Column(
-                                                  children: [
-                                                    settingsTextField(
-                                                      sshPasswordController,
-                                                      Icons.password,
-                                                      "Password",
-                                                      appTheme.selectScreenCardTextColor,
-                                                      null,
-                                                      (val) {
-                                                        if(sshStackIndex == 1) return null;
-                                                        return val == null || val.isEmpty ? "Password field cannot be empty": null;
-                                                      },
-                                                      true
-                                                    ),
-                                                
-                                                    Padding(
-                                                      padding: const EdgeInsets.only(top: 35),
-                                                      child: SizedBox(
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 340,
+                                          child: Column(
+                                            spacing: 15,
+                                            children: [
+                                              settingsTextField(
+                                                sshServerNameController,
+                                                Icons.abc,
+                                                "Server name",
+                                                appTheme.selectScreenCardTextColor,
+                                                "Eg: My server",
+                                                (val) =>  val == null || val.isEmpty ? "Please give a name to the server": null,
+                                              ),
+                                                    
+                                              settingsTextField(
+                                                sshUrlController,
+                                                Icons.link,
+                                                "Host url",
+                                                appTheme.selectScreenCardTextColor,
+                                                "Eg: ssh://jhon@192.168.1.100",
+                                                (val) {
+                                                  if(val == null || val.isEmpty){
+                                                    return "Please enter a valid host/ip address";
+                                                  }
+                                                    
+                                                  final valUri = Uri.parse(val);
+                                                  if(valUri.scheme != "ssh") {
+                                                    return "Invalid ssh url";
+                                                  } else if(valUri.host.isEmpty){
+                                                    return "Invalid Or empty host name";
+                                                  } else if(valUri.userInfo.isEmpty) {
+                                                    return "Invalid or empty username";
+                                                  } else {
+                                                    return null;
+                                                  }
+                                                },
+                                              ),
+                                                    
+                                            ],
+                                          ),
+                                        ),
+                                                                    
+                                        AnimatedSwitcher(
+                                          duration: const Duration(milliseconds: 300),
+                                          child: sshStackIndex == 0
+                                            ? SizedBox(
+                                              width: 380,
+                                              child: Column(
+                                                children:[
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(bottom: 20),
+                                                    child: SizedBox(
+                                                      child: Container(
+                                                      padding: EdgeInsets.all(20),
+                                                      width: double.infinity,
+                                                      child: DefaultTextStyle.merge(
+                                                        style: TextStyle(
+                                                          color: appTheme.selectScreenCardTextColor
+                                                        ),
                                                         child: Column(
-                                                          spacing: 18,
                                                           children: [
-                                                            SizedBox(
-                                                              width: 200,
-                                                              child: ElevatedButton(
-                                                                style: ElevatedButton.styleFrom(
-                                                                  backgroundColor: Colors.lightBlue,
-                                                                  foregroundColor: Colors.white,
-                                                                  shape: RoundedRectangleBorder(
-                                                                    borderRadius: .circular(10),
-                                                                  )
-                                                                  
-                                                                ),
-                                                                onPressed: () async{
-                                                                  if (_sshFormKey.currentState!.validate()) {
-                                                                    await context.read<SSHServersCubit>().addServer(
-                                                                      SSHLogin(
-                                                                        name: sshServerNameController.text,
-                                                                        id: DateTime.now().millisecondsSinceEpoch,
-                                                                        url: sshUrlController.text,
-                                                                        password: sshPasswordController.text
-                                                                      )
-                                                                    );
-                                                                    if(context.mounted){
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        SnackBar(
-                                                                          backgroundColor: Colors.green,
-                                                                          content: Text(
-                                                                            "Successfully saved !",
-                                                                            style: TextStyle(
-                                                                              color: Colors.white
+                                                            settingsTextField(
+                                                              sshPasswordController,
+                                                              Icons.password,
+                                                              "Password",
+                                                              appTheme.selectScreenCardTextColor,
+                                                              null,
+                                                              (val) {
+                                                                if(sshStackIndex == 1) return null;
+                                                                return val == null || val.isEmpty ? "Password field cannot be empty": null;
+                                                              },
+                                                              true
+                                                            ),
+                                                        
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(top: 35),
+                                                              child: SizedBox(
+                                                                child: Row(
+                                                                  spacing: 12,
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child: ElevatedButton(
+                                                                        style: ElevatedButton.styleFrom(
+                                                                          backgroundColor: Color(0xff027ACC),
+                                                                          foregroundColor: Colors.white,
+                                                                          shape: RoundedRectangleBorder(
+                                                                            borderRadius: .circular(5),
+                                                                          )
+                                                                        ),
+                                                                        onPressed: () async{
+                                                                          final server = SSHLogin(
+                                                                            name: sshServerNameController.text,
+                                                                            id: DateTime.now().millisecondsSinceEpoch,
+                                                                            url: sshUrlController.text,
+                                                                            password: sshPasswordController.text
+                                                                          );
+                                                                      
+                                                                          final result = await server.connect();
+                                                                          if(!context.mounted) return;
+                                                                          await context.read<SSHServersCubit>().addServer(server);
+                                                                          if(context.mounted){
+                                                                            if(result.$1) {
+                                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                                SnackBar(
+                                                                                  backgroundColor: Colors.green,
+                                                                                  content: Text(
+                                                                                    result.$2,
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white
+                                                                                    )
+                                                                                  )
+                                                                                )
+                                                                              );
+                                                                            } else {
+                                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                                SnackBar(
+                                                                                  backgroundColor: Colors.red[600],
+                                                                                  content: Text(
+                                                                                    result.$2,
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white
+                                                                                    )
+                                                                                  )
+                                                                                )
+                                                                              );
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        child: const Text(
+                                                                          "Save & Connect",
+                                                                          style: TextStyle(
+                                                                            fontWeight: .bold
+                                                                          ),
+                                                                        )
+                                                                      ),
+                                                                    ),
+                                                                    
+                                                                    Expanded(
+                                                                      child: ElevatedButton(
+                                                                        style: ElevatedButton.styleFrom(
+                                                                          backgroundColor: Colors.transparent,
+                                                                          foregroundColor: Colors.white,
+                                                                          shape: RoundedRectangleBorder(
+                                                                            borderRadius: .circular(5),
+                                                                            side: BorderSide(
+                                                                              color: appTheme.selectScreenCardTextColor.withAlpha(200),
+                                                                              width: 0.5
                                                                             )
                                                                           )
-                                                                        )
-                                                                      );
-                                                                    }
-                                                                  }
-                                                                },
-                                                                child: Row(
-                                                                  spacing: 5,
-                                                                  mainAxisAlignment: .center,
-                                                                  children: [
-                                                                    const Icon(Icons.save),
-                                                                    const Text(
-                                                                      "Save",
-                                                                      style: TextStyle(
-                                                                        fontWeight: .bold
+                                                                        ),
+                                                                        onPressed: () async{
+                                                                          if (_sshFormKey.currentState!.validate()) {
+                                                                            await context.read<SSHServersCubit>().addServer(
+                                                                              SSHLogin(
+                                                                                name: sshServerNameController.text,
+                                                                                id: DateTime.now().millisecondsSinceEpoch,
+                                                                                url: sshUrlController.text,
+                                                                                password: sshPasswordController.text
+                                                                              )
+                                                                            );
+                                                                            if(context.mounted){
+                                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                                SnackBar(
+                                                                                  backgroundColor: Colors.green,
+                                                                                  content: Text(
+                                                                                    "Successfully saved !",
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.white
+                                                                                    )
+                                                                                  )
+                                                                                )
+                                                                              );
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        child: const Text(
+                                                                          "Save",
+                                                                          style: TextStyle(
+                                                                            fontWeight: .bold
+                                                                          ),
+                                                                        ),
                                                                       ),
                                                                     ),
                                                                   ],
                                                                 ),
                                                               ),
-                                                            ),
-                                                            
-                                                            SizedBox(
-                                                              width: 200,
-                                                              child: ElevatedButton(
-                                                                style: ElevatedButton.styleFrom(
-                                                                  backgroundColor: Colors.green,
-                                                                  foregroundColor: Colors.white,
-                                                                  shape: RoundedRectangleBorder(
-                                                                    borderRadius: .circular(10),
-                                                                  )
-                                                                ),
-                                                                onPressed: () async{
-                                                                  final server = SSHLogin(
-                                                                    name: sshServerNameController.text,
-                                                                    id: DateTime.now().millisecondsSinceEpoch,
-                                                                    url: sshUrlController.text,
-                                                                    password: sshPasswordController.text
-                                                                  );
-
-                                                                  final result = await server.connect();
-                                                                  if(!context.mounted) return;
-                                                                  await context.read<SSHServersCubit>().addServer(server);
-                                                                  if(context.mounted){
-                                                                    if(result.$1) {
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        SnackBar(
-                                                                          backgroundColor: Colors.green,
-                                                                          content: Text(
-                                                                            result.$2,
-                                                                            style: TextStyle(
-                                                                              color: Colors.white
-                                                                            )
-                                                                          )
-                                                                        )
-                                                                      );
-                                                                    } else {
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        SnackBar(
-                                                                          backgroundColor: Colors.red[600],
-                                                                          content: Text(
-                                                                            result.$2,
-                                                                            style: TextStyle(
-                                                                              color: Colors.white
-                                                                            )
-                                                                          )
-                                                                        )
-                                                                      );
-                                                                    }
-                                                                  }
-                                                                },
-                                                                child: Row(
-                                                                  mainAxisAlignment: .center,
-                                                                  spacing: 5,
-                                                                  children: [
-                                                                    const Icon(Icons.power),
-                                                                    const Text(
-                                                                      "Save & Connect",
-                                                                      style: TextStyle(
-                                                                        fontWeight: .bold
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                )
-                                                              ),
-                                                            ),
+                                                            )
                                                           ],
                                                         ),
                                                       ),
-                                                    )
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            ),
-                                          ),
-                                        ]
-                                      ),
-                                    )
-                            
-                                    : Column(
-                                      children:[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 30),
-                                          child: SizedBox(
-                                            width: 295,
-                                            child: ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                shape: RoundedRectangleBorder(borderRadius: .circular(10)),
-                                                backgroundColor: Colors.lightBlue,
-                                                foregroundColor: Colors.white
-                                              ),
-                            
-                                              onPressed: () async {
-                                                setState(() => _isGeneratedKey = false);
-                                                await sshKeygen.generate();
-                                                setState(() => _isGeneratedKey = true);
-                                              },
-                            
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(right: 10, top: 5, bottom: 8),
-                                                child: Row(
-                                                  mainAxisAlignment: .center,
-                                                  spacing: 8,
-                                                  children: [
-                                                    ((){
-                                                      if(_isGeneratedKey == null) {
-                                                        return const Icon(
-                                                          Icons.key,
-                                                          size: 25
-                                                        );
-                                                      } else if(!_isGeneratedKey!) {
-                                                        return const CircularProgressIndicator(
-                                                          color: Colors.white,
-                                                        );
-                                                      } else {
-                                                        return const Icon(
-                                                          Icons.autorenew,
-                                                          size: 25
-                                                        );
-                                                      }
-                                                    })(),
-                                                    Column(
-                                                      crossAxisAlignment: .start,
-                                                      children: [
-                                                        ((){
-                                                          if(_isGeneratedKey == null) {
-                                                            return const Text(
-                                                              "Generate keys",
-                                                              style: TextStyle(
-                                                                fontSize: 16
-                                                              )
-                                                            );
-                                                          } else if(!_isGeneratedKey!) {
-                                                            return const Text("Generating...");
-                                                          } else {
-                                                            return const Text(
-                                                              "Regenerate keys",
-                                                              style: TextStyle(
-                                                                fontSize: 17
-                                                              )
-                                                            );
-                                                          }
-                                                        })(),
-                                                        Text(
-                                                          _isGeneratedKey ?? false
-                                                            ? "Caution: Regenerating ssh keys will revoke\nyour access from all hosts."
-                                                            : "Generate a public-private key pair\nfor the ssh connection.",
-                            
-                                                          style: TextStyle(
-                                                            fontSize: 9.5,
-                                                            color: Colors.white.withAlpha(200)
-                                                          )
-                                                        )
-                                                      ]
                                                     ),
-                                                  ],
-                                                ),
-                                              )
-                                            ),
-                                          ),
-                                        ),
-                            
-                                        if(_isGeneratedKey ?? false) DefaultTextStyle(
-                                          style: TextStyle(
-                                            color: appThemeState.appTheme.selectScreenCardTextColor
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(left: 25),
-                                            child: Column(
-                                              crossAxisAlignment: .start,
-                                              children: [
-                                                Padding(
-                                                  padding: const EdgeInsets.only(left: 5, right: 10, bottom: 20),
-                                                  child: Text("After installing and starting ssh in your host system, paste this command:"),
-                                                ),
-                                                Row(
-                                                  children: [
-                                                    FaIcon(
-                                                      FontAwesomeIcons.linux,
-                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                      size: 17
                                                     ),
-                                                    Text(" Linux / "),
-                                                    FaIcon(
-                                                      FontAwesomeIcons.apple,
-                                                      color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                      size: 17
-                                                    ),
-                                                    Text(" Mac")
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 10),
-                                                copyArea(
-                                                  context,
-                                                  appTheme,
-                                                  "mkdir -p ~/.ssh\n\n"
-                                                  "chmod 700 ~/.ssh\n\n"
-                                                  "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
-                                                  "chmod 600 ~/.ssh/authorized_keys",
-                                                  200
-                                                ),
-                                                Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                                  child: Row(
-                                                    children: [
-                                                      FaIcon(
-                                                        FontAwesomeIcons.windows,
-                                                        color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                        size: 17
-                                                      ),
-                                                      Text(" Windows powershell"),
-                                                    ],
                                                   ),
-                                                ),
-                                                Padding(
-                                                  padding: const EdgeInsets.only(bottom: 25),
-                                                  child: copyArea(
-                                                    context,
-                                                    appTheme,
-                                                    'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"',
-                                                    135
-                                                  ),
-                                                ),
-                                              ]
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 20),
-                                          child: SizedBox(
-                                            width: 200,
-                                            child: ElevatedButton(
-                                              onPressed: () async{
-                                                if(_sshFormKey.currentState!.validate()){
-                                                  final server = SSHPrivateKey(
-                                                    name: sshServerNameController.text,
-                                                    id: DateTime.now().millisecondsSinceEpoch,
-                                                    url: sshUrlController.text,
-                                                  );
-                                                  final result = await server.connect();
-                                                  if(context.mounted){
-                                                    if(server.isConnected) context.read<SSHServersCubit>().addServer(server);
-                                                    if(result.$1) {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(
-                                                          backgroundColor: Colors.green,
-                                                          content: Text(
-                                                            result.$2,
-                                                            style: TextStyle(
-                                                              color: Colors.white
-                                                            )
-                                                          )
-                                                        )
-                                                      );
-                                                    } else {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        SnackBar(
-                                                          backgroundColor: Colors.red[600],
-                                                          content: Text(
-                                                            result.$2,
-                                                            style: TextStyle(
-                                                              color: Colors.white
-                                                            )
-                                                          )
-                                                        )
-                                                      );
-                                                    }
-                                                  }
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                                foregroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: .circular(10)
-                                                )
-                                              ),
-                                              child: const Row(
-                                                mainAxisAlignment: .center,
-                                                children: [
-                                                  Icon(Icons.power),
-                                                  Text("Save & Connect")
                                                 ]
                                               ),
-                                            ),
-                                          ),
-                                        )
-                                      ]
-                                    ),
-                                ),
-                            
-                            
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
-                                          borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                                        ),
-                                        child: Text(
-                                          "Saved remotes",
-                                          style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
-                                        )
-                                      ),
-                                      Container(
-                                        alignment: .center,
-                                        padding: EdgeInsets.all(15),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
-                                          color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 39, 42, 65) : Colors.grey[200],
-                                        ),
-                                        width: double.infinity,
-                                        child: serverList.isEmpty ? Text(
-                                          "No remotes have been configured yet.",
-                                          style: TextStyle(
-                                            color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                            fontSize: 16
-                                          )
-                                        ) : ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            maxHeight: 450
-                                          ),
-                                          child: Scrollbar(
-                                            child: ListView.builder(
-                                              shrinkWrap: true,
-                                              itemCount: serverList.length,
-                                              itemBuilder: (context, index) {
-                                                final server = serverList[index];
-                                                final isLogin = server is SSHLogin;
-                                                return Card(
-                                                  color: appTheme.scaffoldBg,
-                                                  child: ListTile(
-                                                    onTap: () {
-                                                      bool isObscure = true;
-                                                      showDialog(
-                                                        context: context,
-                                                        builder:(context) => StatefulBuilder(
-                                                          builder: (context, setTempState) => Dialog(
-                                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                            constraints: BoxConstraints(maxHeight: 580),
-                                                            child: DefaultTextStyle.merge(
-                                                              style: TextStyle(
+                                            )
+                                                                    
+                                            : Column(
+                                              children:[
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 30),
+                                                  child: SizedBox(
+                                                    width: 295,
+                                                    child: ElevatedButton(
+                                                      style: ElevatedButton.styleFrom(
+                                                        shape: RoundedRectangleBorder(borderRadius: .circular(5)),
+                                                        backgroundColor: Color(0xff007ACC),
+                                                        foregroundColor: Colors.white
+                                                      ),
+                                                                    
+                                                      onPressed: () async {
+                                                        setState(() => _isGeneratedKey = false);
+                                                        await sshKeygen.generate();
+                                                        setState(() => _isGeneratedKey = true);
+                                                      },
+                                                                    
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.only(right: 10, top: 5, bottom: 8),
+                                                        child: Row(
+                                                          mainAxisAlignment: .center,
+                                                          spacing: 8,
+                                                          children: [
+                                                            ((){
+                                                              if(_isGeneratedKey == null) {
+                                                                return const Icon(
+                                                                  Icons.key,
+                                                                  size: 25
+                                                                );
+                                                              } else if(!_isGeneratedKey!) {
+                                                                return const CircularProgressIndicator(
+                                                                  color: Colors.white,
+                                                                );
+                                                              } else {
+                                                                return const Icon(
+                                                                  Icons.autorenew,
+                                                                  size: 25
+                                                                );
+                                                              }
+                                                            })(),
+                                                            Column(
+                                                              crossAxisAlignment: .start,
+                                                              children: [
+                                                                ((){
+                                                                  if(_isGeneratedKey == null) {
+                                                                    return const Text(
+                                                                      "Generate keys",
+                                                                      style: TextStyle(
+                                                                        fontSize: 16
+                                                                      )
+                                                                    );
+                                                                  } else if(!_isGeneratedKey!) {
+                                                                    return const Text("Generating...");
+                                                                  } else {
+                                                                    return const Text(
+                                                                      "Regenerate keys",
+                                                                      style: TextStyle(
+                                                                        fontSize: 17
+                                                                      )
+                                                                    );
+                                                                  }
+                                                                })(),
+                                                                Text(
+                                                                  _isGeneratedKey ?? false
+                                                                    ? "Caution: Regenerating ssh keys will revoke\nyour access from all hosts."
+                                                                    : "Generate a public-private key pair\nfor the ssh connection.",
+                                                                    
+                                                                  style: TextStyle(
+                                                                    fontSize: 9.5,
+                                                                    color: Colors.white.withAlpha(200)
+                                                                  )
+                                                                )
+                                                              ]
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      )
+                                                    ),
+                                                  ),
+                                                ),
+                                                                    
+                                                if(_isGeneratedKey ?? false) DefaultTextStyle(
+                                                  style: TextStyle(
+                                                    color: appThemeState.appTheme.selectScreenCardTextColor
+                                                  ),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.only(left: 25),
+                                                    child: Column(
+                                                      crossAxisAlignment: .start,
+                                                      children: [
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(left: 5, right: 10, bottom: 20),
+                                                          child: Text("After installing and starting ssh in your host system, paste this command:"),
+                                                        ),
+                                                        Row(
+                                                          children: [
+                                                            FaIcon(
+                                                              FontAwesomeIcons.linux,
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              size: 17
+                                                            ),
+                                                            Text(" Linux / "),
+                                                            FaIcon(
+                                                              FontAwesomeIcons.apple,
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              size: 17
+                                                            ),
+                                                            Text(" Mac")
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 10),
+                                                        copyArea(
+                                                          context,
+                                                          appTheme,
+                                                          "mkdir -p ~/.ssh\n\n"
+                                                          "chmod 700 ~/.ssh\n\n"
+                                                          "echo \"${SshKeygen.publicKeyFilelocation.readAsStringSync()}\" >> ~/.ssh/authorized_keys\n\n"
+                                                          "chmod 600 ~/.ssh/authorized_keys",
+                                                          200
+                                                        ),
+                                                        Padding(
+                                                          padding: const EdgeInsets.symmetric(vertical: 15),
+                                                          child: Row(
+                                                            children: [
+                                                              FaIcon(
+                                                                FontAwesomeIcons.windows,
                                                                 color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                fontSize: 15
+                                                                size: 17
                                                               ),
-                                                              child: Container(
-                                                                width: double.infinity,
-                                                                padding: EdgeInsets.all(20),
-                                                                child: SingleChildScrollView(
-                                                                  child: Column(
-                                                                    spacing: 10,
-                                                                    crossAxisAlignment: .start,
-                                                                    children: [
-                                                                      Text(
-                                                                        "Host Info",
-                                                                        style: TextStyle(
-                                                                          fontSize: 30
-                                                                        ),
+                                                              Text(" Windows powershell"),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(bottom: 25),
+                                                          child: copyArea(
+                                                            context,
+                                                            appTheme,
+                                                            'New-Item -ItemType Directory -Force "\$HOME\\.ssh" | Out-Null; Add-Content "\$HOME\\.ssh\\authorized_keys" "${SshKeygen.publicKeyFilelocation.readAsStringSync()}"',
+                                                            135
+                                                          ),
+                                                        ),
+                                                      ]
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                                  child: SizedBox(
+                                                    width: 200,
+                                                    child: ElevatedButton(
+                                                      onPressed: () async{
+                                                        if(_sshFormKey.currentState!.validate()){
+                                                          final server = SSHPrivateKey(
+                                                            name: sshServerNameController.text,
+                                                            id: DateTime.now().millisecondsSinceEpoch,
+                                                            url: sshUrlController.text,
+                                                          );
+                                                          final result = await server.connect();
+                                                          if(context.mounted){
+                                                            if(server.isConnected) context.read<SSHServersCubit>().addServer(server);
+                                                            if(result.$1) {
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                SnackBar(
+                                                                  backgroundColor: Colors.green,
+                                                                  content: Text(
+                                                                    result.$2,
+                                                                    style: TextStyle(
+                                                                      color: Colors.white
+                                                                    )
+                                                                  )
+                                                                )
+                                                              );
+                                                            } else {
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                SnackBar(
+                                                                  backgroundColor: Colors.red[600],
+                                                                  content: Text(
+                                                                    result.$2,
+                                                                    style: TextStyle(
+                                                                      color: Colors.white
+                                                                    )
+                                                                  )
+                                                                )
+                                                              );
+                                                            }
+                                                          }
+                                                        }
+                                                      },
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Color(0xff007acc),
+                                                        foregroundColor: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: .circular(5),
+                                                        )
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisAlignment: .center,
+                                                        children: [
+                                                          Text("Save & Connect")
+                                                        ]
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              ]
+                                            ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: .centerLeft,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                    child: Text(
+                                      "SAVED REMOTES",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                                        fontWeight: .bold
+                                      )
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 30),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Container(
+                                      alignment: .center,
+                                      padding: EdgeInsets.all(15),
+                                      decoration: BoxDecoration(
+                                        borderRadius: .circular(4),
+                                        color: appThemeState.appTheme.isDark ? appThemeState.appTheme.selectScreenDrawerBg : Colors.grey[200],
+                                      ),
+                                      child: serverList.isEmpty ? Text(
+                                        "No remotes have been configured yet.",
+                                        style: TextStyle(
+                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                          fontSize: 16
+                                        )
+                                      ) : ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxHeight: 450
+                                        ),
+                                        child: Scrollbar(
+                                          child: ListView.builder(
+                                            shrinkWrap: true,
+                                            itemCount: serverList.length,
+                                            itemBuilder: (context, index) {
+                                              final server = serverList[index];
+                                              final isLogin = server is SSHLogin;
+                                              return Card(
+                                                color: appTheme.scaffoldBg,
+                                                child: ListTile(
+                                                  onTap: () {
+                                                    bool isObscure = true;
+                                                    showDialog(
+                                                      context: context,
+                                                      builder:(context) => StatefulBuilder(
+                                                        builder: (context, setTempState) => Dialog(
+                                                          backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                          constraints: BoxConstraints(maxHeight: 580),
+                                                          child: DefaultTextStyle.merge(
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                              fontSize: 15
+                                                            ),
+                                                            child: Container(
+                                                              width: double.infinity,
+                                                              padding: EdgeInsets.all(20),
+                                                              child: SingleChildScrollView(
+                                                                child: Column(
+                                                                  spacing: 10,
+                                                                  crossAxisAlignment: .start,
+                                                                  children: [
+                                                                    Text(
+                                                                      "Host Info",
+                                                                      style: TextStyle(
+                                                                        fontSize: 30
                                                                       ),
-                                                                      SizedBox(height: 20),
-                                                                      Table(
-                                                                        border: TableBorder.all(
-                                                                          color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                          width: 0.5,
-                                                                          borderRadius: .circular(15)
+                                                                    ),
+                                                                    SizedBox(height: 20),
+                                                                    Table(
+                                                                      border: TableBorder.all(
+                                                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                        width: 0.5,
+                                                                        borderRadius: .circular(15)
+                                                                      ),
+                                                                      columnWidths: const <int, TableColumnWidth>{
+                                                                        0: IntrinsicColumnWidth(),
+                                                                        1: FlexColumnWidth(),
+                                                                      },
+                                                                      children: [
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("name"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(server.name),
+                                                                            ),
+                                                                          ]
                                                                         ),
-                                                                        columnWidths: const <int, TableColumnWidth>{
-                                                                          0: IntrinsicColumnWidth(),
-                                                                          1: FlexColumnWidth(),
-                                                                        },
-                                                                        children: [
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("name"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(server.name),
-                                                                              ),
-                                                                            ]
-                                                                          ),
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("id"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(server.id.toString()),
-                                                                              ),
-                                                                            ]
-                                                                          ),
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("server url"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(server.url),
-                                                                              ),
-                                                                            ]
-                                                                          ),
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("type"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(isLogin ? "login" : "private key"),
-                                                                              ),
-                                                                            ]
-                                                                          ),
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("host"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(server.host),
-                                                                              )
-                                                                            ]
-                                                                          ),
-                                                                          if(isLogin) TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: const Text("username"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(server.username),
-                                                                              )
-                                                                            ]
-                                                                          ),
-                                                                                              
-                                                                          TableRow(
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Text(isLogin ? "password" : "private key"),
-                                                                              ),
-                                                                              Padding(
-                                                                                padding: const EdgeInsets.all(8.0),
-                                                                                child: Wrap(
-                                                                                  children: [
-                                                                                    Text(
-                                                                                      isLogin
-                                                                                        ? isObscure
-                                                                                          ? "*" * server.password.length
-                                                                                          : server.password
-                                                                                        : isObscure
-                                                                                          ? "${"*" * 8}\u00B7\u00B7\u00B7"
-                                                                                          : SshKeygen.privateKeyFilelocation.path
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("id"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(server.id.toString()),
+                                                                            ),
+                                                                          ]
+                                                                        ),
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("server url"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(server.url),
+                                                                            ),
+                                                                          ]
+                                                                        ),
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("type"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(isLogin ? "login" : "private key"),
+                                                                            ),
+                                                                          ]
+                                                                        ),
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("host"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(server.host),
+                                                                            )
+                                                                          ]
+                                                                        ),
+                                                                        if(isLogin) TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: const Text("username"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(server.username),
+                                                                            )
+                                                                          ]
+                                                                        ),
+                                                                                            
+                                                                        TableRow(
+                                                                          children: [
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Text(isLogin ? "password" : "private key"),
+                                                                            ),
+                                                                            Padding(
+                                                                              padding: const EdgeInsets.all(8.0),
+                                                                              child: Wrap(
+                                                                                children: [
+                                                                                  Text(
+                                                                                    isLogin
+                                                                                      ? isObscure
+                                                                                        ? "*" * server.password.length
+                                                                                        : server.password
+                                                                                      : isObscure
+                                                                                        ? "${"*" * 8}\u00B7\u00B7\u00B7"
+                                                                                        : SshKeygen.privateKeyFilelocation.path
+                                                                                  ),
+                                                                                  Padding(
+                                                                                    padding: const EdgeInsets.only(left: 17),
+                                                                                    child: InkWell(
+                                                                                      onTap: () => setTempState(() => isObscure = !isObscure),
+                                                                                      child: Icon(
+                                                                                        isObscure ? Icons.visibility : Icons.visibility_off,
+                                                                                        color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                        size: 20
+                                                                                      ),
                                                                                     ),
-                                                                                    Padding(
-                                                                                      padding: const EdgeInsets.only(left: 17),
-                                                                                      child: InkWell(
-                                                                                        onTap: () => setTempState(() => isObscure = !isObscure),
-                                                                                        child: Icon(
-                                                                                          isObscure ? Icons.visibility : Icons.visibility_off,
-                                                                                          color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                                          size: 20
-                                                                                        ),
-                                                                                      ),
+                                                                                  )
+                                                                                ],
+                                                                              ),
+                                                                            )
+                                                                          ]
+                                                                        )
+                                                                      ],
+                                                                    ),
+                                                                    Center(
+                                                                      child: Padding(
+                                                                        padding: const EdgeInsets.only(top: 20),
+                                                                        child: SizedBox(
+                                                                          width: 200,
+                                                                          child: Column(
+                                                                            spacing: 5,
+                                                                            children: [
+                                                                              ElevatedButton(
+                                                                                style: ElevatedButton.styleFrom(
+                                                                                  backgroundColor: server.isConnected ? Colors.green : appThemeState.appTheme.scaffoldBg,
+                                                                                  shape: RoundedRectangleBorder(
+                                                                                    borderRadius: .circular(12),
+                                                                                    side: BorderSide(
+                                                                                      color: Colors.green
                                                                                     )
-                                                                                  ],
-                                                                                ),
-                                                                              )
-                                                                            ]
-                                                                          )
-                                                                        ],
-                                                                      ),
-                                                                      Center(
-                                                                        child: Padding(
-                                                                          padding: const EdgeInsets.only(top: 20),
-                                                                          child: SizedBox(
-                                                                            width: 200,
-                                                                            child: Column(
-                                                                              spacing: 5,
-                                                                              children: [
-                                                                                ElevatedButton(
-                                                                                  style: ElevatedButton.styleFrom(
-                                                                                    backgroundColor: server.isConnected ? Colors.green : appThemeState.appTheme.scaffoldBg,
-                                                                                    shape: RoundedRectangleBorder(
-                                                                                      borderRadius: .circular(12),
-                                                                                      side: BorderSide(
-                                                                                        color: Colors.green
-                                                                                      )
-                                                                                    )
-                                                                                  ),
-                                                                                  onPressed: ()async {
-                                                                                    if(server.isConnected){
-                                                                                      showDialog(
-                                                                                        context: context,
-                                                                                        builder: (context) => StatefulBuilder(
-                                                                                          builder: (context, _) {
-                                                                                            return AlertDialog(
-                                                                                              backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
-                                                                                              title: Text(
-                                                                                                'Disconnect ${server.host}?',
-                                                                                                style: TextStyle(
-                                                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                                                  fontSize: 20
-                                                                                                ),
-                                                                                              ),
-                                                                                              content: Text(
-                                                                                                "Are you sure you want to disconnect from this host?",
-                                                                                                style: TextStyle(
-                                                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                                                  fontSize: 16
-                                                                                                )
-                                                                                              ),
-                                                                                              actions: [
-                                                                                                ElevatedButton(
-                                                                                                  onPressed: ()=> Navigator.of(context).pop(),
-                                                                                                  child: Text('Cancel')
-                                                                                                ),
-                                                                                                ElevatedButton(
-                                                                                                  onPressed: () {
-                                                                                                    server.disconnect();
-                                                                                                    context.read<SSHServersCubit>().updateServer(server);
-                                                                                                    Navigator.of(context).pop();
-                                                                                                    Navigator.of(context).pop();
-                                                                                                  },
-                                                                                                  style: ButtonStyle(
-                                                                                                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
-                                                                                                  ),
-                                                                                                  child: Text('Disconnect', style: TextStyle(color: Colors.white))
-                                                                                                )
-                                                                                              ],
-                                                                                            );
-                                                                                          }
-                                                                                        )
-                                                                                      );
-                                                                                      return;
-                                                                                    }
-                                                                  
-                                                                                    final result = await server.connect();
-                                                                                    if(context.mounted){
-                                                                                      context.read<SSHServersCubit>().updateServer(server);
-                                                                                      Navigator.pop(context);
-                                                                                      if(result.$1) {
-                                                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                                                          SnackBar(
-                                                                                            backgroundColor: Colors.green,
-                                                                                            content: Text(
-                                                                                              result.$2,
-                                                                                              style: TextStyle(
-                                                                                                color: Colors.white
-                                                                                              )
-                                                                                            )
-                                                                                          )
-                                                                                        );
-                                                                                      } else {
-                                                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                                                          SnackBar(
-                                                                                            backgroundColor: Colors.red[600],
-                                                                                            content: Text(
-                                                                                              result.$2,
-                                                                                              style: TextStyle(
-                                                                                                color: Colors.white
-                                                                                              )
-                                                                                            )
-                                                                                          )
-                                                                                        );
-                                                                                      }
-                                                                                    }
-                                                                                  },
-                                                                                  child: Row(
-                                                                                    spacing: 7,
-                                                                                    mainAxisAlignment: .center,
-                                                                                    children: [
-                                                                                      Icon(
-                                                                                        Icons.power,
-                                                                                        color: server.isConnected ? Colors.white : Colors.green,
-                                                                                        size: 21
-                                                                                      ),
-                                                                                      Text(
-                                                                                        server.isConnected ? "Connected" : "Connect",
-                                                                                        style: TextStyle(
-                                                                                          color: Colors.white,
-                                                                                          fontSize: 16.5
-                                                                                        ),
-                                                                                      )
-                                                                                    ],
                                                                                   )
                                                                                 ),
-                                                                                ElevatedButton(
-                                                                                  style: ElevatedButton.styleFrom(
-                                                                                    backgroundColor: appThemeState.appTheme.scaffoldBg,
-                                                                                    shape: RoundedRectangleBorder(
-                                                                                      borderRadius: .circular(12),
-                                                                                      side: BorderSide(
-                                                                                        color: Colors.blue
-                                                                                      )
-                                                                                    )
-                                                                                  ),
-                                                                                  onPressed: (){
-                                                                                    sshServerNameController.text = server.name;
-                                                                                    sshUrlController.text = server.url;
-                                                                                    final isLogin = server is SSHLogin;
-                                                                                    if(isLogin){
-                                                                                      sshPasswordController.text= server.password;
-                                                                                    }
-                                                                                              
-                                                                                    _showSSHDialog(
-                                                                                      appThemeState.appTheme,
-                                                                                      (server.id, isLogin)
-                                                                                    );
-                                                                                              
-                                                                                  },
-                                                                                  child: Row(
-                                                                                    spacing: 12,
-                                                                                    mainAxisAlignment: .center,
-                                                                                    children: [
-                                                                                      Icon(
-                                                                                        Icons.edit,
-                                                                                        color: Colors.blue,
-                                                                                        size: 21
-                                                                                      ),
-                                                                                      Text(
-                                                                                        "Edit",
-                                                                                        style: TextStyle(
-                                                                                          color: Colors.white,
-                                                                                          fontSize: 16.5
-                                                                                        ),
-                                                                                    )
-                                                                                    ],
-                                                                                  )
-                                                                                ),
-                                                                                ElevatedButton(
-                                                                                  style: ElevatedButton.styleFrom(
-                                                                                    backgroundColor: appThemeState.appTheme.scaffoldBg,
-                                                                                    shape: RoundedRectangleBorder(
-                                                                                      borderRadius: .circular(12),
-                                                                                      side: BorderSide(
-                                                                                        color: Colors.red
-                                                                                      )
-                                                                                    )
-                                                                                  ),
-                                                                                  onPressed: (){
+                                                                                onPressed: ()async {
+                                                                                  if(server.isConnected){
                                                                                     showDialog(
                                                                                       context: context,
                                                                                       builder: (context) => StatefulBuilder(
@@ -3748,14 +3620,14 @@ int main() {
                                                                                           return AlertDialog(
                                                                                             backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
                                                                                             title: Text(
-                                                                                              'Delete ${server.name}?',
+                                                                                              'Disconnect ${server.host}?',
                                                                                               style: TextStyle(
                                                                                                 color: appThemeState.appTheme.selectScreenCardTextColor,
                                                                                                 fontSize: 20
                                                                                               ),
                                                                                             ),
                                                                                             content: Text(
-                                                                                              "Are you sure you want to delete this remote host?",
+                                                                                              "Are you sure you want to disconnect from this host?",
                                                                                               style: TextStyle(
                                                                                                 color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                                                                                 fontSize: 16
@@ -3768,115 +3640,263 @@ int main() {
                                                                                               ),
                                                                                               ElevatedButton(
                                                                                                 onPressed: () {
-                                                                                                  context.read<SSHServersCubit>().removeServer(server.id);
+                                                                                                  server.disconnect();
+                                                                                                  context.read<SSHServersCubit>().updateServer(server);
                                                                                                   Navigator.of(context).pop();
                                                                                                   Navigator.of(context).pop();
                                                                                                 },
                                                                                                 style: ButtonStyle(
                                                                                                   backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
                                                                                                 ),
-                                                                                                child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                                                                child: Text('Disconnect', style: TextStyle(color: Colors.white))
                                                                                               )
                                                                                             ],
                                                                                           );
                                                                                         }
                                                                                       )
                                                                                     );
-                                                                                  },
-                                                                                  child: Row(
-                                                                                    spacing: 10,
-                                                                                    mainAxisAlignment: .center,
-                                                                                    children: [
-                                                                                      Icon(
-                                                                                        Icons.delete,
-                                                                                        color: Colors.red,
-                                                                                        size: 21
+                                                                                    return;
+                                                                                  }
+                                                                
+                                                                                  final result = await server.connect();
+                                                                                  if(context.mounted){
+                                                                                    context.read<SSHServersCubit>().updateServer(server);
+                                                                                    Navigator.pop(context);
+                                                                                    if(result.$1) {
+                                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                                        SnackBar(
+                                                                                          backgroundColor: Colors.green,
+                                                                                          content: Text(
+                                                                                            result.$2,
+                                                                                            style: TextStyle(
+                                                                                              color: Colors.white
+                                                                                            )
+                                                                                          )
+                                                                                        )
+                                                                                      );
+                                                                                    } else {
+                                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                                        SnackBar(
+                                                                                          backgroundColor: Colors.red[600],
+                                                                                          content: Text(
+                                                                                            result.$2,
+                                                                                            style: TextStyle(
+                                                                                              color: Colors.white
+                                                                                            )
+                                                                                          )
+                                                                                        )
+                                                                                      );
+                                                                                    }
+                                                                                  }
+                                                                                },
+                                                                                child: Row(
+                                                                                  spacing: 7,
+                                                                                  mainAxisAlignment: .center,
+                                                                                  children: [
+                                                                                    Icon(
+                                                                                      Icons.power,
+                                                                                      color: server.isConnected ? Colors.white : Colors.green,
+                                                                                      size: 21
+                                                                                    ),
+                                                                                    Text(
+                                                                                      server.isConnected ? "Connected" : "Connect",
+                                                                                      style: TextStyle(
+                                                                                        color: appTheme.isDark? Colors.white : Colors.grey[600],
+                                                                                        fontSize: 16.5
                                                                                       ),
-                                                                                      Text(
-                                                                                        "Delete",
-                                                                                        style: TextStyle(
-                                                                                          color: Colors.white,
-                                                                                          fontSize: 16.5
-                                                                                        ),
-                                                                                      )
-                                                                                    ],
+                                                                                    )
+                                                                                  ],
+                                                                                )
+                                                                              ),
+                                                                              ElevatedButton(
+                                                                                style: ElevatedButton.styleFrom(
+                                                                                  backgroundColor: appThemeState.appTheme.scaffoldBg,
+                                                                                  shape: RoundedRectangleBorder(
+                                                                                    borderRadius: .circular(12),
+                                                                                    side: BorderSide(
+                                                                                      color: Color(0xff007acc)
+                                                                                    )
                                                                                   )
                                                                                 ),
-                                                                              ],
-                                                                            ),
+                                                                                onPressed: (){
+                                                                                  sshServerNameController.text = server.name;
+                                                                                  sshUrlController.text = server.url;
+                                                                                  final isLogin = server is SSHLogin;
+                                                                                  if(isLogin){
+                                                                                    sshPasswordController.text= server.password;
+                                                                                  }
+                                                                                            
+                                                                                  _showSSHDialog(
+                                                                                    appThemeState.appTheme,
+                                                                                    (server.id, isLogin)
+                                                                                  );
+                                                                                            
+                                                                                },
+                                                                                child: Row(
+                                                                                  spacing: 12,
+                                                                                  mainAxisAlignment: .center,
+                                                                                  children: [
+                                                                                    Icon(
+                                                                                      Icons.edit,
+                                                                                      color: Color(0xff007acc),
+                                                                                      size: 21
+                                                                                    ),
+                                                                                    Text(
+                                                                                      "Edit",
+                                                                                      style: TextStyle(
+                                                                                        color: appTheme.isDark? Colors.white : Colors.grey[600],
+                                                                                        fontSize: 16.5
+                                                                                      ),
+                                                                                  )
+                                                                                  ],
+                                                                                )
+                                                                              ),
+                                                                              ElevatedButton(
+                                                                                style: ElevatedButton.styleFrom(
+                                                                                  backgroundColor: appThemeState.appTheme.scaffoldBg,
+                                                                                  shape: RoundedRectangleBorder(
+                                                                                    borderRadius: .circular(12),
+                                                                                    side: BorderSide(
+                                                                                      color: Colors.red
+                                                                                    )
+                                                                                  )
+                                                                                ),
+                                                                                onPressed: (){
+                                                                                  showDialog(
+                                                                                    context: context,
+                                                                                    builder: (context) => StatefulBuilder(
+                                                                                      builder: (context, _) {
+                                                                                        return AlertDialog(
+                                                                                          backgroundColor: appThemeState.appTheme.isDark ? appThemeState.appTheme.scaffoldBg : null,
+                                                                                          title: Text(
+                                                                                            'Delete ${server.name}?',
+                                                                                            style: TextStyle(
+                                                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                                              fontSize: 20
+                                                                                            ),
+                                                                                          ),
+                                                                                          content: Text(
+                                                                                            "Are you sure you want to delete this remote host?",
+                                                                                            style: TextStyle(
+                                                                                              color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                                              fontSize: 16
+                                                                                            )
+                                                                                          ),
+                                                                                          actions: [
+                                                                                            ElevatedButton(
+                                                                                              onPressed: ()=> Navigator.of(context).pop(),
+                                                                                              child: Text('Cancel')
+                                                                                            ),
+                                                                                            ElevatedButton(
+                                                                                              onPressed: () {
+                                                                                                context.read<SSHServersCubit>().removeServer(server.id);
+                                                                                                Navigator.of(context).pop();
+                                                                                                Navigator.of(context).pop();
+                                                                                              },
+                                                                                              style: ButtonStyle(
+                                                                                                backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                                                                                              ),
+                                                                                              child: Text('Delete', style: TextStyle(color: Colors.white))
+                                                                                            )
+                                                                                          ],
+                                                                                        );
+                                                                                      }
+                                                                                    )
+                                                                                  );
+                                                                                },
+                                                                                child: Row(
+                                                                                  spacing: 10,
+                                                                                  mainAxisAlignment: .center,
+                                                                                  children: [
+                                                                                    Icon(
+                                                                                      Icons.delete,
+                                                                                      color: Colors.red,
+                                                                                      size: 21
+                                                                                    ),
+                                                                                    Text(
+                                                                                      "Delete",
+                                                                                      style: TextStyle(
+                                                                                        color: appTheme.isDark? Colors.white : Colors.grey[600],
+                                                                                        fontSize: 16.5
+                                                                                      ),
+                                                                                    )
+                                                                                  ],
+                                                                                )
+                                                                              ),
+                                                                            ],
                                                                           ),
                                                                         ),
                                                                       ),
-                                                                    ],
-                                                                  ),
+                                                                    ),
+                                                                  ],
                                                                 ),
                                                               ),
                                                             ),
                                                           ),
                                                         ),
-                                                      );
-                                                    },
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadiusGeometry.circular(10),
-                                                    ),
-                                                    title: Text(server.name, overflow: .ellipsis),
-                                                    titleTextStyle: TextStyle(
-                                                      fontSize: 16,
-                                                      fontFamily: "monospace",
-                                                      color: appTheme.selectScreenCardTextColor,
-                                                    ),
-                                                    subtitleTextStyle: TextStyle(
-                                                      color: appTheme.selectScreenCardTextColor,
-                                                      fontSize: 13
-                                                    ),
-                                                    leading: FaIcon(
-                                                      FontAwesomeIcons.server,
-                                                      color: Colors.lightBlue
-                                                    ),
-                                                    subtitle: Row(
-                                                      spacing: 5,
-                                                      children: [
-                                                        const Text("status: "),
-                                                        Padding(
-                                                          padding: const EdgeInsets.only(top: 2.5),
-                                                          child: Container(
-                                                            padding: EdgeInsets.symmetric(vertical: 0.5, horizontal: 3.5),
-                                                            decoration: BoxDecoration(
-                                                              border: Border.all(
-                                                                width: server.isConnected ? 1 : 0.5,
-                                                                color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
-                                                              ),
-                                                              borderRadius: BorderRadius.circular(3)
-                                                            ),
-                                                            child: Row(
-                                                              spacing: 4,
-                                                              children: [
-                                                                Icon(
-                                                                  server.isConnected ? Icons.circle : Icons.power_off,
-                                                                  color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
-                                                                  size: server.isConnected ? 8 : 12.5,
-                                                                ),
-                                                                Text(
-                                                                  server.isConnected ? "connected" : "not connected",
-                                                                  style: TextStyle(
-                                                                    fontSize: 10,
-                                                                    color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
-                                                                  )
-                                                                )
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadiusGeometry.circular(10),
                                                   ),
-                                                );
-                                              }
-                                            ),
+                                                  title: Text(server.name, overflow: .ellipsis),
+                                                  titleTextStyle: TextStyle(
+                                                    fontSize: 16,
+                                                    fontFamily: "monospace",
+                                                    color: appTheme.selectScreenCardTextColor,
+                                                  ),
+                                                  subtitleTextStyle: TextStyle(
+                                                    color: appTheme.selectScreenCardTextColor,
+                                                    fontSize: 13
+                                                  ),
+                                                  leading: FaIcon(
+                                                    FontAwesomeIcons.server,
+                                                    color: Colors.lightBlue
+                                                  ),
+                                                  subtitle: Row(
+                                                    spacing: 5,
+                                                    children: [
+                                                      const Text("status: "),
+                                                      Padding(
+                                                        padding: const EdgeInsets.only(top: 2.5),
+                                                        child: Container(
+                                                          padding: EdgeInsets.symmetric(vertical: 0.5, horizontal: 3.5),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(
+                                                              width: server.isConnected ? 1 : 0.5,
+                                                              color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                            ),
+                                                            borderRadius: BorderRadius.circular(3)
+                                                          ),
+                                                          child: Row(
+                                                            spacing: 4,
+                                                            children: [
+                                                              Icon(
+                                                                server.isConnected ? Icons.circle : Icons.power_off,
+                                                                color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                                size: server.isConnected ? 8 : 12.5,
+                                                              ),
+                                                              Text(
+                                                                server.isConnected ? "connected" : "not connected",
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  color: server.isConnected ? Colors.green : appTheme.selectScreenCardTextColor,
+                                                                )
+                                                              )
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            }
                                           ),
-                                        )
+                                        ),
                                       )
-                                    ]
+                                    ),
                                   ),
                                 ),
                                 Padding(
@@ -4037,7 +4057,7 @@ int main() {
                                                                   shape: RoundedRectangleBorder(
                                                                     borderRadius: .circular(10),
                                                                     side: BorderSide(
-                                                                      color: Colors.blue
+                                                                      color: Color(0xff007acc)
                                                                     )
                                                                   )
                                                                 ),
@@ -4132,7 +4152,7 @@ int main() {
                                                               decoration: BoxDecoration(
                                                                 borderRadius: .circular(10),
                                                                 border: .all(
-                                                                  color: Colors.blue
+                                                                  color: Color(0xff007acc)
                                                                 )
                                                               ),
                                                               child: Row(
@@ -4140,7 +4160,7 @@ int main() {
                                                                 children: [
                                                                   Icon(
                                                                     Icons.info_outline,
-                                                                    color: Colors.blue,
+                                                                    color: Color(0xff007acc),
                                                                     size: 15
                                                                   ),
                                                                   Expanded(
@@ -4426,354 +4446,354 @@ int main() {
                                 width: 280,
                                 height: 45,
                                 child: ElevatedButton(
-                                    onPressed: (){
-                                      String? provider;
-                                      String customHttpMethod = 'POST';
-                                      String customToolCallingMethod = 'openAiCompatible';
-                                      final customUrlController = TextEditingController();
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) {
-                                          return StatefulBuilder(
-                                            builder: (context, setDialogState) {
-                                              final isCustomProvider = provider == 'Custom';
-                                              return Dialog(
-                                                shape: RoundedRectangleBorder(
+                                  onPressed: (){
+                                    String? provider;
+                                    String customHttpMethod = 'POST';
+                                    String customToolCallingMethod = 'openAiCompatible';
+                                    final customUrlController = TextEditingController();
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return StatefulBuilder(
+                                          builder: (context, setDialogState) {
+                                            final isCustomProvider = provider == 'Custom';
+                                            return Dialog(
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                              backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                              child: Container(
+                                                width: 400,
+                                                padding: const EdgeInsets.all(20),
+                                                decoration: BoxDecoration(
                                                   borderRadius: BorderRadius.circular(20),
-                                                ),
-                                                backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                child: Container(
-                                                  width: 400,
-                                                  padding: const EdgeInsets.all(20),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(20),
-                                                    gradient: LinearGradient(
-                                                      colors: appThemeState.appTheme.isDark
-                                                        ? [const Color(0xff181A26), const Color(0xff1e1f2b)]
-                                                        : [Colors.white, Colors.grey[100]!],
-                                                      begin: Alignment.topLeft,
-                                                      end: Alignment.bottomRight,
-                                                    ),
+                                                  gradient: LinearGradient(
+                                                    colors: appThemeState.appTheme.isDark
+                                                      ? [const Color(0xff181A26), const Color(0xff1e1f2b)]
+                                                      : [Colors.white, Colors.grey[100]!],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
                                                   ),
-                                                  child: Column(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          Icon(Icons.smart_toy, color: Colors.lightBlue, size: 30),
-                                                          const SizedBox(width: 10),
-                                                          Text(
-                                                            'Create a completion model',
-                                                            style: TextStyle(
-                                                              color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                              fontSize: 18,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.smart_toy, color: Colors.lightBlue, size: 30),
+                                                        const SizedBox(width: 10),
+                                                        Text(
+                                                          'Create a completion model',
+                                                          style: TextStyle(
+                                                            color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                            fontSize: 18,
+                                                            fontWeight: FontWeight.bold,
                                                           ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 20),
-                                                      Form(
-                                                        key: _formKey,
-                                                        child: Column(
-                                                          children: [
-                                                            DropdownButtonFormField<String>(
-                                                              initialValue: provider,
-                                                              dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                              hint: Text(
-                                                                "Select a Provider",
-                                                                style: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 20),
+                                                    Form(
+                                                      key: _formKey,
+                                                      child: Column(
+                                                        children: [
+                                                          DropdownButtonFormField<String>(
+                                                            initialValue: provider,
+                                                            dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                            hint: Text(
+                                                              "Select a Provider",
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
                                                               ),
-                                                              decoration: InputDecoration(
-                                                                prefixIcon: Icon(Icons.business, color: Colors.lightBlue),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15)
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.lightBlue,
-                                                                    width: 2,
-                                                                  )
-                                                                ),
+                                                            ),
+                                                            decoration: InputDecoration(
+                                                              prefixIcon: Icon(Icons.business, color: Colors.lightBlue),
+                                                              border: OutlineInputBorder(
+                                                                borderRadius: BorderRadius.circular(5)
                                                               ),
-                                                              items: List.generate(
-                                                                models.length,
-                                                                (index) => DropdownMenuItem(
-                                                                  value: models[index],
-                                                                  child: Text(
-                                                                    models[index],
-                                                                    style: TextStyle(
-                                                                      color: appThemeState.appTheme.selectScreenCardTextColor
-                                                                    ),
-                                                                  )
+                                                              focusedBorder: OutlineInputBorder(
+                                                                borderRadius: BorderRadius.circular(5),
+                                                                borderSide: BorderSide(
+                                                                  color: Colors.lightBlue,
+                                                                  width: 2,
                                                                 )
                                                               ),
-                                                              onChanged: (val){
-                                                                setDialogState(() {
-                                                                  provider = val;
-                                                                });
-                                                              },
-                                                              validator: (value) => value == null ? "Select a valid provider" : null,
                                                             ),
+                                                            items: List.generate(
+                                                              models.length,
+                                                              (index) => DropdownMenuItem(
+                                                                value: models[index],
+                                                                child: Text(
+                                                                  models[index],
+                                                                  style: TextStyle(
+                                                                    color: appThemeState.appTheme.selectScreenCardTextColor
+                                                                  ),
+                                                                )
+                                                              )
+                                                            ),
+                                                            onChanged: (val){
+                                                              setDialogState(() {
+                                                                provider = val;
+                                                              });
+                                                            },
+                                                            validator: (value) => value == null ? "Select a valid provider" : null,
+                                                          ),
+                                                          const SizedBox(height: 15),
+                                                          settingsTextField(
+                                                            modelNameController,
+                                                            Icons.label,
+                                                            "Model name",
+                                                            appThemeState.appTheme.selectScreenCardTextColor,
+                                                            "model name as per the provider's api",
+                                                            (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
+                                                          ),
+                                                          const SizedBox(height: 15),
+                                                          settingsTextField(
+                                                            apiController,
+                                                            Icons.key,
+                                                            "API Key",
+                                                            appThemeState.appTheme.selectScreenCardTextColor,
+                                                            isCustomProvider
+                                                              ? "Optional: Bearer token for the custom endpoint"
+                                                              : "API key for the corresponding provider",
+                                                            (value) {
+                                                              if (isCustomProvider) {
+                                                                return null;
+                                                              }
+                                                              return value == null || value.isEmpty ? "Enter a valid API key" : null;
+                                                            }
+                                                          ),
+                                                          if (isCustomProvider) ...[
                                                             const SizedBox(height: 15),
                                                             settingsTextField(
-                                                              modelNameController,
-                                                              Icons.label,
-                                                              "Model name",
+                                                              customUrlController,
+                                                              Icons.link,
+                                                              "Custom Endpoint URL",
                                                               appThemeState.appTheme.selectScreenCardTextColor,
-                                                              "model name as per the provider's api",
-                                                              (value) => value == null || value.isEmpty ? "Enter a valid model name" : null,
-                                                            ),
-                                                            const SizedBox(height: 15),
-                                                            settingsTextField(
-                                                              apiController,
-                                                              Icons.key,
-                                                              "API Key",
-                                                              appThemeState.appTheme.selectScreenCardTextColor,
-                                                              isCustomProvider
-                                                                ? "Optional: Bearer token for the custom endpoint"
-                                                                : "API key for the corresponding provider",
+                                                              "https://api.example.com/v1/chat/completions",
                                                               (value) {
-                                                                if (isCustomProvider) {
-                                                                  return null;
+                                                                if (!isCustomProvider) return null;
+                                                                if (value == null || value.trim().isEmpty) {
+                                                                  return "Enter a valid endpoint URL";
                                                                 }
-                                                                return value == null || value.isEmpty ? "Enter a valid API key" : null;
+                                                                final uri = Uri.tryParse(value.trim());
+                                                                if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                                                                  return "Enter a valid absolute URL";
+                                                                }
+                                                                return null;
                                                               }
                                                             ),
-                                                            if (isCustomProvider) ...[
-                                                              const SizedBox(height: 15),
-                                                              settingsTextField(
-                                                                customUrlController,
-                                                                Icons.link,
-                                                                "Custom Endpoint URL",
-                                                                appThemeState.appTheme.selectScreenCardTextColor,
-                                                                "https://api.example.com/v1/chat/completions",
-                                                                (value) {
-                                                                  if (!isCustomProvider) return null;
-                                                                  if (value == null || value.trim().isEmpty) {
-                                                                    return "Enter a valid endpoint URL";
-                                                                  }
-                                                                  final uri = Uri.tryParse(value.trim());
-                                                                  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-                                                                    return "Enter a valid absolute URL";
-                                                                  }
-                                                                  return null;
-                                                                }
-                                                              ),
-                                                              const SizedBox(height: 15),
-                                                              DropdownButtonFormField<String>(
-                                                                initialValue: customHttpMethod,
-                                                                dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                                decoration: InputDecoration(
-                                                                  prefixIcon: Icon(Icons.http, color: Colors.lightBlue),
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                  ),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.lightBlue,
-                                                                      width: 2,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                items: [
-                                                                  DropdownMenuItem(value: 'POST', child: Text('POST', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
-                                                                  DropdownMenuItem(value: 'GET', child: Text('GET', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
-                                                                ],
-                                                                onChanged: (value) {
-                                                                  if (value == null) return;
-                                                                  setDialogState(() {
-                                                                    customHttpMethod = value;
-                                                                  });
-                                                                },
-                                                              ),
-                                                              const SizedBox(height: 15),
-                                                              DropdownButtonFormField<String>(
-                                                                initialValue: customToolCallingMethod,
-                                                                dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
-                                                                decoration: InputDecoration(
-                                                                  prefixIcon: Icon(Icons.hub_outlined, color: Colors.lightBlue),
-                                                                  labelText: 'Agentic Tool Protocol',
-                                                                  labelStyle: TextStyle(
-                                                                    color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                    fontSize: 15,
-                                                                  ),
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                  ),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(15),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.lightBlue,
-                                                                      width: 2,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                items: [
-                                                                  DropdownMenuItem(
-                                                                    value: 'openAiCompatible',
-                                                                    child: Text('OpenAI-compatible', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                                  ),
-                                                                  DropdownMenuItem(
-                                                                    value: 'anthropicMessages',
-                                                                    child: Text('Anthropic Messages', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                                  ),
-                                                                  DropdownMenuItem(
-                                                                    value: 'geminiFunctionCalling',
-                                                                    child: Text('Gemini Function Calling', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                                  ),
-                                                                  DropdownMenuItem(
-                                                                    value: 'none',
-                                                                    child: Text('None (disable agentic tools)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                                  ),
-                                                                ],
-                                                                onChanged: (value) {
-                                                                  if (value == null) return;
-                                                                  setDialogState(() {
-                                                                    customToolCallingMethod = value;
-                                                                  });
-                                                                },
-                                                              ),
-                                                            ],
                                                             const SizedBox(height: 15),
-                                                            Divider(color: Colors.lightBlue.withAlpha(100)),
-                                                            const SizedBox(height: 15),
-                                                            TextField(
-                                                              style: TextStyle(
-                                                                color: appThemeState.appTheme.selectScreenCardTextColor
-                                                              ),
-                                                              controller: modelIdController,
-                                                              cursorColor: Colors.lightBlue,
+                                                            DropdownButtonFormField<String>(
+                                                              initialValue: customHttpMethod,
+                                                              dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
                                                               decoration: InputDecoration(
-                                                                prefixIcon: Icon(Icons.tag, color: Colors.lightBlue),
-                                                                hintText: "A unique nick name, leave it empty to generate one",
-                                                                hintStyle: TextStyle(
-                                                                  color: Colors.grey,
-                                                                  fontSize: 12
+                                                                prefixIcon: Icon(Icons.http, color: Colors.lightBlue),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(5),
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius.circular(5),
+                                                                  borderSide: BorderSide(
+                                                                    color: Colors.lightBlue,
+                                                                    width: 2,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              items: [
+                                                                DropdownMenuItem(value: 'POST', child: Text('POST', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
+                                                                DropdownMenuItem(value: 'GET', child: Text('GET', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor))),
+                                                              ],
+                                                              onChanged: (value) {
+                                                                if (value == null) return;
+                                                                setDialogState(() {
+                                                                  customHttpMethod = value;
+                                                                });
+                                                              },
+                                                            ),
+                                                            const SizedBox(height: 15),
+                                                            DropdownButtonFormField<String>(
+                                                              initialValue: customToolCallingMethod,
+                                                              dropdownColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : Colors.white,
+                                                              decoration: InputDecoration(
+                                                                prefixIcon: Icon(Icons.hub_outlined, color: Colors.lightBlue),
+                                                                labelText: 'Agentic Tool Protocol',
+                                                                labelStyle: TextStyle(
+                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                  fontSize: 15,
                                                                 ),
                                                                 border: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(15)
+                                                                  borderRadius: BorderRadius.circular(15),
                                                                 ),
                                                                 focusedBorder: OutlineInputBorder(
                                                                   borderRadius: BorderRadius.circular(15),
                                                                   borderSide: BorderSide(
                                                                     color: Colors.lightBlue,
                                                                     width: 2,
-                                                                  )
-                                                                ),
-                                                                labelText: "Nick Name (Optional)",
-                                                                labelStyle: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  fontSize: 15
+                                                                  ),
                                                                 ),
                                                               ),
+                                                              items: [
+                                                                DropdownMenuItem(
+                                                                  value: 'openAiCompatible',
+                                                                  child: Text('OpenAI-compatible', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                ),
+                                                                DropdownMenuItem(
+                                                                  value: 'anthropicMessages',
+                                                                  child: Text('Anthropic Messages', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                ),
+                                                                DropdownMenuItem(
+                                                                  value: 'geminiFunctionCalling',
+                                                                  child: Text('Gemini Function Calling', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                ),
+                                                                DropdownMenuItem(
+                                                                  value: 'none',
+                                                                  child: Text('None (disable agentic tools)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                                ),
+                                                              ],
+                                                              onChanged: (value) {
+                                                                if (value == null) return;
+                                                                setDialogState(() {
+                                                                  customToolCallingMethod = value;
+                                                                });
+                                                              },
                                                             ),
                                                           ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 20),
-                                                      Row(
-                                                        mainAxisAlignment: MainAxisAlignment.end,
-                                                        children: [
-                                                          TextButton(
-                                                            onPressed: () => Navigator.of(context).pop(),
-                                                            style: TextButton.styleFrom(
-                                                              foregroundColor: Colors.grey,
-                                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                          const SizedBox(height: 15),
+                                                          Divider(color: Colors.lightBlue.withAlpha(100)),
+                                                          const SizedBox(height: 15),
+                                                          TextField(
+                                                            style: TextStyle(
+                                                              color: appThemeState.appTheme.selectScreenCardTextColor
                                                             ),
-                                                            child: const Text('Cancel', style: TextStyle(fontSize: 16)),
-                                                          ),
-                                                          const SizedBox(width: 10),
-                                                          ElevatedButton(
-                                                            onPressed: () async {
-                                                              final prefs = await SharedPreferences.getInstance();
-                                                              if (_formKey.currentState!.validate()) {
-                                                                final selectedProvider = provider;
-                                                                if (selectedProvider == null) {
-                                                                  return;
-                                                                }
-                                                                final modelName = modelNameController.text.trim();
-                                                                final apiKey = apiController.text.trim();
-                                                                final modelId = (() {
-                                                                  final modelId = modelIdController.text.trim();
-                                                                  if (modelId.isEmpty) {
-                                                                    return "$modelName-${DateTime.now().millisecondsSinceEpoch}";
-                                                                  }
-                                                                  return modelId;
-                                                                })();
-                                                                final aiConfig = {
-                                                                  modelId: {
-                                                                    "provider": selectedProvider,
-                                                                    "apiProvider": selectedProvider,
-                                                                    "modelName": modelName,
-                                                                    "model": modelName,
-                                                                    "apiKey": apiKey,
-                                                                    if (selectedProvider == 'Custom') ...{
-                                                                      "url": customUrlController.text.trim(),
-                                                                      "httpMethod": customHttpMethod,
-                                                                      "toolCallingMethod": customToolCallingMethod,
-                                                                    },
-                                                                  }
-                                                                };
-                                                                final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
-                                                                await prefs.setString('aiConfig', jsonEncode(newConfig));
-                                                                if (context.mounted) {
-                                                                  context.read<AIBloc>().add(AIConfigEvent(newConfig));
-                                                                  final currentModelSelected = Map<String, dynamic>.from(newConfig);
-                                                                  currentModelSelected['chat'] = modelId;
-                                                                  context.read<AIBloc>().add(ModelSelectEvent(currentModelSelected));
-                                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                                    SnackBar(content: Text("Successfully created model $modelName"))
-                                                                  );
-                                                                  Navigator.of(context).pop();
-                                                                }
-                                                              }
-                                                            },
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: Colors.lightBlue,
-                                                              foregroundColor: Colors.white,
-                                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius: BorderRadius.circular(10),
+                                                            controller: modelIdController,
+                                                            cursorColor: Colors.lightBlue,
+                                                            decoration: InputDecoration(
+                                                              prefixIcon: Icon(Icons.tag, color: Colors.lightBlue),
+                                                              hintText: "A unique nick name, leave it empty to generate one",
+                                                              hintStyle: TextStyle(
+                                                                color: Colors.grey,
+                                                                fontSize: 12
+                                                              ),
+                                                              border: OutlineInputBorder(
+                                                                borderRadius: BorderRadius.circular(5)
+                                                              ),
+                                                              focusedBorder: OutlineInputBorder(
+                                                                borderRadius: BorderRadius.circular(5),
+                                                                borderSide: BorderSide(
+                                                                  color: Colors.lightBlue,
+                                                                  width: 2,
+                                                                )
+                                                              ),
+                                                              labelText: "Nick Name (Optional)",
+                                                              labelStyle: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                fontSize: 15
                                                               ),
                                                             ),
-                                                            child: const Text('Create', style: TextStyle(fontSize: 16)),
                                                           ),
                                                         ],
                                                       ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                    const SizedBox(height: 20),
+                                                    Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.of(context).pop(),
+                                                          style: TextButton.styleFrom(
+                                                            foregroundColor: Colors.grey,
+                                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                          ),
+                                                          child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        ElevatedButton(
+                                                          onPressed: () async {
+                                                            final prefs = await SharedPreferences.getInstance();
+                                                            if (_formKey.currentState!.validate()) {
+                                                              final selectedProvider = provider;
+                                                              if (selectedProvider == null) {
+                                                                return;
+                                                              }
+                                                              final modelName = modelNameController.text.trim();
+                                                              final apiKey = apiController.text.trim();
+                                                              final modelId = (() {
+                                                                final modelId = modelIdController.text.trim();
+                                                                if (modelId.isEmpty) {
+                                                                  return "$modelName-${DateTime.now().millisecondsSinceEpoch}";
+                                                                }
+                                                                return modelId;
+                                                              })();
+                                                              final aiConfig = {
+                                                                modelId: {
+                                                                  "provider": selectedProvider,
+                                                                  "apiProvider": selectedProvider,
+                                                                  "modelName": modelName,
+                                                                  "model": modelName,
+                                                                  "apiKey": apiKey,
+                                                                  if (selectedProvider == 'Custom') ...{
+                                                                    "url": customUrlController.text.trim(),
+                                                                    "httpMethod": customHttpMethod,
+                                                                    "toolCallingMethod": customToolCallingMethod,
+                                                                  },
+                                                                }
+                                                              };
+                                                              final newConfig = Map<String, dynamic>.from(aiState.config)..addAll(aiConfig);
+                                                              await prefs.setString('aiConfig', jsonEncode(newConfig));
+                                                              if (context.mounted) {
+                                                                context.read<AIBloc>().add(AIConfigEvent(newConfig));
+                                                                final currentModelSelected = Map<String, dynamic>.from(newConfig);
+                                                                currentModelSelected['chat'] = modelId;
+                                                                context.read<AIBloc>().add(ModelSelectEvent(currentModelSelected));
+                                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                                  SnackBar(content: Text("Successfully created model $modelName"))
+                                                                );
+                                                                Navigator.of(context).pop();
+                                                              }
+                                                            }
+                                                          },
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: Colors.lightBlue,
+                                                            foregroundColor: Colors.white,
+                                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius: BorderRadius.circular(10),
+                                                            ),
+                                                          ),
+                                                          child: const Text('Create', style: TextStyle(fontSize: 16)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
                                                 ),
-                                              );
-                                            },
-                                          );
-                                        }
-                                      );
-                                    },
-                                    style: ButtonStyle(
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                                      backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
-                                    ),
-                                    child: Row(
-                                      spacing: 7.5,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.add, color: Colors.white, size: 20),
-                                        Text(
-                                          "Create an AI model",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15.5,
-                                            fontWeight: FontWeight.bold
-                                          ),
-                                        )
-                                      ],
-                                    )
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      }
+                                    );
+                                  },
+                                  style: ButtonStyle(
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                                    backgroundColor: WidgetStatePropertyAll(Color(0xff007acc)),
                                   ),
+                                  child: Row(
+                                    spacing: 7.5,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                                      Text(
+                                        "Create AI model",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.bold
+                                        ),
+                                      )
+                                    ],
+                                  )
+                                ),
                               ),
                               
                               Padding(
@@ -4784,7 +4804,7 @@ int main() {
                                   child: ElevatedButton(
                                     style: ButtonStyle(
                                       shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                                      backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
+                                      backgroundColor: WidgetStatePropertyAll(Color(0xff007acc)),
                                       foregroundColor: WidgetStatePropertyAll(Colors.white),
                                     ),
                                     onPressed: () {
@@ -4825,7 +4845,7 @@ int main() {
                                 child: ElevatedButton(
                                   style: ButtonStyle(
                                     shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                                    backgroundColor: WidgetStatePropertyAll(Colors.lightBlue),
+                                    backgroundColor: WidgetStatePropertyAll(Color(0xff007acc)),
                                     foregroundColor: WidgetStatePropertyAll(Colors.white),
                                   ),
                                   onPressed: () => _loadLocalGgufModel(context, appThemeState),
@@ -4846,176 +4866,175 @@ int main() {
                                 ),
                               ),
 
-                              Align(
-                                alignment: Alignment.center,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 35, 37, 54) : Colors.grey[200],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: Align(
+                                  alignment: .centerLeft,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                                    child: Text(
+                                      "AI MODELS",
+                                      style: TextStyle(
+                                        color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(200),
+                                        fontSize: 13,
+                                        fontWeight: .bold
+                                      )
                                     ),
-                                    width: 350,
-                                    alignment: Alignment.center,
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: appThemeState.appTheme.isDark ? Colors.indigo : const Color.fromARGB(255, 199, 181, 248),
-                                            borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                                          ),
-                                          alignment: Alignment.centerLeft,
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(left: 8),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(5),
-                                              child: Text(
-                                                "AI Models",
-                                                style: TextStyle(
-                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                  fontSize: 13
-                                                )
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 15),
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: appThemeState.appTheme.isDark ? appThemeState.appTheme.selectScreenDrawerBg : Colors.grey[200],
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(10),
+                                        child: Builder(builder: (ctx) {
+                                          final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
+                                          if (!copilotSignedIn && aiState.config.isEmpty) {
+                                            return Text(
+                                              "No models have been created yet",
+                                              style: TextStyle(
+                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                fontSize: 16
+                                              )
+                                            );
+                                          }
+                                      
+                                          final List<Widget> modelCards = [];
+                                          if (copilotSignedIn) {
+                                            modelCards.add(Card(
+                                              shape: RoundedRectangleBorder(borderRadius: .circular(4)),
+                                              color: appThemeState.appTheme.isDark ? appThemeState.appTheme.selectScreenCardsBg : Colors.grey[200],
+                                              child: ListTile(
+                                                dense: true,
+                                                leading: Icon(Icons.cloud, color: appThemeState.appTheme.selectScreenCardTextColor),
+                                                title: Text('Copilot', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
+                                                subtitle: Text('Copilot service (signed in)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
+                                                trailing: null,
                                               ),
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(10),
-                                          child: Builder(builder: (ctx) {
-                                            final copilotSignedIn = context.read<CopilotBloc>().state.status == CopilotStatus.signedIn;
-                                            if (!copilotSignedIn && aiState.config.isEmpty) {
-                                              return Text(
-                                                "No models have been created yet",
-                                                style: TextStyle(
-                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                  fontSize: 16
-                                                )
-                                              );
-                                            }
-
-                                            final List<Widget> modelCards = [];
-                                            if (copilotSignedIn) {
-                                              modelCards.add(Card(
-                                                color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
-                                                child: ListTile(
-                                                  dense: true,
-                                                  leading: Icon(Icons.cloud, color: appThemeState.appTheme.selectScreenCardTextColor),
-                                                  title: Text('Copilot', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)),
-                                                  subtitle: Text('Copilot service (signed in)', style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))),
-                                                  trailing: null,
+                                            ));
+                                          }
+                                      
+                                          modelCards.addAll(aiState.config.entries.where((e) => e.value is Map<String, dynamic>).map((e) {
+                                            final config = e.value as Map<String, dynamic>;
+                                            return Card(
+                                              shape: RoundedRectangleBorder(borderRadius: .circular(4)),
+                                              color: appThemeState.appTheme.isDark ? appThemeState.appTheme.selectScreenCardsBg : Colors.grey[200],
+                                              child: ListTile(
+                                                dense: true,
+                                                leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
+                                                title: Text(
+                                                  config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown',
+                                                  style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
                                                 ),
-                                              ));
-                                            }
-
-                                            modelCards.addAll(aiState.config.entries.where((e) => e.value is Map<String, dynamic>).map((e) {
-                                              final config = e.value as Map<String, dynamic>;
-                                              return Card(
-                                                color: appThemeState.appTheme.isDark ? const Color.fromARGB(255, 44, 47, 71) : Colors.grey[200],
-                                                child: ListTile(
-                                                  dense: true,
-                                                  leading: Icon(Icons.model_training_outlined, color: appThemeState.appTheme.selectScreenCardTextColor),
-                                                  title: Text(
-                                                    config['modelName']?.toString() ?? config['model']?.toString() ?? 'Unknown',
-                                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor)
-                                                  ),
-                                                  subtitle: Text(
-                                                    e.key,
-                                                    style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))
-                                                  ),
-                                                  trailing: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      IconButton(
-                                                        tooltip: 'Edit model',
-                                                        icon: Icon(Icons.edit, color: Colors.lightBlue),
-                                                        onPressed: () async {
-                                                          await _showModelDialog(
-                                                            context: context,
-                                                            aiState: aiState,
-                                                            appThemeState: appThemeState,
-                                                            editingModelId: e.key,
-                                                            existingConfig: config,
-                                                          );
-                                                        },
-                                                      ),
-                                                      IconButton(
-                                                        icon: Icon(Icons.delete, color: Colors.red),
-                                                        onPressed: () async {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder: (context) => AlertDialog(
-                                                              backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
-                                                              title: Text(
-                                                                'Delete model ${e.key}?',
-                                                                style: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor,
-                                                                  fontSize: 20,
-                                                                ),
+                                                subtitle: Text(
+                                                  e.key,
+                                                  style: TextStyle(color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150))
+                                                ),
+                                                trailing: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    IconButton(
+                                                      tooltip: 'Edit model',
+                                                      iconSize: 23,
+                                                      icon: Icon(Icons.edit_outlined, color: Colors.lightBlue),
+                                                      onPressed: () async {
+                                                        await _showModelDialog(
+                                                          context: context,
+                                                          aiState: aiState,
+                                                          appThemeState: appThemeState,
+                                                          editingModelId: e.key,
+                                                          existingConfig: config,
+                                                        );
+                                                      },
+                                                    ),
+                                                    IconButton(
+                                                      tooltip: "Delete model",
+                                                      iconSize: 23,
+                                                      icon: Icon(Icons.delete, color: Colors.red.shade400),
+                                                      onPressed: () async {
+                                                        showDialog(
+                                                          context: context,
+                                                          builder: (context) => AlertDialog(
+                                                            backgroundColor: appThemeState.appTheme.isDark ? const Color(0xff181A26) : null,
+                                                            title: Text(
+                                                              'Delete model ${e.key}?',
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor,
+                                                                fontSize: 20,
                                                               ),
-                                                              content: Text(
-                                                                'Are you sure you want to delete this model? This action cannot be undone.',
-                                                                style: TextStyle(
-                                                                  color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
-                                                                  fontSize: 16,
-                                                                ),
-                                                              ),
-                                                              actions: [
-                                                                ElevatedButton(
-                                                                  onPressed: () => Navigator.of(context).pop(),
-                                                                  child: Text('Cancel'),
-                                                                ),
-                                                                ElevatedButton(
-                                                                  onPressed: () async {
-                                                                    final updatedConfig = Map<String, dynamic>.from(aiState.config)..remove(e.key);
-                                                                    final prefs = await SharedPreferences.getInstance();
-                                                                    await prefs.setString('aiConfig', jsonEncode(updatedConfig));
-
-                                                                    final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
-                                                                    var modelSelectionChanged = false;
-                                                                    if (updatedModelSelected['code'] == e.key) {
-                                                                      updatedModelSelected['code'] = '';
-                                                                      modelSelectionChanged = true;
-                                                                    }
-                                                                    if (updatedModelSelected['chat'] == e.key) {
-                                                                      updatedModelSelected['chat'] = '';
-                                                                      modelSelectionChanged = true;
-                                                                      await prefs.remove('ai_selected_chat_model_id');
-                                                                    }
-                                                                    if (modelSelectionChanged) {
-                                                                      await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
-                                                                    }
-
-                                                                    if (context.mounted) {
-                                                                      context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
-                                                                      if (modelSelectionChanged) {
-                                                                        context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
-                                                                      }
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        SnackBar(content: Text('Successfully deleted model ${e.key}')),
-                                                                      );
-                                                                      Navigator.of(context).pop(true);
-                                                                    }
-                                                                  },
-                                                                  style: ButtonStyle(
-                                                                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
-                                                                  ),
-                                                                  child: Text('Delete', style: TextStyle(color: Colors.white)),
-                                                                )
-                                                              ],
                                                             ),
-                                                          );
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ),
+                                                            content: Text(
+                                                              'Are you sure you want to delete this model? This action cannot be undone.',
+                                                              style: TextStyle(
+                                                                color: appThemeState.appTheme.selectScreenCardTextColor.withAlpha(150),
+                                                                fontSize: 16,
+                                                              ),
+                                                            ),
+                                                            actions: [
+                                                              ElevatedButton(
+                                                                onPressed: () => Navigator.of(context).pop(),
+                                                                child: Text('Cancel'),
+                                                              ),
+                                                              ElevatedButton(
+                                                                onPressed: () async {
+                                                                  final updatedConfig = Map<String, dynamic>.from(aiState.config)..remove(e.key);
+                                                                  final prefs = await SharedPreferences.getInstance();
+                                                                  await prefs.setString('aiConfig', jsonEncode(updatedConfig));
+                                      
+                                                                  final updatedModelSelected = Map<String, dynamic>.from(aiState.modelSelected);
+                                                                  var modelSelectionChanged = false;
+                                                                  if (updatedModelSelected['code'] == e.key) {
+                                                                    updatedModelSelected['code'] = '';
+                                                                    modelSelectionChanged = true;
+                                                                  }
+                                                                  if (updatedModelSelected['chat'] == e.key) {
+                                                                    updatedModelSelected['chat'] = '';
+                                                                    modelSelectionChanged = true;
+                                                                    await prefs.remove('ai_selected_chat_model_id');
+                                                                  }
+                                                                  if (modelSelectionChanged) {
+                                                                    await prefs.setString('modelSelected', jsonEncode(updatedModelSelected));
+                                                                  }
+                                      
+                                                                  if (context.mounted) {
+                                                                    context.read<AIBloc>().add(AIConfigEvent(updatedConfig));
+                                                                    if (modelSelectionChanged) {
+                                                                      context.read<AIBloc>().add(ModelSelectEvent(updatedModelSelected));
+                                                                    }
+                                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                                      SnackBar(content: Text('Successfully deleted model ${e.key}')),
+                                                                    );
+                                                                    Navigator.of(context).pop(true);
+                                                                  }
+                                                                },
+                                                                style: ButtonStyle(
+                                                                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                                                                ),
+                                                                child: Text('Delete', style: TextStyle(color: Colors.white)),
+                                                              )
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
+                                                  ],
                                                 ),
-                                              );
-                                            }));
-
-                                            return Column(children: modelCards);
-                                          })
-                                        ),
-                                      ],
+                                              ),
+                                            );
+                                          }));
+                                          return Column(children: modelCards);
+                                        })
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -5030,31 +5049,36 @@ int main() {
                                 ),
                                 appThemeState.appTheme.isDark,
                                 isEnabled: hasAI,
-                                trailing: SizedBox(
-                                  height: 30,
-                                  width: 55,
-                                  child: FlutterSwitch(
-                                    toggleColor: Color(0xff002b6e),
-                                    inactiveToggleColor: Colors.white,
-                                    activeColor: Color(0xffb0c6fe),
-                                    value: hasAI && aiState.isEnabled,
-                                    onToggle: (value) async{
-                                      if(hasAI){
-                                        final prefs = await SharedPreferences.getInstance();
-                                        if(context.mounted){
-                                          final currentValue = configState.codeForgeConfig;
-                                          currentValue['isAIEnabled'] = value;
-                                          prefs.setString('codeForgeConfig', jsonEncode(currentValue));
-                                          context.read<AIBloc>().add(AIEnableEvent(value));
-                                        }
-                                      }
-                                      else{
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
-                                        );
+                                trailing: FlutterSwitch(
+                                  borderRadius: 5,
+                                  width: 65,
+                                  height: 26,
+                                  toggleSize: 32,
+                                  toggleColor: Color(0xff007ACC),
+                                  inactiveToggleColor: Colors.white,
+                                  activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                                  activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                                  inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                                  toggleShape: BoxShape.rectangle,
+                                  toggleBorderRadius: .circular(4),
+                                  padding: 2,
+                                  value: hasAI && aiState.isEnabled,
+                                  onToggle: (value) async{
+                                    if(hasAI){
+                                      final prefs = await SharedPreferences.getInstance();
+                                      if(context.mounted){
+                                        final currentValue = configState.codeForgeConfig;
+                                        currentValue['isAIEnabled'] = value;
+                                        prefs.setString('codeForgeConfig', jsonEncode(currentValue));
+                                        context.read<AIBloc>().add(AIEnableEvent(value));
                                       }
                                     }
-                                  ),
+                                    else{
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
+                                      );
+                                    }
+                                  }
                                 ),
                               ),
                               settingsTile(
@@ -5065,31 +5089,36 @@ int main() {
                                   color: appThemeState.appTheme.selectScreenCardTextColor,
                                 ),
                                 appThemeState.appTheme.isDark,
-                                trailing: SizedBox(
-                                  height: 30,
-                                  width: 55,
-                                  child: FlutterSwitch(
-                                    toggleColor: Color(0xff002b6e),
-                                    inactiveToggleColor: Colors.white,
-                                    activeColor: Color(0xffb0c6fe),
-                                    value: hasAI && aiState.showSuggestionOntap && aiState.isEnabled,
-                                    onToggle: (val) async{
-                                      if(hasAI){
-                                        final prefs = await SharedPreferences.getInstance();
-                                        if(context.mounted){
-                                          context.read<AIBloc>().add(AIModeEvent(val));
-                                          final currentState = configState.codeForgeConfig;
-                                          currentState['manualCompletion'] = val;
-                                          prefs.setString('codeForgeConfig', jsonEncode(currentState));
-                                        }
-                                      }
-                                      else{
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
-                                        );
+                                trailing: FlutterSwitch(
+                                  borderRadius: 5,
+                                  width: 65,
+                                  height: 26,
+                                  toggleSize: 32,
+                                  toggleColor: Color(0xff007ACC),
+                                  inactiveToggleColor: Colors.white,
+                                  activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                                  activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                                  inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                                  toggleShape: BoxShape.rectangle,
+                                  toggleBorderRadius: .circular(4),
+                                  padding: 2,
+                                  value: hasAI && aiState.showSuggestionOntap && aiState.isEnabled,
+                                  onToggle: (val) async{
+                                    if(hasAI){
+                                      final prefs = await SharedPreferences.getInstance();
+                                      if(context.mounted){
+                                        context.read<AIBloc>().add(AIModeEvent(val));
+                                        final currentState = configState.codeForgeConfig;
+                                        currentState['manualCompletion'] = val;
+                                        prefs.setString('codeForgeConfig', jsonEncode(currentState));
                                       }
                                     }
-                                  ),
+                                    else{
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("No AI models created and not signed into Copilot. Please create a model or sign into Copilot first."))
+                                      );
+                                    }
+                                  }
                                 ),
                                 subTitle: aiState.showSuggestionOntap ? "Tap AI icon for suggestions\nLower API usage"
                                 : "Auto-suggest after 1.5s pause\nHigher API usage",
@@ -5197,24 +5226,29 @@ int main() {
                         ),
                         subTitle: "Provides features like code suggestions, hover details, intelligent highlighting, etc.\nNote: LSP support is limited to a few languages only.",
                         appThemeState.appTheme.isDark,
-                        trailing: SizedBox(
-                          height: 30,
-                          width: 55,
-                          child: FlutterSwitch(
-                            toggleColor: Color(0xff002b6e),
-                            inactiveToggleColor: Colors.white,
-                            activeColor: Color(0xffb0c6fe),
-                            value: configState.codeForgeConfig['enableLSP'] ?? true,
-                            onToggle: (val) async {
-                              final prefs = await SharedPreferences.getInstance();
-                              if(context.mounted){
-                                final currentConfig = configState.codeForgeConfig;
-                                currentConfig['enableLSP'] = val;
-                                context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
-                                prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
-                              }
+                        trailing: FlutterSwitch(
+                          borderRadius: 5,
+                          width: 65,
+                          height: 26,
+                          toggleSize: 32,
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                          inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          padding: 2,
+                          value: configState.codeForgeConfig['enableLSP'] ?? true,
+                          onToggle: (val) async {
+                            final prefs = await SharedPreferences.getInstance();
+                            if(context.mounted){
+                              final currentConfig = configState.codeForgeConfig;
+                              currentConfig['enableLSP'] = val;
+                              context.read<ConfigBloc>().add(ChangeConfigEvent(currentConfig));
+                              prefs.setString('codeForgeConfig', jsonEncode(currentConfig));
                             }
-                          ),
+                          }
                         ),
                       ),
                       settingsTile(

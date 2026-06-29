@@ -109,10 +109,10 @@ packages:
     dependency: "direct main"
     description:
       name: code_forge
-      sha256: "062f03c3bf3128b0408ea8e8c3028b90374b808bdf34896cdf2ccfd1cdf3a62a"
+      sha256: "9445afa82aa12d7d96522516033d54ae282bbcc039fb6209786f7dc78fdb000c"
       url: "https://pub.dev"
     source: hosted
-    version: "10.6.0"
+    version: "10.7.0"
   collection:
     dependency: transitive
     description:
@@ -165,10 +165,10 @@ packages:
     dependency: "direct main"
     description:
       name: dartssh2
-      sha256: c139babed0d6851449100010639115e1ed88decf0db7eb714ce13935c7eb590c
+      sha256: "9a2a915c1eab7a430ae0b396519016d6a698414f89edfaac9f9244e6498a9525"
       url: "https://pub.dev"
     source: hosted
-    version: "2.17.1"
+    version: "2.18.0"
   dbus:
     dependency: transitive
     description:
@@ -242,10 +242,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_archive
-      sha256: e433389fde0bdfc20af40784fdb6d91753794b40cf708a43f95244fcd5d6c298
+      sha256: d07dcd976954d997e547980cbdc01fe444e77cce062866735bc3b5a1da39f2c5
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.4"
+    version: "6.3.1"
   flutter_bloc:
     dependency: "direct main"
     description:
@@ -454,14 +454,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
-  flutter_switch:
-    dependency: "direct main"
-    description:
-      name: flutter_switch
-      sha256: b91477f926bba135d2d203d7b24367492662d8d9c3aa6adb960b14c1087d3c41
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.2"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -1160,4 +1152,4 @@ packages:
     version: "0.0.6"
 sdks:
   dart: ">=3.12.2 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.44.0"
