@@ -94,6 +94,11 @@ class _StartScreenState extends State<StartScreen> {
     final binDirectory = Directory(binDir);
     final libDirectory = Directory(libDir);
     final gitCoreDir = Directory(gitCore);
+    final homeDirectory = Directory(homeDir);
+    
+    if(!homeDirectory.existsSync()) {
+      await homeDirectory.create(recursive: true);
+    }
 
     if (!binDirectory.existsSync()) {
       await binDirectory.create(recursive: true);
