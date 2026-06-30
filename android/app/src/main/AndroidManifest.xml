@@ -5,6 +5,7 @@
 
     <application
         android:label="Roxum IDE"
+        android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:enableOnBackInvokedCallback="true"

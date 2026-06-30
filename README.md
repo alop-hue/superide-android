@@ -1,3 +1,9 @@
+<p align="left">
+  <a href="./README.md">English</a> |
+  <a href="./README-CN.md">简体中文</a> |
+  <a href="./README-ES.md">Español</a>
+</p>
+
 # Roxum IDE
 
 Roxum IDE is a mobile-first code editor and mini IDE for Android, built with Flutter.
@@ -52,19 +58,19 @@ It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runt
 ---
 <br>
 
-## Building from source
+# If playstore isn't accessible in your country:
+## Download the full apk from [releases](https://github.com/heckmon/roxum-ide/releases)
+
+#### OR
+
+## Build from source
 
 This section is intended for users from countries like China where the Play Store isn't accessible. Otherwise, it is recommended to download the full-featured APK from the Play Store as mentioned above.<br>
 
-The app has two branches:
-- [playstore-version](https://github.com/heckmon/roxum-ide/tree/playstore-version) (Full Roxum IDE)
-- [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) (A light weight version)
-
 Clone this repo, then:
 
-### Building the full version
 Make sure that [git-lfs](https://git-lfs.com/) is installed in your system and accessible via the `path`. Don't skip this step; the compilers and interpreters are stored in the GitHub large file storage.
-#### 1) Build the app as an `aab` bundle or download the `release.aab` from the [releases](https://github.com/heckmon/roxum-ide/releases)
+#### 1) Build the app as an `aab` bundle.
 
 > [!NOTE]
 > 
@@ -75,52 +81,20 @@ cd android && ./gradlew :app:bundleRelease
 ```
 This will generate the output file in `build/app/outputs/bundle/release/app-release.aab`
 
-#### 2) Building the APK
-To install aab in your device, download the latest bundletool from the official repo:
+#### 2) Creating APK from AAB
+To install aab in your device, it needs to be converted to apk first. For that, download the latest bundletool from the official repo:
 https://github.com/google/bundletool/releases
 
 Then build the APK:
 ```bash
-java -jar path/to/bundletool.jar build-apks --bundle=your_app/build/app/outputs/bundle/release/app-release.aab --output=output.apks
+java -jar path/to/bundletool.jar build-apks --bundle=your_app/build/app/outputs/bundle/release/app-release.aab --output=output.apks --mode=universal
 ```
 This will generate a file called output.apks in the current directory
-#### 3) Then install it:
+#### 3) Then install the apks:
 Make sure that you are connected to an emulator or physical device via `adb`.
 ```bash
 java -jar /path/to/bundletool.jar install-apks --apks=output.apks
 ```
-
-### Building the lite version
-### Important
-  > This **is not** the full-featured Roxum IDE. This is a lightweight version.
-
-  Roxum-lite lacks these features:
-  - Dart compiler
-  - Rust compiler
-  - Go compiler
-  - Lua interpreter
-  - rust-analyzer
-  - ty language server
-  - emmyLua language server
-  - gopls language server
-  - SSH support
-  - Termux support
-  - External GGUF LLM models.
-
-> For downloading the APK, go to the [releases](https://github.com/heckmon/roxum-ide/releases)
-
- The [main](https://github.com/heckmon/roxum-ide/tree/playstore-version) branch contains a lightweight version of Roxum, which is easy to build and run with Flutter or Gradle. This version is also available in the [releases](https://github.com/heckmon/roxum-ide/releases) as a standalone APK.
-```bash
-git checkout main
-flutter run --release # Or flutter build apk --release
-```
-Or with Gradle
-
-```bash
-git checkout main
-cd android && ./gradlew :app: assembleRelease
-```
-
 ---
 
 Special Thanks ♥️

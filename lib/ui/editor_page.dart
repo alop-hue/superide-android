@@ -1612,8 +1612,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
   Widget build(BuildContext context) {
     final AppTheme appTheme = context.read<AppThemeBloc>().state.appTheme;
     final ConfigBloc uiBloc = BlocProvider.of<ConfigBloc>(context);
-    final autoSaveEnabled =
-        context.watch<GeneralBloc>().state.generalSettings['autoSave'] ?? true;
+    final autoSaveEnabled = context.watch<GeneralBloc>().state.generalSettings['autoSave'] ?? true;
     return FutureBuilder(
       future: Future.wait([
         widget.file == null && !widget.isProject

@@ -885,6 +885,23 @@ class _GithubPageState extends State<GithubPage> {
     );
   }
 
+  Future<int?> _getSubscribers(String owner, String repo) async {
+    final response = await http.get(
+      Uri.parse('https://api.github.com/repos/$owner/$repo'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['subscribers_count'];
+    }
+
+    return null;
+  }
+
   Widget _buildRepoCard(Map<String, dynamic> repo, AppTheme appTheme) {
     final isPrivate = repo['private'] == true;
     final isFork = repo['fork'] == true;
@@ -1129,10 +1146,26 @@ class _GithubPageState extends State<GithubPage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildDetailStat(Icons.star_border, '${repo['stargazers_count'] ?? 0}', 'Stars', appTheme),
-                _buildDetailStat(Icons.fork_right, '${repo['forks_count'] ?? 0}', 'Forks', appTheme),
-                _buildDetailStat(Icons.remove_red_eye_outlined, '${repo['watchers_count'] ?? 0}', 'Watchers', appTheme),
-                if (repo['open_issues_count'] != null)
-                  _buildDetailStat(Icons.bug_report_outlined, '${repo['open_issues_count']}', 'Issues', appTheme),
+                _buildDetailStat(FontAwesomeIcons.codeFork, '${repo['forks_count'] ?? 0}', 'Forks', appTheme),
+                FutureBuilder<int?>(
+                  future: _getSubscribers(repo['owner']['login'] ?? '', repo['name'] ?? ''),
+                  builder:(context, subSnapshot) {
+                    if(subSnapshot.connectionState == .waiting) {
+                      return const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child: CircularProgressIndicator()
+                      );
+                    }
+                    if(subSnapshot.hasData) {
+                      return _buildDetailStat(Icons.remove_red_eye_outlined, '${subSnapshot.data}', 'Watchers', appTheme);
+                    } else if(subSnapshot.hasError || subSnapshot.data == null) {
+                      return _buildDetailStat(Icons.remove_red_eye_outlined, '0', 'Watchers', appTheme);
+                    }
+                    return _buildDetailStat(Icons.remove_red_eye_outlined, '0', 'Watchers', appTheme);
+                  },
+                ),
+                if (repo['open_issues_count'] != null) _buildDetailStat(Icons.adjust, '${repo['open_issues_count']}', 'Issues', appTheme),
               ],
             ),
             
@@ -1207,10 +1240,22 @@ class _GithubPageState extends State<GithubPage> {
     );
   }
 
-  Widget _buildDetailStat(IconData icon, String value, String label, AppTheme appTheme) {
+  Widget _buildDetailStat(dynamic icon, String value, String label, AppTheme appTheme) {
     return Column(
       children: [
-        Icon(icon, size: 24, color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.7)),
+        if(icon is IconData) Icon(
+          icon,
+          size: 24,
+          color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.7)
+        )
+        else if(icon is FaIconData) Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: FaIcon(
+            icon,
+            size: 19,
+            color: appTheme.selectScreenCardTextColor.withValues(alpha: 0.7)
+          ),
+        ),
         const SizedBox(height: 8),
         Text(
           value,
