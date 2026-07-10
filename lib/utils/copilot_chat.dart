@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:roxum/utils/constants.dart';
+import 'package:superide_android/utils/constants.dart';
 import 'agentic_tools.dart';
 
 class CopilotAuthContext {
@@ -216,8 +216,8 @@ class CopilotChat {
       'Authorization': 'Bearer $authToken',
       'Accept': 'application/json',
       'Copilot-Integration-Id': 'vscode-chat',
-      'User-Agent': 'Roxum/2.2.0',
-      'Editor-Version': 'Roxum/2.2.0',
+      'User-Agent': 'SUPERIDE/2.2.0',
+      'Editor-Version': 'SUPERIDE/2.2.0',
       'X-GitHub-Api-Version': '2025-10-01',
       'X-Initiator': ?initiator,
       if (initiator != null) 'X-Interaction-Type': 'conversation-panel',
@@ -468,7 +468,7 @@ class CopilotChat {
 
   String _toolEditMarker(String filePath, int added, int removed) {
     final fileEncoded = base64Encode(utf8.encode(filePath));
-    return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
+    return '[[SUPERIDE_EDIT:$fileEncoded|$added|$removed]]\n';
   }
 
   String _toolTerminalMarker(
@@ -484,11 +484,11 @@ class CopilotChat {
       'exitCode': exitCode,
     });
     final encoded = base64Encode(utf8.encode(payload));
-    return '[[ROXUM_TERMINAL:$encoded]]\n';
+    return '[[SUPERIDE_TERMINAL:$encoded]]\n';
   }
 
   String _toolStatusMarker(String status) {
-    return '[[ROXUM_STATUS:$status]]\n';
+    return '[[SUPERIDE_STATUS:$status]]\n';
   }
 
   String _toolStatusForFunction(String functionName) {
@@ -632,7 +632,7 @@ class CopilotChat {
               if (reasoningDelta != null && reasoningDelta.isNotEmpty) {
                 if (!emittingThinking) {
                   emittingThinking = true;
-                  const openMarker = '[[ROXUM_THINK_START]]\n';
+                  const openMarker = '[[SUPERIDE_THINK_START]]\n';
                   finalMessage['content'] += openMarker;
                   pushPartial(openMarker);
                 }
@@ -644,7 +644,7 @@ class CopilotChat {
               if (deltaText != null && deltaText.isNotEmpty) {
                 if (emittingThinking) {
                   emittingThinking = false;
-                  const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+                  const closeMarker = '\n[[SUPERIDE_THINK_END]]\n';
                   finalMessage['content'] += closeMarker;
                   pushPartial(closeMarker);
                 }
@@ -695,7 +695,7 @@ class CopilotChat {
               if (reasoningDelta != null && reasoningDelta.isNotEmpty) {
                 if (!emittingThinking) {
                   emittingThinking = true;
-                  const openMarker = '[[ROXUM_THINK_START]]\n';
+                  const openMarker = '[[SUPERIDE_THINK_START]]\n';
                   finalMessage['content'] += openMarker;
                   pushPartial(openMarker);
                 }
@@ -707,7 +707,7 @@ class CopilotChat {
               if (deltaText != null && deltaText.isNotEmpty) {
                 if (emittingThinking) {
                   emittingThinking = false;
-                  const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+                  const closeMarker = '\n[[SUPERIDE_THINK_END]]\n';
                   finalMessage['content'] += closeMarker;
                   pushPartial(closeMarker);
                 }
@@ -730,7 +730,7 @@ class CopilotChat {
 
       if (emittingThinking) {
         emittingThinking = false;
-        const closeMarker = '\n[[ROXUM_THINK_END]]\n';
+        const closeMarker = '\n[[SUPERIDE_THINK_END]]\n';
         finalMessage['content'] += closeMarker;
         pushPartial(closeMarker);
       }

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.lua"
+    namespace = "com.superide.app.lua"
     compileSdk = 36
 
     defaultConfig {

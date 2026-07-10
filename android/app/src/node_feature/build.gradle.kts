@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.node"
+    namespace = "com.superide.app.node"
     compileSdk = 36
 
     defaultConfig {

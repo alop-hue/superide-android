@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.copilotls"
+    namespace = "com.superide.app.copilotls"
     compileSdk = 36
 
     defaultConfig {

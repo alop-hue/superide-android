@@ -7,7 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
-import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
+import 'package:superide_android/bloc/repo_bloc/repo_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'about.dart';
 import 'donation_page.dart';
@@ -402,7 +402,7 @@ class _SelectTypeState extends State<SelectType> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.only(left: 1.5),
                   child: drawerTile(
-                    () async => await launchUrl(Uri.parse("https://heckmon.github.io/roxum-privacy-policy/")),
+                    () async => await launchUrl(Uri.parse("https://alop-hue.github.io/superide-privacy-policy/")),
                     "Privacy policy",
                     Icon(
                       Icons.shield,

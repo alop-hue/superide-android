@@ -1,10 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.roxum">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.superide.app">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="Roxum IDE"
+        android:label="SUPER IDE"
         android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
@@ -63,7 +63,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="roxum" />
+                <data android:scheme="superide" />
             </intent-filter>
         </activity>
 

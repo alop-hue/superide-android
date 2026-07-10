@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.kmplsp"
+    namespace = "com.superide.app.kmplsp"
     compileSdk = 36
 
     defaultConfig {

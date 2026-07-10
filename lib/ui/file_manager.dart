@@ -18,7 +18,7 @@ class FileManagerPage extends StatefulWidget {
 
   const FileManagerPage({
     super.key,
-    this.rootPath = '/storage/emulated/0/Android/media/com.roxum',
+    this.rootPath = '/storage/emulated/0/Android/media/com.superide.app',
   });
 
   @override
@@ -31,7 +31,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
   List<FileSystemEntity> _entries = [];
 
   File _localMetadataFileForPath(String entityPath) {
-    final metadataDir = Directory(path.join(tempDir, '.roxum_metadata'));
+    final metadataDir = Directory(path.join(tempDir, '.superide_metadata'));
     final encodedPath = base64Url.encode(utf8.encode(entityPath)).replaceAll('=', '');
     return File(path.join(metadataDir.path, '$encodedPath.json'));
   }
@@ -67,7 +67,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
         .list(followLinks: false)
         .where((entity) {
           final name = path.basename(entity.path);
-          return !name.startsWith('.roxum_') && !name.startsWith('.');
+          return !name.startsWith('.superide_') && !name.startsWith('.');
         })
         .toList();
 
@@ -103,8 +103,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
     final metadataPath = type == 'local'
       ? _localMetadataFileForPath(entity.path)
       : entity is Directory
-        ? File(path.join(entity.path, '.roxum_source.json'))
-        : File('${entity.path}.roxum_source.json');
+        ? File(path.join(entity.path, '.superide_source.json'))
+        : File('${entity.path}.superide_source.json');
     final payload = <String, dynamic>{
       'type': type,
       'sourceUri': sourceUri,
@@ -121,8 +121,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
       required bool isDirectory,
     }) async {
       final metadataPath = isDirectory
-          ? File(path.join(candidatePath, '.roxum_source.json'))
-          : File('$candidatePath.roxum_source.json');
+          ? File(path.join(candidatePath, '.superide_source.json'))
+          : File('$candidatePath.superide_source.json');
       if (!await metadataPath.exists()) return null;
       try {
         final raw = await metadataPath.readAsString();
@@ -174,8 +174,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
       }
 
       final metadataPath = isDirectory
-          ? File(path.join(candidatePath, '.roxum_source.json'))
-          : File('$candidatePath.roxum_source.json');
+          ? File(path.join(candidatePath, '.superide_source.json'))
+          : File('$candidatePath.superide_source.json');
       if (!metadataPath.existsSync()) return null;
       try {
         final raw = metadataPath.readAsStringSync();
@@ -574,7 +574,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
           await _loadEntries();
         },
         child: Text(
-          'com.roxum',
+          'com.superide.app',
           style: TextStyle(
             color: appTheme.selectScreenCardTextColor,
             fontWeight: FontWeight.w700,

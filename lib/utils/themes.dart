@@ -729,8 +729,12 @@ TerminalThemePreset terminalThemePresetById(String? id) {
   }
   return terminalThemePresets[defaultTerminalThemeId]!;
 }
-const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818),iconTheme: IconThemeData(color: Colors.grey, size: 32));
-const appBarLight = AppBarTheme(backgroundColor: Color.fromARGB(255, 243, 242, 242),iconTheme: IconThemeData(color: Color.fromARGB(255, 25, 25, 25), size: 32));
+const Color superOrange = Color(0xffF97316);
+const Color superOrangeDark = Color(0xffEA580C);
+const Color superOrangeLight = Color(0xffFCD34D);
+
+const appBarDark = AppBarTheme(backgroundColor: Color(0xff181818), iconTheme: IconThemeData(color: superOrange, size: 32));
+const appBarLight = AppBarTheme(backgroundColor: Color.fromARGB(255, 243, 242, 242), iconTheme: IconThemeData(color: superOrange, size: 32));
 const darkTileTheme = ListTileThemeData(
   titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
   subtitleTextStyle: TextStyle(color: Color(0xff6d6d6d))
@@ -744,7 +748,7 @@ const cardDarkTheme = CardTheme(color: Color.fromARGB(255, 37, 37, 37));
 const cardLightTheme = CardTheme(color: Color.fromARGB(255, 241, 241, 241));
 const popupBtnDarkTheme = PopupMenuThemeData(color: Color.fromARGB(255, 61, 61, 61));
 const popupBtnLightTheme = PopupMenuThemeData(color: Color.fromARGB(255, 235, 235, 235));
-const progressTheme = ProgressIndicatorThemeData(color: Color(0xff0e639c));
+const progressTheme = ProgressIndicatorThemeData(color: superOrange);
 
 class FolderStyle {
   final dynamic folderClosedicon;

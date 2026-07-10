@@ -924,6 +924,25 @@ class Perplexity extends OpenAiCompatible {
   Perplexity({required this.apiKey, required this.model});
 }
 
+class Ollama extends OpenAiCompatible {
+  @override
+  String get baseUrl => "http://localhost:11434/v1";
+  @override
+  final String apiKey, model;
+  Ollama({required this.apiKey, required this.model});
+  @override Map<String, String> get headers => {
+    "Content-Type": "application/json; charset=utf-8",
+  };
+}
+
+class Qwen extends OpenAiCompatible {
+  @override
+  String get baseUrl => "https://dashscope.aliyuncs.com/compatible-mode/v1";
+  @override
+  final String apiKey, model;
+  Qwen({required this.apiKey, required this.model});
+}
+
 class OpenRouter extends OpenAiCompatible {
   @override
   String get baseUrl => "https://openrouter.ai/api/v1";

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
-import 'package:roxum/utils/themes.dart';
+import 'package:superide_android/bloc/ui_bloc/ui_bloc.dart';
+import 'package:superide_android/utils/themes.dart';
 
 class ContributePage extends StatelessWidget {
-  final String repoUrl = 'https://github.com/heckmon/roxum-ide';
+  final String repoUrl = 'https://github.com/alop-hue/superide-android';
 
   const ContributePage({super.key});
 
@@ -71,7 +71,7 @@ class ContributePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
                         Text(
-                          'Contribute to Roxum!',
+                          'Contribute to SUPER IDE!',
                           style: TextStyle(
                             color: theme.selectScreenCardTextColor,
                             fontSize: 24,
@@ -81,7 +81,7 @@ class ContributePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Roxum is a powerful, open-source code editor and IDE built with Flutter, designed for developers on the go.',
+                          'SUPER IDE is a powerful, open-source code editor and IDE built with Flutter, designed for developers on the go.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,

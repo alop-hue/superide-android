@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.ruby"
+    namespace = "com.superide.app.ruby"
     compileSdk = 36
 
     defaultConfig {

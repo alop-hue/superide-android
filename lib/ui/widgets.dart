@@ -18,7 +18,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:re_highlight/re_highlight.dart' show Mode;
 import 'package:re_highlight/styles/atom-one-dark.dart';
-import 'package:roxum/utils/agentic_tools.dart';
+import 'package:superide_android/utils/agentic_tools.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../bloc/repo_bloc/repo_bloc.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
@@ -9432,11 +9432,11 @@ class _ModelOption {
 }
 
 class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
-  static final RegExp _toolEditPattern = RegExp(r'^\[\[ROXUM_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
-  static final RegExp _toolTerminalPattern = RegExp(r'^\[\[ROXUM_TERMINAL:([^\]]+)\]\]$');
-  static final RegExp _toolStatusPattern = RegExp(r'^\[\[ROXUM_STATUS:([^\]]+)\]\]$');
-  static const String _thinkingStartMarker = '[[ROXUM_THINK_START]]';
-  static const String _thinkingEndMarker = '[[ROXUM_THINK_END]]';
+  static final RegExp _toolEditPattern = RegExp(r'^\[\[SUPERIDE_EDIT:([^|\]]+)\|(\d+)\|(\d+)\]\]$');
+  static final RegExp _toolTerminalPattern = RegExp(r'^\[\[SUPERIDE_TERMINAL:([^\]]+)\]\]$');
+  static final RegExp _toolStatusPattern = RegExp(r'^\[\[SUPERIDE_STATUS:([^\]]+)\]\]$');
+  static const String _thinkingStartMarker = '[[SUPERIDE_THINK_START]]';
+  static const String _thinkingEndMarker = '[[SUPERIDE_THINK_END]]';
 
   final TextEditingController _promptController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -10585,7 +10585,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
   String _toolEditMarker(String filePath, int added, int removed) {
     final fileEncoded = base64Encode(utf8.encode(filePath));
-    return '[[ROXUM_EDIT:$fileEncoded|$added|$removed]]\n';
+    return '[[SUPERIDE_EDIT:$fileEncoded|$added|$removed]]\n';
   }
 
   String _toolTerminalMarker(
@@ -10601,11 +10601,11 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       'exitCode': exitCode,
     });
     final encoded = base64Encode(utf8.encode(payload));
-    return '[[ROXUM_TERMINAL:$encoded]]\n';
+    return '[[SUPERIDE_TERMINAL:$encoded]]\n';
   }
 
   String _toolStatusMarker(String status) {
-    return '[[ROXUM_STATUS:$status]]\n';
+    return '[[SUPERIDE_STATUS:$status]]\n';
   }
 
   String _toolStatusForFunction(String functionName) {
@@ -10969,7 +10969,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
     if (chatMode == ChatMode.agent) {
       conversationMessages.insert(0, {
         'role': 'system',
-        'content': 'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
+        'content': 'You are running in SUPER IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
       });
     }
     conversationMessages.add({'role': 'user', 'content': prompt});
@@ -11136,6 +11136,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       case OpenAI():
       case Grok():
       case DeepSeek():
+      case Ollama():
+      case Qwen():
       case TogetherAi():
       case Perplexity():
       case OpenRouter():
@@ -11168,6 +11170,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
         newParams['alt'] = 'sse';
         return uri.replace(path: newPath, queryParameters: newParams).toString();
       case OpenAI():
+      case Ollama():
+      case Qwen():
         return chatModel.chatUrl;
       case Claude():
         return chatModel.url; 
@@ -11205,6 +11209,8 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       case OpenAI():
       case Grok():
       case DeepSeek():
+      case Ollama():
+      case Qwen():
       case TogetherAi():
       case Perplexity():
       case OpenRouter():
@@ -11524,7 +11530,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
       if (chatMode == ChatMode.agent) {
         messages.insert(0, {
           'role': 'system',
-          'content': 'You are running in Roxum IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
+          'content': 'You are running in SUPER IDE with workspace tool access. Use available tools to inspect, edit, and run commands when asked for code changes. Do not claim missing permissions unless a tool call fails with an explicit permission error.',
         });
       }
       messages.add({'role': 'user', 'content': prompt});
@@ -11662,7 +11668,7 @@ class _AIChatState extends State<AIChat> with SingleTickerProviderStateMixin {
 
         messages.insert(0, ChatMessage(
           role: 'system',
-          content: '''You are a code completion agent in Roxum IDE.
+          content: '''You are a code completion agent in SUPER IDE.
 
   When you need to use a tool, respond with a JSON block like:
   {"type": "tool_call", "function": "toolName", "arguments": {"key": "value"}}

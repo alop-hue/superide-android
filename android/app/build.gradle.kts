@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.roxum"
+    namespace = "com.superide.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.roxum"
+        applicationId = "com.superide.app"
         minSdk = 26
         targetSdk = 36
         versionCode = flutter.versionCode

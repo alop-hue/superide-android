@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.rust"
+    namespace = "com.superide.app.rust"
     compileSdk = 36
 
     defaultConfig {

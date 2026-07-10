@@ -10,7 +10,7 @@ import 'package:flutter_file_downloader/flutter_file_downloader.dart';
 import 'package:http/http.dart' as http;
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:roxum/utils/constants.dart';
+import 'package:superide_android/utils/constants.dart';
 import '../../utils/ai.dart';
 import '../../utils/agentic_tool_catalog.dart';
 import '../../utils/copilot_chat.dart';

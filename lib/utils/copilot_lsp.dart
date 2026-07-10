@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:roxum/utils/constants.dart';
-import 'package:roxum/utils/functions.dart';
+import 'package:superide_android/utils/constants.dart';
+import 'package:superide_android/utils/functions.dart';
 
 enum CopilotAccountStatus {
   notSignedIn,
@@ -170,7 +170,7 @@ class CopilotLsp {
       environment: {
         'HOME': configPath,
         'XDG_CONFIG_HOME': configPath,
-        'ROXUM_SHARED_PATH': sharedPath
+        'SUPERIDE_SHARED_PATH': sharedPath
       },
     );
 
@@ -356,11 +356,11 @@ class CopilotLsp {
         },
         'initializationOptions': {
           'editorInfo': {
-            'name': 'Roxum',
+            'name': 'SUPERIDE',
             'version': '2.2.0',
           },
           'editorPluginInfo': {
-            'name': 'GitHub Copilot for Roxum',
+            'name': 'GitHub Copilot for SUPERIDE',
             'version': '1.0.0',
           },
         },
@@ -390,11 +390,11 @@ class CopilotLsp {
       method: 'setEditorInfo',
       params: {
         'editorInfo': {
-          'name': 'Roxum',
+          'name': 'SUPERIDE',
           'version': '2.2.0',
         },
         'editorPluginInfo': {
-          'name': 'GitHub Copilot for Roxum',
+          'name': 'GitHub Copilot for SUPERIDE',
           'version': '1.0.0',
         },
       },

@@ -91,6 +91,7 @@ class MainApp extends StatelessWidget {
             }
           };
           return MaterialApp(
+            title: 'SUPER IDE',
             theme: ThemeData(
               progressIndicatorTheme: progressTheme,
               popupMenuTheme: appThemeState.appTheme.popupBtnTheme,
@@ -99,7 +100,7 @@ class MainApp extends StatelessWidget {
               listTileTheme: appThemeState.appTheme.tileTheme,
               cardTheme: appThemeState.appTheme.cardTheme.data,
               textSelectionTheme: const TextSelectionThemeData(
-                selectionHandleColor: Colors.blue,
+                selectionHandleColor: superOrange,
               ),
             ),
             home: SafeArea(

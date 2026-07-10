@@ -4,12 +4,12 @@
   <a href="./README-ES.md">Español</a>
 </p>
 
-# Roxum IDE
+# SUPER IDE
 
-Roxum IDE is a mobile-first code editor and mini IDE for Android, built with Flutter.
+SUPER IDE is a mobile-first code editor and mini IDE for Android, built with Flutter.
 It combines editing, terminal workflows, Git/GitHub tooling, AI assistance, runtime downloads, and deep customization in one app.
 
-#### Roxum uses the powerful [code_forge](https://github.com/heckmon/code_forge) package as the editor engine.
+#### SUPER IDE uses the powerful [code_forge](https://github.com/heckmon/code_forge) package as the editor engine.
 
 <a href="https://play.google.com/store/apps/details?id=com.roxum">
   <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">

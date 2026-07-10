@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.gopls"
+    namespace = "com.superide.app.gopls"
     compileSdk = 36
 
     defaultConfig {

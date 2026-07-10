@@ -11,10 +11,10 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:roxum/utils/agentic_tool_catalog.dart';
-import 'package:roxum/bloc/ui_bloc/ui_bloc.dart';
-import 'package:roxum/utils/constants.dart';
-import 'package:roxum/utils/functions.dart';
+import 'package:superide_android/utils/agentic_tool_catalog.dart';
+import 'package:superide_android/bloc/ui_bloc/ui_bloc.dart';
+import 'package:superide_android/utils/constants.dart';
+import 'package:superide_android/utils/functions.dart';
 
 class AgenticTools {
   final BuildContext context;
@@ -963,10 +963,10 @@ class AgenticTools {
       'PS1': r' \[\e[32m\]\w \[\e[0m\]\$ ',
       'PATH': '$binDir:$runtimesDir/node/bin:/bin:/usr/bin:/sbin:/usr/sbin',
       'PROMPT_DIRTRIM': '2',
-      'ROXUM_SHARED_PATH': sharedPath,
+      'SUPERIDE_SHARED_PATH': sharedPath,
       'LD_LIBRARY_PATH': '$sharedPath:$libDir:$runtimesDir/clang',
       'LD_PRELOAD': '$sharedPath/libc++_shared.so',
-      'PREFIX': '/data/data/com.roxum',
+      'PREFIX': '/data/data/com.superide.app',
       'JAVA_HOME': '$runtimesDir/java-21-openjdk',
       'GIT_EXEC_PATH': '$binDir/git-core',
       'GIT_SSL_CAINFO': '$certDir/cacert.pem',

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.ty"
+    namespace = "com.superide.app.ty"
     compileSdk = 36
 
     defaultConfig {

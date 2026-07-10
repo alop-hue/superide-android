@@ -1,9 +1,9 @@
-# Roxum IDE
+# SUPER IDE
 
-Roxum IDE es un editor de código e IDE ligero diseñado principalmente para dispositivos móviles Android, desarrollado con Flutter.
+SUPER IDE es un editor de código e IDE ligero diseñado principalmente para dispositivos móviles Android, desarrollado con Flutter.
 Combina edición de código, flujos de trabajo en terminal, herramientas Git/GitHub, asistencia con IA, descarga de runtimes y personalización avanzada en una sola aplicación.
 
-#### Roxum utiliza el potente paquete [code_forge](https://github.com/heckmon/code_forge) como motor del editor.
+#### SUPER IDE utiliza el potente paquete [code_forge](https://github.com/heckmon/code_forge) como motor del editor.
 
 <a href="https://play.google.com/store/apps/details?id=com.roxum">
   <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="60">

@@ -67,11 +67,11 @@ bool isPreviewFilePath(String filePath) {
     isPdfFilePath(filePath);
 }
 
-const String _legacyProjectDir = '/data/data/com.roxum/Roxum/Projects';
-const String _legacyTemplateDir = '/data/data/com.roxum/Roxum/Templates';
-const String _legacyFilesDir = '/data/data/com.roxum/Roxum/Files';
-const String sharedStorageMigrationNoticeKey = 'roxum_shared_storage_migration_notice';
-const String sharedStorageMigrationDoneKey = 'roxum_shared_storage_migration_done_v1';
+const String _legacyProjectDir = '/data/data/com.superide.app/SUPERIDE/Projects';
+const String _legacyTemplateDir = '/data/data/com.superide.app/SUPERIDE/Templates';
+const String _legacyFilesDir = '/data/data/com.superide.app/SUPERIDE/Files';
+const String sharedStorageMigrationNoticeKey = 'superide_shared_storage_migration_notice';
+const String sharedStorageMigrationDoneKey = 'superide_shared_storage_migration_done_v1';
 
 Future<void> _copyEntityRecursive(FileSystemEntity source, Directory targetRoot) async {
   if (source is Directory) {
@@ -306,7 +306,7 @@ Map<String, String> gitEnvs(String sharedPath) => {
   'GIT_EXEC_PATH': '$binDir/git-core',
   'GIT_SSL_CAINFO': '$certDir/cacert.pem',
   'LD_LIBRARY_PATH': "$sharedPath:$libDir",
-  'ROXUM_SHARED_PATH': sharedPath,
+  'SUPERIDE_SHARED_PATH': sharedPath,
 };
 
 Future<void> cloneRepo(
@@ -354,14 +354,14 @@ Future<void> initRepo(String workspacePath) async {
 
   await Process.run(
     "$binDir/git",
-    ["config", "--local", "user.name", "Roxum user"],
+    ["config", "--local", "user.name", "SUPER IDE user"],
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath),
   );
 
   await Process.run(
     "$binDir/git",
-    ["config", "--local", "user.email", "roxum@local"],
+    ["config", "--local", "user.email", "superide@local"],
     workingDirectory: workspacePath,
     environment: gitEnvs(sharedPath),
   );
@@ -392,7 +392,7 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
 
     if (patternsToAdd.isNotEmpty) {
       await gitignoreFile.writeAsString(
-        '$existingContent\n\n# Auto-added by Roxum\n${patternsToAdd.join('\n')}\n',
+        '$existingContent\n\n# Auto-added by SUPER IDE\n${patternsToAdd.join('\n')}\n',
         mode: FileMode.append,
       );
     }
@@ -403,7 +403,7 @@ Future<void> createGitignoreIfNeeded(String workspacePath) async {
 
 List<String> _getGitignorePatterns() {
   return [
-    '# Roxum and Editor files',
+    '# SUPER IDE and Editor files',
     '.vscode/',
     '.idea/',
     '*.swp',
@@ -1317,13 +1317,13 @@ Future<String> gitHubSignIn() async {
   final authUrl = Uri.https('github.com', '/login/oauth/authorize', {
     'client_id': clientId,
     'scope': 'repo read:user',
-    'redirect_uri': 'roxum://oauth',
+    'redirect_uri': 'superide://oauth',
   });
 
   try {
     final result = await FlutterWebAuth2.authenticate(
       url: authUrl.toString(),
-      callbackUrlScheme: 'roxum',
+      callbackUrlScheme: 'superide',
       options: const FlutterWebAuth2Options(),
     );
 
@@ -1519,7 +1519,7 @@ Future<File?> pickFile() async {
 }
 
 Future<Directory?> pickDir() async {
-  const MethodChannel saf = MethodChannel('roxum/saf');
+  const MethodChannel saf = MethodChannel('superide/saf');
   final String? treeUri = await saf.invokeMethod<String>('pickSafDir');
 
   if (treeUri == null) return null;
@@ -2044,7 +2044,7 @@ Future<LspConfig?> startLspServer({
     final resolvedEnvironment = {
       ...environment ?? {},
       'PATH': '$binDir:$runtimeDir/dart/bin:/bin:/usr/bin:${Platform.environment['PATH'] ?? ''}',
-      'ROXUM_SHARED_PATH': sharedPath,
+      'SUPERIDE_SHARED_PATH': sharedPath,
       'LD_LIBRARY_PATH': '${normalizedExt == 'dart' ? '$sharedPath:$libDir' : '$libDir:$runtimeDir/clang:$runtimeDir/node/lib:$sharedPath'}:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
       if (normalizedExt == 'dart') 'DART_ROOT': dartRuntimeDir,
       'JAVA_HOME': '$runtimeDir/java-21-openjdk',
@@ -2191,9 +2191,9 @@ class Extractor {
 }
 
 class NativeChannel {
-  static const MethodChannel _channel = MethodChannel('com.roxum');
-  static const MethodChannel _pfdMethodChannel = MethodChannel('roxum/pfd');
-  static const EventChannel _pfdEventChannel = EventChannel('roxum/pfd_events');
+  static const MethodChannel _channel = MethodChannel('com.superide.app');
+  static const MethodChannel _pfdMethodChannel = MethodChannel('superide/pfd');
+  static const EventChannel _pfdEventChannel = EventChannel('superide/pfd_events');
 
   static Future<String> getLibraryPath() async {
     try {

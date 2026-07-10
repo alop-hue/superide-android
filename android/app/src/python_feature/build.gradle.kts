@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.roxum.python"
+    namespace = "com.superide.app.python"
     compileSdk = 36
 
     defaultConfig {

@@ -1,10 +1,10 @@
-name: roxum
-description: "A minimal and powerful IDE for Android."
+name: superide_android
+description: "SUPER IDE for Android — AI-native mobile IDE with 7 AI providers, extensions, LSP, Git, and terminal."
 publish_to: 'none'
 version: 2.2.0+34
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.7.0
 
 dependencies:
   android_intent_plus: ^6.0.0

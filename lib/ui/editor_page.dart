@@ -10,9 +10,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
-import 'package:roxum/bloc/repo_bloc/repo_bloc.dart';
-import 'package:roxum/ui/mdview.dart';
-import 'package:roxum/utils/constants.dart';
+import 'package:superide_android/bloc/repo_bloc/repo_bloc.dart';
+import 'package:superide_android/ui/mdview.dart';
+import 'package:superide_android/utils/constants.dart';
 import 'webview.dart';
 import '../bloc/ui_bloc/ui_bloc.dart';
 import '../terminal/terminal.dart';
@@ -225,7 +225,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
       environment: {
         'PATH': '$binDir:/bin:/usr/bin',
         'HOME': homeDir,
-        'ROXUM_SHARED_PATH': sharedPath,
+        'SUPERIDE_SHARED_PATH': sharedPath,
         'LD_LIBRARY_PATH':
             '$runtimesDir/node/lib:$sharedPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
       },
@@ -2940,7 +2940,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                         break;
                                       case '.go':
                                         try {
-                                          final soPath = path.join(widget.rootDir, '.roxum-go-run.so');
+                                          final soPath = path.join(widget.rootDir, '.superide-go-run.so');
                                 
                                           final command =
                                               'export GOROOT="$runtimesDir/go" '
@@ -2953,12 +2953,12 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                               '&& cp "${filePath.path}" "\$go_bak" '
                                               '&& cleanup(){ '
                                               'cp "\$go_bak" "${filePath.path}"; '
-                                                'rm -f "\$go_bak" "$soPath" "${filePath.path}.roxum.tmp"; '
+                                                'rm -f "\$go_bak" "$soPath" "${filePath.path}.superide.tmp"; '
                                               '}; '
                                               'trap cleanup EXIT '
                                 
                                               '&& if ! grep -q \'import "C"\' "${filePath.path}"; then '
-                                                  'tmp_go="${filePath.path}.roxum.tmp"; '
+                                                  'tmp_go="${filePath.path}.superide.tmp"; '
                                                   'if grep -q "^import (" "${filePath.path}"; then '
                                                     "awk 'BEGIN{done=0} {print} !done && /^import \\(\$/ {print \"    \\\"C\\\"\"; done=1}' \"${filePath.path}\" > \"\$tmp_go\" && mv \"\$tmp_go\" \"${filePath.path}\"; "
                                                   'elif grep -q "^import " "${filePath.path}"; then '
@@ -3039,7 +3039,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                             if grep -Eq 'fn[[:space:]]+main' "$targetPath"; then
                               printf '\n#[unsafe(no_mangle)]\npub extern "C" fn __entry() {\n    let _ = std::panic::catch_unwind(|| {\n        let _ = main();\n    });\n}\n' >> "$targetPath";
                             else
-                              echo "Error: src/lib.rs needs either __entry() or main() for Roxum run.";
+                              echo "Error: src/lib.rs needs either __entry() or main() for SUPER IDE run.";
                               exit 1;
                             fi
                           fi
@@ -3048,7 +3048,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                             echo "Error: main() not found in src/main.rs.";
                             exit 1;
                           fi
-                          generated_lib="${widget.rootDir}/src/.roxum_entry_lib.rs"
+                          generated_lib="${widget.rootDir}/src/.superide_entry_lib.rs"
                           cat > "\$generated_lib" <<'EOF'
                           include!("main.rs");
                           
@@ -3060,7 +3060,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           }
                           EOF
                           if ! grep -Eq '^[[:space:]]*[lib][[:space:]]*\$' "${cargoFile.path}"; then
-                            printf '\n[lib]\npath = "src/.roxum_entry_lib.rs"\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
+                            printf '\n[lib]\npath = "src/.superide_entry_lib.rs"\ncrate-type = ["cdylib"]\n' >> "${cargoFile.path}";
                           fi
                           fi
                           cargo rustc --release --lib -- --crate-type=cdylib
@@ -3070,7 +3070,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                           ''';
                                 
                                           } else {
-                                            final soPath = path.join(widget.rootDir, '.roxum-rust-run.so');
+                                            final soPath = path.join(widget.rootDir, '.superide-rust-run.so');
                                 
                                             command = '''
                           set -e
@@ -3189,7 +3189,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                           )
                                           : null,
                                         child: Text(
-                                          "Roxum",
+                                          "SUPER IDE",
                                           style: TextStyle(
                                             color: appTheme.selectScreenCardTextColor
                                           )
@@ -3485,7 +3485,7 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                             padding:
                                               const EdgeInsets.only(left: 15,top: 8, bottom: 8),
                                             child: Text(
-                                              "Note: This is a clone of the selected folder in Roxum's private directory. Modifications here will not affect the original folder.",
+                                              "Note: This is a clone of the selected folder in SUPER IDE's private directory. Modifications here will not affect the original folder.",
                                               style: TextStyle(
                                                 color: Colors.grey[appTheme.isDark ? 500 : 600],
                                               ),
