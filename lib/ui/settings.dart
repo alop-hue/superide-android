@@ -4429,20 +4429,57 @@ int main() {
                       const SizedBox(height: 35),
                       settingsDivider,
                       const SizedBox(height: 20),
-                      settingsType("AI Configuration", appThemeState.appTheme.isDark),
-                      BlocBuilder<AIBloc, AIState>(
-                        builder: (context, aiState) {
-                          final copilotState = context.watch<CopilotBloc>().state;
-                          final hasAI = aiState.config.isNotEmpty || copilotState.status == CopilotStatus.signedIn;
-                          return Column(
-                            spacing: 10,
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              BlocBuilder<CopilotBloc, CopilotState>(
-                                builder: (context, copilotState) {
-                                  return _buildCopilotButton(context, copilotState, appThemeState);
-                                },
-                              ),
+                      settingsTile(
+                        null,
+                        "Show AI features",
+                        Icon(
+                          Icons.auto_awesome,
+                          color: appThemeState.appTheme.selectScreenCardTextColor,
+                          size: 19
+                        ),
+                        appThemeState.appTheme.isDark,
+                        trailing: FlutterSwitch(
+                          borderRadius: 5,
+                          width: 65,
+                          height: 26,
+                          toggleSize: 32,
+                          toggleColor: Color(0xff007ACC),
+                          inactiveToggleColor: Colors.white,
+                          activeColor: appThemeState.appTheme.isDark ? Color(0xff303030) : Color(0xffb0c6fe),
+                          activeIcon: Text("On", style: TextStyle(color: Colors.white)),
+                          inactiveIcon: Text("Off", style: TextStyle(color: Colors.grey)),
+                          toggleShape: BoxShape.rectangle,
+                          toggleBorderRadius: .circular(4),
+                          padding: 2,
+                          value: configState.codeForgeConfig['showAIFeatures'] ?? true,
+                          onToggle: (value) async{
+                            final prefs = await SharedPreferences.getInstance();
+                            if(context.mounted){
+                              final currentValue = configState.codeForgeConfig;
+                              currentValue['showAIFeatures'] = value;
+                              prefs.setString('codeForgeConfig', jsonEncode(currentValue));
+                              context.read<ConfigBloc>().add(ChangeConfigEvent(currentValue));
+                            }
+                          }
+                        ),
+                      ),
+                      if (configState.codeForgeConfig['showAIFeatures'] != false)
+                        Column(
+                          children: [
+                            settingsType("AI Configuration", appThemeState.appTheme.isDark),
+                            BlocBuilder<AIBloc, AIState>(
+                              builder: (context, aiState) {
+                                final copilotState = context.watch<CopilotBloc>().state;
+                                final hasAI = aiState.config.isNotEmpty || copilotState.status == CopilotStatus.signedIn;
+                                return Column(
+                                  spacing: 10,
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    BlocBuilder<CopilotBloc, CopilotState>(
+                                      builder: (context, copilotState) {
+                                        return _buildCopilotButton(context, copilotState, appThemeState);
+                                      },
+                                    ),
                               const SizedBox(height: 5),
                               SizedBox(
                                 width: 280,
@@ -5216,6 +5253,8 @@ int main() {
                             ],
                           );
                         },
+                      ),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       settingsType("LSP Configuration", appThemeState.appTheme.isDark),

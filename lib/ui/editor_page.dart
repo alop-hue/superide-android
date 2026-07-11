@@ -2456,17 +2456,18 @@ class _EditorPageState extends State<EditorPage> with TickerProviderStateMixin, 
                                       paramTabController: paramTabController,
                                       apiTabController: apiTabController,
                                     ),
-                                    AIChat(
-                                      filePath:
-                                        editorState.activeEditors.isNotEmpty
-                                        ? editorState
-                                            .activeEditors[(tabController != null
-                                              ? tabController!.index
-                                              : editorState.activeEditors.indexWhere((item) => item.isActive == true))]
-                                            .file.path
-                                        : '',
-                                      workspacePath: widget.rootDir,
-                                    ),
+                                    if (context.read<ConfigBloc>().state.codeForgeConfig['showAIFeatures'] != false)
+                                      AIChat(
+                                        filePath:
+                                          editorState.activeEditors.isNotEmpty
+                                          ? editorState
+                                              .activeEditors[(tabController != null
+                                                ? tabController!.index
+                                                : editorState.activeEditors.indexWhere((item) => item.isActive == true))]
+                                              .file.path
+                                          : '',
+                                        workspacePath: widget.rootDir,
+                                      ),
                                   ],
                                 ),
                               ),

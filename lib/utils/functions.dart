@@ -1665,6 +1665,7 @@ Future<String> getCodeForgeConfig() async {
     "fontFamily": "jetBrainsMono",
     "terminalFontSize": 14.0,
     "isAIEnabled": true,
+    "showAIFeatures": true,
     "manualCompletion": true,
     "autoSave": true,
     "enableLSP": true,
